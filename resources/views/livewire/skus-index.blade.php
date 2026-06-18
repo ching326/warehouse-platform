@@ -2,10 +2,10 @@
     <section class="table-shell flux-panel">
         <div class="sku-page-actions">
             <div>
-                <strong>SKU Master</strong>
-                <span>Sales listings and their stock item links.</span>
+                <strong>{{ __('skus.page_title') }}</strong>
+                <span>{{ __('skus.page_subtitle') }}</span>
             </div>
-            <flux:button href="{{ route('skus.create') }}" variant="primary">Create SKU</flux:button>
+            <flux:button href="{{ route('skus.create') }}" variant="primary">{{ __('skus.btn_create') }}</flux:button>
         </div>
 
         @if (session('status'))
@@ -15,57 +15,57 @@
         <div class="sku-toolbar">
             <flux:input
                 wire:model.live.debounce.300ms="search"
-                label="Search SKUs"
-                placeholder="SKU, stock item, barcode, platform IDs..."
+                :label="__('skus.search_label')"
+                :placeholder="__('skus.search_placeholder')"
             />
 
             @if ($showTenantFilter)
-                <flux:select wire:model.live="tenantId" label="Tenant">
-                    <flux:select.option value="">All tenants</flux:select.option>
+                <flux:select wire:model.live="tenantId" :label="__('common.tenant')">
+                    <flux:select.option value="">{{ __('common.all_tenants') }}</flux:select.option>
                     @foreach ($tenants as $tenant)
                         <flux:select.option value="{{ $tenant->id }}">{{ $tenant->code }} - {{ $tenant->name }}</flux:select.option>
                     @endforeach
                 </flux:select>
             @endif
 
-            <flux:select wire:model.live="shopId" label="Shop">
-                <flux:select.option value="">All shops</flux:select.option>
+            <flux:select wire:model.live="shopId" :label="__('common.shop')">
+                <flux:select.option value="">{{ __('skus.all_shops') }}</flux:select.option>
                 @foreach ($shops as $shop)
                     <flux:select.option value="{{ $shop->id }}">{{ $shop->code }} - {{ $shop->name }}</flux:select.option>
                 @endforeach
             </flux:select>
 
-            <flux:select wire:model.live="status" label="Status">
-                <flux:select.option value="">All statuses</flux:select.option>
+            <flux:select wire:model.live="status" :label="__('common.status')">
+                <flux:select.option value="">{{ __('skus.all_statuses') }}</flux:select.option>
                 @foreach ($statuses as $option)
-                    <flux:select.option value="{{ $option }}">{{ str($option)->title() }}</flux:select.option>
+                    <flux:select.option value="{{ $option }}">{{ $this->statusLabel($option) }}</flux:select.option>
                 @endforeach
             </flux:select>
 
-            <flux:select wire:model.live="skuType" label="SKU type">
-                <flux:select.option value="">All types</flux:select.option>
+            <flux:select wire:model.live="skuType" :label="__('skus.field_sku_type')">
+                <flux:select.option value="">{{ __('skus.all_types') }}</flux:select.option>
                 @foreach ($skuTypes as $option)
-                    <flux:select.option value="{{ $option }}">{{ str($option)->replace('_', ' ')->title() }}</flux:select.option>
+                    <flux:select.option value="{{ $option }}">{{ $this->skuTypeLabel($option) }}</flux:select.option>
                 @endforeach
             </flux:select>
 
-            <flux:select wire:model.live="productType" label="Product type">
-                <flux:select.option value="">All product types</flux:select.option>
+            <flux:select wire:model.live="productType" :label="__('skus.field_product_type')">
+                <flux:select.option value="">{{ __('skus.all_product_types') }}</flux:select.option>
                 @foreach ($productTypes as $option)
-                    <flux:select.option value="{{ $option }}">{{ str($option)->replace('_', ' ')->title() }}</flux:select.option>
+                    <flux:select.option value="{{ $option }}">{{ $this->productTypeLabel($option) }}</flux:select.option>
                 @endforeach
             </flux:select>
         </div>
 
         <flux:table :paginate="$skus" class="sku-table">
             <flux:table.columns>
-                <flux:table.column>SKU</flux:table.column>
-                <flux:table.column>Stock Item</flux:table.column>
-                <flux:table.column>Shop</flux:table.column>
-                <flux:table.column>Platform IDs</flux:table.column>
-                <flux:table.column>Packaging</flux:table.column>
-                <flux:table.column>Status</flux:table.column>
-                <flux:table.column>Actions</flux:table.column>
+                <flux:table.column>{{ __('skus.col_sku') }}</flux:table.column>
+                <flux:table.column>{{ __('skus.col_stock_item') }}</flux:table.column>
+                <flux:table.column>{{ __('skus.col_shop') }}</flux:table.column>
+                <flux:table.column>{{ __('skus.col_platform_ids') }}</flux:table.column>
+                <flux:table.column>{{ __('skus.col_packaging') }}</flux:table.column>
+                <flux:table.column>{{ __('skus.col_status') }}</flux:table.column>
+                <flux:table.column>{{ __('skus.col_actions') }}</flux:table.column>
             </flux:table.columns>
 
             <flux:table.rows>
@@ -74,19 +74,19 @@
                         <flux:table.cell class="sku-primary-cell">
                             <strong>{{ $sku->sku }}</strong>
                             <span>{{ $sku->name }}</span>
-                            <small>{{ str($sku->sku_type)->replace('_', ' ')->title() }}</small>
+                            <small>{{ $this->skuTypeLabel($sku->sku_type) }}</small>
                         </flux:table.cell>
                         <flux:table.cell class="sku-stock-cell">
                             @if ($sku->stockItem)
                                 <strong>{{ $sku->stockItem->code }}</strong>
                                 <span>{{ $sku->stockItem->name }}</span>
-                                <small>{{ $sku->stockItem->barcode ?? 'No barcode' }}</small>
+                                <small>{{ $sku->stockItem->barcode ?? __('skus.no_barcode') }}</small>
                             @elseif ($sku->sku_type === 'virtual_bundle')
-                                <strong>Virtual bundle</strong>
+                                <strong>{{ __('skus.virtual_bundle') }}</strong>
                                 <span title="{{ $this->bundleComposition($sku, 999) }}">{{ $this->bundleComposition($sku) }}</span>
                             @else
-                                <flux:badge color="amber">Missing stock item</flux:badge>
-                                <span>Link a stock item before inventory use.</span>
+                                <flux:badge color="amber">{{ __('skus.missing_stock_item') }}</flux:badge>
+                                <span>{{ __('skus.missing_stock_item_hint') }}</span>
                             @endif
                         </flux:table.cell>
                         <flux:table.cell class="sku-muted-cell">
@@ -94,7 +94,7 @@
                                 <strong>{{ $sku->shop->code }}</strong>
                                 <span>{{ $sku->shop->name }}</span>
                             @else
-                                <span class="muted-dash">No shop</span>
+                                <span class="muted-dash">{{ __('skus.no_shop') }}</span>
                             @endif
                             <small>{{ $sku->tenant->code }} / {{ $sku->tenant->name }}</small>
                         </flux:table.cell>
@@ -112,16 +112,16 @@
                             @endif
                         </flux:table.cell>
                         <flux:table.cell>
-                            <flux:badge color="{{ $sku->status === 'active' ? 'green' : 'zinc' }}">{{ str($sku->status)->title() }}</flux:badge>
+                            <flux:badge color="{{ $sku->status === 'active' ? 'green' : 'zinc' }}">{{ $this->statusLabel($sku->status) }}</flux:badge>
                         </flux:table.cell>
                         <flux:table.cell>
-                            <span class="muted-dash">Read only</span>
+                            <span class="muted-dash">{{ __('skus.read_only') }}</span>
                         </flux:table.cell>
                     </flux:table.row>
                 @empty
                     <flux:table.row>
                         <flux:table.cell colspan="7">
-                            <div class="empty-state">No SKUs match the current filters.</div>
+                            <div class="empty-state">{{ __('skus.empty_state') }}</div>
                         </flux:table.cell>
                     </flux:table.row>
                 @endforelse

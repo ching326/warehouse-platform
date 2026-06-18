@@ -10,6 +10,7 @@ use App\Models\Warehouse;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Lang;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -103,8 +104,8 @@ class InventoryMovementsIndex extends Component
             'showTenantColumn' => $this->showTenantColumn(),
             'selectedStockItem' => $this->selectedStockItem(),
         ])->layout('inventory', [
-            'title' => 'Inventory Movements',
-            'subtitle' => 'Review append-only stock movement history and current balance impact.',
+            'title' => __('movements.page_title'),
+            'subtitle' => __('movements.page_subtitle'),
         ]);
     }
 
@@ -146,7 +147,7 @@ class InventoryMovementsIndex extends Component
 
     public function movementTypeLabel(string $type): string
     {
-        return str($type)->replace('_', ' ')->title()->toString();
+        return $this->enumLabel('movement_types', $type);
     }
 
     public function movementColor(int $quantityDelta): string
@@ -173,12 +174,12 @@ class InventoryMovementsIndex extends Component
     public function movementImpactBuckets(InventoryMovement $movement): array
     {
         $buckets = [
-            'Available' => $movement->available_delta,
-            'On hand' => $movement->on_hand_delta,
-            'Reserved' => $movement->reserved_delta,
-            'Inbound' => $movement->inbound_delta,
-            'Hold' => $movement->hold_delta,
-            'Damaged' => $movement->damaged_delta,
+            __('movements.bucket_available') => $movement->available_delta,
+            __('movements.bucket_on_hand') => $movement->on_hand_delta,
+            __('movements.bucket_reserved') => $movement->reserved_delta,
+            __('movements.bucket_inbound') => $movement->inbound_delta,
+            __('movements.bucket_hold') => $movement->hold_delta,
+            __('movements.bucket_damaged') => $movement->damaged_delta,
         ];
 
         $impacts = collect($buckets)
@@ -187,7 +188,7 @@ class InventoryMovementsIndex extends Component
             ->values()
             ->all();
 
-        return $impacts === [] ? [['label' => 'Available', 'value' => 0]] : $impacts;
+        return $impacts === [] ? [['label' => __('movements.bucket_available'), 'value' => 0]] : $impacts;
     }
 
     /**
@@ -196,16 +197,18 @@ class InventoryMovementsIndex extends Component
     public function movementAfterBuckets(InventoryMovement $movement): array
     {
         $buckets = [
-            'Available' => $movement->available_after,
-            'On hand' => $movement->on_hand_after,
-            'Reserved' => $movement->reserved_after,
-            'Hold' => $movement->hold_after,
-            'Damaged' => $movement->damaged_after,
-            'Inbound' => $movement->inbound_after,
+            __('movements.bucket_available') => $movement->available_after,
+            __('movements.bucket_on_hand') => $movement->on_hand_after,
+            __('movements.bucket_reserved') => $movement->reserved_after,
+            __('movements.bucket_hold') => $movement->hold_after,
+            __('movements.bucket_damaged') => $movement->damaged_after,
+            __('movements.bucket_inbound') => $movement->inbound_after,
         ];
 
+        $alwaysVisible = [__('movements.bucket_available'), __('movements.bucket_on_hand')];
+
         return collect($buckets)
-            ->filter(fn (int $value, string $label) => in_array($label, ['Available', 'On hand'], true) || $value !== 0)
+            ->filter(fn (int $value, string $label) => in_array($label, $alwaysVisible, true) || $value !== 0)
             ->map(fn (int $value, string $label) => ['label' => $label, 'value' => $value])
             ->values()
             ->all();
@@ -302,6 +305,15 @@ class InventoryMovementsIndex extends Component
     private function applyTenantScope(Builder $query): Builder
     {
         return $query->when($this->visibleTenantIds() !== null, fn ($query) => $query->whereIn('tenant_id', $this->visibleTenantIds()));
+    }
+
+    private function enumLabel(string $group, string $value): string
+    {
+        $key = 'common.'.$group.'.'.$value;
+
+        return Lang::has($key)
+            ? __($key)
+            : str($value)->replace('_', ' ')->title()->toString();
     }
 
     private function visibleTenantIds(): ?array

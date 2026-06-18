@@ -9,6 +9,7 @@ use App\Models\Warehouse;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Lang;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -81,7 +82,10 @@ class InventoryIndex extends Component
             'productTypes' => $this->productTypeOptions(),
             'statuses' => $this->statusOptions(),
             'showTenantColumn' => $this->showTenantColumn(),
-        ])->layout('inventory');
+        ])->layout('inventory', [
+            'title' => __('inventory.page_title'),
+            'subtitle' => __('inventory.page_subtitle'),
+        ]);
     }
 
     public function toggleSkuList(int $stockItemId): void
@@ -105,6 +109,16 @@ class InventoryIndex extends Component
         }
 
         return 'available available-success';
+    }
+
+    public function productTypeLabel(string $type): string
+    {
+        return $this->enumLabel('product_types', $type);
+    }
+
+    public function statusLabel(string $status): string
+    {
+        return $this->enumLabel('statuses', $status);
     }
 
     public function balances()
@@ -251,7 +265,16 @@ class InventoryIndex extends Component
         return $query->when($this->visibleTenantIds() !== null, fn ($query) => $query->whereIn('tenant_id', $this->visibleTenantIds()));
     }
 
-    public function visibleTenantIds(): ?array
+    private function enumLabel(string $group, string $value): string
+    {
+        $key = 'common.'.$group.'.'.$value;
+
+        return Lang::has($key)
+            ? __($key)
+            : str($value)->replace('_', ' ')->title()->toString();
+    }
+
+    private function visibleTenantIds(): ?array
     {
         if ($this->visibleTenantIdsResolved) {
             return $this->visibleTenantIdsCache;

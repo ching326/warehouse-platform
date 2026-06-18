@@ -1,0 +1,34 @@
+<?php
+
+// TODO: translate this file. English values are placeholders.
+
+return [
+    'page_title' => 'Inventory Movements',
+    'page_subtitle' => 'Review append-only stock movement history and current balance impact.',
+    'summary_movements' => 'Filtered Movements',
+    'summary_net_available' => 'Net Available Impact',
+    'summary_positive' => 'Positive Available Impact',
+    'summary_negative' => 'Negative Available Impact',
+    'latest_movement_label' => 'Latest Movement',
+    'search_label' => 'Search movements',
+    'search_placeholder' => 'Stock code, item name, barcode, ref, or note',
+    'filter_movement_type' => 'Movement type',
+    'filter_stock_item' => 'Stock item',
+    'filter_user' => 'User',
+    'filter_date_from' => 'Date from',
+    'filter_date_to' => 'Date to',
+    'stock_item_filter_badge' => 'Stock item filter:',
+    'col_created' => 'Created',
+    'col_stock_item' => 'Stock Item',
+    'col_movement' => 'Movement',
+    'col_balance' => 'Balance',
+    'col_reference' => 'Reference',
+    'col_actor_note' => 'Actor / Note',
+    'bucket_available' => 'Available',
+    'bucket_on_hand' => 'On hand',
+    'bucket_reserved' => 'Reserved',
+    'bucket_inbound' => 'Inbound',
+    'bucket_hold' => 'Hold',
+    'bucket_damaged' => 'Damaged',
+    'empty_state' => 'No inventory movements match the current filters.',
+];

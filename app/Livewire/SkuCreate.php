@@ -130,7 +130,7 @@ class SkuCreate extends Component
             ]);
         });
 
-        session()->flash('status', 'SKU created.');
+        session()->flash('status', __('skus.sku_created'));
 
         return redirect()->route('skus.index');
     }
@@ -145,8 +145,8 @@ class SkuCreate extends Component
             'showTenantSelect' => $this->isInternalUser(),
             'currentTenant' => $this->currentTenant(),
         ])->layout('inventory', [
-            'title' => 'Create SKU',
-            'subtitle' => 'Create SKU master data and link it to an inventory pool.',
+            'title' => __('skus.create_page_title'),
+            'subtitle' => __('skus.create_page_subtitle'),
         ]);
     }
 
@@ -254,7 +254,7 @@ class SkuCreate extends Component
         $tenantId = (int) $this->tenantId;
 
         if ($tenantId <= 0 || ! in_array($tenantId, $this->allowedTenantIds(), true)) {
-            throw ValidationException::withMessages(['tenantId' => 'The selected tenant is invalid.']);
+            throw ValidationException::withMessages(['tenantId' => __('skus.invalid_tenant')]);
         }
 
         return $tenantId;

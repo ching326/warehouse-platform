@@ -1,0 +1,29 @@
+<?php
+
+// TODO: translate this file. English values are placeholders.
+
+return [
+    'page_title' => 'Inventory',
+    'page_subtitle' => 'Track stock levels, reorder risk, and warehouse locations.',
+    'summary_stock_items' => 'Filtered Stock Items',
+    'summary_on_hand' => 'Filtered On Hand',
+    'summary_available' => 'Filtered Available',
+    'summary_reserved' => 'Filtered Reserved',
+    'search_label' => 'Search inventory',
+    'search_placeholder' => 'Search stock, SKU, barcode...',
+    'col_stock_item_skus' => 'Stock Item / SKUs',
+    'col_available' => 'Available',
+    'col_on_hand' => 'On Hand',
+    'col_reserved' => 'Reserved',
+    'col_inbound' => 'Inbound',
+    'col_exceptions' => 'Exceptions',
+    'col_actions' => 'Actions',
+    'barcode_label' => 'Barcode :barcode',
+    'no_skus' => 'No SKUs',
+    'show_fewer' => 'Show fewer',
+    'more_skus' => '+:count more',
+    'exception_hold' => 'Hold :qty',
+    'exception_damaged' => 'Damaged :qty',
+    'btn_movements' => 'Movements',
+    'empty_state' => 'No inventory balances match the current filters.',
+];

@@ -8,6 +8,7 @@ use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Lang;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -71,8 +72,8 @@ class SkusIndex extends Component
             'productTypes' => $this->productTypeOptions(),
             'showTenantFilter' => $this->isInternalUser(),
         ])->layout('inventory', [
-            'title' => 'SKUs',
-            'subtitle' => 'Manage sales SKU master data and stock item links.',
+            'title' => __('skus.page_title'),
+            'subtitle' => __('skus.page_subtitle'),
         ]);
     }
 
@@ -93,21 +94,36 @@ class SkusIndex extends Component
     public function bundleComposition(Sku $sku, int $limit = 2): string
     {
         $components = $sku->bundleComponents->take($limit)->map(function ($component) {
-            $code = $component->componentStockItem?->code ?? 'Unknown stock item';
+            $code = $component->componentStockItem?->code ?? __('skus.unknown_stock_item');
 
-            return $code.' x'.number_format($component->quantity);
+            return __('skus.bundle_component', ['code' => $code, 'qty' => number_format($component->quantity)]);
         });
 
         if ($components->isEmpty()) {
-            return 'No components configured';
+            return __('skus.no_components_configured');
         }
 
         $composition = $components->implode(' + ');
         $hiddenCount = max(0, $sku->bundleComponents->count() - $limit);
 
         return $hiddenCount > 0
-            ? $composition.' +'.$hiddenCount.' more'
+            ? __('skus.bundle_more', ['composition' => $composition, 'count' => $hiddenCount])
             : $composition;
+    }
+
+    public function skuTypeLabel(string $type): string
+    {
+        return $this->enumLabel('sku_types', $type);
+    }
+
+    public function productTypeLabel(string $type): string
+    {
+        return $this->enumLabel('product_types', $type);
+    }
+
+    public function statusLabel(string $status): string
+    {
+        return $this->enumLabel('statuses', $status);
     }
 
     private function baseQuery(): Builder
@@ -193,6 +209,15 @@ class SkusIndex extends Component
         $user = Auth::user();
 
         return ! $user || $user->user_type === 'internal';
+    }
+
+    private function enumLabel(string $group, string $value): string
+    {
+        $key = 'common.'.$group.'.'.$value;
+
+        return Lang::has($key)
+            ? __($key)
+            : str($value)->replace('_', ' ')->title()->toString();
     }
 
     private function visibleTenantIds(): ?array

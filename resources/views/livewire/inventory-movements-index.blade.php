@@ -1,27 +1,27 @@
 <div class="movements-page">
     <section class="summary-grid movements-summary" aria-label="Inventory movement summary">
         <flux:card size="sm" class="summary-card">
-            <span>Filtered Movements</span>
+            <span>{{ __('movements.summary_movements') }}</span>
             <strong>{{ number_format($summary['movements']) }}</strong>
         </flux:card>
         <flux:card size="sm" class="summary-card">
-            <span>Net Available Impact</span>
+            <span>{{ __('movements.summary_net_available') }}</span>
             <strong class="{{ $this->quantityDeltaClass($summary['netAvailable']) }}">
                 {{ $this->signedQuantity($summary['netAvailable']) }}
             </strong>
         </flux:card>
         <flux:card size="sm" class="summary-card">
-            <span>Positive Available Impact</span>
+            <span>{{ __('movements.summary_positive') }}</span>
             <strong>{{ number_format($summary['positive']) }}</strong>
         </flux:card>
         <flux:card size="sm" class="summary-card">
-            <span>Negative Available Impact</span>
+            <span>{{ __('movements.summary_negative') }}</span>
             <strong>{{ number_format($summary['negative']) }}</strong>
         </flux:card>
     </section>
 
     <section class="latest-movement-row" aria-label="Latest inventory movement">
-        <span>Latest Movement</span>
+        <span>{{ __('movements.latest_movement_label') }}</span>
         <strong>{{ $summary['latest'] ? \Illuminate\Support\Carbon::parse($summary['latest'])->format('Y-m-d') : '-' }}</strong>
     </section>
 
@@ -29,72 +29,72 @@
         <div class="movement-toolbar">
             <flux:input
                 wire:model.live.debounce.300ms="search"
-                label="Search movements"
-                placeholder="Stock code, item name, barcode, ref, or note"
+                :label="__('movements.search_label')"
+                :placeholder="__('movements.search_placeholder')"
             />
 
-            <flux:select wire:model.live="tenantId" label="Tenant">
-                <flux:select.option value="">All tenants</flux:select.option>
+            <flux:select wire:model.live="tenantId" :label="__('common.tenant')">
+                <flux:select.option value="">{{ __('common.all_tenants') }}</flux:select.option>
                 @foreach ($tenants as $tenant)
                     <flux:select.option value="{{ $tenant->id }}">{{ $tenant->code }} - {{ $tenant->name }}</flux:select.option>
                 @endforeach
             </flux:select>
 
-            <flux:select wire:model.live="warehouseId" label="Warehouse">
-                <flux:select.option value="">All warehouses</flux:select.option>
+            <flux:select wire:model.live="warehouseId" :label="__('common.warehouse')">
+                <flux:select.option value="">{{ __('common.all_warehouses') }}</flux:select.option>
                 @foreach ($warehouses as $warehouse)
                     <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} - {{ $warehouse->name }}</flux:select.option>
                 @endforeach
             </flux:select>
 
-            <flux:select wire:model.live="stockItemId" label="Stock item">
-                <flux:select.option value="">All stock items</flux:select.option>
+            <flux:select wire:model.live="stockItemId" :label="__('movements.filter_stock_item')">
+                <flux:select.option value="">{{ __('common.all_stock_items') }}</flux:select.option>
                 @foreach ($stockItems as $stockItem)
                     <flux:select.option value="{{ $stockItem->id }}">{{ $stockItem->code }} - {{ $stockItem->name }}</flux:select.option>
                 @endforeach
             </flux:select>
 
-            <flux:select wire:model.live="movementType" label="Movement type">
-                <flux:select.option value="">All movements</flux:select.option>
+            <flux:select wire:model.live="movementType" :label="__('movements.filter_movement_type')">
+                <flux:select.option value="">{{ __('common.all_movements') }}</flux:select.option>
                 @foreach ($movementTypes as $type)
                     <flux:select.option value="{{ $type }}">{{ $this->movementTypeLabel($type) }}</flux:select.option>
                 @endforeach
             </flux:select>
 
-            <flux:select wire:model.live="userId" label="User">
-                <flux:select.option value="">All users</flux:select.option>
+            <flux:select wire:model.live="userId" :label="__('movements.filter_user')">
+                <flux:select.option value="">{{ __('common.all_users') }}</flux:select.option>
                 @foreach ($users as $user)
                     <flux:select.option value="{{ $user->id }}">{{ $user->name }}</flux:select.option>
                 @endforeach
             </flux:select>
 
-            <flux:input wire:model.live="dateFrom" type="date" label="Date from" />
+            <flux:input wire:model.live="dateFrom" type="date" :label="__('movements.filter_date_from')" />
 
-            <flux:input wire:model.live="dateTo" type="date" label="Date to" />
+            <flux:input wire:model.live="dateTo" type="date" :label="__('movements.filter_date_to')" />
 
             <flux:button wire:click="clearFilters" variant="outline">
-                Clear
+                {{ __('common.clear') }}
             </flux:button>
         </div>
 
         @if ($stockItemId !== '')
             <div class="active-filter-row">
                 <flux:badge color="teal">
-                    Stock item filter:
+                    {{ __('movements.stock_item_filter_badge') }}
                     {{ $selectedStockItem ? $selectedStockItem->code.' - '.$selectedStockItem->name : $stockItemId }}
                 </flux:badge>
-                <flux:button size="xs" variant="subtle" wire:click="$set('stockItemId', '')">Remove</flux:button>
+                <flux:button size="xs" variant="subtle" wire:click="$set('stockItemId', '')">{{ __('common.remove') }}</flux:button>
             </div>
         @endif
 
         <flux:table :paginate="$movements" class="movement-table">
             <flux:table.columns>
-                <flux:table.column>Created</flux:table.column>
-                <flux:table.column>Stock Item</flux:table.column>
-                <flux:table.column>Movement</flux:table.column>
-                <flux:table.column align="end">Balance</flux:table.column>
-                <flux:table.column>Reference</flux:table.column>
-                <flux:table.column>Actor / Note</flux:table.column>
+                <flux:table.column>{{ __('movements.col_created') }}</flux:table.column>
+                <flux:table.column>{{ __('movements.col_stock_item') }}</flux:table.column>
+                <flux:table.column>{{ __('movements.col_movement') }}</flux:table.column>
+                <flux:table.column align="end">{{ __('movements.col_balance') }}</flux:table.column>
+                <flux:table.column>{{ __('movements.col_reference') }}</flux:table.column>
+                <flux:table.column>{{ __('movements.col_actor_note') }}</flux:table.column>
             </flux:table.columns>
 
             <flux:table.rows>
@@ -159,14 +159,14 @@
                             @if ($movement->note)
                                 <span title="{{ $movement->note }}">{{ $movement->note }}</span>
                             @else
-                                <span class="subtle">No note</span>
+                                <span class="subtle">{{ __('common.no_note') }}</span>
                             @endif
                         </flux:table.cell>
                     </flux:table.row>
                 @empty
                     <flux:table.row>
                         <flux:table.cell colspan="6">
-                            <div class="empty-state">No inventory movements match the current filters.</div>
+                            <div class="empty-state">{{ __('movements.empty_state') }}</div>
                         </flux:table.cell>
                     </flux:table.row>
                 @endforelse

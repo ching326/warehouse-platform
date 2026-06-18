@@ -56,6 +56,38 @@
                 margin-bottom: 20px;
             }
 
+            .locale-switcher {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                flex-wrap: wrap;
+                justify-content: flex-end;
+            }
+
+            .locale-switcher form {
+                margin: 0;
+            }
+
+            .locale-btn {
+                min-height: 28px;
+                border: 1px solid var(--line);
+                border-radius: 6px;
+                background: #fff;
+                color: var(--muted);
+                cursor: pointer;
+                font: inherit;
+                font-size: 12px;
+                font-weight: 800;
+                padding: 4px 8px;
+            }
+
+            .locale-btn:hover,
+            .locale-btn--active {
+                border-color: var(--accent);
+                background: var(--accent-soft);
+                color: var(--accent);
+            }
+
             .eyebrow {
                 margin: 0 0 6px;
                 color: var(--accent);
@@ -125,7 +157,7 @@
                 font-weight: 700;
             }
 
-            input,
+            input:not([type="checkbox"]):not([type="radio"]),
             select {
                 width: 100%;
                 min-height: 42px;
@@ -137,7 +169,7 @@
                 outline: none;
             }
 
-            input:focus,
+            input:not([type="checkbox"]):not([type="radio"]):focus,
             select:focus {
                 border-color: var(--accent);
                 box-shadow: 0 0 0 3px var(--accent-soft);
@@ -710,12 +742,13 @@
 
             .sku-form {
                 display: grid;
-                gap: 14px;
+                gap: 12px;
             }
 
             .form-panel {
                 display: grid;
                 gap: 14px;
+                padding: 16px;
             }
 
             .form-grid {
@@ -727,6 +760,10 @@
 
             .form-grid.three {
                 grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .form-grid.two-one {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(220px, 0.75fr);
             }
 
             .form-grid-spaced {
@@ -774,9 +811,45 @@
                 font-weight: 700;
             }
 
+            .segmented-row label {
+                min-width: 178px;
+                padding: 10px 12px;
+            }
+
+            .segmented-row input[type="radio"],
+            .checkbox-stack input[type="checkbox"] {
+                width: 16px;
+                height: 16px;
+                min-width: 16px;
+                min-height: 16px;
+                flex: 0 0 16px;
+                accent-color: var(--accent);
+            }
+
             .checkbox-stack {
                 display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
                 gap: 8px;
+                align-self: end;
+            }
+
+            .checkbox-stack label {
+                justify-content: flex-start;
+                min-height: 42px;
+                color: var(--ink);
+                font-size: 13px;
+            }
+
+            .form-actions {
+                position: sticky;
+                bottom: 0;
+                z-index: 5;
+                margin-top: 2px;
+                border: 1px solid var(--line);
+                border-radius: 8px;
+                background: rgb(244 247 251 / 92%);
+                padding: 12px 16px;
+                backdrop-filter: blur(8px);
             }
 
             .form-error {
@@ -828,9 +901,22 @@
         <main class="page">
             <header class="page-header">
                 <div>
-                    <p class="eyebrow">Warehouse Platform</p>
-                    <h1>{{ $title ?? 'Inventory' }}</h1>
-                    <p>{{ $subtitle ?? 'Track stock levels, reorder risk, and warehouse locations.' }}</p>
+                    <p class="eyebrow">{{ __('common.app_eyebrow') }}</p>
+                    <h1>{{ $title ?? __('inventory.page_title') }}</h1>
+                    <p>{{ $subtitle ?? __('inventory.page_subtitle') }}</p>
+                </div>
+                <div class="locale-switcher" aria-label="Locale switcher">
+                    @foreach (['en' => 'EN', 'zh_TW' => '繁', 'zh_CN' => '简', 'ja' => '日'] as $locale => $label)
+                        <form method="POST" action="{{ route('locale.switch', $locale) }}">
+                            @csrf
+                            <button
+                                type="submit"
+                                class="locale-btn {{ app()->getLocale() === $locale ? 'locale-btn--active' : '' }}"
+                            >
+                                {{ $label }}
+                            </button>
+                        </form>
+                    @endforeach
                 </div>
             </header>
 

@@ -3,29 +3,29 @@
         <section class="table-shell flux-panel form-panel">
             <div class="form-panel-header">
                 <div>
-                    <strong>Tenant / Shop</strong>
-                    <span>Choose where this SKU belongs.</span>
+                    <strong>{{ __('skus.section_tenant_shop') }}</strong>
+                    <span>{{ __('skus.section_tenant_shop_hint') }}</span>
                 </div>
-                <flux:button href="{{ route('skus.index') }}" variant="subtle">Back to SKUs</flux:button>
+                <flux:button href="{{ route('skus.index') }}" variant="subtle">{{ __('skus.btn_back') }}</flux:button>
             </div>
 
             <div class="form-grid">
                 @if ($showTenantSelect)
-                    <flux:select wire:model.live="tenantId" label="Tenant">
-                        <flux:select.option value="">Select tenant</flux:select.option>
+                    <flux:select wire:model.live="tenantId" :label="__('skus.field_tenant')">
+                        <flux:select.option value="">{{ __('skus.select_tenant') }}</flux:select.option>
                         @foreach ($tenants as $tenant)
                             <flux:select.option value="{{ $tenant->id }}">{{ $tenant->code }} - {{ $tenant->name }}</flux:select.option>
                         @endforeach
                     </flux:select>
                 @else
                     <label>
-                        <span>Tenant</span>
-                        <input type="text" value="{{ $currentTenant ? $currentTenant->code.' - '.$currentTenant->name : 'No active tenant' }}" readonly>
+                        <span>{{ __('skus.field_tenant') }}</span>
+                        <input type="text" value="{{ $currentTenant ? $currentTenant->code.' - '.$currentTenant->name : __('skus.no_active_tenant') }}" readonly>
                     </label>
                 @endif
 
-                <flux:select wire:model="shopId" label="Shop">
-                    <flux:select.option value="">No shop</flux:select.option>
+                <flux:select wire:model="shopId" :label="__('skus.field_shop')">
+                    <flux:select.option value="">{{ __('skus.no_shop') }}</flux:select.option>
                     @foreach ($shops as $shop)
                         <flux:select.option value="{{ $shop->id }}">{{ $shop->code }} - {{ $shop->name }}</flux:select.option>
                     @endforeach
@@ -40,38 +40,38 @@
         <section class="table-shell flux-panel form-panel">
             <div class="form-panel-header">
                 <div>
-                    <strong>SKU</strong>
-                    <span>Marketplace-facing SKU identity.</span>
+                    <strong>{{ __('skus.section_sku') }}</strong>
+                    <span>{{ __('skus.section_sku_hint') }}</span>
                 </div>
             </div>
 
             <div class="form-grid three">
-                <flux:input wire:model="sku" label="SKU" />
-                <flux:input wire:model="name" label="SKU name" />
-                <flux:select wire:model="skuType" label="SKU type">
-                    <flux:select.option value="single">Single</flux:select.option>
-                    <flux:select.option value="virtual_bundle">Virtual bundle</flux:select.option>
-                    <flux:select.option value="physical_bundle">Physical bundle</flux:select.option>
+                <flux:input wire:model="sku" :label="__('skus.field_sku')" />
+                <flux:input wire:model="name" :label="__('skus.field_sku_name')" />
+                <flux:select wire:model="skuType" :label="__('skus.field_sku_type')">
+                    <flux:select.option value="single">{{ __('common.sku_types.single') }}</flux:select.option>
+                    <flux:select.option value="virtual_bundle">{{ __('common.sku_types.virtual_bundle') }}</flux:select.option>
+                    <flux:select.option value="physical_bundle">{{ __('common.sku_types.physical_bundle') }}</flux:select.option>
                 </flux:select>
-                <flux:input wire:model="platformSku" label="Platform SKU" />
-                <flux:input wire:model="platformProductId" label="Platform product ID" />
-                <flux:input wire:model="platformVariantId" label="Platform variant ID" />
-                <flux:input wire:model="platformVariantName" label="Platform variant name" />
-                <flux:input wire:model="platformLabelCode" label="Platform label code" />
-                <flux:select wire:model="defaultPackagingMaterialId" label="Default packaging">
-                    <flux:select.option value="">None</flux:select.option>
+                <flux:input wire:model="platformSku" :label="__('skus.field_platform_sku')" />
+                <flux:input wire:model="platformProductId" :label="__('skus.field_platform_product_id')" />
+                <flux:input wire:model="platformVariantId" :label="__('skus.field_platform_variant_id')" />
+                <flux:input wire:model="platformVariantName" :label="__('skus.field_platform_variant_name')" />
+                <flux:input wire:model="platformLabelCode" :label="__('skus.field_platform_label_code')" />
+                <flux:select wire:model="defaultPackagingMaterialId" :label="__('skus.field_default_packaging')">
+                    <flux:select.option value="">{{ __('skus.no_packaging') }}</flux:select.option>
                     @foreach ($packagingMaterials as $material)
                         <flux:select.option value="{{ $material->id }}">{{ $material->code }} - {{ $material->name }}</flux:select.option>
                     @endforeach
                 </flux:select>
-                <flux:select wire:model="status" label="Status">
-                    <flux:select.option value="active">Active</flux:select.option>
-                    <flux:select.option value="inactive">Inactive</flux:select.option>
-                    <flux:select.option value="draft">Draft</flux:select.option>
-                    <flux:select.option value="archived">Archived</flux:select.option>
+                <flux:select wire:model="status" :label="__('skus.field_status')">
+                    <flux:select.option value="active">{{ __('common.statuses.active') }}</flux:select.option>
+                    <flux:select.option value="inactive">{{ __('common.statuses.inactive') }}</flux:select.option>
+                    <flux:select.option value="draft">{{ __('common.statuses.draft') }}</flux:select.option>
+                    <flux:select.option value="archived">{{ __('common.statuses.archived') }}</flux:select.option>
                 </flux:select>
                 <label class="form-grid-wide">
-                    <span>Note</span>
+                    <span>{{ __('skus.field_note') }}</span>
                     <textarea wire:model="note" rows="3"></textarea>
                 </label>
             </div>
@@ -84,27 +84,27 @@
         <section class="table-shell flux-panel form-panel">
             <div class="form-panel-header">
                 <div>
-                    <strong>Stock Item Mode</strong>
-                    <span>Linked SKUs share the same inventory pool.</span>
+                    <strong>{{ __('skus.section_stock_item_mode') }}</strong>
+                    <span>{{ __('skus.section_stock_item_mode_hint') }}</span>
                 </div>
             </div>
 
             <div class="segmented-row">
                 <label>
                     <input type="radio" wire:model.live="stockItemMode" value="create">
-                    <span>Create new stock item</span>
+                    <span>{{ __('skus.stock_item_mode_create') }}</span>
                 </label>
                 <label>
                     <input type="radio" wire:model.live="stockItemMode" value="link">
-                    <span>Link existing stock item</span>
+                    <span>{{ __('skus.stock_item_mode_link') }}</span>
                 </label>
             </div>
 
             @if ($stockItemMode === 'link')
                 <div class="form-grid">
-                    <flux:input wire:model.live.debounce.300ms="stockItemSearch" label="Search stock items" placeholder="Code, name, barcode..." />
-                    <flux:select wire:model="existingStockItemId" label="Stock item">
-                        <flux:select.option value="">No stock item</flux:select.option>
+                    <flux:input wire:model.live.debounce.300ms="stockItemSearch" :label="__('skus.search_stock_items_label')" :placeholder="__('skus.search_stock_items_placeholder')" />
+                    <flux:select wire:model="existingStockItemId" :label="__('skus.col_stock_item')">
+                        <flux:select.option value="">{{ __('skus.no_stock_item') }}</flux:select.option>
                         @foreach ($stockItems as $item)
                             <flux:select.option value="{{ $item->id }}">{{ $item->code }} - {{ $item->name }}</flux:select.option>
                         @endforeach
@@ -113,65 +113,65 @@
                 @error('existing_stock_item_id') <p class="form-error">{{ $message }}</p> @enderror
             @else
                 <div class="form-grid three">
-                    <flux:input wire:model="stockItem.name" label="Stock item name" />
-                    <flux:input wire:model="stockItem.short_name" label="Short name" />
-                    <flux:input wire:model="stockItem.brand" label="Brand" />
-                    <flux:input wire:model="stockItem.model_number" label="Model number" />
-                    <flux:input wire:model="stockItem.variation_code" label="Variation code" />
-                    <flux:input wire:model="stockItem.color" label="Color" />
-                    <flux:input wire:model="stockItem.size" label="Size" />
-                    <flux:input wire:model="stockItem.barcode" label="Barcode" />
-                    <flux:select wire:model="stockItem.barcode_type" label="Barcode type">
-                        <flux:select.option value="unknown">Unknown</flux:select.option>
-                        <flux:select.option value="jan">JAN</flux:select.option>
-                        <flux:select.option value="ean">EAN</flux:select.option>
-                        <flux:select.option value="upc">UPC</flux:select.option>
+                    <flux:input wire:model="stockItem.name" :label="__('skus.field_stock_item_name')" />
+                    <flux:input wire:model="stockItem.short_name" :label="__('skus.field_short_name')" />
+                    <flux:input wire:model="stockItem.brand" :label="__('skus.field_brand')" />
+                    <flux:input wire:model="stockItem.model_number" :label="__('skus.field_model_number')" />
+                    <flux:input wire:model="stockItem.variation_code" :label="__('skus.field_variation_code')" />
+                    <flux:input wire:model="stockItem.color" :label="__('skus.field_color')" />
+                    <flux:input wire:model="stockItem.size" :label="__('skus.field_size')" />
+                    <flux:input wire:model="stockItem.barcode" :label="__('skus.field_barcode')" />
+                    <flux:select wire:model="stockItem.barcode_type" :label="__('skus.field_barcode_type')">
+                        <flux:select.option value="unknown">{{ __('common.barcode_types.unknown') }}</flux:select.option>
+                        <flux:select.option value="jan">{{ __('common.barcode_types.jan') }}</flux:select.option>
+                        <flux:select.option value="ean">{{ __('common.barcode_types.ean') }}</flux:select.option>
+                        <flux:select.option value="upc">{{ __('common.barcode_types.upc') }}</flux:select.option>
                     </flux:select>
-                    <flux:select wire:model="stockItem.product_type" label="Product type">
-                        <flux:select.option value="normal">Normal</flux:select.option>
-                        <flux:select.option value="dangerous_goods">Dangerous goods</flux:select.option>
-                        <flux:select.option value="expiry_tracked">Expiry tracked</flux:select.option>
+                    <flux:select wire:model="stockItem.product_type" :label="__('skus.field_product_type')">
+                        <flux:select.option value="normal">{{ __('common.product_types.normal') }}</flux:select.option>
+                        <flux:select.option value="dangerous_goods">{{ __('common.product_types.dangerous_goods') }}</flux:select.option>
+                        <flux:select.option value="expiry_tracked">{{ __('common.product_types.expiry_tracked') }}</flux:select.option>
                     </flux:select>
-                    <flux:select wire:model="stockItem.status" label="Stock item status">
-                        <flux:select.option value="active">Active</flux:select.option>
-                        <flux:select.option value="inactive">Inactive</flux:select.option>
-                        <flux:select.option value="draft">Draft</flux:select.option>
-                        <flux:select.option value="archived">Archived</flux:select.option>
+                    <flux:select wire:model="stockItem.status" :label="__('skus.field_stock_item_status')">
+                        <flux:select.option value="active">{{ __('common.statuses.active') }}</flux:select.option>
+                        <flux:select.option value="inactive">{{ __('common.statuses.inactive') }}</flux:select.option>
+                        <flux:select.option value="draft">{{ __('common.statuses.draft') }}</flux:select.option>
+                        <flux:select.option value="archived">{{ __('common.statuses.archived') }}</flux:select.option>
                     </flux:select>
-                    <div class="checkbox-stack">
-                        <label><input type="checkbox" wire:model="stockItem.is_dangerous_goods"> Dangerous goods</label>
-                        <label><input type="checkbox" wire:model="stockItem.requires_expiry_tracking"> Expiry tracking</label>
-                        <label><input type="checkbox" wire:model="stockItem.requires_lot_tracking"> Lot tracking</label>
+                    <div class="checkbox-stack form-grid-wide">
+                        <label><input type="checkbox" wire:model="stockItem.is_dangerous_goods"> {{ __('skus.field_is_dangerous_goods') }}</label>
+                        <label><input type="checkbox" wire:model="stockItem.requires_expiry_tracking"> {{ __('skus.field_requires_expiry') }}</label>
+                        <label><input type="checkbox" wire:model="stockItem.requires_lot_tracking"> {{ __('skus.field_requires_lot') }}</label>
                     </div>
                 </div>
 
                 <div class="form-grid three form-grid-spaced">
-                    <flux:input wire:model="stockItem.weight_value" type="number" step="0.001" min="0" label="Weight" />
-                    <flux:select wire:model="stockItem.weight_unit" label="Weight unit">
+                    <flux:input wire:model="stockItem.weight_value" type="number" step="0.001" min="0" :label="__('skus.field_weight')" />
+                    <flux:select wire:model="stockItem.weight_unit" :label="__('skus.field_weight_unit')">
                         <flux:select.option value="g">g</flux:select.option>
                         <flux:select.option value="kg">kg</flux:select.option>
                     </flux:select>
-                    <flux:select wire:model="stockItem.dimension_unit" label="Dimension unit">
+                    <flux:select wire:model="stockItem.dimension_unit" :label="__('skus.field_dimension_unit')">
                         <flux:select.option value="cm">cm</flux:select.option>
                         <flux:select.option value="mm">mm</flux:select.option>
                         <flux:select.option value="in">in</flux:select.option>
                     </flux:select>
-                    <flux:input wire:model="stockItem.length_value" type="number" step="0.01" min="0" label="Length" />
-                    <flux:input wire:model="stockItem.width_value" type="number" step="0.01" min="0" label="Width" />
-                    <flux:input wire:model="stockItem.height_value" type="number" step="0.01" min="0" label="Height" />
+                    <flux:input wire:model="stockItem.length_value" type="number" step="0.01" min="0" :label="__('skus.field_length')" />
+                    <flux:input wire:model="stockItem.width_value" type="number" step="0.01" min="0" :label="__('skus.field_width')" />
+                    <flux:input wire:model="stockItem.height_value" type="number" step="0.01" min="0" :label="__('skus.field_height')" />
                 </div>
 
                 <div class="form-grid three form-grid-spaced">
                     <label>
-                        <span>Description</span>
+                        <span>{{ __('skus.field_description') }}</span>
                         <textarea wire:model="stockItem.description" rows="3"></textarea>
                     </label>
                     <label>
-                        <span>Stock item note</span>
+                        <span>{{ __('skus.field_stock_item_note') }}</span>
                         <textarea wire:model="stockItem.note" rows="3"></textarea>
                     </label>
                     <label>
-                        <span>Handling note</span>
+                        <span>{{ __('skus.field_handling_note') }}</span>
                         <textarea wire:model="stockItem.handling_note" rows="3"></textarea>
                     </label>
                 </div>
@@ -183,8 +183,8 @@
         </section>
 
         <div class="form-actions">
-            <flux:button href="{{ route('skus.index') }}" variant="subtle">Cancel</flux:button>
-            <flux:button type="submit" variant="primary">Create SKU</flux:button>
+            <flux:button href="{{ route('skus.index') }}" variant="subtle">{{ __('skus.btn_cancel') }}</flux:button>
+            <flux:button type="submit" variant="primary">{{ __('skus.btn_submit') }}</flux:button>
         </div>
     </form>
 </div>

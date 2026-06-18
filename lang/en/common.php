@@ -1,0 +1,58 @@
+<?php
+
+return [
+    'app_eyebrow' => 'Warehouse Platform',
+    'all_tenants' => 'All tenants',
+    'all_warehouses' => 'All warehouses',
+    'all_shops' => 'All shops',
+    'all_types' => 'All types',
+    'all_statuses' => 'All statuses',
+    'all_movements' => 'All movements',
+    'all_stock_items' => 'All stock items',
+    'all_users' => 'All users',
+    'tenant' => 'Tenant',
+    'warehouse' => 'Warehouse',
+    'shop' => 'Shop',
+    'status' => 'Status',
+    'actions' => 'Actions',
+    'clear' => 'Clear',
+    'remove' => 'Remove',
+    'cancel' => 'Cancel',
+    'no_note' => 'No note',
+    'statuses' => [
+        'active' => 'Active',
+        'inactive' => 'Inactive',
+        'draft' => 'Draft',
+        'archived' => 'Archived',
+    ],
+    'movement_types' => [
+        'opening_balance' => 'Opening Balance',
+        'receive' => 'Receive',
+        'reserve' => 'Reserve',
+        'release_reserve' => 'Release Reserve',
+        'ship' => 'Ship',
+        'hold' => 'Hold',
+        'release_hold' => 'Release Hold',
+        'mark_damaged' => 'Mark Damaged',
+        'adjust' => 'Adjust',
+    ],
+    'sku_types' => [
+        'single' => 'Single',
+        'virtual_bundle' => 'Virtual bundle',
+        'physical_bundle' => 'Physical bundle',
+    ],
+    // Note: 'expiry_tracked' is currently used as a product_type value in the UI
+    // even though requires_expiry_tracking also exists as a boolean flag on stock_items.
+    // This is a known design inconsistency to be addressed in a future refactor.
+    'product_types' => [
+        'normal' => 'Normal',
+        'dangerous_goods' => 'Dangerous goods',
+        'expiry_tracked' => 'Expiry tracked',
+    ],
+    'barcode_types' => [
+        'unknown' => 'Unknown',
+        'jan' => 'JAN',
+        'ean' => 'EAN',
+        'upc' => 'UPC',
+    ],
+];
