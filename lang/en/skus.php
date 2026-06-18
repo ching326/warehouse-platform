@@ -17,6 +17,8 @@ return [
     'section_sku_hint' => 'Marketplace-facing SKU identity.',
     'section_stock_item_mode' => 'Stock Item Mode',
     'section_stock_item_mode_hint' => 'Linked SKUs share the same inventory pool.',
+    'section_virtual_bundle_info' => 'Virtual Bundle',
+    'section_virtual_bundle_hint' => 'Virtual bundles deduct from component stock items at fulfilment time. No stock item is linked.',
     'field_tenant' => 'Tenant',
     'field_shop' => 'Shop',
     'field_sku' => 'SKU',

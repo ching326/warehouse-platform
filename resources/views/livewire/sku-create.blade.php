@@ -81,6 +81,16 @@
             @endforeach
         </section>
 
+        @if ($skuType === 'virtual_bundle')
+        <section class="table-shell flux-panel form-panel">
+            <div class="form-panel-header">
+                <div>
+                    <strong>{{ __('skus.section_virtual_bundle_info') }}</strong>
+                    <span>{{ __('skus.section_virtual_bundle_hint') }}</span>
+                </div>
+            </div>
+        </section>
+        @else
         <section class="table-shell flux-panel form-panel">
             <div class="form-panel-header">
                 <div>
@@ -181,6 +191,7 @@
                 @endforeach
             @endif
         </section>
+        @endif
 
         <div class="form-actions">
             <flux:button href="{{ route('skus.index') }}" variant="subtle">{{ __('skus.btn_cancel') }}</flux:button>

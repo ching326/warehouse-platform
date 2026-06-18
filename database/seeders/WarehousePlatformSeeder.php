@@ -172,7 +172,7 @@ class WarehousePlatformSeeder extends Seeder
         $charger = StockItem::updateOrCreate(
             [
                 'tenant_id' => $tenant->id,
-                'code' => 'STK-000001',
+                'code' => 'ABC-000001',
             ],
             [
                 'name' => 'USB-C Fast Charger 30W Black',
@@ -204,7 +204,7 @@ class WarehousePlatformSeeder extends Seeder
         $cable = StockItem::updateOrCreate(
             [
                 'tenant_id' => $tenant->id,
-                'code' => 'STK-000002',
+                'code' => 'ABC-000002',
             ],
             [
                 'name' => 'USB-C Cable 1m White',

@@ -89,7 +89,8 @@ class SkuCreate extends Component
 
     public function updatedSkuType(): void
     {
-        if ($this->skuType === 'virtual_bundle' && $this->stockItemMode === 'link') {
+        if ($this->skuType === 'virtual_bundle') {
+            $this->stockItemMode = 'create';
             $this->existingStockItemId = '';
         }
     }
@@ -102,14 +103,16 @@ class SkuCreate extends Component
         DB::transaction(function () use ($tenantId) {
             $stockItemId = null;
 
-            if ($this->stockItemMode === 'create') {
-                $stockItem = StockItem::create($this->stockItemPayload($tenantId));
-                $stockItemId = $stockItem->id;
-            } elseif ($this->existingStockItemId !== '') {
-                $stockItem = StockItem::query()
-                    ->where('tenant_id', $tenantId)
-                    ->findOrFail($this->existingStockItemId);
-                $stockItemId = $stockItem->id;
+            if ($this->skuType !== 'virtual_bundle') {
+                if ($this->stockItemMode === 'create') {
+                    $stockItem = StockItem::create($this->stockItemPayload($tenantId));
+                    $stockItemId = $stockItem->id;
+                } elseif ($this->existingStockItemId !== '') {
+                    $stockItem = StockItem::query()
+                        ->where('tenant_id', $tenantId)
+                        ->findOrFail($this->existingStockItemId);
+                    $stockItemId = $stockItem->id;
+                }
             }
 
             Sku::create([
@@ -175,7 +178,7 @@ class SkuCreate extends Component
                 'nullable',
                 Rule::exists('stock_items', 'id')->where('tenant_id', $tenantId),
             ],
-            'stock_item.name' => [Rule::requiredIf(fn () => $this->stockItemMode === 'create'), 'nullable', 'string', 'max:255'],
+            'stock_item.name' => [Rule::requiredIf(fn () => $this->stockItemMode === 'create' && $this->skuType !== 'virtual_bundle'), 'nullable', 'string', 'max:255'],
             'stock_item.weight_value' => ['nullable', 'numeric', 'min:0'],
             'stock_item.length_value' => ['nullable', 'numeric', 'min:0'],
             'stock_item.width_value' => ['nullable', 'numeric', 'min:0'],

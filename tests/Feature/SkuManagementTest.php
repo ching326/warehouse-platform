@@ -132,6 +132,8 @@ class SkuManagementTest extends TestCase
     {
         $tenant = Tenant::factory()->create();
 
+        $this->assertSame(0, StockItem::count());
+
         Livewire::actingAs($this->internalUser())
             ->test(SkuCreate::class)
             ->set('tenantId', (string) $tenant->id)
@@ -145,6 +147,70 @@ class SkuManagementTest extends TestCase
         $sku = Sku::where('sku', 'SKU-VIRTUAL-001')->firstOrFail();
 
         $this->assertNull($sku->stock_item_id);
+        $this->assertSame(0, StockItem::count());
+    }
+
+    public function test_switching_sku_type_to_virtual_bundle_does_not_require_stock_item_fields(): void
+    {
+        $tenant = Tenant::factory()->create();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('stockItemMode', 'create')
+            ->set('stockItem.name', '')
+            ->set('skuType', 'virtual_bundle')
+            ->assertSet('stockItemMode', 'create')
+            ->set('sku', 'SKU-VIRTUAL-NO-STOCK-FIELDS')
+            ->set('name', 'Virtual no stock fields')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('skus.index'));
+
+        $sku = Sku::where('sku', 'SKU-VIRTUAL-NO-STOCK-FIELDS')->firstOrFail();
+
+        $this->assertNull($sku->stock_item_id);
+        $this->assertSame(0, StockItem::count());
+    }
+
+    public function test_single_sku_create_new_still_auto_creates_stock_item(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'ABC']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('stockItemMode', 'create')
+            ->set('skuType', 'single')
+            ->set('sku', 'SKU-SINGLE-CREATE-STOCK')
+            ->set('name', 'Single create stock')
+            ->set('stockItem.name', 'Single Created Stock')
+            ->call('save')
+            ->assertRedirect(route('skus.index'));
+
+        $sku = Sku::where('sku', 'SKU-SINGLE-CREATE-STOCK')->firstOrFail();
+
+        $this->assertNotNull($sku->stock_item_id);
+        $this->assertSame('ABC-000001', $sku->stockItem->code);
+        $this->assertSame('Single Created Stock', $sku->stockItem->name);
+        $this->assertSame(1, StockItem::count());
+    }
+
+    public function test_physical_bundle_requires_stock_item_when_linking_existing_stock_item(): void
+    {
+        $tenant = Tenant::factory()->create();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('stockItemMode', 'link')
+            ->set('skuType', 'physical_bundle')
+            ->set('sku', 'SKU-PHYSICAL-NO-STOCK')
+            ->set('name', 'Physical no stock')
+            ->call('save')
+            ->assertHasErrors(['existing_stock_item_id']);
+
+        $this->assertDatabaseMissing('skus', ['sku' => 'SKU-PHYSICAL-NO-STOCK']);
     }
 
     public function test_stock_item_code_auto_generates_per_tenant(): void
