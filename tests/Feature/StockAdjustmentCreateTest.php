@@ -36,12 +36,10 @@ class StockAdjustmentCreateTest extends TestCase
         ]);
 
         Livewire::actingAs($user)
-            ->test(StockAdjustmentCreate::class, [
-                'tenant_id' => (string) $tenant->id,
-                'warehouse_id' => (string) $warehouse->id,
-                'stock_item_id' => (string) $stockItem->id,
-            ])
-            ->assertSet('tenantId', (string) $tenant->id)
+            ->test(StockAdjustmentCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('stockItemId', (string) $stockItem->id)
             ->set('quantity', '5')
             ->set('note', 'Cycle count correction')
             ->set('refId', 'ADJ-001')
@@ -68,6 +66,21 @@ class StockAdjustmentCreateTest extends TestCase
         $this->assertSame('manual_adjustment', $movement->ref_type);
         $this->assertSame('ADJ-001', $movement->ref_id);
         $this->assertSame($user->id, $movement->user_id);
+    }
+
+    public function test_stock_adjustment_route_renders_with_query_filters(): void
+    {
+        [$tenant, $warehouse, $stockItem] = $this->targetModels();
+
+        $this->actingAs($this->internalUser())
+            ->get(route('stock-adjustments.create', [
+                'tenant_id' => $tenant->id,
+                'warehouse_id' => $warehouse->id,
+                'stock_item_id' => $stockItem->id,
+            ]))
+            ->assertOk()
+            ->assertSee('Stock Adjustment')
+            ->assertSee($stockItem->code);
     }
 
     public function test_negative_adjustment_cannot_make_inventory_negative(): void
@@ -139,11 +152,11 @@ class StockAdjustmentCreateTest extends TestCase
             ->get('/inventory')
             ->assertOk()
             ->assertSee('Adjust')
-            ->assertSee(route('stock-adjustments.create', [
+            ->assertSee(e(route('stock-adjustments.create', [
                 'tenant_id' => $tenant->id,
                 'warehouse_id' => $warehouse->id,
                 'stock_item_id' => $stockItem->id,
-            ]), false);
+            ])), false);
     }
 
     private function internalUser(): User
