@@ -231,6 +231,40 @@ class WarehouseLocationTest extends TestCase
         $this->assertSame($activeWarehouse->id, $location->refresh()->warehouse_id);
     }
 
+    public function test_edit_location_hides_other_inactive_warehouses(): void
+    {
+        $activeWarehouse = Warehouse::factory()->create([
+            'code' => 'ACTIVE-WH',
+            'name' => 'Active Warehouse',
+            'status' => 'active',
+        ]);
+        $inactiveWarehouse = Warehouse::factory()->create([
+            'code' => 'INACTIVE-WH',
+            'name' => 'Inactive Warehouse',
+            'status' => 'inactive',
+        ]);
+        $location = WarehouseLocation::factory()->for($activeWarehouse)->create();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(WarehouseLocationEdit::class, ['location' => $location])
+            ->assertSee('ACTIVE-WH')
+            ->assertDontSee('INACTIVE-WH');
+    }
+
+    public function test_edit_location_shows_own_inactive_warehouse(): void
+    {
+        $inactiveWarehouse = Warehouse::factory()->create([
+            'code' => 'OWN-INACTIVE-WH',
+            'name' => 'Own Inactive Warehouse',
+            'status' => 'inactive',
+        ]);
+        $location = WarehouseLocation::factory()->for($inactiveWarehouse)->create();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(WarehouseLocationEdit::class, ['location' => $location])
+            ->assertSee('OWN-INACTIVE-WH');
+    }
+
     public function test_edit_location_rejects_duplicate_code_in_same_warehouse(): void
     {
         $warehouse = Warehouse::factory()->create(['status' => 'active']);
