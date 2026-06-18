@@ -9,6 +9,7 @@ use App\Models\Warehouse;
 use App\Services\InventoryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
+use ReflectionMethod;
 use Tests\TestCase;
 
 class InventoryServiceTest extends TestCase
@@ -113,6 +114,27 @@ class InventoryServiceTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         $service->reserveStock($tenant->id, $warehouse->id, $stockItem->id, 5);
+    }
+
+    public function test_inventory_service_reuses_single_balance_row_for_repeated_stock_changes(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $service = app(InventoryService::class);
+
+        $service->receiveStock($tenant->id, $warehouse->id, $stockItem->id, 10);
+        $service->receiveStock($tenant->id, $warehouse->id, $stockItem->id, 5);
+
+        $this->assertSame(1, $stockItem->inventoryBalances()->count());
+        $this->assertBalance($stockItem, onHand: 15, reserved: 0, available: 15, hold: 0, damaged: 0);
+    }
+
+    public function test_record_movement_is_not_public_api(): void
+    {
+        $method = new ReflectionMethod(InventoryService::class, 'recordMovement');
+
+        $this->assertTrue($method->isPrivate());
     }
 
     private function assertBalance(

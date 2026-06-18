@@ -4,12 +4,13 @@ namespace App\Services;
 
 use App\Models\InventoryBalance;
 use App\Models\InventoryMovement;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 class InventoryService
 {
-    public function recordMovement(
+    private function recordMovement(
         InventoryBalance $balance,
         string $movementType,
         int $quantityDelta,
@@ -266,20 +267,7 @@ class InventoryService
         array $context = [],
     ): InventoryMovement {
         return DB::transaction(function () use ($tenantId, $warehouseId, $stockItemId, $movementType, $quantityDelta, $mutate, $context) {
-            $balance = InventoryBalance::query()
-                ->where('tenant_id', $tenantId)
-                ->where('warehouse_id', $warehouseId)
-                ->where('stock_item_id', $stockItemId)
-                ->lockForUpdate()
-                ->first();
-
-            if (! $balance) {
-                $balance = InventoryBalance::create([
-                    'tenant_id' => $tenantId,
-                    'warehouse_id' => $warehouseId,
-                    'stock_item_id' => $stockItemId,
-                ]);
-            }
+            $balance = $this->lockedBalance($tenantId, $warehouseId, $stockItemId);
 
             $beforeSnapshot = $this->bucketSnapshot($balance);
             $balanceAfter = $mutate($balance);
@@ -291,6 +279,52 @@ class InventoryService
 
             return $this->recordMovement($balance, $movementType, $quantityDelta, $balanceAfter, $context, $bucketDeltas, $afterSnapshot);
         });
+    }
+
+    private function lockedBalance(int $tenantId, int $warehouseId, int $stockItemId): InventoryBalance
+    {
+        $query = fn () => InventoryBalance::query()
+            ->where('tenant_id', $tenantId)
+            ->where('warehouse_id', $warehouseId)
+            ->where('stock_item_id', $stockItemId)
+            ->lockForUpdate()
+            ->first();
+
+        $balance = $query();
+
+        if ($balance) {
+            return $balance;
+        }
+
+        try {
+            return InventoryBalance::create([
+                'tenant_id' => $tenantId,
+                'warehouse_id' => $warehouseId,
+                'stock_item_id' => $stockItemId,
+                'on_hand_qty' => 0,
+                'reserved_qty' => 0,
+                'available_qty' => 0,
+                'inbound_qty' => 0,
+                'hold_qty' => 0,
+                'damaged_qty' => 0,
+            ]);
+        } catch (QueryException $exception) {
+            if (! $this->isUniqueConstraintViolation($exception)) {
+                throw $exception;
+            }
+        }
+
+        return $query() ?? throw new InvalidArgumentException('Inventory balance could not be loaded.');
+    }
+
+    private function isUniqueConstraintViolation(QueryException $exception): bool
+    {
+        $sqlState = (string) ($exception->errorInfo[0] ?? '');
+        $driverCode = (string) ($exception->errorInfo[1] ?? '');
+
+        return in_array($sqlState, ['23000', '23505'], true)
+            || in_array($driverCode, ['1062', '1555', '2067'], true)
+            || str_contains($exception->getMessage(), 'UNIQUE constraint failed');
     }
 
     /**

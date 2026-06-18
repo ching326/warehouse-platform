@@ -40,13 +40,9 @@ class InventoryMovementsIndex extends Component
 
     public int $perPage = 15;
 
-    public function mount(): void
-    {
-        $this->assignQueryFilter('stock_item_id', 'stockItemId');
-        $this->assignQueryFilter('warehouse_id', 'warehouseId');
-        $this->assignQueryFilter('tenant_id', 'tenantId');
-        $this->assignQueryFilter('movement_type', 'movementType');
-    }
+    private bool $visibleTenantIdsResolved = false;
+
+    private ?array $visibleTenantIdsCache = null;
 
     public function updatingSearch(): void
     {
@@ -310,24 +306,20 @@ class InventoryMovementsIndex extends Component
 
     private function visibleTenantIds(): ?array
     {
+        if ($this->visibleTenantIdsResolved) {
+            return $this->visibleTenantIdsCache;
+        }
+
+        $this->visibleTenantIdsResolved = true;
         $user = Auth::user();
 
         if (! $user || $user->user_type === 'internal') {
-            return null;
+            return $this->visibleTenantIdsCache = null;
         }
 
-        return $user->tenantUsers()
+        return $this->visibleTenantIdsCache = $user->tenantUsers()
             ->where('status', 'active')
             ->pluck('tenant_id')
             ->all();
-    }
-
-    private function assignQueryFilter(string $queryKey, string $property): void
-    {
-        $value = request()->query($queryKey);
-
-        if (is_scalar($value) && (string) $value !== '') {
-            $this->{$property} = (string) $value;
-        }
     }
 }

@@ -224,12 +224,12 @@
             }
 
             .inventory-toolbar {
-                grid-template-columns: minmax(240px, 2fr) repeat(5, minmax(120px, 1fr));
+                grid-template-columns: repeat(6, minmax(0, 1fr));
                 align-items: end;
             }
 
-            .search-field {
-                min-width: 0;
+            .inventory-toolbar > :first-child {
+                grid-column: span 2;
             }
 
             .sku-list {
@@ -243,8 +243,9 @@
             }
 
             .stock-item-cell {
-                min-width: 250px;
-                max-width: 360px;
+                width: 30%;
+                min-width: 240px;
+                max-width: 340px;
             }
 
             .sku-chip {
@@ -260,6 +261,36 @@
                 font-size: 12px;
                 font-weight: 800;
                 vertical-align: top;
+            }
+
+            .inventory-table {
+                min-width: 980px;
+                table-layout: auto;
+            }
+
+            .inventory-table th,
+            .inventory-table td {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+
+            .inventory-table th {
+                white-space: nowrap;
+            }
+
+            .inventory-table th:first-child {
+                min-width: 240px;
+            }
+
+            .inventory-table .stock-item-cell strong,
+            .inventory-table .stock-item-cell span,
+            .inventory-table td strong,
+            .inventory-table td .subtle {
+                overflow-wrap: anywhere;
+            }
+
+            .inventory-table .exceptions-cell {
+                width: 116px;
             }
 
             .sku-chip small {
@@ -578,6 +609,183 @@
                 margin-bottom: 10px;
             }
 
+            .sku-page-actions,
+            .form-panel-header,
+            .form-actions {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 16px;
+            }
+
+            .sku-page-actions {
+                margin-bottom: 14px;
+            }
+
+            .sku-page-actions strong,
+            .form-panel-header strong {
+                display: block;
+                font-size: 16px;
+            }
+
+            .sku-page-actions span,
+            .form-panel-header span {
+                display: block;
+                margin-top: 3px;
+                color: var(--muted);
+                font-size: 13px;
+            }
+
+            .status-message {
+                margin-bottom: 14px;
+                border: 1px solid #b7e4d4;
+                border-radius: 6px;
+                background: #ecfdf3;
+                color: #067647;
+                font-weight: 700;
+                padding: 10px 12px;
+            }
+
+            .sku-toolbar {
+                display: grid;
+                grid-template-columns: minmax(260px, 2fr) repeat(5, minmax(130px, 1fr));
+                gap: 12px;
+                align-items: end;
+                margin-bottom: 14px;
+            }
+
+            .sku-table {
+                min-width: 0;
+                table-layout: fixed;
+            }
+
+            .sku-table th,
+            .sku-table td {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+
+            .sku-primary-cell strong,
+            .sku-primary-cell span,
+            .sku-primary-cell small,
+            .sku-stock-cell strong,
+            .sku-stock-cell span,
+            .sku-stock-cell small,
+            .sku-muted-cell strong,
+            .sku-muted-cell span,
+            .sku-muted-cell small,
+            .sku-platform-cell span,
+            .sku-platform-cell small {
+                display: block;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .sku-primary-cell strong,
+            .sku-stock-cell strong,
+            .sku-muted-cell strong {
+                color: var(--ink);
+                font-size: 13px;
+                line-height: 1.25;
+            }
+
+            .sku-primary-cell span,
+            .sku-stock-cell span,
+            .sku-muted-cell span,
+            .sku-platform-cell span {
+                margin-top: 3px;
+                color: var(--muted);
+                font-size: 12px;
+            }
+
+            .sku-primary-cell small,
+            .sku-stock-cell small,
+            .sku-muted-cell small,
+            .sku-platform-cell small {
+                margin-top: 3px;
+                color: var(--muted);
+                font-size: 11px;
+            }
+
+            .sku-form {
+                display: grid;
+                gap: 14px;
+            }
+
+            .form-panel {
+                display: grid;
+                gap: 14px;
+            }
+
+            .form-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 12px;
+                align-items: start;
+            }
+
+            .form-grid.three {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .form-grid-spaced {
+                margin-top: 12px;
+            }
+
+            .form-grid-wide {
+                grid-column: 1 / -1;
+            }
+
+            textarea {
+                width: 100%;
+                border: 1px solid var(--line);
+                border-radius: 6px;
+                background: #fff;
+                color: var(--ink);
+                font: inherit;
+                padding: 9px 11px;
+                resize: vertical;
+            }
+
+            textarea:focus {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 3px var(--accent-soft);
+                outline: none;
+            }
+
+            .segmented-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .segmented-row label,
+            .checkbox-stack label {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                border: 1px solid var(--line);
+                border-radius: 6px;
+                background: #fff;
+                min-height: 38px;
+                padding: 8px 10px;
+                font-size: 13px;
+                font-weight: 700;
+            }
+
+            .checkbox-stack {
+                display: grid;
+                gap: 8px;
+            }
+
+            .form-error {
+                margin: -4px 0 0;
+                color: var(--danger);
+                font-size: 12px;
+                font-weight: 700;
+            }
+
             @media (max-width: 720px) {
                 .page {
                     width: min(100% - 20px, 1180px);
@@ -590,8 +798,22 @@
 
                 .summary-grid,
                 .table-toolbar,
-                .movement-toolbar {
+                .movement-toolbar,
+                .sku-toolbar,
+                .form-grid,
+                .form-grid.three {
                     grid-template-columns: 1fr;
+                }
+
+                .sku-page-actions,
+                .form-panel-header,
+                .form-actions {
+                    align-items: stretch;
+                    flex-direction: column;
+                }
+
+                .inventory-toolbar > :first-child {
+                    grid-column: auto;
                 }
             }
 

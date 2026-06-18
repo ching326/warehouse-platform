@@ -21,6 +21,18 @@ return new class extends Migration
             $table->string('movement_type');
             $table->integer('quantity_delta');
             $table->integer('balance_after')->nullable();
+            $table->integer('on_hand_delta')->default(0);
+            $table->integer('reserved_delta')->default(0);
+            $table->integer('available_delta')->default(0);
+            $table->integer('inbound_delta')->default(0);
+            $table->integer('hold_delta')->default(0);
+            $table->integer('damaged_delta')->default(0);
+            $table->integer('on_hand_after')->default(0);
+            $table->integer('reserved_after')->default(0);
+            $table->integer('available_after')->default(0);
+            $table->integer('inbound_after')->default(0);
+            $table->integer('hold_after')->default(0);
+            $table->integer('damaged_after')->default(0);
             $table->string('ref_type')->nullable();
             $table->string('ref_id')->nullable();
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();

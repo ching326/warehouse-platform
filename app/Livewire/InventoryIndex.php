@@ -30,6 +30,10 @@ class InventoryIndex extends Component
 
     public int $perPage = 10;
 
+    private bool $visibleTenantIdsResolved = false;
+
+    private ?array $visibleTenantIdsCache = null;
+
     /**
      * @var array<int, bool>
      */
@@ -249,13 +253,18 @@ class InventoryIndex extends Component
 
     public function visibleTenantIds(): ?array
     {
+        if ($this->visibleTenantIdsResolved) {
+            return $this->visibleTenantIdsCache;
+        }
+
+        $this->visibleTenantIdsResolved = true;
         $user = Auth::user();
 
         if (! $user || $user->user_type === 'internal') {
-            return null;
+            return $this->visibleTenantIdsCache = null;
         }
 
-        return $user->tenantUsers()
+        return $this->visibleTenantIdsCache = $user->tenantUsers()
             ->where('status', 'active')
             ->pluck('tenant_id')
             ->all();

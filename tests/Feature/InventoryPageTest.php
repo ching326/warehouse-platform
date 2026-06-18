@@ -94,13 +94,13 @@ class InventoryPageTest extends TestCase
 
         Livewire::actingAs($this->internalUser())
             ->test(InventoryIndex::class)
-            ->assertSeeHtml('<th>Tenant</th>')
+            ->assertSeeHtml('inventory-tenant-column-label')
             ->set('tenantId', (string) $rows['alphaTenant']->id)
-            ->assertDontSeeHtml('<th>Tenant</th>');
+            ->assertDontSeeHtml('inventory-tenant-column-label');
 
         Livewire::actingAs($tenantUser)
             ->test(InventoryIndex::class)
-            ->assertDontSeeHtml('<th>Tenant</th>');
+            ->assertDontSeeHtml('inventory-tenant-column-label');
     }
 
     public function test_inventory_search_matches_stock_item_and_sku_fields(): void
