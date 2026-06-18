@@ -13,33 +13,49 @@
                 <div>
                     <flux:input wire:model="code" :label="__('setup.field_code')" />
                     <span class="subtle">{{ __('setup.field_code_hint') }}</span>
+                    @error('code') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
-                <flux:input wire:model="name" :label="__('setup.field_name')" />
-                <flux:select wire:model="status" :label="__('setup.field_status')">
-                    @foreach ($statuses as $value => $label)
-                        <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
-                    @endforeach
-                </flux:select>
+                <div>
+                    <flux:input wire:model="name" :label="__('setup.field_name')" />
+                    @error('name') <p class="form-error">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <flux:select wire:model="status" :label="__('setup.field_status')">
+                        @foreach ($statuses as $value => $label)
+                            <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    @error('status') <p class="form-error">{{ $message }}</p> @enderror
+                </div>
             </div>
 
             <div class="form-grid">
-                <flux:input wire:model="contactName" :label="__('setup.field_contact_name')" />
-                <flux:input wire:model="contactEmail" type="email" :label="__('setup.field_contact_email')" />
+                <div>
+                    <flux:input wire:model="contactName" :label="__('setup.field_contact_name')" />
+                    @error('contact_name') <p class="form-error">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <flux:input wire:model="contactEmail" type="email" :label="__('setup.field_contact_email')" />
+                    @error('contact_email') <p class="form-error">{{ $message }}</p> @enderror
+                </div>
             </div>
 
             <div class="form-grid">
-                <flux:input wire:model="contactPhone" :label="__('setup.field_contact_phone')" />
-                <flux:input wire:model="billingTerms" :label="__('setup.field_billing_terms')" />
+                <div>
+                    <flux:input wire:model="contactPhone" :label="__('setup.field_contact_phone')" />
+                    @error('contact_phone') <p class="form-error">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <flux:input wire:model="billingTerms" :label="__('setup.field_billing_terms')" />
+                    @error('billing_terms') <p class="form-error">{{ $message }}</p> @enderror
+                </div>
             </div>
 
             <label>
                 <span>{{ __('setup.field_notes') }}</span>
                 <textarea wire:model="notes" rows="4"></textarea>
+                @error('notes') <p class="form-error">{{ $message }}</p> @enderror
             </label>
-
-            @foreach (['code', 'name', 'contact_name', 'contact_email', 'contact_phone', 'billing_terms', 'status', 'notes'] as $field)
-                @error($field) <p class="form-error">{{ $message }}</p> @enderror
-            @endforeach
         </section>
 
         <div class="form-actions">
