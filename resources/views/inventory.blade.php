@@ -56,41 +56,129 @@
                 margin-bottom: 12px;
             }
 
-            .page-nav {
+            [x-cloak] {
+                display: none !important;
+            }
+
+            .top-nav {
+                position: sticky;
+                top: 0;
+                z-index: 100;
+                background: var(--panel);
+                border-bottom: 1px solid var(--line);
+                box-shadow: 0 1px 3px rgb(0 0 0 / 5%);
+            }
+
+            .top-nav-inner {
                 display: flex;
                 align-items: center;
-                flex-wrap: wrap;
-                gap: 8px;
-                margin-bottom: 20px;
+                gap: 4px;
+                width: min(1180px, calc(100% - 32px));
+                margin: 0 auto;
+                height: 52px;
             }
 
-            .page-nav a {
+            .top-nav-brand {
+                margin-right: 12px;
+                color: var(--accent);
+                font-size: 14px;
+                font-weight: 800;
+                letter-spacing: -0.01em;
+                text-decoration: none;
+                white-space: nowrap;
+            }
+
+            .top-nav-brand:hover {
+                opacity: 0.8;
+            }
+
+            .top-nav-items {
+                display: flex;
+                align-items: center;
+                gap: 2px;
+                flex: 1;
+            }
+
+            .top-nav-item {
+                position: relative;
+            }
+
+            .top-nav-btn {
                 display: inline-flex;
                 align-items: center;
-                min-height: 30px;
-                border: 1px solid var(--line);
+                gap: 4px;
+                min-height: 32px;
+                border: none;
                 border-radius: 6px;
-                background: #fff;
+                background: transparent;
                 color: var(--muted);
-                font-size: 12px;
-                font-weight: 800;
-                padding: 5px 10px;
+                cursor: pointer;
+                font: inherit;
+                font-size: 13px;
+                font-weight: 700;
+                padding: 0 10px;
                 text-decoration: none;
+                white-space: nowrap;
+                transition: background 0.1s, color 0.1s;
             }
 
-            .page-nav a:hover,
-            .page-nav a.is-active {
-                border-color: var(--accent);
+            .top-nav-btn:hover,
+            .top-nav-btn.is-active {
                 background: var(--accent-soft);
                 color: var(--accent);
+            }
+
+            .top-nav-chevron {
+                width: 12px;
+                height: 12px;
+                flex-shrink: 0;
+                transition: transform 0.15s;
+            }
+
+            .top-nav-chevron.is-open {
+                transform: rotate(180deg);
+            }
+
+            .top-nav-dropdown {
+                position: absolute;
+                top: calc(100% + 6px);
+                left: 0;
+                min-width: 180px;
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 8px;
+                box-shadow: 0 4px 16px rgb(0 0 0 / 10%);
+                padding: 4px;
+                z-index: 200;
+            }
+
+            .top-nav-dropdown a {
+                display: flex;
+                align-items: center;
+                min-height: 34px;
+                border-radius: 5px;
+                color: var(--ink);
+                font-size: 13px;
+                font-weight: 600;
+                padding: 6px 10px;
+                text-decoration: none;
+                transition: background 0.1s, color 0.1s;
+            }
+
+            .top-nav-dropdown a:hover,
+            .top-nav-dropdown a.is-active {
+                background: var(--accent-soft);
+                color: var(--accent);
+                font-weight: 700;
             }
 
             .locale-switcher {
                 display: inline-flex;
                 align-items: center;
-                gap: 6px;
+                gap: 4px;
                 flex-wrap: wrap;
                 justify-content: flex-end;
+                margin-left: 8px;
             }
 
             .locale-switcher form {
@@ -938,48 +1026,18 @@
         </style>
     </head>
     <body>
+        <x-layout.navigation />
+
         <main class="page">
             <header class="page-header">
                 <div>
-                    <p class="eyebrow">{{ __('common.app_eyebrow') }}</p>
                     <h1>{{ $title ?? __('inventory.page_title') }}</h1>
                     <p>{{ $subtitle ?? __('inventory.page_subtitle') }}</p>
                 </div>
-                    <div class="locale-switcher" aria-label="{{ __('common.locale_switcher') }}">
-                        @foreach (['en' => 'EN', 'zh_TW' => '&#32321;', 'zh_CN' => '&#31616;', 'ja' => '&#26085;'] as $locale => $label)
-                            <form method="POST" action="{{ route('locale.switch', $locale) }}">
-                                @csrf
-                                <button
-                                    type="submit"
-                                    class="locale-btn {{ app()->getLocale() === $locale ? 'locale-btn--active' : '' }}"
-                                >
-                                    {!! $label !!}
-                                </button>
-                            </form>
-                        @endforeach
-                    </div>
-                </header>
+            </header>
 
-                <nav class="page-nav">
-                    <a href="{{ route('inventory.index') }}" class="{{ request()->routeIs('inventory.index') ? 'is-active' : '' }}">
-                        {{ __('common.nav_inventory') }}
-                    </a>
-                    <a href="{{ route('inventory.movements.index') }}" class="{{ request()->routeIs('inventory.movements.index') ? 'is-active' : '' }}">
-                        {{ __('common.nav_movements') }}
-                    </a>
-                    <a href="{{ route('skus.index') }}" class="{{ request()->routeIs('skus.*') ? 'is-active' : '' }}">
-                        {{ __('common.nav_skus') }}
-                    </a>
-                    <a href="{{ route('inbound.index') }}" class="{{ request()->routeIs('inbound.*') ? 'is-active' : '' }}">
-                        {{ __('common.nav_inbound') }}
-                    </a>
-                    <a href="{{ route('stock-adjustments.create') }}" class="{{ request()->routeIs('stock-adjustments.*') ? 'is-active' : '' }}">
-                        {{ __('stock_adjustments.page_title') }}
-                    </a>
-                </nav>
-
-                {{ $slot }}
-            </main>
+            {{ $slot }}
+        </main>
 
         @livewireScripts
         @fluxScripts
