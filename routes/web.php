@@ -9,6 +9,7 @@ use App\Livewire\OutboundOrderCreate;
 use App\Livewire\OutboundOrderIndex;
 use App\Livewire\OutboundOrderShip;
 use App\Livewire\ShopCreate;
+use App\Livewire\ShopEdit;
 use App\Livewire\ShopIndex;
 use App\Livewire\SkuCreate;
 use App\Livewire\SkusIndex;
@@ -50,6 +51,7 @@ Route::get('/setup/warehouses/create', WarehouseCreate::class)->name('setup.ware
 Route::get('/setup/warehouses/{warehouse}/edit', WarehouseEdit::class)->name('setup.warehouses.edit');
 Route::get('/setup/shops', ShopIndex::class)->name('setup.shops.index');
 Route::get('/setup/shops/create', ShopCreate::class)->name('setup.shops.create');
+Route::get('/setup/shops/{shop}/edit', ShopEdit::class)->name('setup.shops.edit');
 Route::get('/setup/locations', WarehouseLocationIndex::class)->name('setup.locations.index');
 Route::get('/setup/locations/create', WarehouseLocationCreate::class)->name('setup.locations.create');
 Route::get('/setup/locations/{location}/edit', WarehouseLocationEdit::class)->name('setup.locations.edit');

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\ShopCreate;
+use App\Livewire\ShopEdit;
 use App\Livewire\ShopIndex;
 use App\Models\Shop;
 use App\Models\Tenant;
@@ -230,6 +231,94 @@ class ShopTest extends TestCase
 
         $this->actingAs($this->internalUser())->get('/setup/shops')->assertOk()->assertSee('Shops');
         $this->actingAs($this->internalUser())->get('/setup/shops/create')->assertOk()->assertSee('Create Shop');
+    }
+
+    // --- ShopEdit tests ---
+
+    public function test_edit_shop_succeeds(): void
+    {
+        $tenant = Tenant::factory()->create(['status' => 'active']);
+        $shop = Shop::factory()->create([
+            'tenant_id' => $tenant->id,
+            'code'      => 'OLD-01',
+            'name'      => 'Old Name',
+            'platform'  => 'amazon',
+            'status'    => 'active',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ShopEdit::class, ['shop' => $shop])
+            ->set('name', 'New Name')
+            ->set('status', 'inactive')
+            ->call('save')
+            ->assertRedirect(route('setup.shops.index'));
+
+        $this->assertDatabaseHas('shops', [
+            'id'     => $shop->id,
+            'name'   => 'New Name',
+            'status' => 'inactive',
+        ]);
+    }
+
+    public function test_edit_shop_allows_keeping_own_code(): void
+    {
+        $tenant = Tenant::factory()->create(['status' => 'active']);
+        $shop = Shop::factory()->create([
+            'tenant_id' => $tenant->id,
+            'code'      => 'KEEP-01',
+            'platform'  => 'amazon',
+            'marketplace' => '',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ShopEdit::class, ['shop' => $shop])
+            ->set('code', 'keep-01')
+            ->call('save')
+            ->assertRedirect(route('setup.shops.index'));
+    }
+
+    public function test_edit_shop_rejects_duplicate_code_on_another_record(): void
+    {
+        $tenant = Tenant::factory()->create(['status' => 'active']);
+        Shop::factory()->create(['tenant_id' => $tenant->id, 'code' => 'TAKEN-01', 'platform' => 'amazon', 'marketplace' => '']);
+        $shop = Shop::factory()->create(['tenant_id' => $tenant->id, 'code' => 'MINE-01', 'platform' => 'amazon', 'marketplace' => '']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ShopEdit::class, ['shop' => $shop])
+            ->set('code', 'taken-01')
+            ->call('save')
+            ->assertHasErrors(['code']);
+    }
+
+    public function test_tenant_user_cannot_access_shop_edit(): void
+    {
+        $shop = Shop::factory()->create();
+
+        $this->actingAs($this->tenantUser())
+            ->get("/setup/shops/{$shop->id}/edit")
+            ->assertForbidden();
+    }
+
+    public function test_tenant_user_cannot_edit_shop_via_livewire(): void
+    {
+        $shop = Shop::factory()->create(['status' => 'active']);
+
+        Livewire::actingAs($this->tenantUser())
+            ->test(ShopEdit::class, ['shop' => $shop])
+            ->assertForbidden();
+
+        $this->assertSame('active', $shop->refresh()->status);
+    }
+
+    public function test_edit_shop_route_renders(): void
+    {
+        $tenant = Tenant::factory()->create(['status' => 'active']);
+        $shop = Shop::factory()->create(['tenant_id' => $tenant->id]);
+
+        $this->actingAs($this->internalUser())
+            ->get("/setup/shops/{$shop->id}/edit")
+            ->assertOk()
+            ->assertSee('Edit Shop');
     }
 
     private function internalUser(): User

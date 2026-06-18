@@ -29,6 +29,8 @@ return [
     'col_status' => 'Status',
     'col_actions' => 'Actions',
     'shop_created' => 'Shop created.',
+    'shop_updated' => 'Shop updated.',
+    'shop_edit_page_title' => 'Edit Shop',
     'status_updated' => 'Shop status updated.',
     'empty_state' => 'No shops match the current filters.',
     'btn_create_shop' => 'Create shop',

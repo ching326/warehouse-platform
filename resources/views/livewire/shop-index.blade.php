@@ -75,12 +75,10 @@
                         </flux:table.cell>
                         <flux:table.cell>
                             <flux:button
-                                type="button"
-                                size="xs"
-                                variant="{{ $shop->status === 'active' ? 'subtle' : 'outline' }}"
-                                wire:click="toggleStatus({{ $shop->id }})"
+                                href="{{ route('setup.shops.edit', $shop) }}"
+                                variant="primary"
                             >
-                                {{ $shop->status === 'active' ? __('shop.btn_deactivate') : __('shop.btn_activate') }}
+                                {{ __('setup.btn_edit') }}
                             </flux:button>
                         </flux:table.cell>
                     </flux:table.row>
