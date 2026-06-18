@@ -74,6 +74,21 @@ class WarehouseLocationTest extends TestCase
         $this->assertSame(2, WarehouseLocation::where('code', 'A-01')->count());
     }
 
+    public function test_create_rejects_inactive_warehouse(): void
+    {
+        $warehouse = Warehouse::factory()->create(['status' => 'inactive']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(WarehouseLocationCreate::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('code', 'a-01')
+            ->set('type', 'storage')
+            ->call('save')
+            ->assertHasErrors(['warehouse_id']);
+
+        $this->assertSame(0, WarehouseLocation::count());
+    }
+
     public function test_toggle_status_switches_active_to_inactive(): void
     {
         $location = WarehouseLocation::factory()->create(['status' => 'active']);

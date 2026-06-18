@@ -122,6 +122,22 @@
 
                 <div class="top-nav-dropdown" x-show="open" x-cloak>
                     <a
+                        href="{{ route('setup.tenants.index') }}"
+                        class="{{ request()->routeIs('setup.tenants.*') ? 'is-active' : '' }}"
+                        wire:navigate
+                        @click="open = false"
+                    >
+                        {{ __('common.nav_tenants') }}
+                    </a>
+                    <a
+                        href="{{ route('setup.warehouses.index') }}"
+                        class="{{ request()->routeIs('setup.warehouses.*') ? 'is-active' : '' }}"
+                        wire:navigate
+                        @click="open = false"
+                    >
+                        {{ __('common.nav_warehouses') }}
+                    </a>
+                    <a
                         href="{{ route('setup.locations.index') }}"
                         class="{{ request()->routeIs('setup.locations.*') ? 'is-active' : '' }}"
                         wire:navigate
