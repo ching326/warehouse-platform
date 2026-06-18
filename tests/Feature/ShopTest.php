@@ -201,6 +201,29 @@ class ShopTest extends TestCase
         $this->actingAs($user)->get('/setup/shops/create')->assertForbidden();
     }
 
+    public function test_non_internal_user_cannot_call_shop_create_action(): void
+    {
+        $user = $this->tenantUser();
+
+        Livewire::actingAs($user)
+            ->test(ShopCreate::class)
+            ->assertForbidden();
+
+        $this->assertSame(0, Shop::count());
+    }
+
+    public function test_non_internal_user_cannot_call_shop_toggle_action(): void
+    {
+        $shop = Shop::factory()->create(['status' => 'active']);
+        $user = $this->tenantUser();
+
+        Livewire::actingAs($user)
+            ->test(ShopIndex::class)
+            ->assertForbidden();
+
+        $this->assertSame('active', $shop->refresh()->status);
+    }
+
     public function test_shop_routes_render(): void
     {
         Tenant::factory()->create(['status' => 'active']);
