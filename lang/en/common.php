@@ -6,6 +6,7 @@ return [
     'nav_inventory' => 'Inventory',
     'nav_movements' => 'Movements',
     'nav_skus' => 'SKUs',
+    'nav_inbound' => 'Inbound',
     'all_tenants' => 'All tenants',
     'all_warehouses' => 'All warehouses',
     'all_shops' => 'All shops',

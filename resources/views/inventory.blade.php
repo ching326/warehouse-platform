@@ -881,6 +881,17 @@
                 backdrop-filter: blur(8px);
             }
 
+            .form-actions-left {
+                justify-content: flex-start;
+            }
+
+            .receive-line-panel {
+                display: grid;
+                gap: 14px;
+                border-top: 1px solid var(--line);
+                padding-top: 14px;
+            }
+
             .form-error {
                 margin: -4px 0 0;
                 color: var(--danger);
@@ -958,6 +969,9 @@
                     </a>
                     <a href="{{ route('skus.index') }}" class="{{ request()->routeIs('skus.*') ? 'is-active' : '' }}">
                         {{ __('common.nav_skus') }}
+                    </a>
+                    <a href="{{ route('inbound.index') }}" class="{{ request()->routeIs('inbound.*') ? 'is-active' : '' }}">
+                        {{ __('common.nav_inbound') }}
                     </a>
                     <a href="{{ route('stock-adjustments.create') }}" class="{{ request()->routeIs('stock-adjustments.*') ? 'is-active' : '' }}">
                         {{ __('stock_adjustments.page_title') }}
