@@ -1,0 +1,351 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Livewire\OutboundOrderCreate;
+use App\Livewire\OutboundOrderIndex;
+use App\Livewire\OutboundOrderShip;
+use App\Models\InventoryBalance;
+use App\Models\InventoryMovement;
+use App\Models\OutboundOrder;
+use App\Models\OutboundOrderLine;
+use App\Models\Shop;
+use App\Models\Sku;
+use App\Models\SkuBundleComponent;
+use App\Models\StockItem;
+use App\Models\Tenant;
+use App\Models\TenantUser;
+use App\Models\User;
+use App\Models\Warehouse;
+use App\Services\InventoryService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
+use Tests\TestCase;
+
+class OutboundOrderTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_create_single_sku_order_reserves_stock(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(20);
+
+        $this->createOrder($tenant, $warehouse, $sku, qty: 5, ref: 'OB-SINGLE')
+            ->assertRedirect(route('outbound.index'));
+
+        $order = OutboundOrder::where('ref', 'OB-SINGLE')->firstOrFail();
+        $line = $order->lines()->firstOrFail();
+        $balance = $this->balance($tenant, $warehouse, $sku->stockItem);
+        $reserveMovement = InventoryMovement::where('movement_type', InventoryMovement::TYPE_RESERVE)->firstOrFail();
+
+        $this->assertSame(OutboundOrder::STATUS_PENDING, $order->status);
+        $this->assertSame($sku->id, $line->sku_id);
+        $this->assertSame($sku->stock_item_id, $line->stock_item_id);
+        $this->assertSame(5, $line->qty);
+        $this->assertSame(5, $balance->reserved_qty);
+        $this->assertSame(15, $balance->available_qty);
+        $this->assertSame(-5, $reserveMovement->available_delta);
+        $this->assertSame(5, $reserveMovement->reserved_delta);
+    }
+
+    public function test_create_virtual_bundle_order_reserves_components(): void
+    {
+        [$tenant, $warehouse, $bundleSku, $componentA, $componentB] = $this->virtualBundleWithStock();
+
+        $this->createOrder($tenant, $warehouse, $bundleSku, qty: 3, ref: 'OB-BUNDLE')
+            ->assertRedirect(route('outbound.index'));
+
+        $order = OutboundOrder::where('ref', 'OB-BUNDLE')->firstOrFail();
+        $parent = $order->parentLines()->firstOrFail();
+        $children = $parent->childLines()->orderBy('stock_item_id')->get();
+
+        $this->assertNull($parent->stock_item_id);
+        $this->assertSame(3, $parent->qty);
+        $this->assertCount(2, $children);
+        $this->assertSame([$componentA->id, $componentB->id], $children->pluck('stock_item_id')->all());
+        $this->assertSame([3, 6], $children->pluck('qty')->all());
+        $this->assertSame(3, $this->balance($tenant, $warehouse, $componentA)->reserved_qty);
+        $this->assertSame(6, $this->balance($tenant, $warehouse, $componentB)->reserved_qty);
+    }
+
+    public function test_create_fails_for_bundle_with_no_components(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create();
+        $bundleSku = Sku::factory()->virtualBundle()->for($tenant)->create(['shop_id' => null]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('lines.0.sku_id', (string) $bundleSku->id)
+            ->set('lines.0.qty', '1')
+            ->call('save')
+            ->assertHasErrors(['lines.0.sku_id']);
+
+        $this->assertSame(0, OutboundOrder::count());
+    }
+
+    public function test_create_fails_when_insufficient_stock(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(3);
+
+        $this->createOrder($tenant, $warehouse, $sku, qty: 10, ref: 'OB-FAIL')
+            ->assertHasErrors(['lines.0.qty']);
+
+        $this->assertSame(0, OutboundOrder::count());
+        $this->assertSame(0, $this->balance($tenant, $warehouse, $sku->stockItem)->reserved_qty);
+    }
+
+    public function test_create_rejects_duplicate_skus(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(20);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('lines', [
+                ['sku_id' => (string) $sku->id, 'qty' => '1', 'note' => ''],
+                ['sku_id' => (string) $sku->id, 'qty' => '2', 'note' => ''],
+            ])
+            ->call('save')
+            ->assertHasErrors(['lines']);
+    }
+
+    public function test_ship_deducts_reserved_stock(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
+        $this->createOrder($tenant, $warehouse, $sku, qty: 4, ref: 'OB-SHIP');
+        $order = OutboundOrder::where('ref', 'OB-SHIP')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderShip::class, ['order' => $order])
+            ->set('courier', 'Yamato')
+            ->set('trackingNo', 'YM123')
+            ->call('save')
+            ->assertRedirect(route('outbound.index'));
+
+        $order->refresh();
+        $line = $order->leafLines()->firstOrFail();
+        $shipMovement = InventoryMovement::findOrFail($line->inventory_movement_id);
+        $balance = $this->balance($tenant, $warehouse, $sku->stockItem);
+
+        $this->assertSame(OutboundOrder::STATUS_SHIPPED, $order->status);
+        $this->assertNotNull($order->shipped_at);
+        $this->assertSame('Yamato', $order->courier);
+        $this->assertSame('YM123', $order->tracking_no);
+        $this->assertSame(6, $balance->on_hand_qty);
+        $this->assertSame(0, $balance->reserved_qty);
+        $this->assertSame(6, $balance->available_qty);
+        $this->assertSame(InventoryMovement::TYPE_SHIP, $shipMovement->movement_type);
+        $this->assertSame(-4, $shipMovement->on_hand_delta);
+        $this->assertSame(-4, $shipMovement->reserved_delta);
+    }
+
+    public function test_ship_virtual_bundle_deducts_all_components(): void
+    {
+        [$tenant, $warehouse, $bundleSku, $componentA, $componentB] = $this->virtualBundleWithStock();
+        $this->createOrder($tenant, $warehouse, $bundleSku, qty: 2, ref: 'OB-SHIP-BUNDLE');
+        $order = OutboundOrder::where('ref', 'OB-SHIP-BUNDLE')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderShip::class, ['order' => $order])
+            ->call('save')
+            ->assertRedirect(route('outbound.index'));
+
+        $balanceA = $this->balance($tenant, $warehouse, $componentA);
+        $balanceB = $this->balance($tenant, $warehouse, $componentB);
+
+        $this->assertSame(8, $balanceA->on_hand_qty);
+        $this->assertSame(0, $balanceA->reserved_qty);
+        $this->assertSame(8, $balanceA->available_qty);
+        $this->assertSame(16, $balanceB->on_hand_qty);
+        $this->assertSame(0, $balanceB->reserved_qty);
+        $this->assertSame(16, $balanceB->available_qty);
+    }
+
+    public function test_cancel_releases_reserved_stock(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
+        $this->createOrder($tenant, $warehouse, $sku, qty: 4, ref: 'OB-CANCEL');
+        $order = OutboundOrder::where('ref', 'OB-CANCEL')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderIndex::class)
+            ->call('cancel', $order->id);
+
+        $balance = $this->balance($tenant, $warehouse, $sku->stockItem);
+
+        $this->assertSame(OutboundOrder::STATUS_CANCELLED, $order->refresh()->status);
+        $this->assertSame(0, $balance->reserved_qty);
+        $this->assertSame(10, $balance->available_qty);
+    }
+
+    public function test_cancel_is_blocked_for_shipped_order(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
+        $this->createOrder($tenant, $warehouse, $sku, qty: 4, ref: 'OB-NO-CANCEL');
+        $order = OutboundOrder::where('ref', 'OB-NO-CANCEL')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderShip::class, ['order' => $order])
+            ->call('save');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderIndex::class)
+            ->call('cancel', $order->id);
+
+        $this->assertSame(OutboundOrder::STATUS_SHIPPED, $order->refresh()->status);
+    }
+
+    public function test_ship_page_is_blocked_for_non_pending_order(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
+        $this->createOrder($tenant, $warehouse, $sku, qty: 4, ref: 'OB-BLOCKED');
+        $order = OutboundOrder::where('ref', 'OB-BLOCKED')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderIndex::class)
+            ->call('cancel', $order->id);
+
+        $this->actingAs($this->internalUser())
+            ->get(route('outbound.ship', $order->refresh()))
+            ->assertRedirect(route('outbound.index'));
+    }
+
+    public function test_tenant_user_only_sees_own_outbound_orders(): void
+    {
+        [$ownTenant, $user] = $this->tenantUser();
+        [$otherTenant, $warehouse, $otherSku] = $this->skuWithStock(10);
+        $ownStockItem = StockItem::factory()->for($ownTenant)->create();
+        $ownShop = Shop::factory()->for($ownTenant)->create();
+        $ownSku = Sku::factory()->for($ownTenant)->for($ownShop)->for($ownStockItem)->create(['sku' => 'OWN-OUTBOUND-SKU']);
+
+        app(InventoryService::class)->adjustStock($ownTenant->id, $warehouse->id, $ownStockItem->id, 10);
+        $this->createOrder($ownTenant, $warehouse, $ownSku, qty: 1, ref: 'OWN-OUTBOUND', user: $user);
+        $this->createOrder($otherTenant, $warehouse, $otherSku, qty: 1, ref: 'HIDDEN-OUTBOUND');
+
+        Livewire::actingAs($user)
+            ->test(OutboundOrderIndex::class)
+            ->assertSee('OWN-OUTBOUND')
+            ->assertDontSee('HIDDEN-OUTBOUND');
+    }
+
+    public function test_outbound_routes_render(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
+        $this->createOrder($tenant, $warehouse, $sku, qty: 1, ref: 'OB-ROUTE');
+        $order = OutboundOrder::where('ref', 'OB-ROUTE')->firstOrFail();
+
+        $this->actingAs($this->internalUser())->get('/outbound')->assertOk()->assertSee('Outbound Orders');
+        $this->actingAs($this->internalUser())->get('/outbound/create')->assertOk()->assertSee('Create Outbound Order');
+        $this->actingAs($this->internalUser())->get(route('outbound.ship', $order))->assertOk()->assertSee('Ship Order');
+    }
+
+    /**
+     * @return array{0: Tenant, 1: Warehouse, 2: Sku}
+     */
+    private function skuWithStock(int $onHand): array
+    {
+        $tenant = Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $shop = Shop::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create([
+            'sku_type' => 'single',
+            'sku' => 'SKU-'.fake()->unique()->numberBetween(1000, 9999),
+        ]);
+
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $stockItem->id, $onHand);
+
+        return [$tenant, $warehouse, $sku];
+    }
+
+    /**
+     * @return array{0: Tenant, 1: Warehouse, 2: Sku, 3: StockItem, 4: StockItem}
+     */
+    private function virtualBundleWithStock(): array
+    {
+        $tenant = Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create();
+        $bundleSku = Sku::factory()->virtualBundle()->for($tenant)->for($shop)->create([
+            'sku' => 'BUNDLE-'.fake()->unique()->numberBetween(1000, 9999),
+        ]);
+        $componentA = StockItem::factory()->for($tenant)->create(['code' => 'CMP-A-'.fake()->unique()->numberBetween(1000, 9999)]);
+        $componentB = StockItem::factory()->for($tenant)->create(['code' => 'CMP-B-'.fake()->unique()->numberBetween(1000, 9999)]);
+
+        SkuBundleComponent::factory()->create([
+            'tenant_id' => $tenant->id,
+            'bundle_sku_id' => $bundleSku->id,
+            'component_stock_item_id' => $componentA->id,
+            'quantity' => 1,
+        ]);
+        SkuBundleComponent::factory()->create([
+            'tenant_id' => $tenant->id,
+            'bundle_sku_id' => $bundleSku->id,
+            'component_stock_item_id' => $componentB->id,
+            'quantity' => 2,
+        ]);
+
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $componentA->id, 10);
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $componentB->id, 20);
+
+        return [$tenant, $warehouse, $bundleSku, $componentA, $componentB];
+    }
+
+    private function createOrder(
+        Tenant $tenant,
+        Warehouse $warehouse,
+        Sku $sku,
+        int $qty,
+        string $ref,
+        ?User $user = null,
+    ): \Livewire\Features\SupportTesting\Testable {
+        return Livewire::actingAs($user ?? $this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('ref', $ref)
+            ->set('lines.0.sku_id', (string) $sku->id)
+            ->set('lines.0.qty', (string) $qty)
+            ->call('save');
+    }
+
+    private function balance(Tenant $tenant, Warehouse $warehouse, StockItem $stockItem): InventoryBalance
+    {
+        return InventoryBalance::where('tenant_id', $tenant->id)
+            ->where('warehouse_id', $warehouse->id)
+            ->where('stock_item_id', $stockItem->id)
+            ->firstOrFail();
+    }
+
+    private function internalUser(): User
+    {
+        return User::factory()->create([
+            'user_type' => 'internal',
+            'is_active' => true,
+        ]);
+    }
+
+    /**
+     * @return array{0: Tenant, 1: User}
+     */
+    private function tenantUser(): array
+    {
+        $tenant = Tenant::factory()->create();
+        $user = User::factory()->create([
+            'user_type' => 'tenant',
+            'is_active' => true,
+        ]);
+
+        TenantUser::factory()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'status' => 'active',
+        ]);
+
+        return [$tenant, $user];
+    }
+}

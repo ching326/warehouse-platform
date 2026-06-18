@@ -9,6 +9,7 @@ return [
     'nav_stock_adjustment' => 'Stock Adjustment',
     'nav_skus' => 'SKUs',
     'nav_inbound' => 'Inbound',
+    'nav_outbound' => 'Outbound',
     'all_tenants' => 'All tenants',
     'all_warehouses' => 'All warehouses',
     'all_shops' => 'All shops',

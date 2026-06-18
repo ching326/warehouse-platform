@@ -2,6 +2,7 @@
     $inventoryActive = request()->routeIs('inventory.*', 'stock-adjustments.*');
     $skusActive      = request()->routeIs('skus.*');
     $inboundActive   = request()->routeIs('inbound.*');
+    $outboundActive  = request()->routeIs('outbound.*');
 @endphp
 
 <nav class="top-nav" aria-label="{{ __('common.app_eyebrow') }}">
@@ -81,6 +82,15 @@
                 wire:navigate
             >
                 {{ __('common.nav_inbound') }}
+            </a>
+
+            {{-- Outbound --}}
+            <a
+                href="{{ route('outbound.index') }}"
+                class="top-nav-btn {{ $outboundActive ? 'is-active' : '' }}"
+                wire:navigate
+            >
+                {{ __('common.nav_outbound') }}
             </a>
         </div>
 
