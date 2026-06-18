@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\HasEnumLabels;
 use App\Models\InventoryMovement;
 use App\Models\StockItem;
 use App\Models\Tenant;
@@ -10,13 +11,13 @@ use App\Models\Warehouse;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Lang;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 
 class InventoryMovementsIndex extends Component
 {
+    use HasEnumLabels;
     use WithPagination;
 
     public string $search = '';
@@ -305,15 +306,6 @@ class InventoryMovementsIndex extends Component
     private function applyTenantScope(Builder $query): Builder
     {
         return $query->when($this->visibleTenantIds() !== null, fn ($query) => $query->whereIn('tenant_id', $this->visibleTenantIds()));
-    }
-
-    private function enumLabel(string $group, string $value): string
-    {
-        $key = 'common.'.$group.'.'.$value;
-
-        return Lang::has($key)
-            ? __($key)
-            : str($value)->replace('_', ' ')->title()->toString();
     }
 
     private function visibleTenantIds(): ?array

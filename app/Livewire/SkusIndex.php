@@ -2,18 +2,19 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\HasEnumLabels;
 use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Lang;
 use Livewire\Component;
 use Livewire\WithPagination;
 
 class SkusIndex extends Component
 {
+    use HasEnumLabels;
     use WithPagination;
 
     public string $search = '';
@@ -209,15 +210,6 @@ class SkusIndex extends Component
         $user = Auth::user();
 
         return ! $user || $user->user_type === 'internal';
-    }
-
-    private function enumLabel(string $group, string $value): string
-    {
-        $key = 'common.'.$group.'.'.$value;
-
-        return Lang::has($key)
-            ? __($key)
-            : str($value)->replace('_', ' ')->title()->toString();
     }
 
     private function visibleTenantIds(): ?array
