@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\PackagingMaterial;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -19,6 +20,13 @@ class PackagingMaterialIndex extends Component
 
     #[Url(as: 'type', except: '')]
     public string $typeFilter = '';
+
+    public function mount(): void
+    {
+        if (! $this->isInternalUser()) {
+            abort(403);
+        }
+    }
 
     public function updatedSearch(): void { $this->resetPage(); }
     public function updatedStatusFilter(): void { $this->resetPage(); }
@@ -78,6 +86,14 @@ class PackagingMaterialIndex extends Component
         return __('setup.packaging_types.'.$type, [], 'en') !== 'setup.packaging_types.'.$type
             ? __('setup.packaging_types.'.$type)
             : str($type)->replace('_', ' ')->title()->toString();
+    }
+
+    // TODO: remove unauthenticated fallback when auth is implemented
+    private function isInternalUser(): bool
+    {
+        $user = Auth::user();
+
+        return ! $user || $user->user_type === 'internal';
     }
 
     private function typeOptions(): array

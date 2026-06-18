@@ -46,7 +46,7 @@ class WarehouseLocationEdit extends Component
             'status'       => $this->status,
             'note'         => $this->note,
         ], [
-            'warehouse_id' => ['required', 'integer', Rule::exists('warehouses', 'id')],
+            'warehouse_id' => ['required', 'integer', Rule::exists('warehouses', 'id')->where('status', 'active')],
             'code'         => [
                 'required',
                 'string',

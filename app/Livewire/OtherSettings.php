@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\ProductType;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 class OtherSettings extends Component
@@ -11,6 +12,10 @@ class OtherSettings extends Component
 
     public function mount(): void
     {
+        if (! $this->isInternalUser()) {
+            abort(403);
+        }
+
         $this->loadTypes();
     }
 
@@ -70,6 +75,14 @@ class OtherSettings extends Component
 
         $this->loadTypes();
         session()->flash('saved', true);
+    }
+
+    // TODO: remove unauthenticated fallback when auth is implemented
+    private function isInternalUser(): bool
+    {
+        $user = Auth::user();
+
+        return ! $user || $user->user_type === 'internal';
     }
 
     private function loadTypes(): void

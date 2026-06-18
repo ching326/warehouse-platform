@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\PackagingMaterial;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
 
@@ -26,6 +27,10 @@ class PackagingMaterialEdit extends Component
 
     public function mount(PackagingMaterial $packaging): void
     {
+        if (! $this->isInternalUser()) {
+            abort(403);
+        }
+
         $this->packaging   = $packaging;
         $this->code        = $packaging->code;
         $this->name        = $packaging->name;
@@ -81,6 +86,14 @@ class PackagingMaterialEdit extends Component
         session()->flash('status', __('setup.packaging_updated'));
 
         return redirect()->route('setup.packagings.index');
+    }
+
+    // TODO: remove unauthenticated fallback when auth is implemented
+    private function isInternalUser(): bool
+    {
+        $user = Auth::user();
+
+        return ! $user || $user->user_type === 'internal';
     }
 
     public function render()

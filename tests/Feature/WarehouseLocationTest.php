@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\WarehouseLocationCreate;
+use App\Livewire\WarehouseLocationEdit;
 use App\Livewire\WarehouseLocationIndex;
 use App\Models\Tenant;
 use App\Models\TenantUser;
@@ -185,6 +186,94 @@ class WarehouseLocationTest extends TestCase
             ->set('search', 'Beta')
             ->assertSee('BETA-02')
             ->assertDontSee('ALPHA-01');
+    }
+
+    // --- WarehouseLocationEdit tests ---
+
+    public function test_edit_location_succeeds(): void
+    {
+        $warehouse = Warehouse::factory()->create(['status' => 'active']);
+        $location = WarehouseLocation::factory()->for($warehouse)->create([
+            'code' => 'EDIT-01',
+            'type' => 'storage',
+            'status' => 'active',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(WarehouseLocationEdit::class, ['location' => $location])
+            ->set('name', 'Updated Name')
+            ->set('status', 'inactive')
+            ->call('save')
+            ->assertRedirect(route('setup.locations.index'));
+
+        $this->assertDatabaseHas('warehouse_locations', [
+            'id'     => $location->id,
+            'name'   => 'Updated Name',
+            'status' => 'inactive',
+        ]);
+    }
+
+    public function test_edit_location_rejects_inactive_warehouse(): void
+    {
+        $activeWarehouse = Warehouse::factory()->create(['status' => 'active']);
+        $inactiveWarehouse = Warehouse::factory()->create(['status' => 'inactive']);
+        $location = WarehouseLocation::factory()->for($activeWarehouse)->create([
+            'code' => 'EDIT-02',
+            'type' => 'storage',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(WarehouseLocationEdit::class, ['location' => $location])
+            ->set('warehouseId', (string) $inactiveWarehouse->id)
+            ->call('save')
+            ->assertHasErrors(['warehouse_id']);
+
+        $this->assertSame($activeWarehouse->id, $location->refresh()->warehouse_id);
+    }
+
+    public function test_edit_location_rejects_duplicate_code_in_same_warehouse(): void
+    {
+        $warehouse = Warehouse::factory()->create(['status' => 'active']);
+        WarehouseLocation::factory()->for($warehouse)->create(['code' => 'TAKEN-01']);
+        $location = WarehouseLocation::factory()->for($warehouse)->create(['code' => 'MINE-01', 'type' => 'storage']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(WarehouseLocationEdit::class, ['location' => $location])
+            ->set('code', 'taken-01')
+            ->call('save')
+            ->assertHasErrors(['code']);
+    }
+
+    public function test_edit_location_allows_keeping_own_code(): void
+    {
+        $warehouse = Warehouse::factory()->create(['status' => 'active']);
+        $location = WarehouseLocation::factory()->for($warehouse)->create(['code' => 'KEEP-01', 'type' => 'storage']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(WarehouseLocationEdit::class, ['location' => $location])
+            ->set('code', 'keep-01')
+            ->call('save')
+            ->assertRedirect(route('setup.locations.index'));
+    }
+
+    public function test_non_internal_user_cannot_access_location_edit(): void
+    {
+        $location = WarehouseLocation::factory()->create();
+
+        $this->actingAs($this->tenantUser())
+            ->get("/setup/locations/{$location->id}/edit")
+            ->assertForbidden();
+    }
+
+    public function test_tenant_user_cannot_edit_location_via_livewire(): void
+    {
+        $location = WarehouseLocation::factory()->create(['status' => 'active']);
+
+        Livewire::actingAs($this->tenantUser())
+            ->test(WarehouseLocationEdit::class, ['location' => $location])
+            ->assertForbidden();
+
+        $this->assertSame('active', $location->refresh()->status);
     }
 
     private function internalUser(): User
