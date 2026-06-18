@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'app_eyebrow' => 'Warehouse Platform',
+    'app_eyebrow' => 'KuraLinks',
     'locale_switcher' => 'Locale switcher',
     'nav_inventory' => 'Inventory',
     'nav_inventory_overview' => 'Overview',
@@ -14,6 +14,8 @@ return [
     'nav_locations' => 'Locations',
     'nav_tenants' => 'Tenants',
     'nav_warehouses' => 'Warehouses',
+    'nav_packagings' => 'Packagings',
+    'nav_other_settings' => 'Other Settings',
     'all_tenants' => 'All tenants',
     'all_warehouses' => 'All warehouses',
     'all_shops' => 'All shops',
@@ -56,11 +58,6 @@ return [
     // Note: 'expiry_tracked' is currently used as a product_type value in the UI
     // even though requires_expiry_tracking also exists as a boolean flag on stock_items.
     // This is a known design inconsistency to be addressed in a future refactor.
-    'product_types' => [
-        'normal' => 'Normal',
-        'dangerous_goods' => 'Dangerous goods',
-        'expiry_tracked' => 'Expiry tracked',
-    ],
     'barcode_types' => [
         'unknown' => 'Unknown',
         'jan' => 'JAN',

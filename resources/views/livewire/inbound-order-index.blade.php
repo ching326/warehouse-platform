@@ -68,7 +68,7 @@
                                 <flux:button
                                     type="button"
                                     size="xs"
-                                    variant="outline"
+                                    variant="primary"
                                     wire:click="markArrived({{ $order->id }})"
                                     wire:confirm="{{ __('inbound.confirm_arrive') }}"
                                 >
@@ -77,14 +77,14 @@
                                 <flux:button
                                     type="button"
                                     size="xs"
-                                    variant="subtle"
+                                    variant="danger"
                                     wire:click="cancel({{ $order->id }})"
                                     wire:confirm="{{ __('inbound.confirm_cancel') }}"
                                 >
                                     {{ __('inbound.btn_cancel_order') }}
                                 </flux:button>
                             @elseif (in_array($order->status, ['arrived', 'partially_received'], true))
-                                <flux:button href="{{ route('inbound.receive', $order) }}" size="xs" variant="outline">
+                                <flux:button href="{{ route('inbound.receive', $order) }}" variant="primary">
                                     {{ __('inbound.btn_receive') }}
                                 </flux:button>
                             @else

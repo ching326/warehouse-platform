@@ -1,10 +1,10 @@
-<div class="warehouse-location-create-page">
+<div class="warehouse-location-edit-page">
     <form wire:submit="save" class="sku-form">
         <section class="table-shell flux-panel form-panel">
             <div class="form-panel-header">
                 <div>
-                    <strong>{{ __('locations.create_page_title') }}</strong>
-                    <span>{{ __('locations.create_page_subtitle') }}</span>
+                    <strong>{{ __('locations.edit_page_title') }}</strong>
+                    <span>{{ $location->warehouse->code }} / {{ $location->code }}</span>
                 </div>
                 <flux:button href="{{ route('setup.locations.index') }}" variant="outline">{{ __('locations.btn_back') }}</flux:button>
             </div>
@@ -23,11 +23,17 @@
                 </div>
             </div>
 
-            <div class="form-grid">
+            <div class="form-grid three">
                 <flux:input wire:model="name" :label="__('locations.field_name')" />
 
                 <flux:select wire:model="type" :label="__('locations.field_type')">
                     @foreach ($types as $value => $label)
+                        <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+
+                <flux:select wire:model="status" :label="__('locations.field_status')">
+                    @foreach ($statuses as $value => $label)
                         <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
                     @endforeach
                 </flux:select>
@@ -38,14 +44,14 @@
                 <textarea wire:model="note" rows="4"></textarea>
             </label>
 
-            @foreach (['warehouse_id', 'code', 'name', 'type', 'note'] as $field)
+            @foreach (['warehouse_id', 'code', 'name', 'type', 'status', 'note'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
         </section>
 
         <div class="form-actions">
             <flux:button href="{{ route('setup.locations.index') }}" variant="outline">{{ __('locations.btn_cancel') }}</flux:button>
-            <flux:button type="submit" variant="primary">{{ __('locations.btn_submit') }}</flux:button>
+            <flux:button type="submit" variant="primary">{{ __('setup.btn_save') }}</flux:button>
         </div>
     </form>
 </div>

@@ -72,12 +72,10 @@
                         </flux:table.cell>
                         <flux:table.cell>
                             <flux:button
-                                type="button"
-                                size="xs"
-                                variant="{{ $location->status === 'active' ? 'subtle' : 'outline' }}"
-                                wire:click="toggleStatus({{ $location->id }})"
+                                href="{{ route('setup.locations.edit', $location) }}"
+                                variant="primary"
                             >
-                                {{ $location->status === 'active' ? __('locations.btn_deactivate') : __('locations.btn_activate') }}
+                                {{ __('setup.btn_edit') }}
                             </flux:button>
                         </flux:table.cell>
                     </flux:table.row>

@@ -145,6 +145,22 @@
                     >
                         {{ __('common.nav_locations') }}
                     </a>
+                    <a
+                        href="{{ route('setup.packagings.index') }}"
+                        class="{{ request()->routeIs('setup.packagings.*') ? 'is-active' : '' }}"
+                        wire:navigate
+                        @click="open = false"
+                    >
+                        {{ __('common.nav_packagings') }}
+                    </a>
+                    <a
+                        href="{{ route('setup.other-settings') }}"
+                        class="{{ request()->routeIs('setup.other-settings') ? 'is-active' : '' }}"
+                        wire:navigate
+                        @click="open = false"
+                    >
+                        {{ __('common.nav_other_settings') }}
+                    </a>
                 </div>
             </div>
         </div>

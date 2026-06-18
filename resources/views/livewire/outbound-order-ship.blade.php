@@ -11,7 +11,7 @@
                 <div>
                     <strong>{{ __('outbound.section_order_summary') }}</strong>
                 </div>
-                <flux:button href="{{ route('outbound.index') }}" variant="subtle" wire:navigate>{{ __('outbound.btn_back') }}</flux:button>
+                <flux:button href="{{ route('outbound.index') }}" variant="outline" wire:navigate>{{ __('outbound.btn_back') }}</flux:button>
             </div>
 
             <div class="balance-preview-grid">
@@ -80,7 +80,7 @@
         </section>
 
         <div class="form-actions">
-            <flux:button href="{{ route('outbound.index') }}" variant="subtle" wire:navigate>{{ __('outbound.btn_cancel') }}</flux:button>
+            <flux:button href="{{ route('outbound.index') }}" variant="outline" wire:navigate>{{ __('outbound.btn_cancel') }}</flux:button>
             <flux:button type="submit" variant="primary">{{ __('outbound.btn_submit_ship') }}</flux:button>
         </div>
     </form>

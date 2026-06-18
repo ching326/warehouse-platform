@@ -10,7 +10,7 @@
 
             <div class="form-grid">
                 @if ($showTenantSelect)
-                    <flux:select wire:model.live="tenantId" :label="__('stock_adjustments.field_tenant')">
+                    <flux:select wire:model.live="tenantId" required :label="__('stock_adjustments.field_tenant')">
                         <flux:select.option value="">{{ __('skus.select_tenant') }}</flux:select.option>
                         @foreach ($tenants as $tenant)
                             <flux:select.option value="{{ $tenant->id }}">{{ $tenant->code }} - {{ $tenant->name }}</flux:select.option>
@@ -23,7 +23,7 @@
                     </label>
                 @endif
 
-                <flux:select wire:model.live="warehouseId" :label="__('stock_adjustments.field_warehouse')">
+                <flux:select wire:model.live="warehouseId" required :label="__('stock_adjustments.field_warehouse')">
                     <flux:select.option value="">{{ __('stock_adjustments.select_warehouse') }}</flux:select.option>
                     @foreach ($warehouses as $warehouse)
                         <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} - {{ $warehouse->name }}</flux:select.option>
@@ -42,7 +42,7 @@
                     :placeholder="__('stock_adjustments.search_stock_items_placeholder')"
                 />
 
-                <flux:select wire:model.live="stockItemId" :label="__('stock_adjustments.field_stock_item')">
+                <flux:select wire:model.live="stockItemId" required :label="__('stock_adjustments.field_stock_item')">
                     <flux:select.option value="">{{ __('skus.no_stock_item') }}</flux:select.option>
                     @foreach ($stockItems as $item)
                         <flux:select.option value="{{ $item->id }}">{{ $item->code }} - {{ $item->name }}</flux:select.option>
@@ -67,6 +67,7 @@
                         type="number"
                         wire:model="quantity"
                         step="1"
+                        required
                         :label="__('stock_adjustments.field_quantity')"
                     />
                     <span class="subtle">{{ __('stock_adjustments.field_quantity_hint') }}</span>
@@ -126,7 +127,7 @@
         </section>
 
         <div class="form-actions">
-            <flux:button href="{{ route('inventory.index') }}" variant="subtle">{{ __('stock_adjustments.btn_cancel') }}</flux:button>
+            <flux:button href="{{ route('inventory.index') }}" variant="outline">{{ __('stock_adjustments.btn_cancel') }}</flux:button>
             <flux:button type="submit" variant="primary">{{ __('stock_adjustments.btn_submit') }}</flux:button>
         </div>
     </form>

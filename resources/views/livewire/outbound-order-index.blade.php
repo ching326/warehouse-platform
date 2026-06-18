@@ -79,7 +79,7 @@
                                 <flux:button
                                     type="button"
                                     size="xs"
-                                    variant="subtle"
+                                    variant="danger"
                                     wire:click="cancel({{ $order->id }})"
                                     wire:confirm="{{ __('outbound.confirm_cancel') }}"
                                 >

@@ -51,8 +51,8 @@
 
             <flux:select wire:model.live="productType" :label="__('skus.field_product_type')">
                 <flux:select.option value="">{{ __('skus.all_product_types') }}</flux:select.option>
-                @foreach ($productTypes as $option)
-                    <flux:select.option value="{{ $option }}">{{ $this->productTypeLabel($option) }}</flux:select.option>
+                @foreach ($productTypes as $type)
+                    <flux:select.option value="{{ $type->slug }}">{{ $type->name }}</flux:select.option>
                 @endforeach
             </flux:select>
         </div>
@@ -64,7 +64,6 @@
                 <flux:table.column>{{ __('skus.col_shop') }}</flux:table.column>
                 <flux:table.column>{{ __('skus.col_platform_ids') }}</flux:table.column>
                 <flux:table.column>{{ __('skus.col_packaging') }}</flux:table.column>
-                <flux:table.column>{{ __('skus.col_status') }}</flux:table.column>
                 <flux:table.column>{{ __('skus.col_actions') }}</flux:table.column>
             </flux:table.columns>
 
@@ -110,9 +109,6 @@
                             @else
                                 <span class="muted-dash">-</span>
                             @endif
-                        </flux:table.cell>
-                        <flux:table.cell>
-                            <flux:badge color="{{ $sku->status === 'active' ? 'green' : 'zinc' }}">{{ $this->statusLabel($sku->status) }}</flux:badge>
                         </flux:table.cell>
                         <flux:table.cell>
                             <span class="muted-dash">{{ __('skus.read_only') }}</span>

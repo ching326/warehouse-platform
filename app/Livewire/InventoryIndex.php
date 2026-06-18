@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Livewire\Concerns\HasEnumLabels;
 use App\Models\InventoryBalance;
+use App\Models\ProductType;
 use App\Models\Shop;
 use App\Models\Tenant;
 use App\Models\Warehouse;
@@ -114,7 +115,13 @@ class InventoryIndex extends Component
 
     public function productTypeLabel(string $type): string
     {
-        return $this->enumLabel('product_types', $type);
+        static $map = null;
+        $locale = app()->getLocale();
+        $map ??= ProductType::all()->mapWithKeys(
+            fn($t) => [$t->slug => $t->translations[$locale] ?? $t->name]
+        )->all();
+
+        return $map[$type] ?? $type;
     }
 
     public function statusLabel(string $status): string
@@ -241,13 +248,7 @@ class InventoryIndex extends Component
 
     private function productTypeOptions(): Collection
     {
-        return InventoryBalance::query()
-            ->join('stock_items', 'stock_items.id', '=', 'inventory_balances.stock_item_id')
-            ->when($this->visibleTenantIds() !== null, fn ($query) => $query->whereIn('inventory_balances.tenant_id', $this->visibleTenantIds()))
-            ->select('stock_items.product_type')
-            ->distinct()
-            ->orderBy('stock_items.product_type')
-            ->pluck('stock_items.product_type');
+        return ProductType::orderBy('sort_order')->orderBy('name')->get(['slug', 'name']);
     }
 
     private function statusOptions(): Collection

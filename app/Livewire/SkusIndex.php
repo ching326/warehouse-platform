@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Livewire\Concerns\HasEnumLabels;
+use App\Models\ProductType;
 use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\Tenant;
@@ -119,7 +120,13 @@ class SkusIndex extends Component
 
     public function productTypeLabel(string $type): string
     {
-        return $this->enumLabel('product_types', $type);
+        static $map = null;
+        $locale = app()->getLocale();
+        $map ??= ProductType::all()->mapWithKeys(
+            fn($t) => [$t->slug => $t->translations[$locale] ?? $t->name]
+        )->all();
+
+        return $map[$type] ?? $type;
     }
 
     public function statusLabel(string $status): string
@@ -196,13 +203,7 @@ class SkusIndex extends Component
 
     private function productTypeOptions(): Collection
     {
-        return Sku::query()
-            ->when($this->visibleTenantIds() !== null, fn ($query) => $query->whereIn('skus.tenant_id', $this->visibleTenantIds()))
-            ->join('stock_items', 'stock_items.id', '=', 'skus.stock_item_id')
-            ->select('stock_items.product_type')
-            ->distinct()
-            ->orderBy('stock_items.product_type')
-            ->pluck('stock_items.product_type');
+        return ProductType::orderBy('sort_order')->orderBy('name')->get(['slug', 'name']);
     }
 
     private function isInternalUser(): bool

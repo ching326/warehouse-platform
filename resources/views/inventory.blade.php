@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>{{ $title ?? 'Inventory' }} - {{ config('app.name', 'Warehouse Platform') }}</title>
+        <title>{{ $title ?? 'Inventory' }} - {{ config('app.name', 'KuraLinks') }}</title>
         @fonts
         @vite(['resources/css/app.css', 'resources/js/app.js'])
         @livewireStyles
@@ -56,6 +56,38 @@
                 margin-bottom: 12px;
             }
 
+            .section-nav {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                flex-shrink: 0;
+            }
+
+            .section-nav-link {
+                display: inline-flex;
+                align-items: center;
+                padding: 6px 14px;
+                border-radius: 6px;
+                border: 1px solid transparent;
+                font-size: 13px;
+                font-weight: 600;
+                color: var(--muted);
+                text-decoration: none;
+                transition: color 0.1s, background 0.1s, border-color 0.1s;
+            }
+
+            .section-nav-link:hover {
+                color: var(--ink);
+                background: var(--surface);
+                border-color: var(--line);
+            }
+
+            .section-nav-link.is-active {
+                color: var(--color-teal-700);
+                background: color-mix(in oklab, var(--color-teal-600), transparent 90%);
+                border-color: color-mix(in oklab, var(--color-teal-600), transparent 70%);
+            }
+
             [x-cloak] {
                 display: none !important;
             }
@@ -81,7 +113,7 @@
             .top-nav-brand {
                 margin-right: 12px;
                 color: var(--accent);
-                font-size: 14px;
+                font-size: 16px;
                 font-weight: 800;
                 letter-spacing: -0.01em;
                 text-decoration: none;
@@ -94,38 +126,43 @@
 
             .top-nav-items {
                 display: flex;
-                align-items: center;
+                align-items: stretch;
                 gap: 2px;
                 flex: 1;
             }
 
             .top-nav-item {
                 position: relative;
+                display: flex;
+                align-items: stretch;
             }
 
             .top-nav-btn {
                 display: inline-flex;
                 align-items: center;
                 gap: 4px;
-                min-height: 32px;
                 border: none;
-                border-radius: 6px;
+                border-bottom: 2px solid transparent;
+                border-radius: 0;
                 background: transparent;
                 color: var(--muted);
                 cursor: pointer;
                 font: inherit;
-                font-size: 13px;
+                font-size: 15px;
                 font-weight: 700;
                 padding: 0 10px;
                 text-decoration: none;
                 white-space: nowrap;
-                transition: background 0.1s, color 0.1s;
+                transition: color 0.1s, border-color 0.1s;
             }
 
-            .top-nav-btn:hover,
+            .top-nav-btn:hover {
+                color: var(--ink);
+            }
+
             .top-nav-btn.is-active {
-                background: var(--accent-soft);
                 color: var(--accent);
+                border-bottom-color: var(--accent);
             }
 
             .top-nav-chevron {
@@ -879,6 +916,10 @@
                 grid-template-columns: repeat(3, minmax(0, 1fr));
             }
 
+            .form-grid.four {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+
             .form-grid.two-one {
                 grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(220px, 0.75fr);
             }
@@ -919,13 +960,16 @@
                 display: inline-flex;
                 align-items: center;
                 gap: 8px;
-                border: 1px solid var(--line);
                 border-radius: 6px;
                 background: #fff;
                 min-height: 38px;
                 padding: 8px 10px;
                 font-size: 13px;
                 font-weight: 700;
+            }
+
+            .segmented-row label {
+                border: 1px solid var(--line);
             }
 
             .segmented-row label {
@@ -958,19 +1002,100 @@
             }
 
             .form-actions {
-                position: sticky;
-                bottom: 0;
-                z-index: 5;
                 margin-top: 2px;
-                border: 1px solid var(--line);
-                border-radius: 8px;
-                background: rgb(244 247 251 / 92%);
-                padding: 12px 16px;
-                backdrop-filter: blur(8px);
+                padding: 4px 0;
             }
 
             .form-actions-left {
                 justify-content: flex-start;
+            }
+
+            .line-row {
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr auto;
+                gap: 12px;
+                align-items: end;
+                margin-top: 12px;
+            }
+
+            .remove-line-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 36px;
+                height: 40px;
+                border: 1px solid #fca5a5;
+                border-radius: 6px;
+                background: #fff;
+                color: #ef4444;
+                cursor: pointer;
+                flex-shrink: 0;
+                transition: background 0.1s, border-color 0.1s;
+            }
+
+            .remove-line-btn:hover {
+                background: #fef2f2;
+                border-color: #ef4444;
+            }
+
+            .remove-line-btn svg {
+                width: 14px;
+                height: 14px;
+                flex-shrink: 0;
+            }
+
+            .remove-line-btn.invisible {
+                visibility: hidden;
+            }
+
+            [data-flux-button].bg-white {
+                border-color: var(--color-teal-600);
+                color: var(--color-teal-600);
+            }
+
+            [data-flux-button].bg-white:hover {
+                background-color: color-mix(in oklab, var(--color-teal-600), transparent 93%);
+            }
+
+            [data-flux-field]:has([data-flux-control][required]) [data-flux-label]::after {
+                content: ' *';
+                color: #ef4444;
+                font-weight: 700;
+            }
+
+            .type-grid { display: flex; flex-direction: column; gap: 6px; }
+            .type-grid-header, .type-grid-row {
+                display: grid;
+                grid-template-columns: 72px 160px 1fr 1fr 1fr 1fr 40px;
+                gap: 8px;
+                align-items: center;
+            }
+            .type-grid-header {
+                font-size: 11px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                color: var(--muted);
+                padding: 0 0 4px;
+                border-bottom: 1px solid var(--line);
+            }
+            .type-slug-cell {
+                display: flex;
+                align-items: center;
+                height: 40px;
+                padding: 0 12px;
+                background: var(--surface);
+                border: 1px solid var(--line);
+                border-radius: 6px;
+                font-size: 13px;
+            }
+            .type-slug-cell code {
+                font-family: ui-monospace, monospace;
+                font-size: 12px;
+                color: var(--muted);
+            }
+            .type-grid-error {
+                grid-column: 1 / -1;
             }
 
             .receive-line-panel {
@@ -1029,11 +1154,41 @@
         <x-layout.navigation />
 
         <main class="page">
+            @php
+            $sectionNavLinks = match(true) {
+                request()->routeIs('inventory.*', 'stock-adjustments.*') => [
+                    ['label' => __('common.nav_inventory_overview'), 'href' => route('inventory.index'),           'active' => request()->routeIs('inventory.index')],
+                    ['label' => __('common.nav_movements'),          'href' => route('inventory.movements.index'), 'active' => request()->routeIs('inventory.movements.index')],
+                    ['label' => __('common.nav_stock_adjustment'),   'href' => route('stock-adjustments.create'),  'active' => request()->routeIs('stock-adjustments.*')],
+                ],
+                request()->routeIs('setup.*') => [
+                    ['label' => __('common.nav_tenants'),        'href' => route('setup.tenants.index'),    'active' => request()->routeIs('setup.tenants.*')],
+                    ['label' => __('common.nav_warehouses'),     'href' => route('setup.warehouses.index'), 'active' => request()->routeIs('setup.warehouses.*')],
+                    ['label' => __('common.nav_locations'),      'href' => route('setup.locations.index'),   'active' => request()->routeIs('setup.locations.*')],
+                    ['label' => __('common.nav_packagings'),     'href' => route('setup.packagings.index'),  'active' => request()->routeIs('setup.packagings.*')],
+                    ['label' => __('common.nav_other_settings'), 'href' => route('setup.other-settings'),   'active' => request()->routeIs('setup.other-settings')],
+                ],
+                default => [],
+            };
+            @endphp
+
             <header class="page-header">
                 <div>
                     <h1>{{ $title ?? __('inventory.page_title') }}</h1>
                     <p>{{ $subtitle ?? __('inventory.page_subtitle') }}</p>
                 </div>
+
+                @if ($sectionNavLinks)
+                    <nav class="section-nav">
+                        @foreach ($sectionNavLinks as $link)
+                            <a
+                                href="{{ $link['href'] }}"
+                                class="section-nav-link {{ $link['active'] ? 'is-active' : '' }}"
+                                wire:navigate
+                            >{{ $link['label'] }}</a>
+                        @endforeach
+                    </nav>
+                @endif
             </header>
 
             {{ $slot }}

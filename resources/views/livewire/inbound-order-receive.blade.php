@@ -5,7 +5,7 @@
                 <div>
                     <strong>{{ __('inbound.section_order_summary') }}</strong>
                 </div>
-                <flux:button href="{{ route('inbound.index') }}" variant="subtle">{{ __('inbound.btn_back') }}</flux:button>
+                <flux:button href="{{ route('inbound.index') }}" variant="outline">{{ __('inbound.btn_back') }}</flux:button>
             </div>
 
             <div class="balance-preview-grid">
@@ -104,7 +104,7 @@
         </section>
 
         <div class="form-actions">
-            <flux:button href="{{ route('inbound.index') }}" variant="subtle">{{ __('inbound.btn_cancel') }}</flux:button>
+            <flux:button href="{{ route('inbound.index') }}" variant="outline">{{ __('inbound.btn_cancel') }}</flux:button>
             @if ($openLines->isNotEmpty())
                 <flux:button type="submit" variant="primary">{{ __('inbound.btn_submit_receive') }}</flux:button>
             @endif

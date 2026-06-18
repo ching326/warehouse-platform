@@ -1,10 +1,10 @@
-<div class="warehouse-create-page">
+<div class="warehouse-edit-page">
     <form wire:submit="save" class="sku-form">
         <section class="table-shell flux-panel form-panel">
             <div class="form-panel-header">
                 <div>
-                    <strong>{{ __('setup.warehouse_create_page_title') }}</strong>
-                    <span>{{ __('setup.warehouse_create_page_subtitle') }}</span>
+                    <strong>{{ __('setup.warehouse_edit_page_title') }}</strong>
+                    <span>{{ $warehouse->code }}</span>
                 </div>
                 <flux:button href="{{ route('setup.warehouses.index') }}" variant="outline">{{ __('setup.btn_back_warehouses') }}</flux:button>
             </div>
@@ -90,7 +90,7 @@
 
         <div class="form-actions">
             <flux:button href="{{ route('setup.warehouses.index') }}" variant="outline">{{ __('setup.btn_cancel') }}</flux:button>
-            <flux:button type="submit" variant="primary">{{ __('setup.btn_create_warehouse') }}</flux:button>
+            <flux:button type="submit" variant="primary">{{ __('setup.btn_save') }}</flux:button>
         </div>
     </form>
 </div>

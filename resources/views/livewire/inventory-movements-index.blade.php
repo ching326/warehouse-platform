@@ -83,7 +83,7 @@
                     {{ __('movements.stock_item_filter_badge') }}
                     {{ $selectedStockItem ? $selectedStockItem->code.' - '.$selectedStockItem->name : $stockItemId }}
                 </flux:badge>
-                <flux:button size="xs" variant="subtle" wire:click="$set('stockItemId', '')">{{ __('common.remove') }}</flux:button>
+                <flux:button size="xs" variant="outline" wire:click="$set('stockItemId', '')">{{ __('common.remove') }}</flux:button>
             </div>
         @endif
 

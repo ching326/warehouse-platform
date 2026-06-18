@@ -12,12 +12,12 @@
                     <strong>{{ __('outbound.section_order') }}</strong>
                     <span>{{ __('outbound.section_order_hint') }}</span>
                 </div>
-                <flux:button href="{{ route('outbound.index') }}" variant="subtle" wire:navigate>{{ __('outbound.btn_back') }}</flux:button>
+                <flux:button href="{{ route('outbound.index') }}" variant="outline" wire:navigate>{{ __('outbound.btn_back') }}</flux:button>
             </div>
 
-            <div class="form-grid">
+            <div class="form-grid four">
                 @if ($showTenantSelect)
-                    <flux:select wire:model.live="tenantId" :label="__('outbound.field_tenant')">
+                    <flux:select wire:model.live="tenantId" required :label="__('outbound.field_tenant')">
                         <flux:select.option value="">{{ __('outbound.select_tenant') }}</flux:select.option>
                         @foreach ($tenants as $tenant)
                             <flux:select.option value="{{ $tenant->id }}">{{ $tenant->code }} - {{ $tenant->name }}</flux:select.option>
@@ -30,22 +30,24 @@
                     </label>
                 @endif
 
-                <flux:select wire:model.live="warehouseId" :label="__('outbound.field_warehouse')">
+                <flux:select wire:model.live="warehouseId" required :label="__('outbound.field_warehouse')">
                     <flux:select.option value="">{{ __('stock_adjustments.select_warehouse') }}</flux:select.option>
                     @foreach ($warehouses as $warehouse)
                         <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} - {{ $warehouse->name }}</flux:select.option>
                     @endforeach
                 </flux:select>
-            </div>
 
-            <div class="form-grid three form-grid-spaced">
                 <div>
                     <flux:input wire:model="ref" :label="__('outbound.field_ref')" />
                     <span class="subtle">{{ __('outbound.field_ref_hint') }}</span>
                 </div>
+
                 <flux:input wire:model="expectedShipAt" type="date" :label="__('outbound.field_expected_ship_at')" />
+            </div>
+
+            <div class="form-grid form-grid-spaced">
                 <flux:input wire:model="shippingMethod" :label="__('outbound.field_shipping_method')" />
-                <label class="form-grid-wide">
+                <label>
                     <span>{{ __('outbound.field_note') }}</span>
                     <textarea wire:model="note" rows="3"></textarea>
                 </label>
@@ -95,8 +97,8 @@
             />
 
             @foreach ($lines as $index => $line)
-                <div class="form-grid three form-grid-spaced">
-                    <flux:select wire:model="lines.{{ $index }}.sku_id" :label="__('outbound.field_sku')">
+                <div class="line-row">
+                    <flux:select wire:model="lines.{{ $index }}.sku_id" required :label="__('outbound.field_sku')">
                         <flux:select.option value="">{{ __('outbound.select_sku') }}</flux:select.option>
                         @foreach ($skus as $sku)
                             <flux:select.option value="{{ $sku->id }}">
@@ -109,29 +111,25 @@
                             </flux:select.option>
                         @endforeach
                     </flux:select>
-                    <flux:input wire:model="lines.{{ $index }}.qty" type="number" min="1" step="1" :label="__('outbound.field_qty')" />
-                    <div>
-                        <flux:input wire:model="lines.{{ $index }}.note" :label="__('outbound.field_line_note')" />
-                        @if (count($lines) > 1)
-                            <flux:button type="button" size="xs" variant="subtle" wire:click="removeLine({{ $index }})">
-                                {{ __('outbound.btn_remove_line') }}
-                            </flux:button>
-                        @endif
-                    </div>
+                    <flux:input wire:model="lines.{{ $index }}.qty" type="number" min="1" step="1" required :label="__('outbound.field_qty')" />
+                    <flux:input wire:model="lines.{{ $index }}.note" :label="__('outbound.field_line_note')" />
+                    <button type="button" class="remove-line-btn {{ count($lines) <= 1 ? 'invisible' : '' }}" wire:click="removeLine({{ $index }})">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                    </button>
                 </div>
 
                 @error("lines.{$index}.sku_id") <p class="form-error">{{ $message }}</p> @enderror
                 @error("lines.{$index}.qty") <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
 
-            <div class="form-actions form-actions-left">
+            <div>
                 <flux:button type="button" variant="outline" wire:click="addLine">{{ __('outbound.btn_add_line') }}</flux:button>
             </div>
             @error('lines') <p class="form-error">{{ $message }}</p> @enderror
         </section>
 
         <div class="form-actions">
-            <flux:button href="{{ route('outbound.index') }}" variant="subtle" wire:navigate>{{ __('outbound.btn_cancel') }}</flux:button>
+            <flux:button href="{{ route('outbound.index') }}" variant="outline" wire:navigate>{{ __('outbound.btn_cancel') }}</flux:button>
             <flux:button type="submit" variant="primary">{{ __('outbound.btn_submit') }}</flux:button>
         </div>
     </form>

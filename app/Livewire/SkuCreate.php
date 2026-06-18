@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\PackagingMaterial;
+use App\Models\ProductType;
 use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\StockItem;
@@ -145,6 +146,7 @@ class SkuCreate extends Component
             'shops' => $this->shopOptions(),
             'packagingMaterials' => $this->packagingMaterialOptions(),
             'stockItems' => $this->stockItemOptions(),
+            'productTypes' => ProductType::orderBy('sort_order')->orderBy('name')->get(['slug', 'name']),
             'showTenantSelect' => $this->isInternalUser(),
             'currentTenant' => $this->currentTenant(),
         ])->layout('inventory', [
@@ -178,7 +180,7 @@ class SkuCreate extends Component
                 'nullable',
                 Rule::exists('stock_items', 'id')->where('tenant_id', $tenantId),
             ],
-            'stock_item.name' => [Rule::requiredIf(fn () => $this->stockItemMode === 'create' && $this->skuType !== 'virtual_bundle'), 'nullable', 'string', 'max:255'],
+            'stock_item.name' => ['nullable', 'string', 'max:255'],
             'stock_item.weight_value' => ['nullable', 'numeric', 'min:0'],
             'stock_item.length_value' => ['nullable', 'numeric', 'min:0'],
             'stock_item.width_value' => ['nullable', 'numeric', 'min:0'],
@@ -207,7 +209,7 @@ class SkuCreate extends Component
         return [
             'tenant_id' => $tenantId,
             'code' => $this->nextStockItemCode($tenantId),
-            'name' => trim($this->stockItem['name']),
+            'name' => trim($this->stockItem['name']) ?: trim($this->name),
             'short_name' => $this->nullableString($this->stockItem['short_name']),
             'brand' => $this->nullableString($this->stockItem['brand']),
             'model_number' => $this->nullableString($this->stockItem['model_number']),

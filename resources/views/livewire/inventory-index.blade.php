@@ -51,7 +51,7 @@
             <flux:select wire:model.live="productType" :label="__('skus.field_product_type')">
                 <flux:select.option value="">{{ __('common.all_types') }}</flux:select.option>
                 @foreach ($productTypes as $type)
-                    <flux:select.option value="{{ $type }}">{{ $this->productTypeLabel($type) }}</flux:select.option>
+                    <flux:select.option value="{{ $type->slug }}">{{ $type->name }}</flux:select.option>
                 @endforeach
             </flux:select>
 

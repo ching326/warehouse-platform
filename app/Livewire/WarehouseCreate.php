@@ -68,9 +68,10 @@ class WarehouseCreate extends Component
     {
         return view('livewire.warehouse-create', [
             'statuses' => [
-                'active' => __('setup.status_active'),
+                'active'   => __('setup.status_active'),
                 'inactive' => __('setup.status_inactive'),
             ],
+            'timezones' => \DateTimeZone::listIdentifiers(),
         ])->layout('inventory', [
             'title' => __('setup.warehouse_create_page_title'),
             'subtitle' => __('setup.warehouse_create_page_subtitle'),

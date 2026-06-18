@@ -1,10 +1,10 @@
-<div class="tenant-create-page">
+<div class="tenant-edit-page">
     <form wire:submit="save" class="sku-form">
         <section class="table-shell flux-panel form-panel">
             <div class="form-panel-header">
                 <div>
-                    <strong>{{ __('setup.tenant_create_page_title') }}</strong>
-                    <span>{{ __('setup.tenant_create_page_subtitle') }}</span>
+                    <strong>{{ __('setup.tenant_edit_page_title') }}</strong>
+                    <span>{{ $tenant->code }}</span>
                 </div>
                 <flux:button href="{{ route('setup.tenants.index') }}" variant="outline">{{ __('setup.btn_back_tenants') }}</flux:button>
             </div>
@@ -60,7 +60,7 @@
 
         <div class="form-actions">
             <flux:button href="{{ route('setup.tenants.index') }}" variant="outline">{{ __('setup.btn_cancel') }}</flux:button>
-            <flux:button type="submit" variant="primary">{{ __('setup.btn_create_tenant') }}</flux:button>
+            <flux:button type="submit" variant="primary">{{ __('setup.btn_save') }}</flux:button>
         </div>
     </form>
 </div>

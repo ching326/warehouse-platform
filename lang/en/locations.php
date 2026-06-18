@@ -38,6 +38,8 @@ return [
     'col_actions' => 'Actions',
     'empty_state' => 'No locations match the current filters.',
     'location_created' => 'Location created.',
+    'location_updated' => 'Location updated.',
+    'edit_page_title' => 'Edit Location',
     'all_warehouses' => 'All warehouses',
     'all_types' => 'All types',
     'all_statuses' => 'All statuses',
