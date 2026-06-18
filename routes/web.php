@@ -8,6 +8,8 @@ use App\Livewire\InboundOrderReceive;
 use App\Livewire\OutboundOrderCreate;
 use App\Livewire\OutboundOrderIndex;
 use App\Livewire\OutboundOrderShip;
+use App\Livewire\ShopCreate;
+use App\Livewire\ShopIndex;
 use App\Livewire\SkuCreate;
 use App\Livewire\SkusIndex;
 use App\Livewire\StockAdjustmentCreate;
@@ -46,6 +48,8 @@ Route::get('/setup/tenants/{tenant}/edit', TenantEdit::class)->name('setup.tenan
 Route::get('/setup/warehouses', WarehouseIndex::class)->name('setup.warehouses.index');
 Route::get('/setup/warehouses/create', WarehouseCreate::class)->name('setup.warehouses.create');
 Route::get('/setup/warehouses/{warehouse}/edit', WarehouseEdit::class)->name('setup.warehouses.edit');
+Route::get('/setup/shops', ShopIndex::class)->name('setup.shops.index');
+Route::get('/setup/shops/create', ShopCreate::class)->name('setup.shops.create');
 Route::get('/setup/locations', WarehouseLocationIndex::class)->name('setup.locations.index');
 Route::get('/setup/locations/create', WarehouseLocationCreate::class)->name('setup.locations.create');
 Route::get('/setup/locations/{location}/edit', WarehouseLocationEdit::class)->name('setup.locations.edit');

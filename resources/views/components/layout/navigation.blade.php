@@ -138,6 +138,14 @@
                         {{ __('common.nav_warehouses') }}
                     </a>
                     <a
+                        href="{{ route('setup.shops.index') }}"
+                        class="{{ request()->routeIs('setup.shops.*') ? 'is-active' : '' }}"
+                        wire:navigate
+                        @click="open = false"
+                    >
+                        {{ __('common.nav_shops') }}
+                    </a>
+                    <a
                         href="{{ route('setup.locations.index') }}"
                         class="{{ request()->routeIs('setup.locations.*') ? 'is-active' : '' }}"
                         wire:navigate

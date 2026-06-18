@@ -16,6 +16,7 @@ return [
     'nav_locations' => 'Locations',
     'nav_tenants' => 'Tenants',
     'nav_warehouses' => 'Warehouses',
+    'nav_shops' => 'Shops',
     'nav_packagings' => '包裝材料',
     'nav_other_settings' => '其他設定',
     'all_tenants' => 'All tenants',

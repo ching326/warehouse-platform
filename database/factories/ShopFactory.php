@@ -13,8 +13,8 @@ class ShopFactory extends Factory
 {
     public function definition(): array
     {
-        $platform = fake()->randomElement(['amazon', 'rakuten', 'shopify', 'tiktok', 'yahoo', 'other']);
-        $marketplace = fake()->randomElement(['JP', 'US', 'UK', null]);
+        $platform = fake()->randomElement(['amazon', 'rakuten', 'shopify', 'manual']);
+        $marketplace = fake()->randomElement(['amazon_jp', 'amazon_us', '']);
 
         return [
             'tenant_id' => Tenant::factory(),
