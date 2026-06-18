@@ -113,6 +113,32 @@ class OutboundOrderTest extends TestCase
             ->assertHasErrors(['lines']);
     }
 
+    public function test_create_rejects_inactive_warehouse(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create(['status' => 'inactive']);
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $shop = Shop::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create([
+            'sku_type' => 'single',
+            'sku' => 'SKU-INACTIVE-WAREHOUSE',
+        ]);
+
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $stockItem->id, 10);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('ref', 'OB-INACTIVE-WAREHOUSE')
+            ->set('lines.0.sku_id', (string) $sku->id)
+            ->set('lines.0.qty', '1')
+            ->call('save')
+            ->assertHasErrors(['warehouse_id']);
+
+        $this->assertSame(0, OutboundOrder::count());
+    }
+
     public function test_ship_deducts_reserved_stock(): void
     {
         [$tenant, $warehouse, $sku] = $this->skuWithStock(10);

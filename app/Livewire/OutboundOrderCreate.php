@@ -237,7 +237,7 @@ class OutboundOrderCreate extends Component
     {
         validator($this->formData(), [
             'tenant_id' => ['required', 'integer'],
-            'warehouse_id' => ['required', 'integer', Rule::exists('warehouses', 'id')],
+            'warehouse_id' => ['required', 'integer', Rule::exists('warehouses', 'id')->where('status', 'active')],
             'ref' => ['nullable', 'string', 'max:255'],
             'expected_ship_at' => ['nullable', 'date'],
             'note' => ['nullable', 'string', 'max:1000'],
@@ -300,6 +300,7 @@ class OutboundOrderCreate extends Component
     private function warehouseOptions(): Collection
     {
         return Warehouse::query()
+            ->where('status', 'active')
             ->orderBy('name')
             ->get(['id', 'code', 'name']);
     }
