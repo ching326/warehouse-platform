@@ -11,6 +11,8 @@ use App\Livewire\OutboundOrderShip;
 use App\Livewire\SkuCreate;
 use App\Livewire\SkusIndex;
 use App\Livewire\StockAdjustmentCreate;
+use App\Livewire\WarehouseLocationCreate;
+use App\Livewire\WarehouseLocationIndex;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/locale/{locale}', \App\Http\Controllers\LocaleController::class)
@@ -27,4 +29,6 @@ Route::get('/outbound/create', OutboundOrderCreate::class)->name('outbound.creat
 Route::get('/outbound/{order}/ship', OutboundOrderShip::class)->name('outbound.ship');
 Route::get('/skus', SkusIndex::class)->name('skus.index');
 Route::get('/skus/create', SkuCreate::class)->name('skus.create');
+Route::get('/setup/locations', WarehouseLocationIndex::class)->name('setup.locations.index');
+Route::get('/setup/locations/create', WarehouseLocationCreate::class)->name('setup.locations.create');
 Route::get('/stock-adjustments/create', StockAdjustmentCreate::class)->name('stock-adjustments.create');

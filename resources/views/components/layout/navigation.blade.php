@@ -3,6 +3,7 @@
     $skusActive      = request()->routeIs('skus.*');
     $inboundActive   = request()->routeIs('inbound.*');
     $outboundActive  = request()->routeIs('outbound.*');
+    $setupActive     = request()->routeIs('setup.*');
 @endphp
 
 <nav class="top-nav" aria-label="{{ __('common.app_eyebrow') }}">
@@ -92,6 +93,44 @@
             >
                 {{ __('common.nav_outbound') }}
             </a>
+
+            {{-- Setup --}}
+            <div
+                class="top-nav-item"
+                x-data="{ open: false }"
+                @click.outside="open = false"
+                @keydown.escape.window="open = false"
+            >
+                <button
+                    type="button"
+                    class="top-nav-btn {{ $setupActive ? 'is-active' : '' }}"
+                    @click="open = !open"
+                    :aria-expanded="open"
+                >
+                    {{ __('common.nav_setup') }}
+                    <svg
+                        class="top-nav-chevron"
+                        :class="{ 'is-open': open }"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                    >
+                        <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+
+                <div class="top-nav-dropdown" x-show="open" x-cloak>
+                    <a
+                        href="{{ route('setup.locations.index') }}"
+                        class="{{ request()->routeIs('setup.locations.*') ? 'is-active' : '' }}"
+                        wire:navigate
+                        @click="open = false"
+                    >
+                        {{ __('common.nav_locations') }}
+                    </a>
+                </div>
+            </div>
         </div>
 
         {{-- Locale switcher --}}

@@ -1,0 +1,94 @@
+<div class="warehouse-location-index-page">
+    @if (session('status'))
+        <div class="active-filter-row">
+            <flux:badge color="green">{{ session('status') }}</flux:badge>
+        </div>
+    @endif
+
+    <section class="table-shell flux-panel">
+        <div class="movement-toolbar">
+            <flux:select wire:model.live="warehouseId" :label="__('locations.field_warehouse')">
+                <flux:select.option value="">{{ __('locations.all_warehouses') }}</flux:select.option>
+                @foreach ($warehouses as $warehouse)
+                    <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} - {{ $warehouse->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
+            <flux:select wire:model.live="typeFilter" :label="__('locations.field_type')">
+                <flux:select.option value="">{{ __('locations.all_types') }}</flux:select.option>
+                @foreach ($types as $value => $label)
+                    <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
+            <flux:select wire:model.live="statusFilter" :label="__('locations.field_status')">
+                <flux:select.option value="">{{ __('locations.all_statuses') }}</flux:select.option>
+                @foreach ($statuses as $value => $label)
+                    <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
+            <flux:input
+                wire:model.live.debounce.300ms="search"
+                :label="__('locations.search_label')"
+                :placeholder="__('locations.search_placeholder')"
+            />
+
+            <flux:button href="{{ route('setup.locations.create') }}" variant="primary">
+                {{ __('locations.btn_create') }}
+            </flux:button>
+        </div>
+
+        <flux:table :paginate="$locations" class="movement-table">
+            <flux:table.columns>
+                <flux:table.column>{{ __('locations.col_warehouse') }}</flux:table.column>
+                <flux:table.column>{{ __('locations.col_code') }}</flux:table.column>
+                <flux:table.column>{{ __('locations.col_name') }}</flux:table.column>
+                <flux:table.column>{{ __('locations.col_type') }}</flux:table.column>
+                <flux:table.column>{{ __('locations.col_status') }}</flux:table.column>
+                <flux:table.column>{{ __('locations.col_note') }}</flux:table.column>
+                <flux:table.column>{{ __('locations.col_actions') }}</flux:table.column>
+            </flux:table.columns>
+
+            <flux:table.rows>
+                @forelse ($locations as $location)
+                    <flux:table.row :key="$location->id">
+                        <flux:table.cell>
+                            <strong>{{ $location->warehouse->code }}</strong>
+                            <span class="subtle">{{ $location->warehouse->name }}</span>
+                        </flux:table.cell>
+                        <flux:table.cell>
+                            <strong>{{ $location->code }}</strong>
+                        </flux:table.cell>
+                        <flux:table.cell>{{ $location->name ?: '-' }}</flux:table.cell>
+                        <flux:table.cell>{{ $this->typeLabel($location->type) }}</flux:table.cell>
+                        <flux:table.cell>
+                            <flux:badge color="{{ $this->statusColor($location->status) }}">
+                                {{ $this->statusLabel($location->status) }}
+                            </flux:badge>
+                        </flux:table.cell>
+                        <flux:table.cell>
+                            <span class="subtle">{{ $location->note ?: __('common.no_note') }}</span>
+                        </flux:table.cell>
+                        <flux:table.cell>
+                            <flux:button
+                                type="button"
+                                size="xs"
+                                variant="{{ $location->status === 'active' ? 'subtle' : 'outline' }}"
+                                wire:click="toggleStatus({{ $location->id }})"
+                            >
+                                {{ $location->status === 'active' ? __('locations.btn_deactivate') : __('locations.btn_activate') }}
+                            </flux:button>
+                        </flux:table.cell>
+                    </flux:table.row>
+                @empty
+                    <flux:table.row>
+                        <flux:table.cell colspan="7">
+                            <div class="empty-state">{{ __('locations.empty_state') }}</div>
+                        </flux:table.cell>
+                    </flux:table.row>
+                @endforelse
+            </flux:table.rows>
+        </flux:table>
+    </section>
+</div>
