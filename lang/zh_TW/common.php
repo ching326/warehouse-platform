@@ -4,6 +4,10 @@
 
 return [
     'app_eyebrow' => 'Warehouse Platform',
+    'locale_switcher' => 'Locale switcher',
+    'nav_inventory' => 'Inventory',
+    'nav_movements' => 'Movements',
+    'nav_skus' => 'SKUs',
     'all_tenants' => 'All tenants',
     'all_warehouses' => 'All warehouses',
     'all_shops' => 'All shops',

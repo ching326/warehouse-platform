@@ -163,6 +163,18 @@
                             >
                                 {{ __('inventory.btn_movements') }}
                             </flux:button>
+                            <flux:button
+                                href="{{ route('stock-adjustments.create', [
+                                    'tenant_id' => $balance->tenant_id,
+                                    'warehouse_id' => $balance->warehouse_id,
+                                    'stock_item_id' => $balance->stock_item_id,
+                                ]) }}"
+                                size="xs"
+                                variant="outline"
+                                class="action-link"
+                            >
+                                {{ __('stock_adjustments.btn_adjust') }}
+                            </flux:button>
                         </flux:table.cell>
                     </flux:table.row>
                 @empty

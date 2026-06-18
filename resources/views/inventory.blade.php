@@ -53,7 +53,36 @@
                 align-items: end;
                 justify-content: space-between;
                 gap: 24px;
+                margin-bottom: 12px;
+            }
+
+            .page-nav {
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 8px;
                 margin-bottom: 20px;
+            }
+
+            .page-nav a {
+                display: inline-flex;
+                align-items: center;
+                min-height: 30px;
+                border: 1px solid var(--line);
+                border-radius: 6px;
+                background: #fff;
+                color: var(--muted);
+                font-size: 12px;
+                font-weight: 800;
+                padding: 5px 10px;
+                text-decoration: none;
+            }
+
+            .page-nav a:hover,
+            .page-nav a.is-active {
+                border-color: var(--accent);
+                background: var(--accent-soft);
+                color: var(--accent);
             }
 
             .locale-switcher {
@@ -905,23 +934,38 @@
                     <h1>{{ $title ?? __('inventory.page_title') }}</h1>
                     <p>{{ $subtitle ?? __('inventory.page_subtitle') }}</p>
                 </div>
-                <div class="locale-switcher" aria-label="Locale switcher">
-                    @foreach (['en' => 'EN', 'zh_TW' => '繁', 'zh_CN' => '简', 'ja' => '日'] as $locale => $label)
-                        <form method="POST" action="{{ route('locale.switch', $locale) }}">
-                            @csrf
-                            <button
-                                type="submit"
-                                class="locale-btn {{ app()->getLocale() === $locale ? 'locale-btn--active' : '' }}"
-                            >
-                                {{ $label }}
-                            </button>
-                        </form>
-                    @endforeach
-                </div>
-            </header>
+                    <div class="locale-switcher" aria-label="{{ __('common.locale_switcher') }}">
+                        @foreach (['en' => 'EN', 'zh_TW' => '&#32321;', 'zh_CN' => '&#31616;', 'ja' => '&#26085;'] as $locale => $label)
+                            <form method="POST" action="{{ route('locale.switch', $locale) }}">
+                                @csrf
+                                <button
+                                    type="submit"
+                                    class="locale-btn {{ app()->getLocale() === $locale ? 'locale-btn--active' : '' }}"
+                                >
+                                    {!! $label !!}
+                                </button>
+                            </form>
+                        @endforeach
+                    </div>
+                </header>
 
-            {{ $slot }}
-        </main>
+                <nav class="page-nav">
+                    <a href="{{ route('inventory.index') }}" class="{{ request()->routeIs('inventory.index') ? 'is-active' : '' }}">
+                        {{ __('common.nav_inventory') }}
+                    </a>
+                    <a href="{{ route('inventory.movements.index') }}" class="{{ request()->routeIs('inventory.movements.index') ? 'is-active' : '' }}">
+                        {{ __('common.nav_movements') }}
+                    </a>
+                    <a href="{{ route('skus.index') }}" class="{{ request()->routeIs('skus.*') ? 'is-active' : '' }}">
+                        {{ __('common.nav_skus') }}
+                    </a>
+                    <a href="{{ route('stock-adjustments.create') }}" class="{{ request()->routeIs('stock-adjustments.*') ? 'is-active' : '' }}">
+                        {{ __('stock_adjustments.page_title') }}
+                    </a>
+                </nav>
+
+                {{ $slot }}
+            </main>
 
         @livewireScripts
         @fluxScripts
