@@ -27,6 +27,11 @@ class InventoryMovementsPageTest extends TestCase
             ->assertOk()
             ->assertSee('Inventory Movements')
             ->assertSee('Filtered Movements')
+            ->assertSee('Net Available Impact')
+            ->assertSee('Positive Available Impact')
+            ->assertSee('Negative Available Impact')
+            ->assertSee(now()->subDays(3)->format('Y-m-d'))
+            ->assertDontSee(now()->subDays(3)->format('M j'))
             ->assertSee($rows['alphaStock']->code)
             ->assertSee('PO-ALPHA-1')
             ->assertSee('Receive');

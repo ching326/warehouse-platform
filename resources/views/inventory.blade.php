@@ -350,6 +350,23 @@
                 margin-bottom: 12px;
             }
 
+            .latest-movement-row {
+                display: inline-flex;
+                align-items: baseline;
+                gap: 10px;
+                margin: -4px 0 14px;
+                color: var(--muted);
+                font-size: 13px;
+                font-weight: 700;
+                text-transform: uppercase;
+            }
+
+            .latest-movement-row strong {
+                color: var(--ink);
+                font-size: 15px;
+                text-transform: none;
+            }
+
             .movement-table {
                 min-width: 0;
                 table-layout: fixed;
@@ -433,9 +450,9 @@
             }
 
             .bucket-list span {
-                display: flex;
+                display: grid;
+                grid-template-columns: minmax(62px, 1fr) auto;
                 align-items: baseline;
-                justify-content: space-between;
                 gap: 8px;
                 color: var(--muted);
                 font-size: 12px;

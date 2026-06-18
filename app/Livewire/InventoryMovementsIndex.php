@@ -132,6 +132,7 @@ class InventoryMovementsIndex extends Component
 
         return [
             'movements' => (clone $query)->count(),
+            'netAvailable' => (clone $query)->sum('available_delta'),
             'positive' => (clone $query)->where('available_delta', '>', 0)->sum('available_delta'),
             'negative' => abs((clone $query)->where('available_delta', '<', 0)->sum('available_delta')),
             'latest' => (clone $query)->max('created_at'),

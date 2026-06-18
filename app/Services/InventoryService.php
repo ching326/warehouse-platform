@@ -299,12 +299,12 @@ class InventoryService
     private function bucketSnapshot(InventoryBalance $balance): array
     {
         return [
-            'on_hand' => $balance->on_hand_qty,
-            'reserved' => $balance->reserved_qty,
-            'available' => $balance->available_qty,
-            'inbound' => $balance->inbound_qty,
-            'hold' => $balance->hold_qty,
-            'damaged' => $balance->damaged_qty,
+            'on_hand' => (int) $balance->on_hand_qty,
+            'reserved' => (int) $balance->reserved_qty,
+            'available' => (int) $balance->available_qty,
+            'inbound' => (int) $balance->inbound_qty,
+            'hold' => (int) $balance->hold_qty,
+            'damaged' => (int) $balance->damaged_qty,
         ];
     }
 

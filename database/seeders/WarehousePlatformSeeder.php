@@ -335,8 +335,41 @@ class WarehousePlatformSeeder extends Seeder
         int $damaged,
     ): void {
         $referenceNumber = 'DEMO-OPENING-'.$tenantId.'-'.$warehouseId.'-'.$stockItemId;
+        $demoMovementQuery = InventoryMovement::query()
+            ->where('ref_type', 'demo_seed')
+            ->where(function ($query) use ($referenceNumber) {
+                $query
+                    ->where('ref_id', $referenceNumber)
+                    ->orWhere('ref_id', 'like', $referenceNumber.'-%');
+            });
 
-        if (! InventoryMovement::where('ref_type', 'demo_seed')->where('ref_id', $referenceNumber)->exists()) {
+        $hasCurrentBucketHistory = (clone $demoMovementQuery)
+            ->where('ref_id', $referenceNumber)
+            ->where('on_hand_after', $onHand)
+            ->where('available_after', $onHand)
+            ->exists();
+
+        if ((clone $demoMovementQuery)->exists() && ! $hasCurrentBucketHistory) {
+            (clone $demoMovementQuery)->delete();
+        }
+
+        if (! (clone $demoMovementQuery)->exists()) {
+            InventoryBalance::updateOrCreate(
+                [
+                    'tenant_id' => $tenantId,
+                    'warehouse_id' => $warehouseId,
+                    'stock_item_id' => $stockItemId,
+                ],
+                [
+                    'on_hand_qty' => 0,
+                    'reserved_qty' => 0,
+                    'available_qty' => 0,
+                    'inbound_qty' => 0,
+                    'hold_qty' => 0,
+                    'damaged_qty' => 0,
+                ],
+            );
+
             $inventoryService->adjustStock(
                 $tenantId,
                 $warehouseId,

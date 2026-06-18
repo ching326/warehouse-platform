@@ -5,19 +5,24 @@
             <strong>{{ number_format($summary['movements']) }}</strong>
         </flux:card>
         <flux:card size="sm" class="summary-card">
-            <span>Positive Qty</span>
+            <span>Net Available Impact</span>
+            <strong class="{{ $this->quantityDeltaClass($summary['netAvailable']) }}">
+                {{ $this->signedQuantity($summary['netAvailable']) }}
+            </strong>
+        </flux:card>
+        <flux:card size="sm" class="summary-card">
+            <span>Positive Available Impact</span>
             <strong>{{ number_format($summary['positive']) }}</strong>
         </flux:card>
         <flux:card size="sm" class="summary-card">
-            <span>Negative Qty</span>
+            <span>Negative Available Impact</span>
             <strong>{{ number_format($summary['negative']) }}</strong>
         </flux:card>
-        <flux:card size="sm" class="summary-card">
-            <span>Latest Movement</span>
-            <strong class="summary-date">
-                {{ $summary['latest'] ? \Illuminate\Support\Carbon::parse($summary['latest'])->format('M j') : '-' }}
-            </strong>
-        </flux:card>
+    </section>
+
+    <section class="latest-movement-row" aria-label="Latest inventory movement">
+        <span>Latest Movement</span>
+        <strong>{{ $summary['latest'] ? \Illuminate\Support\Carbon::parse($summary['latest'])->format('Y-m-d') : '-' }}</strong>
     </section>
 
     <section class="table-shell flux-panel">
@@ -96,14 +101,14 @@
                 @forelse ($movements as $movement)
                     <flux:table.row :key="$movement->id">
                         <flux:table.cell class="movement-created-cell">
-                            <strong>{{ optional($movement->created_at)->format('M j') }}</strong>
+                            <strong>{{ optional($movement->created_at)->format('Y-m-d') }}</strong>
                             <span>{{ optional($movement->created_at)->format('H:i') }}</span>
                         </flux:table.cell>
                         <flux:table.cell class="movement-stock-cell">
                             <strong>{{ $movement->stockItem->code }}</strong>
                             <span>{{ $movement->stockItem->name }}</span>
                             <small>
-                                {{ $movement->tenant->code }} · {{ $movement->tenant->name }} · {{ $movement->warehouse->code }}
+                                {{ $movement->tenant->code }} / {{ $movement->tenant->name }} / {{ $movement->warehouse->code }}
                             </small>
                         </flux:table.cell>
                         <flux:table.cell class="movement-change-cell">
@@ -169,3 +174,4 @@
         </flux:table>
     </section>
 </div>
+
