@@ -12,6 +12,7 @@ return [
     'section_balance_preview' => 'Current balance preview',
     'field_tenant' => 'Tenant',
     'field_warehouse' => 'Warehouse',
+    'select_warehouse' => 'Select warehouse',
     'field_stock_item' => 'Stock item',
     'field_quantity' => 'Quantity',
     'field_quantity_hint' => 'Positive to add stock, negative to deduct. Use hold and damage flows for damaged or quarantined goods.',

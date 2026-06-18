@@ -54,19 +54,6 @@ class StockAdjustmentCreate extends Component
         $this->stockItemSearch = '';
     }
 
-    public function currentBalance(): ?InventoryBalance
-    {
-        if ($this->tenantId === '' || $this->warehouseId === '' || $this->stockItemId === '') {
-            return null;
-        }
-
-        return InventoryBalance::query()
-            ->where('tenant_id', $this->tenantId)
-            ->where('warehouse_id', $this->warehouseId)
-            ->where('stock_item_id', $this->stockItemId)
-            ->first();
-    }
-
     public function save()
     {
         $tenantId = $this->validatedTenantId();
@@ -183,6 +170,19 @@ class StockAdjustmentCreate extends Component
         return Warehouse::query()
             ->orderBy('name')
             ->get(['id', 'code', 'name']);
+    }
+
+    private function currentBalance(): ?InventoryBalance
+    {
+        if ($this->tenantId === '' || $this->warehouseId === '' || $this->stockItemId === '') {
+            return null;
+        }
+
+        return InventoryBalance::query()
+            ->where('tenant_id', $this->tenantId)
+            ->where('warehouse_id', $this->warehouseId)
+            ->where('stock_item_id', $this->stockItemId)
+            ->first();
     }
 
     private function stockItemOptions(): Collection
