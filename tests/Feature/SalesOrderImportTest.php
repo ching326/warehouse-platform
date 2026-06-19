@@ -10,8 +10,10 @@ use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Testing\File;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -230,6 +232,17 @@ class SalesOrderImportTest extends TestCase
         $this->assertSame(1, SalesOrder::where('platform_order_id', 'SO-RACE')->count());
     }
 
+    public function test_platform_order_id_is_unique_per_tenant_shop(): void
+    {
+        [$tenant, $shop] = $this->salesSku('UNIQUE-SKU');
+
+        SalesOrder::factory()->for($tenant)->for($shop)->create(['platform_order_id' => 'SO-UNIQUE']);
+
+        $this->expectException(QueryException::class);
+
+        SalesOrder::factory()->for($tenant)->for($shop)->create(['platform_order_id' => 'SO-UNIQUE']);
+    }
+
     public function test_parse_flags_missing_required_headers(): void
     {
         [, $shop] = $this->salesSku('HEADER-SKU');
@@ -264,14 +277,14 @@ class SalesOrderImportTest extends TestCase
         $this->assertNotEmpty($rows[1]['errors']);
     }
 
-    private function parseAndImport(Shop $shop, string $csv): \Livewire\Features\SupportTesting\Testable
+    private function parseAndImport(Shop $shop, string $csv): Testable
     {
         $component = $this->parseOnly($shop, $csv);
 
         return $component->call('import');
     }
 
-    private function parseOnly(Shop $shop, string $csv): \Livewire\Features\SupportTesting\Testable
+    private function parseOnly(Shop $shop, string $csv): Testable
     {
         return Livewire::actingAs($this->internalUser())
             ->test(SalesOrderImport::class)

@@ -7,6 +7,7 @@ use App\Models\SalesOrderLine;
 use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\Tenant;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -240,41 +241,53 @@ class SalesOrderImport extends Component
 
         $orderCount = 0;
 
-        DB::transaction(function () use ($shop, $groups, &$orderCount) {
-            foreach ($groups as $platformOrderId => $rows) {
-                $first = $rows[0];
+        try {
+            DB::transaction(function () use ($shop, $groups, &$orderCount) {
+                foreach ($groups as $platformOrderId => $rows) {
+                    $first = $rows[0];
 
-                $order = SalesOrder::create([
-                    'tenant_id' => $shop->tenant_id,
-                    'shop_id' => $shop->id,
-                    'source' => SalesOrder::SOURCE_CSV,
-                    'platform_order_id' => $platformOrderId,
-                    'order_status' => SalesOrder::ORDER_STATUS_PENDING,
-                    'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
-                    'recipient_name' => $this->nullableString($first['recipient_name']),
-                    'recipient_phone' => $this->nullableString($first['recipient_phone']),
-                    'recipient_country_code' => $this->nullableString($first['recipient_country_code']),
-                    'recipient_postal_code' => $this->nullableString($first['recipient_postal_code']),
-                    'recipient_state' => $this->nullableString($first['recipient_state']),
-                    'recipient_city' => $this->nullableString($first['recipient_city']),
-                    'recipient_address_line1' => $this->nullableString($first['recipient_address_line1']),
-                    'recipient_address_line2' => $this->nullableString($first['recipient_address_line2']),
-                    'note' => $this->nullableString($first['order_note']),
-                    'created_by_user_id' => Auth::id(),
-                ]);
-
-                foreach ($rows as $line) {
-                    $order->lines()->create([
-                        'sku_id' => $line['sku_id'],
-                        'quantity' => $line['quantity'],
-                        'line_status' => SalesOrderLine::STATUS_READY,
-                        'note' => $this->nullableString($line['line_note']),
+                    $order = SalesOrder::create([
+                        'tenant_id' => $shop->tenant_id,
+                        'shop_id' => $shop->id,
+                        'source' => SalesOrder::SOURCE_CSV,
+                        'platform_order_id' => $platformOrderId,
+                        'order_status' => SalesOrder::ORDER_STATUS_PENDING,
+                        'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+                        'recipient_name' => $this->nullableString($first['recipient_name']),
+                        'recipient_phone' => $this->nullableString($first['recipient_phone']),
+                        'recipient_country_code' => $this->nullableString($first['recipient_country_code']),
+                        'recipient_postal_code' => $this->nullableString($first['recipient_postal_code']),
+                        'recipient_state' => $this->nullableString($first['recipient_state']),
+                        'recipient_city' => $this->nullableString($first['recipient_city']),
+                        'recipient_address_line1' => $this->nullableString($first['recipient_address_line1']),
+                        'recipient_address_line2' => $this->nullableString($first['recipient_address_line2']),
+                        'note' => $this->nullableString($first['order_note']),
+                        'created_by_user_id' => Auth::id(),
                     ]);
-                }
 
-                $orderCount++;
+                    foreach ($rows as $line) {
+                        $order->lines()->create([
+                            'sku_id' => $line['sku_id'],
+                            'quantity' => $line['quantity'],
+                            'line_status' => SalesOrderLine::STATUS_READY,
+                            'note' => $this->nullableString($line['line_note']),
+                        ]);
+                    }
+
+                    $orderCount++;
+                }
+            });
+        } catch (QueryException $exception) {
+            if (! $this->isDuplicateOrderConstraintViolation($exception)) {
+                throw $exception;
             }
-        });
+
+            session()->flash('error', __('sales_orders.import_duplicate_during_confirm', [
+                'ids' => implode(', ', $platformOrderIds),
+            ]));
+
+            return;
+        }
 
         $this->resetPreview();
         $this->reset('file');
@@ -414,5 +427,14 @@ class SalesOrderImport extends Component
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    private function isDuplicateOrderConstraintViolation(QueryException $exception): bool
+    {
+        $message = $exception->getMessage();
+
+        return in_array($exception->getCode(), ['23000', '23505'], true)
+            || str_contains($message, 'sales_orders_tenant_shop_platform_order_unique')
+            || str_contains($message, 'UNIQUE constraint failed: sales_orders.tenant_id, sales_orders.shop_id, sales_orders.platform_order_id');
     }
 }

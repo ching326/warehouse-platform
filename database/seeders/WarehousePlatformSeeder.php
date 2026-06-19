@@ -22,7 +22,6 @@ use App\Models\Warehouse;
 use App\Models\WarehouseLocation;
 use App\Services\InventoryService;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Auth;
 
 class WarehousePlatformSeeder extends Seeder
 {
@@ -43,7 +42,7 @@ class WarehousePlatformSeeder extends Seeder
         $this->seedSkuBundles($tenants, $skus, $stockItems);
         $this->seedInventory(app(InventoryService::class), $tenants, $warehouses, $stockItems);
         $this->seedSalesOrders($tenants, $shops, $skus, $users);
-        $this->seedInboundOrders($tenants, $warehouses, $stockItems, $skus, $users);
+        $this->seedInboundOrders($tenants, $warehouses, $skus, $users);
         $this->seedOutboundOrders($tenants, $warehouses, $skus, $users);
     }
 
@@ -332,8 +331,15 @@ class WarehousePlatformSeeder extends Seeder
     private function seedSkuBundles(array $tenants, array $skus, array $stockItems): void
     {
         foreach ($tenants as $tenant) {
+            $tenantSkus = array_values(array_filter($skus, fn ($sku) => $sku->tenant_id === $tenant->id));
+            $tenantShopId = $tenantSkus[0]->shop_id ?? null;
+
+            if (! $tenantShopId) {
+                continue;
+            }
+
             $bundleSku = Sku::updateOrCreate(
-                ['tenant_id' => $tenant->id, 'shop_id' => $tenant->id, 'sku' => "{$tenant->code}-BUNDLE"],
+                ['tenant_id' => $tenant->id, 'shop_id' => $tenantShopId, 'sku' => "{$tenant->code}-BUNDLE"],
                 [
                     'stock_item_id' => null,
                     'name' => "{$tenant->code} Starter Bundle",
@@ -343,13 +349,13 @@ class WarehousePlatformSeeder extends Seeder
                 ],
             );
 
-            foreach (array_slice($stockItems, 0, 2) as $item) {
-                if ($item->tenant_id === $tenant->id) {
-                    SkuBundleComponent::updateOrCreate(
-                        ['bundle_sku_id' => $bundleSku->id, 'component_stock_item_id' => $item->id],
-                        ['tenant_id' => $tenant->id, 'quantity' => 1],
-                    );
-                }
+            $tenantItems = array_values(array_filter($stockItems, fn ($item) => $item->tenant_id === $tenant->id));
+
+            foreach (array_slice($tenantItems, 0, 2) as $item) {
+                SkuBundleComponent::updateOrCreate(
+                    ['bundle_sku_id' => $bundleSku->id, 'component_stock_item_id' => $item->id],
+                    ['tenant_id' => $tenant->id, 'quantity' => 1],
+                );
             }
         }
     }
@@ -553,6 +559,7 @@ class WarehousePlatformSeeder extends Seeder
         ];
 
         $list = $names[$tenantCode] ?? $names['ABC'];
+
         return $list[$seed % count($list)];
     }
 
@@ -578,17 +585,22 @@ class WarehousePlatformSeeder extends Seeder
             '321 Business Avenue, Unit 10',
             '654 Enterprise Plaza, Wing B',
         ];
+
         return $addresses[$seed % count($addresses)];
     }
 
-    private function seedInboundOrders(array $tenants, array $warehouses, array $stockItems, array $skus, array $users): void
+    private function seedInboundOrders(array $tenants, array $warehouses, array $skus, array $users): void
     {
         $createdByUser = $users[array_key_first($users)] ?? User::first();
         $statuses = [InboundOrder::STATUS_PENDING, InboundOrder::STATUS_ARRIVED, InboundOrder::STATUS_PARTIALLY_RECEIVED];
 
         foreach ($tenants as $tenantIdx => $tenant) {
-            $tenantItems = array_filter($stockItems, fn ($item) => $item->tenant_id === $tenant->id);
-            if (empty($tenantItems)) {
+            $tenantSkus = array_values(array_filter(
+                $skus,
+                fn ($sku) => $sku->tenant_id === $tenant->id && $sku->stock_item_id !== null
+            ));
+
+            if (empty($tenantSkus)) {
                 continue;
             }
 
@@ -607,21 +619,21 @@ class WarehousePlatformSeeder extends Seeder
                     ]);
 
                     $lineCount = rand(2, 4);
-                    $selectedItems = array_slice(
-                        array_values($tenantItems),
+                    $selectedSkus = array_slice(
+                        $tenantSkus,
                         0,
-                        min($lineCount, count($tenantItems))
+                        min($lineCount, count($tenantSkus))
                     );
 
-                    foreach ($selectedItems as $item) {
+                    foreach ($selectedSkus as $sku) {
                         $expectedQty = rand(10, 100);
                         $receivedQty = $status === InboundOrder::STATUS_PENDING ? 0 : rand(0, $expectedQty);
 
                         InboundOrderLine::create([
                             'inbound_order_id' => $inbound->id,
                             'tenant_id' => $tenant->id,
-                            'sku_id' => $skus[array_key_first($skus)]->id,
-                            'stock_item_id' => $item->id,
+                            'sku_id' => $sku->id,
+                            'stock_item_id' => $sku->stock_item_id,
                             'expected_qty' => $expectedQty,
                             'received_qty' => $receivedQty,
                             'note' => rand(0, 3) === 0 ? 'Fragile' : '',
