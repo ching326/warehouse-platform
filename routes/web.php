@@ -13,6 +13,7 @@ use App\Livewire\OutboundOrderIndex;
 use App\Livewire\OutboundOrderShip;
 use App\Livewire\SalesOrderCreate;
 use App\Livewire\SalesOrderDetail;
+use App\Livewire\SalesOrderImport;
 use App\Livewire\SalesOrderIndex;
 use App\Livewire\ShopCreate;
 use App\Livewire\ShopEdit;
@@ -49,6 +50,7 @@ Route::get('/outbound/create', OutboundOrderCreate::class)->name('outbound.creat
 Route::get('/outbound/{order}/ship', OutboundOrderShip::class)->name('outbound.ship');
 Route::get('/sales-orders', SalesOrderIndex::class)->name('sales.orders.index');
 Route::get('/sales-orders/create', SalesOrderCreate::class)->name('sales.orders.create');
+Route::get('/sales-orders/import', SalesOrderImport::class)->name('sales.orders.import');
 Route::get('/sales-orders/{order}', SalesOrderDetail::class)->name('sales.orders.show');
 Route::get('/fulfillment-groups', FulfillmentGroupIndex::class)->name('fulfillment-groups.index');
 Route::get('/fulfillment-groups/create', FulfillmentGroupCreate::class)->name('fulfillment-groups.create');

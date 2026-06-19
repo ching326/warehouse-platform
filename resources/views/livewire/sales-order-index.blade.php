@@ -39,6 +39,9 @@
             <flux:button href="{{ route('sales.orders.create') }}" variant="primary" wire:navigate>
                 {{ __('sales_orders.btn_create_order') }}
             </flux:button>
+            <flux:button href="{{ route('sales.orders.import') }}" variant="outline" wire:navigate>
+                {{ __('sales_orders.import_btn') }}
+            </flux:button>
         </div>
 
         @if (count($selectedIds) > 0)
