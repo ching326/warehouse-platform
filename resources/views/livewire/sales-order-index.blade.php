@@ -27,35 +27,94 @@
     @endif
 
     <section class="table-shell flux-panel">
-        <div class="movement-toolbar">
-            <flux:select wire:model.live="shopId" :label="__('sales_orders.field_shop')">
-                <flux:select.option value="">{{ __('sales_orders.all_shops') }}</flux:select.option>
-                @foreach ($shops as $shop)
-                    <flux:select.option value="{{ $shop->id }}">
-                        {{ $shop->tenant->code }} / {{ $shop->name }} ({{ $shop->platform }})
-                    </flux:select.option>
-                @endforeach
-            </flux:select>
+        @if ($filterWarning)
+            <div class="active-filter-row">
+                <flux:badge color="red">{{ $filterWarning }}</flux:badge>
+            </div>
+        @endif
 
-            <flux:select wire:model.live="fulfillmentStatus" :label="__('sales_orders.field_fulfillment_status')">
-                <flux:select.option value="">{{ __('sales_orders.all_fulfillment_status') }}</flux:select.option>
-                @foreach ($fulfillmentStatuses as $status => $label)
-                    <flux:select.option value="{{ $status }}">{{ $label }}</flux:select.option>
-                @endforeach
-            </flux:select>
+        <div class="sales-order-filter-grid">
+            <div class="filter-box">
+                <strong>{{ __('sales_orders.field_platform') }}</strong>
+                <div class="filter-options compact">
+                    @forelse ($platformOptions as $platform)
+                        <label><input type="checkbox" wire:model.live="platforms" value="{{ $platform }}"> {{ $platform }}</label>
+                    @empty
+                        <span class="subtle">{{ __('sales_orders.all_platforms') }}</span>
+                    @endforelse
+                </div>
+            </div>
 
-            <flux:select wire:model.live="orderStatus" :label="__('sales_orders.field_order_status')">
-                <flux:select.option value="">{{ __('sales_orders.all_order_status') }}</flux:select.option>
-                @foreach ($orderStatuses as $status => $label)
-                    <flux:select.option value="{{ $status }}">{{ $label }}</flux:select.option>
-                @endforeach
-            </flux:select>
+            <div class="filter-box">
+                <strong>{{ __('sales_orders.field_shop') }}</strong>
+                <div class="filter-options">
+                    @foreach ($shops as $shop)
+                        <label>
+                            <input type="checkbox" wire:model.live="shopIds" value="{{ $shop->id }}">
+                            {{ $shop->tenant->code }} / {{ $shop->name }}
+                        </label>
+                    @endforeach
+                </div>
+            </div>
 
+            <div class="filter-box">
+                <strong>{{ __('sales_orders.field_fulfillment_status') }}</strong>
+                <div class="filter-options compact">
+                    @foreach ($fulfillmentStatuses as $status => $label)
+                        <label><input type="checkbox" wire:model.live="fulfillmentStatusesFilter" value="{{ $status }}"> {{ $label }}</label>
+                    @endforeach
+                </div>
+            </div>
+
+            <div class="filter-box">
+                <strong>{{ __('sales_orders.field_order_status') }}</strong>
+                <div class="filter-options compact">
+                    @foreach ($orderStatuses as $status => $label)
+                        <label><input type="checkbox" wire:model.live="orderStatusesFilter" value="{{ $status }}"> {{ $label }}</label>
+                    @endforeach
+                </div>
+            </div>
+
+            <div class="filter-box">
+                <strong>{{ __('sales_orders.field_shipping_method') }}</strong>
+                <div class="filter-options compact">
+                    @foreach ($shippingMethodFilterOptions as $method => $label)
+                        <label><input type="checkbox" wire:model.live="shippingMethodsFilter" value="{{ $method }}"> {{ $label }}</label>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+
+        <div class="sales-order-search-row">
             <flux:input
                 wire:model.live.debounce.300ms="search"
                 :label="__('common.search')"
                 :placeholder="__('sales_orders.search_placeholder')"
             />
+        </div>
+
+        <div class="sales-order-date-row">
+            <label class="active-only-toggle">
+                <input type="checkbox" wire:model.live="activeOnly">
+                {{ __('sales_orders.active_orders') }}
+            </label>
+
+            <div class="date-range-options">
+                @foreach ($dateRanges as $range => $label)
+                    <label>
+                        <input type="radio" wire:model.live="dateRange" value="{{ $range }}">
+                        {{ $label }}
+                    </label>
+                @endforeach
+            </div>
+
+            @if ($dateRange === \App\Support\SalesOrderFilters::DATE_CUSTOM)
+                <flux:input type="date" wire:model.live="dateFrom" :label="__('sales_orders.field_date_from')" />
+                <flux:input type="date" wire:model.live="dateTo" :label="__('sales_orders.field_date_to')" />
+            @endif
+        </div>
+
+        <div class="movement-toolbar sales-order-toolbar">
 
             <flux:button href="{{ route('sales.orders.create') }}" variant="primary" wire:navigate>
                 {{ __('sales_orders.btn_create_order') }}
@@ -65,26 +124,14 @@
             </flux:button>
             <flux:button
                 as="a"
-                href="{{ route('sales.orders.export', [
-                    'shop' => $shopId ?: null,
-                    'fulfillment' => $fulfillmentStatus ?: null,
-                    'order_status' => $orderStatus ?: null,
-                    'q' => $search ?: null,
-                    'format' => 'csv',
-                ]) }}"
+                href="{{ route('sales.orders.export', array_filter(array_merge($exportFilters, ['format' => 'csv']), fn ($value) => $value !== null)) }}"
                 variant="ghost"
             >
                 {{ __('sales_orders.export_csv_btn') }}
             </flux:button>
             <flux:button
                 as="a"
-                href="{{ route('sales.orders.export', [
-                    'shop' => $shopId ?: null,
-                    'fulfillment' => $fulfillmentStatus ?: null,
-                    'order_status' => $orderStatus ?: null,
-                    'q' => $search ?: null,
-                    'format' => 'xlsx',
-                ]) }}"
+                href="{{ route('sales.orders.export', array_filter(array_merge($exportFilters, ['format' => 'xlsx']), fn ($value) => $value !== null)) }}"
                 variant="ghost"
             >
                 {{ __('sales_orders.export_xlsx_btn') }}
@@ -122,14 +169,7 @@
                     as="a"
                     size="sm"
                     variant="ghost"
-                    href="{{ route('sales.orders.export', [
-                        'ids' => implode(',', $selectedIds),
-                        'shop' => $shopId ?: null,
-                        'fulfillment' => $fulfillmentStatus ?: null,
-                        'order_status' => $orderStatus ?: null,
-                        'q' => $search ?: null,
-                        'format' => 'csv',
-                    ]) }}"
+                    href="{{ route('sales.orders.export', array_filter(array_merge($exportFilters, ['ids' => implode(',', $selectedIds), 'format' => 'csv']), fn ($value) => $value !== null)) }}"
                 >
                     {{ __('sales_orders.btn_bulk_export_csv') }}
                 </flux:button>
@@ -137,14 +177,7 @@
                     as="a"
                     size="sm"
                     variant="ghost"
-                    href="{{ route('sales.orders.export', [
-                        'ids' => implode(',', $selectedIds),
-                        'shop' => $shopId ?: null,
-                        'fulfillment' => $fulfillmentStatus ?: null,
-                        'order_status' => $orderStatus ?: null,
-                        'q' => $search ?: null,
-                        'format' => 'xlsx',
-                    ]) }}"
+                    href="{{ route('sales.orders.export', array_filter(array_merge($exportFilters, ['ids' => implode(',', $selectedIds), 'format' => 'xlsx']), fn ($value) => $value !== null)) }}"
                 >
                     {{ __('sales_orders.btn_bulk_export_xlsx') }}
                 </flux:button>
@@ -188,6 +221,7 @@
                     <flux:table.column>{{ __('sales_orders.col_tracking_no') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_order_status') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_created_at') }}</flux:table.column>
+                    <flux:table.column>{{ __('sales_orders.col_note') }}</flux:table.column>
                 </flux:table.columns>
 
                 <flux:table.rows>
@@ -288,17 +322,24 @@
                                 </div>
                             </flux:table.cell>
                             <flux:table.cell>
-                                <strong>{{ $order->created_at->format('Y-m-d') }}</strong>
+                                <strong>{{ $order->order_date?->format('Y-m-d') ?? $order->created_at->format('Y-m-d') }}</strong>
                                 @if ($order->courier_csv_exported_at)
                                     <span class="subtle">
                                         {{ __('sales_orders.printed_date_label') }} {{ $order->courier_csv_exported_at->timezone('Asia/Tokyo')->format('Y-m-d') }}
                                     </span>
                                 @endif
                             </flux:table.cell>
+                            <flux:table.cell class="so-note-cell">
+                                @if ($order->note)
+                                    <span title="{{ $order->note }}">{{ $order->note }}</span>
+                                @else
+                                    <span class="subtle">-</span>
+                                @endif
+                            </flux:table.cell>
                         </flux:table.row>
                     @empty
                         <flux:table.row>
-                            <flux:table.cell colspan="9">
+                            <flux:table.cell colspan="10">
                                 <div class="empty-state">{{ __('sales_orders.empty_state') }}</div>
                             </flux:table.cell>
                         </flux:table.row>

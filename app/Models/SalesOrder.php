@@ -39,6 +39,7 @@ class SalesOrder extends Model
         'source',
         'platform_order_id',
         'platform_ordered_at',
+        'order_date',
         'latest_ship_at',
         'order_status',
         'fulfillment_status',
@@ -63,9 +64,31 @@ class SalesOrder extends Model
     {
         return [
             'platform_ordered_at' => 'datetime',
+            'order_date' => 'datetime',
             'latest_ship_at' => 'datetime',
             'courier_csv_exported_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (SalesOrder $order): void {
+            if ($order->order_date !== null) {
+                return;
+            }
+
+            if ($order->platform_ordered_at !== null) {
+                $order->order_date = $order->platform_ordered_at;
+
+                return;
+            }
+
+            $timestamp = $order->created_at ?? $order->freshTimestamp();
+
+            $order->created_at ??= $timestamp;
+            $order->updated_at ??= $timestamp;
+            $order->order_date = $timestamp;
+        });
     }
 
     public function getActivitylogOptions(): LogOptions

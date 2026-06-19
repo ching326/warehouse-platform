@@ -846,6 +846,77 @@
                 margin-bottom: 14px;
             }
 
+            .sales-order-filter-grid {
+                display: grid;
+                grid-template-columns: repeat(5, minmax(150px, 1fr));
+                gap: 10px;
+                margin-bottom: 12px;
+            }
+
+            .filter-box {
+                min-width: 0;
+                border: 1px solid var(--line);
+                border-radius: 6px;
+                background: #fff;
+                padding: 10px;
+            }
+
+            .filter-box strong {
+                display: block;
+                margin-bottom: 8px;
+                font-size: 12px;
+            }
+
+            .filter-options {
+                display: grid;
+                gap: 6px;
+                max-height: 136px;
+                overflow: auto;
+            }
+
+            .filter-options.compact {
+                max-height: 116px;
+            }
+
+            .filter-options label,
+            .date-range-options label,
+            .active-only-toggle {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                color: var(--muted);
+                font-size: 12px;
+                font-weight: 700;
+            }
+
+            .sales-order-search-row {
+                margin-bottom: 12px;
+                max-width: 720px;
+            }
+
+            .sales-order-date-row {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: end;
+                gap: 10px 16px;
+                margin-bottom: 12px;
+            }
+
+            .date-range-options {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px 12px;
+                border: 1px solid var(--line);
+                border-radius: 6px;
+                background: #fff;
+                padding: 8px 10px;
+            }
+
+            .sales-order-toolbar {
+                grid-template-columns: repeat(4, minmax(140px, auto));
+                justify-content: start;
+            }
+
             .sku-table {
                 min-width: 0;
                 table-layout: fixed;
@@ -898,6 +969,14 @@
                 margin-top: 3px;
                 color: var(--muted);
                 font-size: 11px;
+            }
+
+            .so-note-cell span {
+                display: block;
+                max-width: 180px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
 
             .sku-form {
@@ -1323,6 +1402,7 @@
                 .summary-grid,
                 .table-toolbar,
                 .movement-toolbar,
+                .sales-order-filter-grid,
                 .sku-toolbar,
                 .form-grid,
                 .form-grid.three {

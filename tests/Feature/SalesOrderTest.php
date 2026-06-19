@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Actions\BackfillSalesOrderDate;
 use App\Livewire\SalesOrderCreate;
 use App\Livewire\SalesOrderDetail;
 use App\Livewire\SalesOrderIndex;
@@ -15,6 +16,8 @@ use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Support\SalesOrderFilters;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -58,6 +61,43 @@ class SalesOrderTest extends TestCase
             ->assertSee('Backorder')
             ->assertSee('Cancelled')
             ->assertSee('Completed');
+    }
+
+    public function test_backfill_sales_order_date_action_sets_order_date(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $platformDate = Carbon::parse('2026-06-01 10:00:00');
+        $createdDate = Carbon::parse('2026-06-02 11:00:00');
+        $withPlatformDate = $this->createPersistedOrder($shop, $sku, [
+            'platform_ordered_at' => $platformDate,
+        ]);
+        $withoutPlatformDate = $this->createPersistedOrder($shop, $sku, [
+            'platform_ordered_at' => null,
+            'created_at' => $createdDate,
+            'updated_at' => $createdDate,
+        ]);
+        SalesOrder::whereKey([$withPlatformDate->id, $withoutPlatformDate->id])->update(['order_date' => null]);
+
+        app(BackfillSalesOrderDate::class)();
+
+        $this->assertTrue($withPlatformDate->refresh()->order_date->equalTo($platformDate));
+        $this->assertTrue($withoutPlatformDate->refresh()->order_date->equalTo($createdDate));
+    }
+
+    public function test_sales_order_creating_hook_sets_order_date(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $platformDate = Carbon::parse('2026-06-03 10:00:00');
+        $createdDate = Carbon::parse('2026-06-04 11:00:00');
+        $withPlatformDate = $this->createPersistedOrder($shop, $sku, ['platform_ordered_at' => $platformDate]);
+        $withoutPlatformDate = $this->createPersistedOrder($shop, $sku, [
+            'platform_ordered_at' => null,
+            'created_at' => $createdDate,
+            'updated_at' => $createdDate,
+        ]);
+
+        $this->assertTrue($withPlatformDate->order_date->equalTo($platformDate));
+        $this->assertTrue($withoutPlatformDate->order_date->equalTo($createdDate));
     }
 
     public function test_create_sales_order_computes_ship_together_key(): void
@@ -835,6 +875,219 @@ class SalesOrderTest extends TestCase
         $this->assertStringNotContainsString('ids=', $html);
     }
 
+    public function test_sales_order_index_default_view_shows_active_backlog_all_dates(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $oldActive = $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'OLD-ACTIVE',
+            'order_date' => now()->subYears(2),
+        ]);
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'OLD-SHIPPED',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_SHIPPED,
+            'order_date' => now()->subYears(2),
+        ]);
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'OLD-COMPLETED',
+            'order_status' => SalesOrder::ORDER_STATUS_COMPLETED,
+            'order_date' => now()->subYears(2),
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->assertSet('activeOnly', true)
+            ->assertSee('OLD-ACTIVE')
+            ->assertDontSee('OLD-SHIPPED')
+            ->assertDontSee('OLD-COMPLETED')
+            ->assertSee(__('sales_orders.active_orders'));
+
+        $this->assertNotNull($oldActive->refresh()->order_date);
+    }
+
+    public function test_sales_order_index_historical_status_defaults_to_last_30_days(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'RECENT-SHIPPED',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_SHIPPED,
+            'order_date' => now()->subDays(5),
+        ]);
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'OLD-SHIPPED',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_SHIPPED,
+            'order_date' => now()->subDays(60),
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('fulfillmentStatusesFilter', [SalesOrder::FULFILLMENT_STATUS_SHIPPED])
+            ->assertSet('dateRange', SalesOrderFilters::DATE_LAST_30_DAYS)
+            ->assertSee('RECENT-SHIPPED')
+            ->assertDontSee('OLD-SHIPPED');
+    }
+
+    public function test_sales_order_index_custom_date_range_cannot_exceed_365_days(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'TOO-WIDE']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('dateRange', SalesOrderFilters::DATE_CUSTOM)
+            ->set('dateFrom', '2024-01-01')
+            ->set('dateTo', '2026-01-02')
+            ->assertSee(__('sales_orders.date_range_too_wide'))
+            ->assertDontSee('TOO-WIDE');
+    }
+
+    public function test_sales_order_index_shows_note_column(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'NOTE-ORDER',
+            'note' => 'Pack with invoice',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->assertSee(__('sales_orders.col_note'))
+            ->assertSee('Pack with invoice');
+    }
+
+    public function test_sales_order_index_searches_address_phone_tracking_note_and_sku(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $stockItem = $sku->stockItem;
+        $stockItem->update(['short_name' => 'ShortFind', 'name' => 'Stock Long Find']);
+        $sku->update(['sku' => 'SKU-FIND-ME', 'name' => 'Sku Name Find']);
+        $target = $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'SEARCH-TARGET',
+            'recipient_phone' => 'PHONE-FIND',
+            'recipient_address_line1' => 'Address Find Street',
+            'tracking_no' => 'TRACK-FIND',
+            'note' => 'Order Note Find',
+        ]);
+        $target->lines()->firstOrFail()->update(['note' => 'Line Note Find']);
+        $missSku = Sku::factory()->for($shop->tenant)->for($shop)->for(StockItem::factory()->for($shop->tenant)->create())->create(['sku_type' => 'single', 'sku' => 'MISS-SKU']);
+        $this->createPersistedOrder($shop, $missSku, ['platform_order_id' => 'SEARCH-MISS']);
+
+        foreach (['PHONE-FIND', 'Address Find', 'TRACK-FIND', 'Order Note Find', 'Line Note Find', 'SKU-FIND-ME', 'Sku Name Find', 'ShortFind'] as $term) {
+            Livewire::actingAs($this->internalUser())
+                ->test(SalesOrderIndex::class)
+                ->set('search', $term)
+                ->assertSee('SEARCH-TARGET')
+                ->assertDontSee('SEARCH-MISS');
+        }
+    }
+
+    public function test_sales_order_index_filters_by_multiple_platforms_shops_statuses_and_shipping_methods(): void
+    {
+        $tenant = Tenant::factory()->create(['status' => 'active']);
+        $amazon = Shop::factory()->for($tenant)->create(['status' => 'active', 'platform' => 'amazon', 'name' => 'Amazon Shop']);
+        $rakuten = Shop::factory()->for($tenant)->create(['status' => 'active', 'platform' => 'rakuten', 'name' => 'Rakuten Shop']);
+        $shopify = Shop::factory()->for($tenant)->create(['status' => 'active', 'platform' => 'shopify', 'name' => 'Shopify Shop']);
+        $amazonSku = Sku::factory()->for($tenant)->for($amazon)->for(StockItem::factory()->for($tenant)->create())->create(['sku_type' => 'single']);
+        $rakutenSku = Sku::factory()->for($tenant)->for($rakuten)->for(StockItem::factory()->for($tenant)->create())->create(['sku_type' => 'single']);
+        $shopifySku = Sku::factory()->for($tenant)->for($shopify)->for(StockItem::factory()->for($tenant)->create())->create(['sku_type' => 'single']);
+        $this->createPersistedOrder($amazon, $amazonSku, [
+            'platform_order_id' => 'AMAZON-YAMATO',
+            'shipping_method' => 'yamato',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+            'order_status' => SalesOrder::ORDER_STATUS_PENDING,
+        ]);
+        $this->createPersistedOrder($rakuten, $rakutenSku, [
+            'platform_order_id' => 'RAKUTEN-SAGAWA',
+            'shipping_method' => 'sagawa',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+            'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
+        ]);
+        $this->createPersistedOrder($shopify, $shopifySku, [
+            'platform_order_id' => 'SHOPIFY-POST',
+            'shipping_method' => 'japan_post',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+            'order_status' => SalesOrder::ORDER_STATUS_BACKORDER,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('platforms', ['amazon', 'rakuten'])
+            ->set('shopIds', [(string) $amazon->id, (string) $rakuten->id])
+            ->set('fulfillmentStatusesFilter', [SalesOrder::FULFILLMENT_STATUS_READY, SalesOrder::FULFILLMENT_STATUS_IN_GROUP])
+            ->set('orderStatusesFilter', [SalesOrder::ORDER_STATUS_PENDING, SalesOrder::ORDER_STATUS_ON_HOLD])
+            ->set('shippingMethodsFilter', ['yamato', 'sagawa'])
+            ->assertSee('AMAZON-YAMATO')
+            ->assertSee('RAKUTEN-SAGAWA')
+            ->assertDontSee('SHOPIFY-POST');
+    }
+
+    public function test_sales_order_index_filters_by_unset_shipping_method(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'NO-SHIP', 'shipping_method' => null]);
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'HAS-SHIP', 'shipping_method' => 'yamato']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('shippingMethodsFilter', [SalesOrderFilters::EMPTY_SHIPPING])
+            ->assertSee('NO-SHIP')
+            ->assertDontSee('HAS-SHIP');
+    }
+
+    public function test_sales_order_index_filters_by_order_date_preset_and_custom_range(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'RECENT-DATE', 'order_date' => now()->subDays(3)]);
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'OLD-DATE', 'order_date' => now()->subDays(20)]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('dateRange', SalesOrderFilters::DATE_LAST_7_DAYS)
+            ->assertSee('RECENT-DATE')
+            ->assertDontSee('OLD-DATE')
+            ->set('dateRange', SalesOrderFilters::DATE_CUSTOM)
+            ->set('dateFrom', now()->subDays(25)->toDateString())
+            ->set('dateTo', now()->subDays(10)->toDateString())
+            ->assertDontSee('RECENT-DATE')
+            ->assertSee('OLD-DATE');
+    }
+
+    public function test_sales_order_index_filter_changes_clear_selection(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'CLEAR-SELECTION']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $order->id])
+            ->set('search', 'CLEAR')
+            ->assertSet('selectedIds', []);
+    }
+
+    public function test_sales_order_index_export_links_include_new_filters(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'EXPORT-LINK']);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('platforms', ['amazon'])
+            ->set('shopIds', [(string) $shop->id])
+            ->set('fulfillmentStatusesFilter', [SalesOrder::FULFILLMENT_STATUS_READY])
+            ->set('orderStatusesFilter', [SalesOrder::ORDER_STATUS_PENDING])
+            ->set('shippingMethodsFilter', ['yamato'])
+            ->set('dateRange', SalesOrderFilters::DATE_LAST_7_DAYS)
+            ->set('search', 'EXPORT')
+            ->html();
+
+        $this->assertStringContainsString('platforms%5B0%5D=amazon', $html);
+        $this->assertStringContainsString('shops%5B0%5D='.$shop->id, $html);
+        $this->assertStringContainsString('fulfillment%5B0%5D=ready', $html);
+        $this->assertStringContainsString('order_status%5B0%5D=pending', $html);
+        $this->assertStringContainsString('shipping%5B0%5D=yamato', $html);
+        $this->assertStringContainsString('date_range=last_7_days', $html);
+        $this->assertStringContainsString('q=EXPORT', $html);
+    }
+
     public function test_sales_order_index_updates_shipping_method_with_tenant_scope(): void
     {
         [$ownTenant, $tenantUser] = $this->tenantUser();
@@ -1003,7 +1256,7 @@ class SalesOrderTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
             ->set('search', 'no matching order')
-            ->assertSee('colspan="9"', false)
+            ->assertSee('colspan="10"', false)
             ->assertSee(__('sales_orders.empty_state'));
     }
 

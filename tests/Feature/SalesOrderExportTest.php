@@ -12,6 +12,7 @@ use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Support\SalesOrderFilters;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Testing\File;
@@ -322,6 +323,97 @@ class SalesOrderExportTest extends TestCase
         $this->assertSame([], $rows);
     }
 
+    public function test_sales_order_export_respects_multi_select_filters(): void
+    {
+        $tenant = Tenant::factory()->create(['status' => 'active']);
+        $amazon = Shop::factory()->for($tenant)->create(['status' => 'active', 'platform' => 'amazon']);
+        $rakuten = Shop::factory()->for($tenant)->create(['status' => 'active', 'platform' => 'rakuten']);
+        $shopify = Shop::factory()->for($tenant)->create(['status' => 'active', 'platform' => 'shopify']);
+        $amazonSku = $this->skuForShop($tenant, $amazon, 'EXP-AMZ');
+        $rakutenSku = $this->skuForShop($tenant, $rakuten, 'EXP-RAK');
+        $shopifySku = $this->skuForShop($tenant, $shopify, 'EXP-SHO');
+        $this->orderWithLines($amazon, [[$amazonSku, 1]], [
+            'platform_order_id' => 'EXP-AMAZON',
+            'shipping_method' => 'yamato',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+            'order_status' => SalesOrder::ORDER_STATUS_PENDING,
+            'order_date' => now()->subDays(2),
+        ]);
+        $this->orderWithLines($rakuten, [[$rakutenSku, 1]], [
+            'platform_order_id' => 'EXP-RAKUTEN',
+            'shipping_method' => 'sagawa',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+            'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
+            'order_date' => now()->subDays(3),
+        ]);
+        $this->orderWithLines($shopify, [[$shopifySku, 1]], [
+            'platform_order_id' => 'EXP-SHOPIFY',
+            'shipping_method' => 'japan_post',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+            'order_status' => SalesOrder::ORDER_STATUS_BACKORDER,
+            'order_date' => now()->subDays(4),
+        ]);
+
+        $rows = $this->mappedRows($this->filters([
+            'platforms' => ['amazon', 'rakuten'],
+            'shops' => [(string) $amazon->id, (string) $rakuten->id],
+            'fulfillment' => [SalesOrder::FULFILLMENT_STATUS_READY, SalesOrder::FULFILLMENT_STATUS_IN_GROUP],
+            'order_status' => [SalesOrder::ORDER_STATUS_PENDING, SalesOrder::ORDER_STATUS_ON_HOLD],
+            'shipping' => ['yamato', 'sagawa'],
+            'date_range' => SalesOrderFilters::DATE_LAST_7_DAYS,
+        ]));
+
+        $this->assertSame(['EXP-AMAZON', 'EXP-RAKUTEN'], array_column($rows, 0));
+    }
+
+    public function test_sales_order_export_search_matches_new_search_fields(): void
+    {
+        [, $shop, $sku] = $this->salesSku('EXPORT-SEARCH');
+        $sku->stockItem->update(['short_name' => 'ExportShort']);
+        $target = $this->orderWithLines($shop, [[$sku, 1, 'Export Line Note']], [
+            'platform_order_id' => 'EXPORT-TARGET',
+            'tracking_no' => 'EXPORT-TRACK',
+            'note' => 'Export Order Note',
+        ]);
+        $missSku = $this->skuForShop($shop->tenant, $shop, 'EXPORT-MISS-SKU');
+        $this->orderWithLines($shop, [[$missSku, 1]], ['platform_order_id' => 'EXPORT-MISS']);
+
+        foreach (['EXPORT-TRACK', 'Export Order Note', 'Export Line Note', 'ExportShort'] as $term) {
+            $rows = $this->mappedRows($this->filters(['search' => $term]));
+
+            $this->assertSame(['EXPORT-TARGET'], array_column($rows, 0));
+        }
+
+        $this->assertNotNull($target->id);
+    }
+
+    public function test_sales_order_export_blocks_unbounded_historical_export(): void
+    {
+        Excel::fake();
+
+        $this->actingAs($this->internalUser())
+            ->get(route('sales.orders.export', [
+                'fulfillment' => [SalesOrder::FULFILLMENT_STATUS_SHIPPED],
+                'date_range' => SalesOrderFilters::DATE_ALL,
+            ]))
+            ->assertStatus(422)
+            ->assertSee(__('sales_orders.export_requires_date_range'));
+    }
+
+    public function test_sales_order_export_rejects_custom_range_over_365_days(): void
+    {
+        Excel::fake();
+
+        $this->actingAs($this->internalUser())
+            ->get(route('sales.orders.export', [
+                'date_range' => SalesOrderFilters::DATE_CUSTOM,
+                'date_from' => '2024-01-01',
+                'date_to' => '2026-01-02',
+            ]))
+            ->assertStatus(422)
+            ->assertSee(__('sales_orders.date_range_too_wide'));
+    }
+
     private function mappedRows(array $filters): array
     {
         $export = new SalesOrdersExport($filters);
@@ -340,9 +432,16 @@ class SalesOrderExportTest extends TestCase
             'has_order_id_filter' => false,
             'order_ids' => [],
             'shop_id' => '',
+            'shops' => [],
             'shop_filter_allowed' => true,
             'fulfillment' => '',
             'order_status' => '',
+            'shipping' => [],
+            'platforms' => [],
+            'date_range' => SalesOrderFilters::DATE_ALL,
+            'active_only' => true,
+            'date_from' => '',
+            'date_to' => '',
             'search' => '',
         ], $overrides);
     }

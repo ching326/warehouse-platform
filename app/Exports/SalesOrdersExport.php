@@ -4,6 +4,7 @@ namespace App\Exports;
 
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
+use App\Support\SalesOrderFilters;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -28,36 +29,25 @@ class SalesOrdersExport implements FromQuery, WithHeadings, WithMapping
     ];
 
     /**
-     * @param array{allowed_tenant_ids: array<int,int>, has_order_id_filter?: bool, order_ids?: array<int,int>, shop_id: string, shop_filter_allowed: bool, fulfillment: string, order_status: string, search: string} $filters
+     * @param array<string,mixed> $filters
      */
-    public function __construct(private array $filters) {}
+    public function __construct(private array $filters)
+    {
+        $this->filters = SalesOrderFilters::normalize($filters);
+    }
 
     public function query(): Builder
     {
         $filters = $this->filters;
 
         return SalesOrderLine::query()
-            ->with(['sku:id,sku', 'salesOrder'])
+            ->with(['sku:id,sku,stock_item_id,name', 'sku.stockItem:id,short_name,name', 'salesOrder'])
             ->when(! $filters['shop_filter_allowed'], fn ($query) => $query->whereRaw('1 = 0'))
             ->whereHas('salesOrder', function (Builder $query) use ($filters) {
-                $query
-                    ->whereIn('tenant_id', $filters['allowed_tenant_ids'])
-                    ->when($filters['has_order_id_filter'] ?? false, fn ($query) => ($filters['order_ids'] ?? []) === []
-                        ? $query->whereRaw('1 = 0')
-                        : $query->whereIn('id', $filters['order_ids']))
-                    ->when($filters['shop_id'] !== '', fn ($query) => $query->where('shop_id', (int) $filters['shop_id']))
-                    ->when($filters['fulfillment'] !== '', fn ($query) => $query->where('fulfillment_status', $filters['fulfillment']))
-                    ->when($filters['order_status'] !== '', fn ($query) => $query->where('order_status', $filters['order_status']))
-                    ->when($filters['search'] !== '', function ($query) use ($filters) {
-                        $like = '%'.$filters['search'].'%';
-
-                        $query->where(fn ($inner) => $inner
-                            ->where('platform_order_id', 'like', $like)
-                            ->orWhere('recipient_name', 'like', $like));
-                    });
+                SalesOrderFilters::applyToOrderQuery($query, $filters, applyExportIdFilter: true);
             })
             ->orderByDesc(
-                SalesOrder::select('created_at')
+                SalesOrder::select('order_date')
                     ->whereColumn('sales_orders.id', 'sales_order_lines.sales_order_id')
             )
             ->orderByDesc('sales_order_id')

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exports\SalesOrdersExport;
 use App\Models\Shop;
 use App\Models\Tenant;
+use App\Support\SalesOrderFilters;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Excel as ExcelFormat;
@@ -21,16 +22,6 @@ class SalesOrderExportController extends Controller
             abort(403);
         }
 
-        $shopId = trim((string) $request->query('shop', ''));
-        $shopFilterAllowed = true;
-
-        if ($shopId !== '') {
-            $shopFilterAllowed = Shop::query()
-                ->whereIn('tenant_id', $allowedTenantIds)
-                ->whereKey((int) $shopId)
-                ->exists();
-        }
-
         $idsParam = trim((string) $request->query('ids', ''));
         $hasOrderIdFilter = $request->query->has('ids') && $idsParam !== '';
         $orderIds = $idsParam === ''
@@ -40,16 +31,33 @@ class SalesOrderExportController extends Controller
                 fn (int $id) => $id > 0
             )));
 
-        $filters = [
+        $filters = SalesOrderFilters::normalize([
             'allowed_tenant_ids' => $allowedTenantIds,
             'has_order_id_filter' => $hasOrderIdFilter,
             'order_ids' => $orderIds,
-            'shop_id' => $shopId,
-            'shop_filter_allowed' => $shopFilterAllowed,
-            'fulfillment' => trim((string) $request->query('fulfillment', '')),
-            'order_status' => trim((string) $request->query('order_status', '')),
-            'search' => trim((string) $request->query('q', '')),
-        ];
+            'platforms' => $request->query('platforms', $request->query('platform', [])),
+            'shops' => $request->query('shops', $request->query('shop', [])),
+            'fulfillment' => $request->query('fulfillment', []),
+            'order_status' => $request->query('order_status', []),
+            'shipping' => $request->query('shipping', []),
+            'date_range' => $request->query('date_range', SalesOrderFilters::DATE_ALL),
+            'active_only' => $request->query('active_only', true),
+            'date_from' => $request->query('date_from', ''),
+            'date_to' => $request->query('date_to', ''),
+            'q' => $request->query('q', ''),
+        ]);
+
+        $filters['shop_filter_allowed'] = $this->shopFilterAllowed($filters['shops'], $allowedTenantIds);
+
+        if (! $hasOrderIdFilter) {
+            if (SalesOrderFilters::dateRangeError($filters)) {
+                abort(422, __('sales_orders.date_range_too_wide'));
+            }
+
+            if (SalesOrderFilters::hasHistoricalStatus($filters) && $filters['date_range'] === SalesOrderFilters::DATE_ALL) {
+                abort(422, __('sales_orders.export_requires_date_range'));
+            }
+        }
 
         $format = $request->query('format') === 'xlsx' ? 'xlsx' : 'csv';
         $writer = $format === 'xlsx' ? ExcelFormat::XLSX : ExcelFormat::CSV;
@@ -77,5 +85,17 @@ class SalesOrderExportController extends Controller
             ->where('status', 'active')
             ->pluck('tenant_id')
             ->all();
+    }
+
+    private function shopFilterAllowed(array $shopIds, array $allowedTenantIds): bool
+    {
+        if ($shopIds === []) {
+            return true;
+        }
+
+        return Shop::query()
+            ->whereIn('tenant_id', $allowedTenantIds)
+            ->whereIn('id', array_map('intval', $shopIds))
+            ->count() === count(array_unique($shopIds));
     }
 }
