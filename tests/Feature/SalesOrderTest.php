@@ -9,6 +9,7 @@ use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\Shop;
 use App\Models\Sku;
+use App\Models\SkuBundleComponent;
 use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\TenantUser;
@@ -324,6 +325,322 @@ class SalesOrderTest extends TestCase
         $this->actingAs($this->internalUser())->get('/sales-orders')->assertOk()->assertSee('Sales Orders');
         $this->actingAs($this->internalUser())->get('/sales-orders/create')->assertOk()->assertSee('Create Sales Order');
         $this->actingAs($this->internalUser())->get(route('sales.orders.show', $order))->assertOk()->assertSee('ROUTE-SALES');
+    }
+
+    public function test_mark_ready_succeeds(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('markReady');
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_READY, $order->refresh()->fulfillment_status);
+    }
+
+    public function test_mark_ready_requires_address(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, ['recipient_address_line1' => '']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('markReady');
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->refresh()->fulfillment_status);
+    }
+
+    public function test_mark_ready_requires_shippable_line(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku);
+        $order->lines()->update(['line_status' => SalesOrderLine::STATUS_CANCELLED]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('markReady');
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->refresh()->fulfillment_status);
+    }
+
+    public function test_mark_ready_blocked_when_order_on_hold(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, ['order_status' => SalesOrder::ORDER_STATUS_ON_HOLD]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('markReady');
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->refresh()->fulfillment_status);
+    }
+
+    public function test_unmark_ready_succeeds(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, [
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('unmarkReady');
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->refresh()->fulfillment_status);
+    }
+
+    public function test_unmark_ready_blocked_when_in_group(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, [
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('unmarkReady');
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $order->refresh()->fulfillment_status);
+    }
+
+    public function test_hold_succeeds_and_resets_fulfillment_to_unfulfilled(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, [
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('hold');
+
+        $order->refresh();
+        $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $order->order_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->fulfillment_status);
+    }
+
+    public function test_hold_blocked_when_in_group(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, [
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('hold');
+
+        $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $order->refresh()->order_status);
+    }
+
+    public function test_release_hold_succeeds(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, ['order_status' => SalesOrder::ORDER_STATUS_ON_HOLD]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('releaseHold');
+
+        $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $order->refresh()->order_status);
+    }
+
+    public function test_mark_backorder_succeeds(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, [
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('markBackorder');
+
+        $order->refresh();
+        $this->assertSame(SalesOrder::ORDER_STATUS_BACKORDER, $order->order_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->fulfillment_status);
+    }
+
+    public function test_release_backorder_succeeds(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, ['order_status' => SalesOrder::ORDER_STATUS_BACKORDER]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('releaseBackorder');
+
+        $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $order->refresh()->order_status);
+    }
+
+    public function test_edit_lines_replaces_ready_lines(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku();
+        $newSku = Sku::factory()->for($tenant)->for($shop)->for(StockItem::factory()->for($tenant)->create())->create([
+            'sku_type' => 'single',
+            'sku' => 'SO-EDIT-NEW',
+        ]);
+        $order = $this->createPersistedOrder($shop, $sku);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('editLines')
+            ->set('draftLines', [[
+                'sku_id' => (string) $newSku->id,
+                'quantity' => 3,
+                'note' => 'replacement',
+            ]])
+            ->call('saveLines');
+
+        $this->assertSame(1, $order->lines()->where('line_status', SalesOrderLine::STATUS_CANCELLED)->count());
+        $this->assertDatabaseHas('sales_order_lines', [
+            'sales_order_id' => $order->id,
+            'sku_id' => $newSku->id,
+            'quantity' => 3,
+            'line_status' => SalesOrderLine::STATUS_READY,
+            'note' => 'replacement',
+        ]);
+    }
+
+    public function test_edit_lines_resets_fulfillment_if_was_ready(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, [
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('editLines')
+            ->set('draftLines.0.quantity', 2)
+            ->call('saveLines');
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->refresh()->fulfillment_status);
+    }
+
+    public function test_edit_lines_blocked_when_in_group(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, [
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('editLines')
+            ->assertForbidden();
+    }
+
+    public function test_edit_lines_rejects_wrong_tenant_sku(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        [, , $wrongSku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('editLines')
+            ->set('draftLines.0.sku_id', (string) $wrongSku->id)
+            ->call('saveLines')
+            ->assertHasErrors(['lines.0.sku_id']);
+    }
+
+    public function test_bulk_mark_ready_updates_eligible_skips_ineligible(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $eligible = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'BULK-READY']);
+        $ineligible = $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'BULK-SKIP',
+            'recipient_address_line1' => '',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $eligible->id, (string) $ineligible->id])
+            ->call('bulkMarkReady');
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_READY, $eligible->refresh()->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $ineligible->refresh()->fulfillment_status);
+    }
+
+    public function test_bulk_mark_ready_ignores_other_tenant_orders(): void
+    {
+        [$ownTenant, $user] = $this->tenantUser();
+        $ownShop = Shop::factory()->for($ownTenant)->create(['status' => 'active']);
+        $ownSku = Sku::factory()->for($ownTenant)->for($ownShop)->for(StockItem::factory()->for($ownTenant)->create())->create(['sku_type' => 'single']);
+        $ownOrder = $this->createPersistedOrder($ownShop, $ownSku, ['platform_order_id' => 'OWN-BULK']);
+        [, $otherShop, $otherSku] = $this->salesSku();
+        $otherOrder = $this->createPersistedOrder($otherShop, $otherSku, ['platform_order_id' => 'OTHER-BULK']);
+
+        Livewire::actingAs($user)
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $ownOrder->id, (string) $otherOrder->id])
+            ->call('bulkMarkReady');
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_READY, $ownOrder->refresh()->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $otherOrder->refresh()->fulfillment_status);
+    }
+
+    public function test_bulk_mark_ready_rejects_virtual_bundle_without_components(): void
+    {
+        [$tenant, $shop] = $this->salesSku();
+        $bundleSku = Sku::factory()->virtualBundle()->for($tenant)->for($shop)->create(['sku' => 'SO-BUNDLE-NO-COMP']);
+        $order = $this->createPersistedOrder($shop, $bundleSku, ['platform_order_id' => 'BUNDLE-SKIP']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $order->id])
+            ->call('bulkMarkReady');
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->refresh()->fulfillment_status);
+    }
+
+    public function test_release_hold_blocked_when_fulfillment_status_terminal(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, [
+            'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_SHIPPED,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('releaseHold');
+
+        $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $order->refresh()->order_status);
+    }
+
+    public function test_mark_ready_blocked_when_ready_line_has_unshippable_sku(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku();
+        $sku->update(['stock_item_id' => null, 'sku_type' => 'single']);
+        $order = $this->createPersistedOrder($shop, $sku);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('markReady');
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->refresh()->fulfillment_status);
+        $this->assertSame($tenant->id, $order->tenant_id);
+    }
+
+    public function test_mark_ready_accepts_virtual_bundle_with_components(): void
+    {
+        [$tenant, $shop] = $this->salesSku();
+        $bundleSku = Sku::factory()->virtualBundle()->for($tenant)->for($shop)->create(['sku' => 'SO-BUNDLE-READY']);
+        SkuBundleComponent::factory()
+            ->for($tenant)
+            ->for($bundleSku, 'bundleSku')
+            ->for(StockItem::factory()->for($tenant)->create(), 'componentStockItem')
+            ->create(['quantity' => 1]);
+        $order = $this->createPersistedOrder($shop, $bundleSku, ['platform_order_id' => 'BUNDLE-READY']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('markReady');
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_READY, $order->refresh()->fulfillment_status);
     }
 
     /**

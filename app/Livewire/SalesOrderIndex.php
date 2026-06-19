@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\SalesOrder;
+use App\Models\SalesOrderLine;
 use App\Models\Shop;
 use App\Models\Tenant;
 use Illuminate\Support\Collection;
@@ -27,6 +28,8 @@ class SalesOrderIndex extends Component
     #[Url(as: 'q', except: '')]
     public string $search = '';
 
+    public array $selectedIds = [];
+
     private bool $allowedTenantIdsResolved = false;
 
     private array $allowedTenantIdsCache = [];
@@ -38,22 +41,63 @@ class SalesOrderIndex extends Component
 
     public function updatedShopId(): void
     {
+        $this->selectedIds = [];
         $this->resetPage();
     }
 
     public function updatedFulfillmentStatus(): void
     {
+        $this->selectedIds = [];
         $this->resetPage();
     }
 
     public function updatedOrderStatus(): void
     {
+        $this->selectedIds = [];
         $this->resetPage();
     }
 
     public function updatedSearch(): void
     {
+        $this->selectedIds = [];
         $this->resetPage();
+    }
+
+    public function bulkMarkReady(): void
+    {
+        if ($this->selectedIds === []) {
+            return;
+        }
+
+        $selectedIds = array_values(array_unique(array_map('intval', $this->selectedIds)));
+
+        $orders = SalesOrder::query()
+            ->whereIn('id', $selectedIds)
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->where('order_status', SalesOrder::ORDER_STATUS_PENDING)
+            ->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_UNFULFILLED)
+            ->whereNotNull('ship_together_key')
+            ->whereHas('lines', fn ($query) => $query
+                ->where('line_status', SalesOrderLine::STATUS_READY))
+            ->whereDoesntHave('lines', fn ($query) => $query
+                ->where('line_status', SalesOrderLine::STATUS_READY)
+                ->whereHas('sku', fn ($skuQuery) => $skuQuery
+                    ->whereNull('stock_item_id')
+                    ->where(fn ($missingStockQuery) => $missingStockQuery
+                        ->where('sku_type', '!=', 'virtual_bundle')
+                        ->orWhereDoesntHave('bundleComponents'))))
+            ->get();
+
+        $updated = $orders->count();
+        $orders->each->update(['fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY]);
+
+        $skipped = count($selectedIds) - $updated;
+        $this->selectedIds = [];
+
+        session()->flash('status', __('sales_orders.bulk_ready_result', [
+            'updated' => $updated,
+            'skipped' => $skipped,
+        ]));
     }
 
     public function fulfillmentStatusLabel(string $status): string

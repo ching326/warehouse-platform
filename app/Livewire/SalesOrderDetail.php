@@ -4,8 +4,11 @@ namespace App\Livewire;
 
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
+use App\Models\Sku;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 
 class SalesOrderDetail extends Component
@@ -29,6 +32,10 @@ class SalesOrderDetail extends Component
     public string $editRecipientAddressLine1 = '';
 
     public string $editRecipientAddressLine2 = '';
+
+    public bool $editingLines = false;
+
+    public array $draftLines = [];
 
     private bool $allowedTenantIdsResolved = false;
 
@@ -142,6 +149,217 @@ class SalesOrderDetail extends Component
         session()->flash('status', __('sales_orders.order_cancelled_msg'));
     }
 
+    public function markReady(): void
+    {
+        $order = SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->with('lines.sku.bundleComponents.componentStockItem')
+            ->findOrFail($this->orderId);
+
+        if (
+            $order->order_status !== SalesOrder::ORDER_STATUS_PENDING
+            || $order->fulfillment_status !== SalesOrder::FULFILLMENT_STATUS_UNFULFILLED
+        ) {
+            session()->flash('error', __('sales_orders.cannot_mark_ready'));
+
+            return;
+        }
+
+        if (! $order->ship_together_key) {
+            session()->flash('error', __('sales_orders.ready_requires_address'));
+
+            return;
+        }
+
+        $readyLines = $order->lines->where('line_status', SalesOrderLine::STATUS_READY);
+
+        if ($readyLines->isEmpty()) {
+            session()->flash('error', __('sales_orders.ready_requires_shippable_line'));
+
+            return;
+        }
+
+        foreach ($readyLines as $line) {
+            if (! $this->isLineShippable($line, $order->tenant_id)) {
+                session()->flash('error', __('sales_orders.ready_requires_shippable_line'));
+
+                return;
+            }
+        }
+
+        $order->update(['fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY]);
+        session()->flash('status', __('sales_orders.marked_ready'));
+    }
+
+    public function unmarkReady(): void
+    {
+        $order = SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->findOrFail($this->orderId);
+
+        if (
+            $order->order_status !== SalesOrder::ORDER_STATUS_PENDING
+            || $order->fulfillment_status !== SalesOrder::FULFILLMENT_STATUS_READY
+        ) {
+            session()->flash('error', __('sales_orders.cannot_unmark_ready'));
+
+            return;
+        }
+
+        $order->update(['fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED]);
+        session()->flash('status', __('sales_orders.unmarked_ready'));
+    }
+
+    public function hold(): void
+    {
+        $order = SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->findOrFail($this->orderId);
+
+        if (
+            $order->order_status !== SalesOrder::ORDER_STATUS_PENDING
+            || ! $this->hasManualFulfillmentStatus($order)
+        ) {
+            session()->flash('error', __('sales_orders.cannot_hold'));
+
+            return;
+        }
+
+        $order->update([
+            'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+        ]);
+        session()->flash('status', __('sales_orders.put_on_hold'));
+    }
+
+    public function releaseHold(): void
+    {
+        $order = SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->findOrFail($this->orderId);
+
+        if (
+            $order->order_status !== SalesOrder::ORDER_STATUS_ON_HOLD
+            || ! $this->hasManualFulfillmentStatus($order)
+        ) {
+            session()->flash('error', __('sales_orders.not_on_hold'));
+
+            return;
+        }
+
+        $order->update(['order_status' => SalesOrder::ORDER_STATUS_PENDING]);
+        session()->flash('status', __('sales_orders.hold_released'));
+    }
+
+    public function markBackorder(): void
+    {
+        $order = SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->findOrFail($this->orderId);
+
+        if (
+            $order->order_status !== SalesOrder::ORDER_STATUS_PENDING
+            || ! $this->hasManualFulfillmentStatus($order)
+        ) {
+            session()->flash('error', __('sales_orders.cannot_backorder'));
+
+            return;
+        }
+
+        $order->update([
+            'order_status' => SalesOrder::ORDER_STATUS_BACKORDER,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+        ]);
+        session()->flash('status', __('sales_orders.marked_backorder'));
+    }
+
+    public function releaseBackorder(): void
+    {
+        $order = SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->findOrFail($this->orderId);
+
+        if (
+            $order->order_status !== SalesOrder::ORDER_STATUS_BACKORDER
+            || ! $this->hasManualFulfillmentStatus($order)
+        ) {
+            session()->flash('error', __('sales_orders.not_on_backorder'));
+
+            return;
+        }
+
+        $order->update(['order_status' => SalesOrder::ORDER_STATUS_PENDING]);
+        session()->flash('status', __('sales_orders.backorder_released'));
+    }
+
+    public function editLines(): void
+    {
+        $order = $this->loadEditableOrder();
+
+        $this->draftLines = $order->lines
+            ->where('line_status', SalesOrderLine::STATUS_READY)
+            ->values()
+            ->map(fn (SalesOrderLine $line) => [
+                'sku_id' => (string) $line->sku_id,
+                'quantity' => $line->quantity,
+                'note' => (string) $line->note,
+            ])
+            ->all();
+        $this->editingLines = true;
+    }
+
+    public function addDraftLine(): void
+    {
+        $this->draftLines[] = ['sku_id' => '', 'quantity' => 1, 'note' => ''];
+    }
+
+    public function removeDraftLine(int $index): void
+    {
+        unset($this->draftLines[$index]);
+        $this->draftLines = array_values($this->draftLines);
+    }
+
+    public function cancelEditLines(): void
+    {
+        $this->editingLines = false;
+        $this->draftLines = [];
+    }
+
+    public function saveLines(): void
+    {
+        $order = $this->loadEditableOrder();
+        $tenantId = $order->tenant_id;
+
+        validator(['lines' => $this->draftLines], [
+            'lines' => ['required', 'array', 'min:1'],
+            'lines.*.sku_id' => ['required', 'integer', Rule::exists('skus', 'id')->where('tenant_id', $tenantId)],
+            'lines.*.quantity' => ['required', 'integer', 'min:1', 'max:9999'],
+            'lines.*.note' => ['nullable', 'string', 'max:500'],
+        ])->validate();
+
+        DB::transaction(function () use ($order) {
+            $order->lines()->where('line_status', SalesOrderLine::STATUS_READY)->update([
+                'line_status' => SalesOrderLine::STATUS_CANCELLED,
+            ]);
+
+            foreach ($this->draftLines as $draft) {
+                $order->lines()->create([
+                    'sku_id' => (int) $draft['sku_id'],
+                    'quantity' => (int) $draft['quantity'],
+                    'note' => $this->nullableString($draft['note'] ?? ''),
+                    'line_status' => SalesOrderLine::STATUS_READY,
+                ]);
+            }
+
+            if ($order->fulfillment_status === SalesOrder::FULFILLMENT_STATUS_READY) {
+                $order->update(['fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED]);
+            }
+        });
+
+        $this->editingLines = false;
+        session()->flash('status', __('sales_orders.lines_updated'));
+    }
+
     public function fulfillmentStatusLabel(string $status): string
     {
         return [
@@ -222,6 +440,7 @@ class SalesOrderDetail extends Component
             'order' => $order,
             'relatedOrders' => $relatedOrders,
             'activities' => $activities,
+            'skuOptions' => $this->skuOptions($order->tenant_id),
         ])->layout('inventory', [
             'title' => __('sales_orders.detail_page_title'),
             'subtitle' => $order->platform_order_id ?? "#{$order->id}",
@@ -253,6 +472,60 @@ class SalesOrderDetail extends Component
             ->where('status', 'active')
             ->pluck('tenant_id')
             ->all();
+    }
+
+    private function loadEditableOrder(): SalesOrder
+    {
+        $order = SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->with('lines.sku')
+            ->findOrFail($this->orderId);
+
+        if (
+            ! in_array($order->order_status, [SalesOrder::ORDER_STATUS_PENDING, SalesOrder::ORDER_STATUS_ON_HOLD], true)
+            || ! $this->hasManualFulfillmentStatus($order)
+        ) {
+            abort(403);
+        }
+
+        return $order;
+    }
+
+    private function skuOptions(int $tenantId)
+    {
+        return Sku::query()
+            ->where('tenant_id', $tenantId)
+            ->where('status', 'active')
+            ->orderBy('sku')
+            ->get(['id', 'sku', 'name', 'stock_item_id', 'sku_type']);
+    }
+
+    private function hasManualFulfillmentStatus(SalesOrder $order): bool
+    {
+        return in_array($order->fulfillment_status, [
+            SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+            SalesOrder::FULFILLMENT_STATUS_READY,
+        ], true);
+    }
+
+    private function isLineShippable(SalesOrderLine $line, int $tenantId): bool
+    {
+        $sku = $line->sku;
+
+        if (! $sku) {
+            return false;
+        }
+
+        if ($sku->stock_item_id !== null) {
+            return true;
+        }
+
+        if ($sku->sku_type !== 'virtual_bundle' || $sku->bundleComponents->isEmpty()) {
+            return false;
+        }
+
+        return $sku->bundleComponents->every(fn ($component) => $component->componentStockItem
+            && $component->componentStockItem->tenant_id === $tenantId);
     }
 
     private function nullableString(?string $value): ?string

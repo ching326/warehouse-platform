@@ -1,3 +1,8 @@
+@php
+    $editable = in_array($order->order_status, ['pending', 'on_hold'], true)
+        && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true);
+@endphp
+
 <div class="sales-order-detail-page">
     @if (session('status'))
         <div class="active-filter-row">
@@ -40,6 +45,56 @@
                 <span class="subtle">{{ __('sales_orders.field_platform_order_id') }}</span>
                 <strong>{{ $order->platform_order_id ?: '-' }}</strong>
             </div>
+        </div>
+    </section>
+
+    <section class="table-shell flux-panel form-panel">
+        <div class="form-panel-header">
+            <div>
+                <strong>{{ __('sales_orders.section_actions') }}</strong>
+                <span>{{ __('sales_orders.section_actions_hint') }}</span>
+            </div>
+        </div>
+
+        <div class="active-filter-row">
+            @if ($order->order_status === 'pending' && $order->fulfillment_status === 'unfulfilled')
+                <flux:button type="button" variant="primary" wire:click="markReady">
+                    {{ __('sales_orders.btn_mark_ready') }}
+                </flux:button>
+            @endif
+
+            @if ($order->order_status === 'pending' && $order->fulfillment_status === 'ready')
+                <flux:button type="button" variant="outline" wire:click="unmarkReady">
+                    {{ __('sales_orders.btn_unmark_ready') }}
+                </flux:button>
+            @endif
+
+            @if ($order->order_status === 'pending' && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true))
+                <flux:button type="button" variant="outline" wire:click="hold">
+                    {{ __('sales_orders.btn_hold') }}
+                </flux:button>
+                <flux:button type="button" variant="outline" wire:click="markBackorder">
+                    {{ __('sales_orders.btn_backorder') }}
+                </flux:button>
+            @endif
+
+            @if ($order->order_status === 'on_hold' && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true))
+                <flux:button type="button" variant="primary" wire:click="releaseHold">
+                    {{ __('sales_orders.btn_release_hold') }}
+                </flux:button>
+            @endif
+
+            @if ($order->order_status === 'backorder' && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true))
+                <flux:button type="button" variant="primary" wire:click="releaseBackorder">
+                    {{ __('sales_orders.btn_release_backorder') }}
+                </flux:button>
+            @endif
+
+            @if ($editable && ! $editingLines)
+                <flux:button type="button" variant="outline" wire:click="editLines">
+                    {{ __('sales_orders.btn_edit_lines') }}
+                </flux:button>
+            @endif
         </div>
     </section>
 
@@ -115,35 +170,79 @@
     </section>
 
     <section class="table-shell flux-panel form-panel">
-        <flux:table class="movement-table">
-            <flux:table.columns>
-                <flux:table.column>{{ __('sales_orders.col_sku') }}</flux:table.column>
-                <flux:table.column align="end">{{ __('sales_orders.col_qty') }}</flux:table.column>
-                <flux:table.column>{{ __('sales_orders.col_line_status') }}</flux:table.column>
-                <flux:table.column>{{ __('sales_orders.field_note') }}</flux:table.column>
-            </flux:table.columns>
-            <flux:table.rows>
-                @forelse ($order->lines as $line)
-                    <flux:table.row :key="$line->id">
-                        <flux:table.cell>
-                            <strong>{{ $line->sku->sku }}</strong>
-                            <span class="subtle">{{ $line->sku->name }} / {{ $line->sku->stockItem?->code ?? __('common.sku_types.virtual_bundle') }}</span>
-                        </flux:table.cell>
-                        <flux:table.cell align="end">{{ number_format($line->quantity) }}</flux:table.cell>
-                        <flux:table.cell>
-                            <flux:badge color="{{ $line->line_status === 'cancelled' ? 'red' : 'blue' }}">
-                                {{ $this->lineStatusLabel($line->line_status) }}
-                            </flux:badge>
-                        </flux:table.cell>
-                        <flux:table.cell>{{ $line->note ?: '-' }}</flux:table.cell>
-                    </flux:table.row>
-                @empty
-                    <flux:table.row>
-                        <flux:table.cell colspan="4">{{ __('sales_orders.no_lines') }}</flux:table.cell>
-                    </flux:table.row>
-                @endforelse
-            </flux:table.rows>
-        </flux:table>
+        <div class="form-panel-header">
+            <div>
+                <strong>{{ __('sales_orders.section_lines') }}</strong>
+                <span>{{ __('sales_orders.section_lines_hint') }}</span>
+            </div>
+        </div>
+
+        @if ($editingLines)
+            @foreach ($draftLines as $index => $line)
+                <div class="line-row">
+                    <flux:select wire:model="draftLines.{{ $index }}.sku_id" required :label="__('sales_orders.field_sku')">
+                        <flux:select.option value="">{{ __('sales_orders.select_sku') }}</flux:select.option>
+                        @foreach ($skuOptions as $sku)
+                            <flux:select.option value="{{ $sku->id }}">
+                                {{ $sku->sku }} - {{ $sku->name }}
+                                @if ($sku->stock_item_id)
+                                    / #{{ $sku->stock_item_id }}
+                                @else
+                                    / {{ __('common.sku_types.virtual_bundle') }}
+                                @endif
+                            </flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    <flux:input wire:model="draftLines.{{ $index }}.quantity" type="number" min="1" step="1" required :label="__('sales_orders.field_quantity')" />
+                    <flux:input wire:model="draftLines.{{ $index }}.note" :label="__('sales_orders.field_note')" />
+                    <button type="button" class="remove-line-btn {{ count($draftLines) <= 1 ? 'invisible' : '' }}" wire:click="removeDraftLine({{ $index }})">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                    </button>
+                </div>
+
+                @error("lines.{$index}.sku_id") <p class="form-error">{{ $message }}</p> @enderror
+                @error("lines.{$index}.quantity") <p class="form-error">{{ $message }}</p> @enderror
+                @error("lines.{$index}.note") <p class="form-error">{{ $message }}</p> @enderror
+            @endforeach
+
+            @error('lines') <p class="form-error">{{ $message }}</p> @enderror
+
+            <div class="form-actions">
+                <flux:button type="button" variant="outline" wire:click="addDraftLine">{{ __('sales_orders.btn_add_line') }}</flux:button>
+                <flux:button type="button" variant="outline" wire:click="cancelEditLines">{{ __('sales_orders.btn_cancel_edit') }}</flux:button>
+                <flux:button type="button" variant="primary" wire:click="saveLines">{{ __('sales_orders.btn_save_lines') }}</flux:button>
+            </div>
+        @else
+            <flux:table class="movement-table">
+                <flux:table.columns>
+                    <flux:table.column>{{ __('sales_orders.col_sku') }}</flux:table.column>
+                    <flux:table.column align="end">{{ __('sales_orders.col_qty') }}</flux:table.column>
+                    <flux:table.column>{{ __('sales_orders.col_line_status') }}</flux:table.column>
+                    <flux:table.column>{{ __('sales_orders.field_note') }}</flux:table.column>
+                </flux:table.columns>
+                <flux:table.rows>
+                    @forelse ($order->lines as $line)
+                        <flux:table.row :key="$line->id">
+                            <flux:table.cell>
+                                <strong>{{ $line->sku->sku }}</strong>
+                                <span class="subtle">{{ $line->sku->name }} / {{ $line->sku->stockItem?->code ?? __('common.sku_types.virtual_bundle') }}</span>
+                            </flux:table.cell>
+                            <flux:table.cell align="end">{{ number_format($line->quantity) }}</flux:table.cell>
+                            <flux:table.cell>
+                                <flux:badge color="{{ $line->line_status === 'cancelled' ? 'red' : 'blue' }}">
+                                    {{ $this->lineStatusLabel($line->line_status) }}
+                                </flux:badge>
+                            </flux:table.cell>
+                            <flux:table.cell>{{ $line->note ?: '-' }}</flux:table.cell>
+                        </flux:table.row>
+                    @empty
+                        <flux:table.row>
+                            <flux:table.cell colspan="4">{{ __('sales_orders.no_lines') }}</flux:table.cell>
+                        </flux:table.row>
+                    @endforelse
+                </flux:table.rows>
+            </flux:table>
+        @endif
     </section>
 
     <section class="table-shell flux-panel form-panel">

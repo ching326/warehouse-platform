@@ -41,8 +41,18 @@
             </flux:button>
         </div>
 
+        @if (count($selectedIds) > 0)
+            <div class="active-filter-row">
+                <flux:badge color="blue">{{ trans_choice('sales_orders.selected_count', count($selectedIds), ['count' => count($selectedIds)]) }}</flux:badge>
+                <flux:button type="button" size="sm" variant="primary" wire:click="bulkMarkReady">
+                    {{ __('sales_orders.btn_bulk_mark_ready') }}
+                </flux:button>
+            </div>
+        @endif
+
         <flux:table :paginate="$orders" class="movement-table">
             <flux:table.columns>
+                <flux:table.column></flux:table.column>
                 <flux:table.column>{{ __('sales_orders.col_shop') }}</flux:table.column>
                 <flux:table.column>{{ __('sales_orders.col_platform_order_id') }}</flux:table.column>
                 <flux:table.column>{{ __('sales_orders.col_recipient') }}</flux:table.column>
@@ -55,6 +65,9 @@
             <flux:table.rows>
                 @forelse ($orders as $order)
                     <flux:table.row :key="$order->id">
+                        <flux:table.cell>
+                            <input type="checkbox" wire:model.live="selectedIds" value="{{ $order->id }}" aria-label="{{ __('sales_orders.select_order') }} #{{ $order->id }}">
+                        </flux:table.cell>
                         <flux:table.cell>
                             <strong>{{ $order->shop->name }}</strong>
                             <span class="subtle">{{ $order->shop->tenant->code }} / {{ $order->shop->platform }}</span>
@@ -86,7 +99,7 @@
                     </flux:table.row>
                 @empty
                     <flux:table.row>
-                        <flux:table.cell colspan="7">
+                        <flux:table.cell colspan="8">
                             <div class="empty-state">{{ __('sales_orders.empty_state') }}</div>
                         </flux:table.cell>
                     </flux:table.row>
