@@ -178,7 +178,6 @@ class InboundOrderCreate extends Component
             ->whereNotNull('stock_item_id')
             ->with(['shop:id,code', 'stockItem:id,code,name'])
             ->orderBy('sku')
-            ->limit(50)
             ->get(['id', 'tenant_id', 'shop_id', 'stock_item_id', 'sku', 'name', 'platform_sku', 'platform_label_code', 'sku_type']);
     }
 

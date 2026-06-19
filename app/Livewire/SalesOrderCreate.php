@@ -216,7 +216,6 @@ class SalesOrderCreate extends Component
                 ->orWhereNotNull('stock_item_id'))
             ->with('stockItem:id,code,name')
             ->orderBy('sku')
-            ->limit(50)
             ->get(['id', 'tenant_id', 'sku', 'name', 'stock_item_id', 'sku_type']);
     }
 

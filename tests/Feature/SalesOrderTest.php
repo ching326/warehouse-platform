@@ -127,6 +127,38 @@ class SalesOrderTest extends TestCase
             ->assertHasErrors(['lines.0.sku_id']);
     }
 
+    public function test_create_sales_order_can_select_sku_beyond_first_fifty(): void
+    {
+        $tenant = Tenant::factory()->create(['status' => 'active']);
+        $shop = Shop::factory()->for($tenant)->create(['status' => 'active']);
+        $targetSku = null;
+
+        for ($i = 1; $i <= 60; $i++) {
+            $stockItem = StockItem::factory()->for($tenant)->create();
+            $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create([
+                'sku_type' => 'single',
+                'sku' => sprintf('SO-BULK-%03d', $i),
+            ]);
+
+            if ($i === 60) {
+                $targetSku = $sku;
+            }
+        }
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderCreate::class)
+            ->set('shopId', (string) $shop->id)
+            ->set('lines.0.sku_id', (string) $targetSku->id)
+            ->set('lines.0.quantity', '1')
+            ->call('save')
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('sales_order_lines', [
+            'sku_id' => $targetSku->id,
+            'quantity' => 1,
+        ]);
+    }
+
     public function test_create_sales_order_requires_quantity(): void
     {
         [, $shop, $sku] = $this->salesSku();

@@ -65,7 +65,9 @@
         <div class="form-panel-header">
             <div>
                 <strong>{{ __('sales_orders.field_recipient') }}</strong>
-                <span>{{ __('sales_orders.related_orders_none') }}</span>
+                @if ($relatedOrders->isEmpty())
+                    <span>{{ __('sales_orders.related_orders_none') }}</span>
+                @endif
             </div>
             @if (! $editingRecipient)
                 <flux:button type="button" variant="outline" wire:click="editRecipient">

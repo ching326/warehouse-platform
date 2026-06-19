@@ -78,6 +78,40 @@ class InboundOrderTest extends TestCase
             ->assertHasErrors(['lines.0.sku_id']);
     }
 
+    public function test_create_inbound_order_can_select_sku_beyond_first_fifty(): void
+    {
+        $tenant = Tenant::factory()->create(['status' => 'active']);
+        $warehouse = Warehouse::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create(['status' => 'active']);
+        $targetSku = null;
+
+        for ($i = 1; $i <= 60; $i++) {
+            $stockItem = StockItem::factory()->for($tenant)->create();
+            $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create([
+                'sku_type' => 'single',
+                'sku' => sprintf('IB-BULK-%03d', $i),
+            ]);
+
+            if ($i === 60) {
+                $targetSku = $sku;
+            }
+        }
+
+        Livewire::actingAs($this->internalUser())
+            ->test(InboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('lines.0.sku_id', (string) $targetSku->id)
+            ->set('lines.0.expected_qty', '1')
+            ->call('save')
+            ->assertRedirect(route('inbound.index'));
+
+        $this->assertDatabaseHas('inbound_order_lines', [
+            'sku_id' => $targetSku->id,
+            'expected_qty' => 1,
+        ]);
+    }
+
     public function test_mark_arrived_only_updates_status_and_metadata(): void
     {
         [$tenant, $warehouse, $sku] = $this->receivableSku();
