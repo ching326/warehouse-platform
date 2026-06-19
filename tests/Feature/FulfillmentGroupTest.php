@@ -163,7 +163,8 @@ class FulfillmentGroupTest extends TestCase
 
     public function test_group_creation_expands_virtual_bundle_components(): void
     {
-        [$tenant, $warehouse, $shop] = [Tenant::factory()->create(), Warehouse::factory()->create(), null];
+        $tenant = Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create();
         $shop = Shop::factory()->for($tenant)->create();
         $componentA = StockItem::factory()->for($tenant)->create(['code' => $tenant->code.'-BUNDLE-A']);
         $componentB = StockItem::factory()->for($tenant)->create(['code' => $tenant->code.'-BUNDLE-B']);
