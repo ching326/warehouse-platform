@@ -14,6 +14,7 @@ use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\Shop;
 use App\Models\Sku;
+use App\Models\SkuBundleComponent;
 use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\TenantUser;
@@ -160,6 +161,55 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame(6, $this->balance($tenant, $warehouse, $skuA->stockItem)->reserved_qty);
     }
 
+    public function test_group_creation_expands_virtual_bundle_components(): void
+    {
+        [$tenant, $warehouse, $shop] = [Tenant::factory()->create(), Warehouse::factory()->create(), null];
+        $shop = Shop::factory()->for($tenant)->create();
+        $componentA = StockItem::factory()->for($tenant)->create(['code' => $tenant->code.'-BUNDLE-A']);
+        $componentB = StockItem::factory()->for($tenant)->create(['code' => $tenant->code.'-BUNDLE-B']);
+        $bundleSku = Sku::factory()->for($tenant)->for($shop)->create([
+            'sku_type' => 'virtual_bundle',
+            'stock_item_id' => null,
+            'sku' => 'BUNDLE-SKU',
+        ]);
+
+        SkuBundleComponent::factory()->create([
+            'tenant_id' => $tenant->id,
+            'bundle_sku_id' => $bundleSku->id,
+            'component_stock_item_id' => $componentA->id,
+            'quantity' => 1,
+        ]);
+        SkuBundleComponent::factory()->create([
+            'tenant_id' => $tenant->id,
+            'bundle_sku_id' => $bundleSku->id,
+            'component_stock_item_id' => $componentB->id,
+            'quantity' => 2,
+        ]);
+
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $componentA->id, 20);
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $componentB->id, 20);
+
+        $order = $this->readySalesOrder($tenant, $shop, $bundleSku, 3, 'SO-BUNDLE-GROUP');
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order])
+            ->assertRedirect();
+
+        $outbound = FulfillmentGroup::firstOrFail()->outboundOrder()->with('lines')->firstOrFail();
+        $parentLine = $outbound->lines->firstWhere('parent_line_id', null);
+        $childLines = $outbound->lines->whereNotNull('parent_line_id')->sortBy('stock_item_id')->values();
+
+        $this->assertNotNull($parentLine);
+        $this->assertNull($parentLine->stock_item_id);
+        $this->assertSame($bundleSku->id, $parentLine->sku_id);
+        $this->assertSame(3, $parentLine->qty);
+        $this->assertSame(2, $childLines->count());
+        $this->assertSame([$componentA->id, $componentB->id], $childLines->pluck('stock_item_id')->all());
+        $this->assertSame([3, 6], $childLines->pluck('qty')->all());
+        $this->assertSame(3, $this->balance($tenant, $warehouse, $componentA)->reserved_qty);
+        $this->assertSame(6, $this->balance($tenant, $warehouse, $componentB)->reserved_qty);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $order->refresh()->fulfillment_status);
+    }
+
     public function test_tenant_user_can_only_create_group_for_own_tenant(): void
     {
         [$ownTenant, $user] = $this->tenantUser();
@@ -177,6 +227,21 @@ class FulfillmentGroupTest extends TestCase
 
         $this->assertSame(0, FulfillmentGroup::count());
         $this->assertTrue($ownTenant->isNot($otherTenant));
+    }
+
+    public function test_tenant_user_cannot_render_other_tenant_ready_orders_on_create_page(): void
+    {
+        [, $user] = $this->tenantUser();
+        [$otherTenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($otherTenant, $shop, $sku, 1, 'SO-HIDDEN-OPTION');
+
+        Livewire::actingAs($user)
+            ->test(FulfillmentGroupCreate::class)
+            ->set('tenantId', (string) $otherTenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('shipKey', (string) $order->ship_together_key)
+            ->assertDontSee('SO-HIDDEN-OPTION')
+            ->assertDontSee('Shared Recipient');
     }
 
     public function test_tenant_user_index_only_sees_own_fulfillment_groups(): void

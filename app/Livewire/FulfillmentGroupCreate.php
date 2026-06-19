@@ -65,7 +65,7 @@ class FulfillmentGroupCreate extends Component
                 $orders = SalesOrder::query()
                     ->whereIn('id', $this->selectedOrderIds)
                     ->where('tenant_id', $tenantId)
-                    ->with('lines.sku')
+                    ->with('lines.sku.bundleComponents.componentStockItem')
                     ->lockForUpdate()
                     ->get();
 
@@ -144,13 +144,24 @@ class FulfillmentGroupCreate extends Component
                 }
 
                 foreach ($bySkuAndItem as $line) {
-                    $outbound->lines()->create([
+                    $outboundLine = $outbound->lines()->create([
                         'tenant_id' => $tenantId,
                         'sku_id' => $line['sku_id'],
                         'stock_item_id' => $line['stock_item_id'],
                         'qty' => $line['qty'],
                         'inventory_movement_id' => null,
                     ]);
+
+                    foreach ($line['children'] as $childLine) {
+                        $outbound->lines()->create([
+                            'parent_line_id' => $outboundLine->id,
+                            'tenant_id' => $tenantId,
+                            'sku_id' => $childLine['sku_id'],
+                            'stock_item_id' => $childLine['stock_item_id'],
+                            'qty' => $childLine['qty'],
+                            'inventory_movement_id' => null,
+                        ]);
+                    }
                 }
 
                 SalesOrder::query()
@@ -222,11 +233,12 @@ class FulfillmentGroupCreate extends Component
 
     private function shipKeyOptions(): Collection
     {
-        if ($this->tenantId === '') {
+        if (! $this->selectedTenantIsAllowed()) {
             return collect();
         }
 
         return SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
             ->where('tenant_id', (int) $this->tenantId)
             ->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_READY)
             ->whereNotNull('ship_together_key')
@@ -238,11 +250,12 @@ class FulfillmentGroupCreate extends Component
 
     private function eligibleOrders(): Collection
     {
-        if ($this->tenantId === '' || $this->shipKey === '') {
+        if (! $this->selectedTenantIsAllowed() || $this->shipKey === '') {
             return collect();
         }
 
         return SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
             ->where('tenant_id', (int) $this->tenantId)
             ->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_READY)
             ->where('ship_together_key', $this->shipKey)
@@ -252,11 +265,11 @@ class FulfillmentGroupCreate extends Component
     }
 
     /**
-     * @return array{0: array<string,array{sku_id:int,stock_item_id:int,qty:int}>, 1: array<int,int>}
+     * @return array{0: array<string,array{sku_id:int,stock_item_id:?int,qty:int,children:array<int,array{sku_id:int,stock_item_id:int,qty:int}>}>, 1: array<int,int>}
      */
     private function aggregateLines(Collection $orders): array
     {
-        $bySkuAndItem = [];
+        $outboundLines = [];
         $byStockItem = [];
 
         foreach ($orders as $order) {
@@ -266,18 +279,77 @@ class FulfillmentGroupCreate extends Component
                 }
 
                 $sku = $line->sku;
-                if (! $sku || ! $sku->stock_item_id) {
+                if (! $sku) {
                     continue;
                 }
 
+                if ($sku->sku_type === 'virtual_bundle') {
+                    if ($sku->bundleComponents->isEmpty()) {
+                        throw ValidationException::withMessages([
+                            'selectedOrderIds' => __('outbound.bundle_no_components'),
+                        ]);
+                    }
+
+                    $parentKey = 'bundle:'.$sku->id;
+                    $outboundLines[$parentKey] ??= [
+                        'sku_id' => $sku->id,
+                        'stock_item_id' => null,
+                        'qty' => 0,
+                        'children' => [],
+                    ];
+                    $outboundLines[$parentKey]['qty'] += (int) $line->quantity;
+
+                    foreach ($sku->bundleComponents as $component) {
+                        if (
+                            $component->tenant_id !== $order->tenant_id
+                            || ! $component->componentStockItem
+                            || $component->componentStockItem->tenant_id !== $order->tenant_id
+                        ) {
+                            throw ValidationException::withMessages([
+                                'selectedOrderIds' => __('outbound.bundle_invalid_tenant'),
+                            ]);
+                        }
+
+                        $componentQty = (int) $line->quantity * (int) $component->quantity;
+                        $stockItemId = (int) $component->component_stock_item_id;
+
+                        $outboundLines[$parentKey]['children'][$stockItemId] ??= [
+                            'sku_id' => $sku->id,
+                            'stock_item_id' => $stockItemId,
+                            'qty' => 0,
+                        ];
+                        $outboundLines[$parentKey]['children'][$stockItemId]['qty'] += $componentQty;
+                        $byStockItem[$stockItemId] = ($byStockItem[$stockItemId] ?? 0) + $componentQty;
+                    }
+
+                    continue;
+                }
+
+                if (! $sku->stock_item_id) {
+                    throw ValidationException::withMessages([
+                        'selectedOrderIds' => __('skus.missing_stock_item'),
+                    ]);
+                }
+
                 $key = $sku->id.':'.$sku->stock_item_id;
-                $bySkuAndItem[$key] ??= ['sku_id' => $sku->id, 'stock_item_id' => $sku->stock_item_id, 'qty' => 0];
-                $bySkuAndItem[$key]['qty'] += $line->quantity;
-                $byStockItem[$sku->stock_item_id] = ($byStockItem[$sku->stock_item_id] ?? 0) + $line->quantity;
+                $outboundLines[$key] ??= [
+                    'sku_id' => $sku->id,
+                    'stock_item_id' => $sku->stock_item_id,
+                    'qty' => 0,
+                    'children' => [],
+                ];
+                $outboundLines[$key]['qty'] += (int) $line->quantity;
+                $byStockItem[$sku->stock_item_id] = ($byStockItem[$sku->stock_item_id] ?? 0) + (int) $line->quantity;
             }
         }
 
-        return [$bySkuAndItem, $byStockItem];
+        return [$outboundLines, $byStockItem];
+    }
+
+    private function selectedTenantIsAllowed(): bool
+    {
+        return $this->tenantId !== ''
+            && in_array((int) $this->tenantId, $this->allowedTenantIds(), true);
     }
 
     private function validatedTenantId(): int
