@@ -177,7 +177,10 @@
         <flux:button href="{{ route('sales.orders.index') }}" variant="outline" wire:navigate>
             {{ __('sales_orders.btn_back_orders') }}
         </flux:button>
-        @if ($order->order_status === 'pending' && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true))
+        @if (
+            in_array($order->order_status, ['pending', 'on_hold', 'backorder'], true)
+            && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true)
+        )
             <flux:button type="button" variant="danger" wire:click="cancelOrder" wire:confirm="{{ __('sales_orders.btn_cancel_order') }}?">
                 {{ __('sales_orders.btn_cancel_order') }}
             </flux:button>

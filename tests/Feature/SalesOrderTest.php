@@ -40,11 +40,22 @@ class SalesOrderTest extends TestCase
 
         $this->assertSame($tenant->id, $order->tenant_id);
         $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $order->order_status);
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_READY, $order->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->fulfillment_status);
         $this->assertSame(SalesOrder::SOURCE_MANUAL, $order->source);
         $this->assertSame($sku->id, $line->sku_id);
         $this->assertSame(2, $line->quantity);
         $this->assertSame(SalesOrderLine::STATUS_READY, $line->line_status);
+    }
+
+    public function test_sales_order_index_includes_business_order_status_filters(): void
+    {
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->assertSee('Pending')
+            ->assertSee('On hold')
+            ->assertSee('Backorder')
+            ->assertSee('Cancelled')
+            ->assertSee('Completed');
     }
 
     public function test_create_sales_order_computes_ship_together_key(): void
@@ -355,7 +366,7 @@ class SalesOrderTest extends TestCase
             'shop_id' => $shop->id,
             'source' => SalesOrder::SOURCE_MANUAL,
             'order_status' => SalesOrder::ORDER_STATUS_PENDING,
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
             'recipient_name' => 'Taro',
             'recipient_country_code' => 'JP',
             'recipient_postal_code' => '542-0076',

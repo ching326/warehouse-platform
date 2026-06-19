@@ -86,7 +86,7 @@ class SalesOrderCreate extends Component
                 'source' => SalesOrder::SOURCE_MANUAL,
                 'platform_order_id' => $this->nullableString($this->platformOrderId),
                 'order_status' => SalesOrder::ORDER_STATUS_PENDING,
-                'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+                'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
                 'recipient_name' => $this->nullableString($this->recipientName),
                 'recipient_phone' => $this->nullableString($this->recipientPhone),
                 'recipient_country_code' => $this->nullableString($this->recipientCountryCode),

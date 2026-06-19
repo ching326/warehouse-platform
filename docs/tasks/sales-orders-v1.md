@@ -39,7 +39,7 @@ Schema::create('sales_orders', function (Blueprint $table) {
     $table->foreignId('shop_id')->constrained('shops')->restrictOnDelete();
     $table->string('source')->default('manual');        // manual | csv | api
     $table->string('platform_order_id')->nullable();   // external order ID (optional for manual)
-    $table->string('order_status')->default('pending'); // pending | cancelled
+    $table->string('order_status')->default('pending'); // pending | on_hold | backorder | cancelled | completed
     $table->string('fulfillment_status')->default('unfulfilled'); // unfulfilled | ready | in_group | shipped | cancelled
     $table->string('recipient_name')->nullable();
     $table->string('recipient_phone')->nullable();
@@ -96,8 +96,11 @@ class SalesOrder extends Model
 {
     use HasFactory, LogsActivity;
 
-    public const ORDER_STATUS_PENDING    = 'pending';
-    public const ORDER_STATUS_CANCELLED  = 'cancelled';
+    public const ORDER_STATUS_PENDING   = 'pending';
+    public const ORDER_STATUS_ON_HOLD   = 'on_hold';
+    public const ORDER_STATUS_BACKORDER = 'backorder';
+    public const ORDER_STATUS_CANCELLED = 'cancelled';
+    public const ORDER_STATUS_COMPLETED = 'completed';
 
     public const FULFILLMENT_STATUS_UNFULFILLED = 'unfulfilled';
     public const FULFILLMENT_STATUS_READY       = 'ready';
@@ -312,7 +315,10 @@ private function orderStatuses(): array
 {
     return [
         SalesOrder::ORDER_STATUS_PENDING   => __('sales_orders.order_pending'),
+        SalesOrder::ORDER_STATUS_ON_HOLD   => __('sales_orders.order_on_hold'),
+        SalesOrder::ORDER_STATUS_BACKORDER => __('sales_orders.order_backorder'),
         SalesOrder::ORDER_STATUS_CANCELLED => __('sales_orders.order_cancelled'),
+        SalesOrder::ORDER_STATUS_COMPLETED => __('sales_orders.order_completed'),
     ];
 }
 
@@ -344,7 +350,6 @@ public string $shopId = '';
 
 public string $platformOrderId = '';
 public string $note            = '';
-public string $skuSearch       = '';
 
 // Recipient
 public string $recipientName        = '';
@@ -365,7 +370,8 @@ All scalar wire properties must be `string` type.
 
 #### `mount()`
 
-No guard needed — any authenticated (or dev-unauthenticated) user can access.
+Guard tenant access. Internal users can access all tenants. Tenant users need at least one active
+tenant link, otherwise return 403.
 
 #### `updatedShopId()`
 
@@ -373,7 +379,6 @@ No guard needed — any authenticated (or dev-unauthenticated) user can access.
 public function updatedShopId(): void
 {
     $this->lines = [['sku_id' => '', 'quantity' => '', 'note' => '']];
-    $this->skuSearch = '';
 }
 ```
 
@@ -410,7 +415,7 @@ public function save()
         'source'             => SalesOrder::SOURCE_MANUAL,
         'platform_order_id'  => $this->nullableString($this->platformOrderId),
         'order_status'       => SalesOrder::ORDER_STATUS_PENDING,
-        'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+        'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
         'recipient_name'         => $this->nullableString($this->recipientName),
         'recipient_phone'        => $this->nullableString($this->recipientPhone),
         'recipient_country_code' => $this->nullableString(strtoupper($this->recipientCountryCode)),
@@ -548,7 +553,6 @@ private function skuOptions(): Collection
         return collect();
     }
 
-    $search = '%' . $this->skuSearch . '%';
 
     return Sku::where('tenant_id', $shop->tenant_id)
         ->where(fn ($q) => $q
@@ -556,12 +560,7 @@ private function skuOptions(): Collection
             ->orWhereNotNull('stock_item_id')
         )
         ->with('stockItem:id,code,name')
-        ->when($this->skuSearch !== '', fn ($q) => $q->where(fn ($q) => $q
-            ->where('sku', 'like', $search)
-            ->orWhere('name', 'like', $search)
-        ))
         ->orderBy('sku')
-        ->limit(50)
         ->get(['id', 'tenant_id', 'sku', 'name', 'stock_item_id', 'sku_type']);
 }
 
@@ -608,7 +607,7 @@ public string $editRecipientAddressLine1 = '';
 public string $editRecipientAddressLine2 = '';
 ```
 
-`orderId` is `int` (not string) — set once in `mount()`, read in `render()` and action methods.
+`orderId` is `int` (not string) -- set once in `mount()`, read in `render()` and action methods.
 All recipient edit properties are `string` for Livewire 4 hydration compatibility.
 
 #### `mount(SalesOrder $order)`
@@ -854,7 +853,10 @@ return [
 
     // Order statuses
     'order_pending'   => 'Pending',
+    'order_on_hold'   => 'On hold',
+    'order_backorder' => 'Backorder',
     'order_cancelled' => 'Cancelled',
+    'order_completed' => 'Completed',
 
     // Fulfillment statuses
     'fulfillment_unfulfilled' => 'Unfulfilled',
@@ -914,7 +916,7 @@ return [
     'search_placeholder'     => 'Platform order ID, recipient name...',
 
     // Related orders
-    'related_orders_label'   => 'Same recipient — can ship together',
+    'related_orders_label'   => 'Same recipient - can ship together',
     'related_orders_none'    => 'No other orders share this recipient address.',
 ];
 ```
@@ -935,7 +937,7 @@ Structure:
 3. Toolbar: shop filter select, fulfillment_status filter, order_status filter, search input
 4. Table columns: Shop (name + platform badge), Platform Order ID, Recipient (name + city), Fulfillment status badge, Order status badge, Created at, Actions (View link)
 5. Fulfillment status badge colours: unfulfilled = zinc, ready = blue, in_group = amber, shipped = green, cancelled = red
-6. Order status badge colours: pending = zinc, cancelled = red
+6. Order status badge colours: pending = zinc, on_hold = amber, backorder = orange, cancelled = red, completed = green
 7. Empty state, pagination
 
 ### `resources/views/livewire/sales-order-create.blade.php`
@@ -943,7 +945,7 @@ Structure:
 Structure:
 1. Panel 1 -- Order: Shop (select from `$shops`, shows tenant code prefix), Platform Order ID (optional, with hint)
 2. Panel 2 -- Recipient: Name, Phone, Country code, Postal code, State, City, Address line 1, Address line 2
-3. Lines panel: table with rows of SKU select (filtered via `$skus` + `skuSearch` text input), Quantity, Note, Remove button; "Add line" button below table
+3. Lines panel: rows of SKU select (scoped to the selected shop tenant), Quantity, Note, Remove button; "Add line" button below table
 4. Full-width panel: Note textarea
 5. Sticky footer: back link (`route('sales.orders.index')`), submit button
 6. Show validation errors below each field
@@ -957,7 +959,7 @@ Structure:
 2. Header row: Platform Order ID (or "#id"), shop + platform badge, created by + date
 3. Status badges: order_status + fulfillment_status side by side
 4. Related orders section (only shown when `$relatedOrders` is non-empty):
-   - Label: "Same recipient — can ship together"
+   - Label: "Same recipient - can ship together"
    - List of related order IDs / platform_order_ids with links
    - (No fulfill button yet -- Phase 2)
 5. Recipient section:
@@ -979,7 +981,7 @@ test_create_sales_order_succeeds()
 - Active tenant, active shop, active SKU
 - Internal user creates order: shop, recipient_name 'Taro', address_line1 '1-1 Namba', platform_order_id null, one line
 - Assert redirect to `sales.orders.show`
-- Assert `SalesOrder` with `order_status = 'pending'`, `fulfillment_status = 'ready'`
+- Assert `SalesOrder` with `order_status = 'pending'`, `fulfillment_status = 'unfulfilled'`
 - Assert one `SalesOrderLine` with `line_status = 'ready'`
 
 ```
@@ -1078,8 +1080,8 @@ test_sales_order_routes_render()
 - `SalesOrderObserver` must be registered in `AppServiceProvider::boot()` before any tests run
 - `order_status` and `fulfillment_status` use model constants (e.g. `SalesOrder::ORDER_STATUS_PENDING`),
   never bare strings
-- Manual create always sets `fulfillment_status = FULFILLMENT_STATUS_READY` and `source = SOURCE_MANUAL`
-  in `save()` -- not in the migration default, so Phase 7 CSV import can default to `unfulfilled`
+- Manual create always sets `order_status = ORDER_STATUS_PENDING`, `fulfillment_status = FULFILLMENT_STATUS_UNFULFILLED`, and `source = SOURCE_MANUAL`.
+  Later fulfillment checks can promote `fulfillment_status` to `ready`.
 - `ship_together_key` is null when `recipient_address_line1` is blank; do not compute a key for
   addressless orders
 - `ship_together_key` must be recomputed whenever any recipient field or `shop_id` changes --

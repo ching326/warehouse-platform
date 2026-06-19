@@ -29,7 +29,10 @@ return [
     'field_line_status' => 'Line status',
 
     'order_pending' => 'Pending',
+    'order_on_hold' => 'On hold',
+    'order_backorder' => 'Backorder',
     'order_cancelled' => 'Cancelled',
+    'order_completed' => 'Completed',
 
     'fulfillment_unfulfilled' => 'Unfulfilled',
     'fulfillment_ready' => 'Ready',
@@ -59,6 +62,7 @@ return [
     'recipient_updated' => 'Recipient updated.',
     'order_cancelled_msg' => 'Order cancelled.',
     'cannot_cancel_in_group' => 'Cannot cancel an order that is currently in a fulfillment group.',
+    'cannot_cancel_completed' => 'Cannot cancel a completed order.',
     'empty_state' => 'No sales orders match the current filters.',
     'no_lines' => 'No lines.',
 

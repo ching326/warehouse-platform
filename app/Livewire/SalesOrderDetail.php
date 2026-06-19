@@ -118,6 +118,12 @@ class SalesOrderDetail extends Component
             return;
         }
 
+        if ($order->order_status === SalesOrder::ORDER_STATUS_COMPLETED) {
+            session()->flash('error', __('sales_orders.cannot_cancel_completed'));
+
+            return;
+        }
+
         if (! in_array($order->fulfillment_status, [
             SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
             SalesOrder::FULFILLMENT_STATUS_READY,
@@ -151,7 +157,10 @@ class SalesOrderDetail extends Component
     {
         return [
             SalesOrder::ORDER_STATUS_PENDING => __('sales_orders.order_pending'),
+            SalesOrder::ORDER_STATUS_ON_HOLD => __('sales_orders.order_on_hold'),
+            SalesOrder::ORDER_STATUS_BACKORDER => __('sales_orders.order_backorder'),
             SalesOrder::ORDER_STATUS_CANCELLED => __('sales_orders.order_cancelled'),
+            SalesOrder::ORDER_STATUS_COMPLETED => __('sales_orders.order_completed'),
         ][$status] ?? $status;
     }
 
@@ -168,7 +177,13 @@ class SalesOrderDetail extends Component
 
     public function orderStatusColor(string $status): string
     {
-        return $status === SalesOrder::ORDER_STATUS_CANCELLED ? 'red' : 'zinc';
+        return match ($status) {
+            SalesOrder::ORDER_STATUS_ON_HOLD => 'amber',
+            SalesOrder::ORDER_STATUS_BACKORDER => 'orange',
+            SalesOrder::ORDER_STATUS_CANCELLED => 'red',
+            SalesOrder::ORDER_STATUS_COMPLETED => 'green',
+            default => 'zinc',
+        };
     }
 
     public function lineStatusLabel(string $status): string

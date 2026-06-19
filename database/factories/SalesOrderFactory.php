@@ -21,7 +21,7 @@ class SalesOrderFactory extends Factory
             'source' => SalesOrder::SOURCE_MANUAL,
             'platform_order_id' => fake()->optional()->bothify('SO-####??'),
             'order_status' => SalesOrder::ORDER_STATUS_PENDING,
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
             'recipient_name' => fake()->name(),
             'recipient_phone' => fake()->phoneNumber(),
             'recipient_country_code' => 'JP',

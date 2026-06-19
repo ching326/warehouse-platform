@@ -16,7 +16,10 @@ class SalesOrder extends Model
     use HasFactory, LogsActivity;
 
     public const ORDER_STATUS_PENDING = 'pending';
+    public const ORDER_STATUS_ON_HOLD = 'on_hold';
+    public const ORDER_STATUS_BACKORDER = 'backorder';
     public const ORDER_STATUS_CANCELLED = 'cancelled';
+    public const ORDER_STATUS_COMPLETED = 'completed';
 
     public const FULFILLMENT_STATUS_UNFULFILLED = 'unfulfilled';
     public const FULFILLMENT_STATUS_READY = 'ready';
