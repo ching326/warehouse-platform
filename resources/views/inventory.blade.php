@@ -1212,7 +1212,12 @@
             }
 
             .so-sku-label {
+                max-width: 100%;
                 margin-top: 2px;
+                overflow: hidden;
+                overflow-wrap: normal !important;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
 
             .so-control-cell {

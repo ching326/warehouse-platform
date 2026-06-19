@@ -197,7 +197,7 @@
                                             <strong>{{ $skuCode }}</strong>
                                         </div>
                                         @if ($skuLabel !== '')
-                                            <span class="subtle so-sku-label">{{ $skuLabel }}</span>
+                                            <span class="subtle so-sku-label" title="{{ $skuLabel }}">{{ $skuLabel }}</span>
                                         @endif
                                     </div>
                                 @empty

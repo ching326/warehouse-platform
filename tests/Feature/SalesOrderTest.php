@@ -790,6 +790,7 @@ class SalesOrderTest extends TestCase
 
         $this->assertStringContainsString('class="so-sku-line"', $html);
         $this->assertStringContainsString('class="subtle so-sku-label"', $html);
+        $this->assertStringContainsString('title="Long Cable Name"', $html);
         $this->assertStringContainsString('Long Cable Name', $html);
         $this->assertStringContainsString('Fallback SKU Name', $html);
         $this->assertStringNotContainsString('- Long Cable Name', $html);
