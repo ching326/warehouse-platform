@@ -712,6 +712,109 @@ class SalesOrderTest extends TestCase
             ->assertDontSee('INDEX-CANCELLED-SKU');
     }
 
+    public function test_sales_order_index_groups_shop_under_order_id(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'GROUPED-ORDER']);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->html();
+
+        $this->assertStringContainsString('GROUPED-ORDER', $html);
+        $this->assertStringContainsString($shop->name, $html);
+        $this->assertStringContainsString($tenant->code.' / '.$shop->platform, $html);
+        $this->assertStringNotContainsString('<strong>#'.$order->id.'</strong>', $html);
+        $this->assertDoesNotMatchRegularExpression('/<th[^>]*>\s*SHOP\s*<\/th>/i', $html);
+    }
+
+    public function test_sales_order_index_renames_platform_order_id_column_to_order_id(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'RENAMED-ORDER']);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->html();
+
+        $this->assertStringContainsString('Order ID', $html);
+        $this->assertDoesNotMatchRegularExpression('/<th[^>]*>\s*PLATFORM ORDER ID\s*<\/th>/i', $html);
+    }
+
+    public function test_sales_order_index_address_postcode_is_not_bold(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'POSTCODE-ORDER',
+            'recipient_postal_code' => '150-0001',
+        ]);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->html();
+
+        $this->assertStringContainsString('150-0001', $html);
+        $this->assertStringNotContainsString('<strong>150-0001</strong>', $html);
+    }
+
+    public function test_sales_order_index_items_show_stock_item_short_name_or_sku_name(): void
+    {
+        [$tenant, $shop, $skuA] = $this->salesSku();
+        $skuA->stockItem->update(['short_name' => 'Short Cable']);
+        $skuA->update(['sku' => 'SHORT-SKU', 'name' => 'Long Cable Name']);
+        $stockWithoutShortName = StockItem::factory()->for($tenant)->create(['short_name' => null]);
+        $skuB = Sku::factory()->for($tenant)->for($shop)->for($stockWithoutShortName)->create([
+            'sku_type' => 'single',
+            'sku' => 'NAME-FALLBACK-SKU',
+            'name' => 'Fallback SKU Name',
+        ]);
+        $order = $this->createPersistedOrder($shop, $skuA, ['platform_order_id' => 'ITEM-LABELS']);
+        $order->lines()->create(['sku_id' => $skuB->id, 'quantity' => 1, 'line_status' => SalesOrderLine::STATUS_READY]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->assertSeeInOrder(['SHORT-SKU', '- Short Cable'])
+            ->assertSeeInOrder(['NAME-FALLBACK-SKU', '- Fallback SKU Name']);
+    }
+
+    public function test_sales_order_index_combines_fulfillment_and_order_status_columns(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'STATUS-ORDER',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+            'order_status' => SalesOrder::ORDER_STATUS_PENDING,
+        ]);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->html();
+
+        $this->assertDoesNotMatchRegularExpression('/<th[^>]*>\s*FULFILLMENT\s*<\/th>/i', $html);
+        $this->assertStringContainsString('Status', $html);
+        $this->assertStringContainsString('Ship Ready', $html);
+        $this->assertStringContainsString('Pending', $html);
+        $this->assertStringContainsString('status-stack', $html);
+    }
+
+    public function test_sales_order_index_bulk_action_row_is_visible_with_no_selection(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'BULK-ZERO']);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->html();
+
+        $this->assertStringContainsString('0 orders selected', $html);
+        $this->assertStringContainsString(__('sales_orders.btn_bulk_mark_ready'), $html);
+        $this->assertStringContainsString(__('sales_orders.btn_bulk_hold'), $html);
+        $this->assertStringContainsString(__('sales_orders.btn_bulk_cancel'), $html);
+        $this->assertStringContainsString(__('sales_orders.btn_bulk_export_csv'), $html);
+        $this->assertStringContainsString('disabled', $html);
+        $this->assertStringNotContainsString('ids=', $html);
+    }
+
     public function test_sales_order_index_updates_shipping_method_with_tenant_scope(): void
     {
         [$ownTenant, $tenantUser] = $this->tenantUser();
@@ -819,8 +922,50 @@ class SalesOrderTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
             ->set('search', 'no matching order')
-            ->assertSee('colspan="11"', false)
+            ->assertSee('colspan="9"', false)
             ->assertSee(__('sales_orders.empty_state'));
+    }
+
+    public function test_sales_order_detail_cancel_button_is_in_actions_header_area(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'DETAIL-ACTIONS',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+        ]);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->html();
+
+        $this->assertStringContainsString('data-testid="sales-order-detail-actions"', $html);
+        $this->assertStringContainsString('data-testid="sales-order-detail-actions-danger"', $html);
+        $this->assertStringContainsString(__('sales_orders.btn_cancel_order'), $html);
+
+        preg_match('/data-testid="sales-order-detail-bottom-actions"[\s\S]*?<\/div>/', $html, $bottomMatches);
+        $this->assertNotEmpty($bottomMatches);
+        $this->assertStringContainsString(__('sales_orders.btn_back_orders'), $bottomMatches[0]);
+        $this->assertStringNotContainsString(__('sales_orders.btn_cancel_order'), $bottomMatches[0]);
+    }
+
+    public function test_sales_order_detail_main_actions_use_teal_style(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $readyOrder = $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'DETAIL-STYLE',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+        ]);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $readyOrder])
+            ->html();
+
+        $this->assertStringContainsString('wire:click="unmarkReady"', $html);
+        $this->assertStringContainsString('wire:click="hold"', $html);
+        $this->assertStringContainsString('wire:click="markBackorder"', $html);
+        $this->assertStringContainsString('wire:click="editLines"', $html);
+        $this->assertSame(4, substr_count($html, 'data-action-variant="primary"'));
+        $this->assertStringContainsString('data-action-variant="danger"', $html);
     }
 
     /**

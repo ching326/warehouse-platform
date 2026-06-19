@@ -270,7 +270,7 @@ class SalesOrderIndex extends Component
     public function render()
     {
         $orders = SalesOrder::query()
-            ->with(['shop.tenant', 'lines.sku'])
+            ->with(['shop.tenant', 'lines.sku.stockItem'])
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->when($this->shopId !== '', fn ($query) => $query->where('shop_id', (int) $this->shopId))
             ->when($this->fulfillmentStatus !== '', fn ($query) => $query->where('fulfillment_status', $this->fulfillmentStatus))

@@ -39,7 +39,7 @@ return [
     'order_completed' => 'Completed',
 
     'fulfillment_unfulfilled' => 'Unfulfilled',
-    'fulfillment_ready' => 'Ready',
+    'fulfillment_ready' => 'Ship Ready',
     'fulfillment_in_group' => 'In fulfillment',
     'fulfillment_shipped' => 'Shipped',
     'fulfillment_cancelled' => 'Cancelled',
@@ -52,7 +52,7 @@ return [
     'line_cancelled' => 'Cancelled',
 
     'col_shop' => 'Shop',
-    'col_platform_order_id' => 'Platform order ID',
+    'col_platform_order_id' => 'Order ID',
     'col_address' => 'Address',
     'col_recipient' => 'Recipient',
     'col_items' => 'Items',

@@ -56,44 +56,57 @@
             </div>
         </div>
 
-        <div class="active-filter-row">
-            @if ($order->order_status === 'pending' && $order->fulfillment_status === 'unfulfilled')
-                <flux:button type="button" variant="primary" wire:click="markReady">
-                    {{ __('sales_orders.btn_mark_ready') }}
-                </flux:button>
-            @endif
+        <div class="sales-order-detail-actions" data-testid="sales-order-detail-actions">
+            <div class="sales-order-detail-actions-main" data-testid="sales-order-detail-actions-main">
+                @if ($order->order_status === 'pending' && $order->fulfillment_status === 'unfulfilled')
+                    <flux:button type="button" variant="primary" wire:click="markReady" data-action-variant="primary">
+                        {{ __('sales_orders.btn_mark_ready') }}
+                    </flux:button>
+                @endif
 
-            @if ($order->order_status === 'pending' && $order->fulfillment_status === 'ready')
-                <flux:button type="button" variant="outline" wire:click="unmarkReady">
-                    {{ __('sales_orders.btn_unmark_ready') }}
-                </flux:button>
-            @endif
+                @if ($order->order_status === 'pending' && $order->fulfillment_status === 'ready')
+                    <flux:button type="button" variant="primary" wire:click="unmarkReady" data-action-variant="primary">
+                        {{ __('sales_orders.btn_unmark_ready') }}
+                    </flux:button>
+                @endif
 
-            @if ($order->order_status === 'pending' && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true))
-                <flux:button type="button" variant="outline" wire:click="hold">
-                    {{ __('sales_orders.btn_hold') }}
-                </flux:button>
-                <flux:button type="button" variant="outline" wire:click="markBackorder">
-                    {{ __('sales_orders.btn_backorder') }}
-                </flux:button>
-            @endif
+                @if ($order->order_status === 'pending' && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true))
+                    <flux:button type="button" variant="primary" wire:click="hold" data-action-variant="primary">
+                        {{ __('sales_orders.btn_hold') }}
+                    </flux:button>
+                    <flux:button type="button" variant="primary" wire:click="markBackorder" data-action-variant="primary">
+                        {{ __('sales_orders.btn_backorder') }}
+                    </flux:button>
+                @endif
 
-            @if ($order->order_status === 'on_hold' && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true))
-                <flux:button type="button" variant="primary" wire:click="releaseHold">
-                    {{ __('sales_orders.btn_release_hold') }}
-                </flux:button>
-            @endif
+                @if ($order->order_status === 'on_hold' && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true))
+                    <flux:button type="button" variant="primary" wire:click="releaseHold" data-action-variant="primary">
+                        {{ __('sales_orders.btn_release_hold') }}
+                    </flux:button>
+                @endif
 
-            @if ($order->order_status === 'backorder' && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true))
-                <flux:button type="button" variant="primary" wire:click="releaseBackorder">
-                    {{ __('sales_orders.btn_release_backorder') }}
-                </flux:button>
-            @endif
+                @if ($order->order_status === 'backorder' && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true))
+                    <flux:button type="button" variant="primary" wire:click="releaseBackorder" data-action-variant="primary">
+                        {{ __('sales_orders.btn_release_backorder') }}
+                    </flux:button>
+                @endif
 
-            @if ($editable && ! $editingLines)
-                <flux:button type="button" variant="outline" wire:click="editLines">
-                    {{ __('sales_orders.btn_edit_lines') }}
-                </flux:button>
+                @if ($editable && ! $editingLines)
+                    <flux:button type="button" variant="primary" wire:click="editLines" data-action-variant="primary">
+                        {{ __('sales_orders.btn_edit_lines') }}
+                    </flux:button>
+                @endif
+            </div>
+
+            @if (
+                in_array($order->order_status, ['pending', 'on_hold', 'backorder'], true)
+                && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true)
+            )
+                <div class="sales-order-detail-actions-danger" data-testid="sales-order-detail-actions-danger">
+                    <flux:button type="button" variant="danger" wire:click="cancelOrder" wire:confirm="{{ __('sales_orders.btn_cancel_order') }}?" data-action-variant="danger">
+                        {{ __('sales_orders.btn_cancel_order') }}
+                    </flux:button>
+                </div>
             @endif
         </div>
     </section>
@@ -272,17 +285,9 @@
         </section>
     @endif
 
-    <div class="form-actions">
+    <div class="form-actions" data-testid="sales-order-detail-bottom-actions">
         <flux:button href="{{ route('sales.orders.index') }}" variant="outline" wire:navigate>
             {{ __('sales_orders.btn_back_orders') }}
         </flux:button>
-        @if (
-            in_array($order->order_status, ['pending', 'on_hold', 'backorder'], true)
-            && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true)
-        )
-            <flux:button type="button" variant="danger" wire:click="cancelOrder" wire:confirm="{{ __('sales_orders.btn_cancel_order') }}?">
-                {{ __('sales_orders.btn_cancel_order') }}
-            </flux:button>
-        @endif
     </div>
 </div>

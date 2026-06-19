@@ -1154,11 +1154,12 @@
                widths defined for these columns and let long platform order ids overflow
                into the neighbouring cell. */
             .sales-order-table {
-                min-width: 1320px;
+                min-width: 1160px;
             }
 
             .so-address-cell,
             .so-items-cell,
+            .so-order-cell,
             .so-recipient-cell,
             .so-shop-cell {
                 max-width: 240px;
@@ -1168,6 +1169,8 @@
             .so-address-cell span,
             .so-items-cell strong,
             .so-items-cell span,
+            .so-order-cell strong,
+            .so-order-cell span,
             .so-recipient-cell strong,
             .so-shop-cell strong {
                 display: block;
@@ -1209,8 +1212,32 @@
                 line-height: 1.2;
             }
 
+            .status-stack {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px;
+            }
+
             .danger-text {
                 color: var(--danger);
+            }
+
+            .sales-order-detail-actions {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                flex-wrap: wrap;
+            }
+
+            .sales-order-detail-actions-main {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+
+            .sales-order-detail-actions-danger {
+                margin-left: auto;
             }
 
             @media (max-width: 720px) {
