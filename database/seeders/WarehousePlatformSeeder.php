@@ -39,6 +39,9 @@ class WarehousePlatformSeeder extends Seeder
         $shops = $this->seedShops($tenants);
         $stockItems = $this->seedStockItems($tenants);
         $skus = $this->seedSkus($tenants, $shops, $stockItems, $packagingMaterials);
+        [$reportSkus, $reportStockItems] = $this->seedAmazonOrderReportSkus($tenants, $shops, $packagingMaterials);
+        $skus = array_merge($skus, $reportSkus);
+        $stockItems = array_merge($stockItems, $reportStockItems);
         $this->seedSkuBundles($tenants, $skus, $stockItems);
         $this->seedInventory(app(InventoryService::class), $tenants, $warehouses, $stockItems);
         $this->seedSalesOrders($tenants, $shops, $skus, $users);
@@ -360,6 +363,85 @@ class WarehousePlatformSeeder extends Seeder
         }
     }
 
+    /**
+     * @return array{0: array<int, Sku>, 1: array<int, StockItem>}
+     */
+    private function seedAmazonOrderReportSkus(array $tenants, array $shops, array $packagingMaterials): array
+    {
+        $tenant = collect($tenants)->firstWhere('code', 'ABC') ?? $tenants[0] ?? null;
+
+        if (! $tenant) {
+            return [[], []];
+        }
+
+        $shop = collect($shops)->first(
+            fn ($shop) => $shop->tenant_id === $tenant->id
+                && $shop->platform === 'amazon'
+                && $shop->marketplace === 'JP'
+        );
+
+        if (! $shop) {
+            return [[], []];
+        }
+
+        $products = [
+            ['ABC-000101', 'IJL-B00F4MWI2W-20200511', 'サンコム LR44アルカリボタン電池10個パック × 2シート(計20個)', 'B00F4MWI2W', 'LR44'],
+            ['ABC-000102', 'IJL-B076P64BCW-20201012', 'SUNCOM CR927 3V リチウムボタン電池 1シート5個', 'B076P64BCW', 'CR927'],
+            ['ABC-000103', 'IJL-B0848T94ZR-20250828', 'ムラタ（MURATA) SR920SW （371）酸化銀電池 1シート（5個入）', 'B0848T94ZR', 'SR920SW'],
+            ['ABC-000104', 'IJL-B085KY7G7P-20250828', 'ムラタ（MURATA) SR516SW （317）酸化銀電池 1シート（5個入）', 'B085KY7G7P', 'SR516SW'],
+            ['ABC-000105', 'IJL-B0876RMKCC-20250909', 'TIANQIU アルカリボタン電池 LR41 2個 (AG3 / LR41H / 392A) ブリスターパッケージ 切り分け 水銀フリー ゼロ 未使用 カメラ・ミニゲーム・体温計等に', 'B0876RMKCC', 'LR41'],
+            ['ABC-000106', 'IJL-B088HDH5BY-20251017', 'ムラタ 373 バッテリー SR916SW 1.55V 酸化銀 時計ボタンセル(電池10個)', 'B088HDH5BY', 'SR916SW'],
+            ['ABC-000107', 'IJL-B0D2XQF97Q-20250904', 'Maxell マクセル 315 SR716SW ×5個 【日本製】 酸化銀電池 ボタン 時計電池 時計用電池 時計用 SR716SW', 'B0D2XQF97Q', 'SR716SW'],
+            ['ABC-000108', 'IJL-B0F83WWZ1B-20250828', '2個 murata 村田製作所 SR726W 396 日本製 ボタン電池 1.55V 時計 酸化銀電池 396', 'B0F83WWZ1B', 'SR726W'],
+        ];
+
+        $stockItems = [];
+        $skus = [];
+        $packagingMaterialId = $packagingMaterials[3]->id ?? $packagingMaterials[0]->id ?? null;
+
+        foreach ($products as [$code, $skuCode, $name, $asin, $shortName]) {
+            $stockItem = StockItem::updateOrCreate(
+                ['tenant_id' => $tenant->id, 'code' => $code],
+                [
+                    'name' => $name,
+                    'short_name' => $shortName,
+                    'brand' => str_contains($name, 'ムラタ') || str_contains($name, 'murata') ? 'Murata' : 'Demo Battery',
+                    'model_number' => $shortName,
+                    'barcode' => null,
+                    'barcode_type' => 'unknown',
+                    'product_type' => 'normal',
+                    'is_dangerous_goods' => false,
+                    'requires_expiry_tracking' => false,
+                    'requires_lot_tracking' => false,
+                    'weight_value' => 10,
+                    'weight_unit' => 'g',
+                    'status' => 'active',
+                    'note' => 'Seeded from sample Amazon order report.',
+                ],
+            );
+
+            $stockItems[] = $stockItem;
+            $skus[] = Sku::updateOrCreate(
+                ['tenant_id' => $tenant->id, 'shop_id' => $shop->id, 'sku' => $skuCode],
+                [
+                    'stock_item_id' => $stockItem->id,
+                    'name' => $name,
+                    'platform_sku' => $skuCode,
+                    'platform_product_id' => $asin,
+                    'platform_variant_id' => $asin,
+                    'platform_variant_name' => $shortName,
+                    'platform_label_code' => null,
+                    'sku_type' => 'single',
+                    'default_packaging_material_id' => $packagingMaterialId,
+                    'status' => 'active',
+                    'note' => 'Seeded from sample Amazon order report.',
+                ],
+            );
+        }
+
+        return [$skus, $stockItems];
+    }
+
     private function seedInventory(InventoryService $inventoryService, array $tenants, array $warehouses, array $stockItems): void
     {
         foreach ($warehouses as $warehouse) {
@@ -507,24 +589,30 @@ class WarehousePlatformSeeder extends Seeder
                     $cityIdx = ($tenant->id + $shop->id + $i) % count($cities);
                     $countryIdx = ($tenant->id + $shop->id + $i) % count($countryCodes);
 
-                    $order = SalesOrder::create([
-                        'tenant_id' => $tenant->id,
-                        'shop_id' => $shop->id,
-                        'source' => SalesOrder::SOURCE_MANUAL,
-                        'platform_order_id' => $platformOrderId,
-                        'order_status' => SalesOrder::ORDER_STATUS_PENDING,
-                        'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
-                        'recipient_name' => $this->randomRecipientName($tenant->code, $i),
-                        'recipient_phone' => $this->randomPhone($countryCodes[$countryIdx]),
-                        'recipient_country_code' => $countryCodes[$countryIdx],
-                        'recipient_postal_code' => $postalCodes[($i + $tenant->id) % count($postalCodes)],
-                        'recipient_state' => $states[($i + $shop->id) % count($states)],
-                        'recipient_city' => $cities[$cityIdx],
-                        'recipient_address_line1' => $this->randomAddress($i),
-                        'recipient_address_line2' => rand(0, 1) ? 'Apt '.(100 + $i) : '',
-                        'note' => rand(0, 3) === 0 ? 'Special handling required' : '',
-                        'created_by_user_id' => $createdByUser->id,
-                    ]);
+                    $order = SalesOrder::updateOrCreate(
+                        [
+                            'tenant_id' => $tenant->id,
+                            'shop_id' => $shop->id,
+                            'platform_order_id' => $platformOrderId,
+                        ],
+                        [
+                            'source' => SalesOrder::SOURCE_MANUAL,
+                            'order_status' => SalesOrder::ORDER_STATUS_PENDING,
+                            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+                            'recipient_name' => $this->randomRecipientName($tenant->code, $i),
+                            'recipient_phone' => $this->randomPhone($countryCodes[$countryIdx]),
+                            'recipient_country_code' => $countryCodes[$countryIdx],
+                            'recipient_postal_code' => $postalCodes[($i + $tenant->id) % count($postalCodes)],
+                            'recipient_state' => $states[($i + $shop->id) % count($states)],
+                            'recipient_city' => $cities[$cityIdx],
+                            'recipient_address_line1' => $this->randomAddress($i),
+                            'recipient_address_line2' => rand(0, 1) ? 'Apt '.(100 + $i) : '',
+                            'note' => rand(0, 3) === 0 ? 'Special handling required' : '',
+                            'created_by_user_id' => $createdByUser->id,
+                        ],
+                    );
+
+                    $order->lines()->delete();
 
                     $lineCount = rand(1, 3);
                     $singleSkus = array_values(array_filter($shopSkus, fn ($s) => $s->sku_type === 'single'));
