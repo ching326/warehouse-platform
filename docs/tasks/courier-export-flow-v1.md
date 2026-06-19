@@ -213,6 +213,8 @@ Responsibilities:
 - Only include ready lines:
   - `sales_order_lines.line_status = ready`
 - Validate all selected orders exist within allowed tenants.
+- Reject orders whose `order_status` is `on_hold`, `cancel_requested`, or `cancelled`.
+  This block is not confirmable; the user must fix/review the order first.
 - Reject orders with no ready lines.
 - Reject orders whose `shipping_method` does not match the selected carrier.
 - Detect already exported orders where `courier_csv_exported_at` is not null.
@@ -239,6 +241,7 @@ Create a simple value object or return array with:
     'requires_confirmation' => true/false,
     'valid_order_ids' => [...],
     'missing_order_ids' => [...],
+    'blocked_status_order_ids' => [...],
     'wrong_carrier_order_ids' => [...],
     'already_exported_order_ids' => [...],
     'no_ready_lines_order_ids' => [...],
@@ -248,6 +251,7 @@ Create a simple value object or return array with:
 
 Rules:
 
+- If `blocked_status_order_ids` is not empty, block export. User cannot override this.
 - If `wrong_carrier_order_ids` is not empty, block export. User cannot override this.
 - If `no_ready_lines_order_ids` is not empty, block export. User cannot override this.
 - If `already_exported_order_ids` is not empty, require confirm before export.
@@ -554,13 +558,17 @@ Required tests:
    - Order has only cancelled lines.
    - Export blocked.
 
-9. `test_address_splitter_preserves_address_parts`
+9. `test_export_blocks_orders_with_blocked_order_status`
+   - `on_hold`, `cancel_requested`, and `cancelled` orders are blocked.
+   - This is not confirmable.
+
+10. `test_address_splitter_preserves_address_parts`
    - Unit-ish test for address splitter.
 
-10. `test_sales_order_index_shows_export_buttons_for_selected_orders`
+11. `test_sales_order_index_shows_export_buttons_for_selected_orders`
     - Selected rows show Yamato/Sagawa export buttons.
 
-11. `test_export_updates_activity_or_batch_history`
+12. `test_export_updates_activity_or_batch_history`
     - Assert batch order row exists with platform order id, carrier, exported_at.
 
 Run:
