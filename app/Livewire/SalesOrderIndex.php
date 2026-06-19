@@ -287,7 +287,7 @@ class SalesOrderIndex extends Component
         }
     }
 
-    public function validateCourierExport(string $carrier): void
+    public function validateCourierExport(string $carrier): mixed
     {
         $this->pendingCourierExportCarrier = null;
         $this->pendingCourierExportOrderIds = [];
@@ -295,7 +295,7 @@ class SalesOrderIndex extends Component
         if ($this->selectedIds === []) {
             session()->flash('error', __('sales_orders.courier_export_no_selection'));
 
-            return;
+            return null;
         }
 
         $carrier = $this->normalizeCourierCarrier($carrier);
@@ -308,7 +308,7 @@ class SalesOrderIndex extends Component
         if ($result->hasHardBlock()) {
             session()->flash('error', $this->courierExportMessage($result->toArray()));
 
-            return;
+            return null;
         }
 
         if ($result->requiresConfirmation) {
@@ -316,10 +316,10 @@ class SalesOrderIndex extends Component
             $this->pendingCourierExportOrderIds = $this->normalizedSelectedIds();
             session()->flash('warning', $result->message);
 
-            return;
+            return null;
         }
 
-        $this->performCourierExport($carrier, confirmedReExport: false);
+        return $this->performCourierExport($carrier, confirmedReExport: false);
     }
 
     public function confirmCourierExport(): mixed

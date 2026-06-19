@@ -237,6 +237,21 @@ class CourierExportTest extends TestCase
             ->assertSee('Export Sagawa CSV');
     }
 
+    public function test_sales_order_index_courier_export_redirects_to_download(): void
+    {
+        Storage::fake('local');
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->order($shop, $sku, ['shipping_method' => CourierCarrier::YAMATO]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [$order->id])
+            ->call('validateCourierExport', CourierCarrier::YAMATO)
+            ->assertRedirect(route('courier-export-batches.download', CourierExportBatch::firstOrFail()));
+
+        $this->assertNotNull($order->fresh()->courier_csv_exported_at);
+    }
+
     public function test_export_updates_activity_or_batch_history(): void
     {
         Storage::fake('local');
