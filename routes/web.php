@@ -1,5 +1,8 @@
 <?php
 
+use App\Livewire\FulfillmentGroupCreate;
+use App\Livewire\FulfillmentGroupDetail;
+use App\Livewire\FulfillmentGroupIndex;
 use App\Livewire\InventoryIndex;
 use App\Livewire\InventoryMovementsIndex;
 use App\Livewire\InboundOrderCreate;
@@ -47,6 +50,9 @@ Route::get('/outbound/{order}/ship', OutboundOrderShip::class)->name('outbound.s
 Route::get('/sales-orders', SalesOrderIndex::class)->name('sales.orders.index');
 Route::get('/sales-orders/create', SalesOrderCreate::class)->name('sales.orders.create');
 Route::get('/sales-orders/{order}', SalesOrderDetail::class)->name('sales.orders.show');
+Route::get('/fulfillment-groups', FulfillmentGroupIndex::class)->name('fulfillment-groups.index');
+Route::get('/fulfillment-groups/create', FulfillmentGroupCreate::class)->name('fulfillment-groups.create');
+Route::get('/fulfillment-groups/{group}', FulfillmentGroupDetail::class)->name('fulfillment-groups.show');
 Route::get('/skus', SkusIndex::class)->name('skus.index');
 Route::get('/skus/create', SkuCreate::class)->name('skus.create');
 Route::get('/setup/tenants', TenantIndex::class)->name('setup.tenants.index');

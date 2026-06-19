@@ -4,6 +4,7 @@
     $inboundActive   = request()->routeIs('inbound.*');
     $outboundActive  = request()->routeIs('outbound.*');
     $salesActive     = request()->routeIs('sales.*');
+    $fulfillmentActive = request()->routeIs('fulfillment-groups.*');
     $setupActive     = request()->routeIs('setup.*');
 @endphp
 
@@ -102,6 +103,15 @@
                 wire:navigate
             >
                 {{ __('common.nav_sales_orders') }}
+            </a>
+
+            {{-- Fulfillment --}}
+            <a
+                href="{{ route('fulfillment-groups.index') }}"
+                class="top-nav-btn {{ $fulfillmentActive ? 'is-active' : '' }}"
+                wire:navigate
+            >
+                {{ __('common.nav_fulfillment_groups') }}
             </a>
 
             {{-- Setup --}}

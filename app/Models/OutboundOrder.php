@@ -18,6 +18,7 @@ class OutboundOrder extends Model
     public const STATUS_CANCELLED = 'cancelled';
 
     protected $fillable = [
+        'fulfillment_group_id',
         'tenant_id',
         'warehouse_id',
         'ref',
@@ -64,6 +65,11 @@ class OutboundOrder extends Model
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class);
+    }
+
+    public function fulfillmentGroup(): BelongsTo
+    {
+        return $this->belongsTo(FulfillmentGroup::class);
     }
 
     public function createdBy(): BelongsTo
