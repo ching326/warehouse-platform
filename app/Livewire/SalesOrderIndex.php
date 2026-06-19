@@ -227,6 +227,7 @@ class SalesOrderIndex extends Component
         return match ($status) {
             SalesOrder::ORDER_STATUS_ON_HOLD => 'amber',
             SalesOrder::ORDER_STATUS_BACKORDER => 'orange',
+            SalesOrder::ORDER_STATUS_CANCEL_REQUESTED => 'red',
             SalesOrder::ORDER_STATUS_CANCELLED => 'red',
             SalesOrder::ORDER_STATUS_COMPLETED => 'green',
             default => 'zinc',
@@ -342,6 +343,7 @@ class SalesOrderIndex extends Component
             SalesOrder::ORDER_STATUS_PENDING => __('sales_orders.order_pending'),
             SalesOrder::ORDER_STATUS_ON_HOLD => __('sales_orders.order_on_hold'),
             SalesOrder::ORDER_STATUS_BACKORDER => __('sales_orders.order_backorder'),
+            SalesOrder::ORDER_STATUS_CANCEL_REQUESTED => __('sales_orders.order_cancel_requested'),
             SalesOrder::ORDER_STATUS_CANCELLED => __('sales_orders.order_cancelled'),
             SalesOrder::ORDER_STATUS_COMPLETED => __('sales_orders.order_completed'),
         ];

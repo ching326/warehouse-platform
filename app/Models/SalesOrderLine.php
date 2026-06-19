@@ -17,6 +17,8 @@ class SalesOrderLine extends Model
 
     protected $fillable = [
         'sales_order_id',
+        'platform_line_id',
+        'platform_product_name',
         'sku_id',
         'quantity',
         'unit_price',

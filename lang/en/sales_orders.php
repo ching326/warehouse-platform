@@ -35,6 +35,7 @@ return [
     'order_pending' => 'Pending',
     'order_on_hold' => 'On hold',
     'order_backorder' => 'Backorder',
+    'order_cancel_requested' => 'Cancel requested',
     'order_cancelled' => 'Cancelled',
     'order_completed' => 'Completed',
 
@@ -46,6 +47,7 @@ return [
 
     'source_manual' => 'Manual',
     'source_csv' => 'CSV',
+    'source_amazon_report' => 'Amazon report',
     'source_api' => 'API',
 
     'line_ready' => 'Ship Ready',
@@ -127,6 +129,9 @@ return [
     'import_page_title' => 'Import Sales Orders',
     'import_page_subtitle' => 'Upload a CSV or XLSX file to create orders in bulk.',
     'import_btn' => 'Import CSV',
+    'import_format' => 'Import format',
+    'import_format_generic' => 'Generic CSV / XLSX',
+    'import_format_amazon_report' => 'Amazon Order Report TXT',
     'import_parse_btn' => 'Validate file',
     'import_confirm_btn' => 'Confirm import',
     'import_file_label' => 'Order file (CSV or XLSX, max 5 MB)',
@@ -137,6 +142,9 @@ return [
     'import_missing_sku' => 'Missing sku.',
     'import_missing_quantity' => 'Missing quantity.',
     'import_missing_headers' => 'Missing required column(s): :headers.',
+    'import_amazon_missing_headers' => 'Missing Amazon report column(s): :headers.',
+    'import_amazon_only' => 'Amazon Order Report import requires an active Amazon shop.',
+    'import_amazon_bad_date' => 'Invalid Amazon date.',
     'import_unknown_sku' => 'SKU :sku not found in this shop.',
     'import_bad_quantity' => 'Quantity must be a positive integer (1, 2, 3...), not fractional (1.5, 1.0).',
     'import_bad_country' => 'Country code must be two uppercase letters.',

@@ -76,7 +76,10 @@ class FulfillmentGroupCreate extends Component
                 }
 
                 foreach ($orders as $order) {
-                    if ($order->fulfillment_status !== SalesOrder::FULFILLMENT_STATUS_READY) {
+                    if (
+                        $order->order_status !== SalesOrder::ORDER_STATUS_PENDING
+                        || $order->fulfillment_status !== SalesOrder::FULFILLMENT_STATUS_READY
+                    ) {
                         throw ValidationException::withMessages([
                             'selectedOrderIds' => __('fulfillment_groups.order_no_longer_ready', ['id' => $order->id]),
                         ]);
@@ -240,6 +243,7 @@ class FulfillmentGroupCreate extends Component
         return SalesOrder::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->where('tenant_id', (int) $this->tenantId)
+            ->where('order_status', SalesOrder::ORDER_STATUS_PENDING)
             ->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_READY)
             ->whereNotNull('ship_together_key')
             ->selectRaw('ship_together_key, min(recipient_name) as recipient_name, min(recipient_city) as recipient_city, count(*) as order_count')
@@ -257,6 +261,7 @@ class FulfillmentGroupCreate extends Component
         return SalesOrder::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->where('tenant_id', (int) $this->tenantId)
+            ->where('order_status', SalesOrder::ORDER_STATUS_PENDING)
             ->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_READY)
             ->where('ship_together_key', $this->shipKey)
             ->withCount('lines')

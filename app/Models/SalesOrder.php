@@ -18,6 +18,7 @@ class SalesOrder extends Model
     public const ORDER_STATUS_PENDING = 'pending';
     public const ORDER_STATUS_ON_HOLD = 'on_hold';
     public const ORDER_STATUS_BACKORDER = 'backorder';
+    public const ORDER_STATUS_CANCEL_REQUESTED = 'cancel_requested';
     public const ORDER_STATUS_CANCELLED = 'cancelled';
     public const ORDER_STATUS_COMPLETED = 'completed';
 
@@ -29,6 +30,7 @@ class SalesOrder extends Model
 
     public const SOURCE_MANUAL = 'manual';
     public const SOURCE_CSV = 'csv';
+    public const SOURCE_AMAZON_REPORT = 'amazon_report';
     public const SOURCE_API = 'api';
 
     protected $fillable = [
@@ -36,6 +38,8 @@ class SalesOrder extends Model
         'shop_id',
         'source',
         'platform_order_id',
+        'platform_ordered_at',
+        'latest_ship_at',
         'order_status',
         'fulfillment_status',
         'shipping_method',
@@ -57,6 +61,8 @@ class SalesOrder extends Model
     protected function casts(): array
     {
         return [
+            'platform_ordered_at' => 'datetime',
+            'latest_ship_at' => 'datetime',
             'courier_csv_exported_at' => 'datetime',
         ];
     }

@@ -28,6 +28,12 @@
         </div>
 
         <div class="form-grid">
+            <flux:select wire:model.live="importFormat" required :label="__('sales_orders.import_format')">
+                @foreach ($importFormatOptions as $value => $label)
+                    <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
             <flux:select wire:model.live="shopId" required :label="__('sales_orders.field_shop')">
                 <flux:select.option value="">{{ __('sales_orders.field_shop') }}</flux:select.option>
                 @foreach ($shops as $shop)
@@ -39,7 +45,7 @@
 
             <label>
                 <span>{{ __('sales_orders.import_file_label') }}</span>
-                <input type="file" wire:model="file" accept=".csv,.txt,.xlsx">
+                <input type="file" wire:model="file" accept="{{ $importFormat === 'amazon_report' ? '.txt' : '.csv,.txt,.xlsx' }}">
             </label>
         </div>
 
