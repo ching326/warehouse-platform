@@ -102,6 +102,26 @@ class SalesOrderImport extends Component
             }
         }
 
+        $previewDuplicateCount = 0;
+        $groups = array_filter(
+            $groups,
+            function (array $rows) use (&$previewDuplicateCount): bool {
+                $isPreviewDuplicate = collect($rows)->contains(fn ($row) => $row['is_duplicate'] ?? false);
+
+                if ($isPreviewDuplicate) {
+                    $previewDuplicateCount++;
+                }
+
+                return ! $isPreviewDuplicate;
+            }
+        );
+
+        if ($groups === []) {
+            session()->flash('status', __('sales_orders.import_no_new_orders'));
+
+            return;
+        }
+
         $platformOrderIds = array_keys($groups);
         $duplicates = SalesOrder::query()
             ->where('tenant_id', $shop->tenant_id)
@@ -117,7 +137,7 @@ class SalesOrderImport extends Component
             ARRAY_FILTER_USE_KEY
         );
 
-        $skippedDuplicateCount = count($duplicates);
+        $skippedDuplicateCount = $previewDuplicateCount + count($duplicates);
 
         if ($groups === []) {
             session()->flash('status', __('sales_orders.import_no_new_orders'));

@@ -278,6 +278,26 @@ class SalesOrderImportTest extends TestCase
         $this->assertSame(1, SalesOrder::where('platform_order_id', 'SO-OLD')->count());
     }
 
+    public function test_import_still_skips_preview_duplicate_even_if_order_is_deleted_before_confirm(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('SKIP-DELETED-DUP-SKU');
+        $existing = SalesOrder::factory()->for($tenant)->for($shop)->create(['platform_order_id' => 'SO-DELETED-DUP']);
+
+        $component = $this->parseOnly($shop, $this->csv([
+            ['SO-DELETED-DUP', 'MISSING-SKU-STILL-SKIPPED', '1'],
+            ['SO-NEW-AFTER-DELETED-DUP', $sku->sku, '2'],
+        ]));
+
+        $this->assertFalse($component->get('hasErrors'));
+        $this->assertTrue($component->get('parsedRows')[0]['is_duplicate']);
+
+        $existing->delete();
+        $component->call('import');
+
+        $this->assertDatabaseMissing('sales_orders', ['platform_order_id' => 'SO-DELETED-DUP']);
+        $this->assertDatabaseHas('sales_orders', ['platform_order_id' => 'SO-NEW-AFTER-DELETED-DUP']);
+    }
+
     public function test_platform_order_id_is_unique_per_tenant_shop(): void
     {
         [$tenant, $shop] = $this->salesSku('UNIQUE-SKU');
