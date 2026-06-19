@@ -139,7 +139,7 @@
             </div>
 
             @if (! $editingRecipient)
-                <flux:button type="button" variant="primary" class="sales-order-recipient-edit-button" wire:click="editRecipient" data-testid="edit-recipient-button">
+                <flux:button type="button" variant="primary" wire:click="editRecipient" data-testid="edit-recipient-button">
                     {{ __('sales_orders.btn_edit_recipient') }}
                 </flux:button>
             @endif

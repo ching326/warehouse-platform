@@ -1040,7 +1040,6 @@ class SalesOrderTest extends TestCase
         $this->assertNotFalse($editRecipientPosition);
         $this->assertGreaterThan($recipientTitlePosition, $editRecipientPosition);
         $this->assertStringContainsString('wire:click="editRecipient"', $html);
-        $this->assertStringContainsString('sales-order-recipient-edit-button', $html);
     }
 
     public function test_sales_order_detail_line_ready_status_label_is_ship_ready(): void

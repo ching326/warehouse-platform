@@ -1059,8 +1059,22 @@
                 color: var(--color-teal-600);
             }
 
+            [data-flux-button].bg-white * {
+                color: var(--color-teal-600);
+            }
+
             [data-flux-button].bg-white:hover {
                 background-color: color-mix(in oklab, var(--color-teal-600), transparent 93%);
+            }
+
+            [data-flux-button].text-\[var\(--color-accent-foreground\)\],
+            [data-flux-button].text-\[var\(--color-accent-foreground\)\] * {
+                color: var(--color-accent-foreground) !important;
+            }
+
+            [data-flux-button].text-white,
+            [data-flux-button].text-white * {
+                color: #fff !important;
             }
 
             [data-flux-field]:has([data-flux-control][required]) [data-flux-label]::after {
@@ -1260,10 +1274,6 @@
                 justify-content: flex-start;
                 flex-direction: column;
                 gap: 12px;
-            }
-
-            .sales-order-recipient-edit-button {
-                color: #fff !important;
             }
 
             @media (max-width: 720px) {
