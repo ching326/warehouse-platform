@@ -144,7 +144,7 @@
                     <flux:table.column>{{ __('sales_orders.col_platform_order_id') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_address') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_recipient') }}</flux:table.column>
-                    <flux:table.column>{{ __('sales_orders.col_items') }}</flux:table.column>
+                    <flux:table.column>{{ __('sales_orders.field_sku') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_shipping_method') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_tracking_no') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_order_status') }}</flux:table.column>
@@ -184,18 +184,20 @@
                                 @forelse ($readyLines as $line)
                                     @php
                                         $skuCode = $line->sku?->sku ?? '-';
-                                        $itemLabel = trim((string) ($line->sku?->stockItem?->short_name ?: $line->sku?->name ?: ''));
+                                        $skuLabel = trim((string) ($line->sku?->name ?: $line->sku?->stockItem?->short_name ?: $line->sku?->stockItem?->name ?: ''));
                                     @endphp
                                     <div class="so-item-line">
-                                        @if ($line->quantity > 1)
-                                            <strong class="danger-text">{{ $line->quantity }}</strong>
-                                        @else
-                                            <span class="subtle">{{ $line->quantity }}</span>
-                                        @endif
-                                        <span class="subtle">x</span>
-                                        <strong>{{ $skuCode }}</strong>
-                                        @if ($itemLabel !== '')
-                                            <span class="subtle">- {{ $itemLabel }}</span>
+                                        <div class="so-sku-line">
+                                            @if ($line->quantity > 1)
+                                                <strong class="danger-text">{{ $line->quantity }}</strong>
+                                            @else
+                                                <span class="subtle">{{ $line->quantity }}</span>
+                                            @endif
+                                            <span class="subtle">x</span>
+                                            <strong>{{ $skuCode }}</strong>
+                                        </div>
+                                        @if ($skuLabel !== '')
+                                            <span class="subtle so-sku-label">{{ $skuLabel }}</span>
                                         @endif
                                     </div>
                                 @empty

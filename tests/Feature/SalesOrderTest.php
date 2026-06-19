@@ -741,6 +741,19 @@ class SalesOrderTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/<th[^>]*>\s*PLATFORM ORDER ID\s*<\/th>/i', $html);
     }
 
+    public function test_sales_order_index_renames_items_column_to_sku(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'SKU-COLUMN-ORDER']);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->html();
+
+        $this->assertStringContainsString('>SKU</div>', $html);
+        $this->assertStringNotContainsString('>Items</div>', $html);
+    }
+
     public function test_sales_order_index_address_postcode_is_not_bold(): void
     {
         [, $shop, $sku] = $this->salesSku();
@@ -757,7 +770,7 @@ class SalesOrderTest extends TestCase
         $this->assertStringNotContainsString('<strong>150-0001</strong>', $html);
     }
 
-    public function test_sales_order_index_items_show_stock_item_short_name_or_sku_name(): void
+    public function test_sales_order_index_sku_cell_shows_name_below_quantity_and_sku(): void
     {
         [$tenant, $shop, $skuA] = $this->salesSku();
         $skuA->stockItem->update(['short_name' => 'Short Cable']);
@@ -771,10 +784,15 @@ class SalesOrderTest extends TestCase
         $order = $this->createPersistedOrder($shop, $skuA, ['platform_order_id' => 'ITEM-LABELS']);
         $order->lines()->create(['sku_id' => $skuB->id, 'quantity' => 1, 'line_status' => SalesOrderLine::STATUS_READY]);
 
-        Livewire::actingAs($this->internalUser())
+        $html = Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
-            ->assertSeeInOrder(['SHORT-SKU', '- Short Cable'])
-            ->assertSeeInOrder(['NAME-FALLBACK-SKU', '- Fallback SKU Name']);
+            ->html();
+
+        $this->assertStringContainsString('class="so-sku-line"', $html);
+        $this->assertStringContainsString('class="subtle so-sku-label"', $html);
+        $this->assertStringContainsString('Long Cable Name', $html);
+        $this->assertStringContainsString('Fallback SKU Name', $html);
+        $this->assertStringNotContainsString('- Long Cable Name', $html);
     }
 
     public function test_sales_order_index_combines_fulfillment_and_order_status_columns(): void

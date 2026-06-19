@@ -1192,15 +1192,27 @@
             }
 
             .so-item-line {
+                margin-bottom: 6px;
+            }
+
+            .so-item-line:last-child {
+                margin-bottom: 0;
+            }
+
+            .so-sku-line {
                 display: flex;
                 align-items: baseline;
                 gap: 4px;
                 white-space: nowrap;
             }
 
-            .so-item-line strong,
-            .so-item-line span {
+            .so-sku-line strong,
+            .so-sku-line span {
                 display: inline;
+            }
+
+            .so-sku-label {
+                margin-top: 2px;
             }
 
             .so-control-cell {
