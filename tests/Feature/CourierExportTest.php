@@ -103,6 +103,7 @@ class CourierExportTest extends TestCase
 
     public function test_export_requires_confirmation_for_already_exported_orders(): void
     {
+        Storage::fake('local');
         [$tenant, $shop, $sku] = $this->salesSku();
         $order = $this->order($shop, $sku, [
             'shipping_method' => CourierCarrier::YAMATO,
@@ -114,10 +115,10 @@ class CourierExportTest extends TestCase
         $this->assertFalse($result->ok);
         $this->assertTrue($result->requiresConfirmation);
         $this->assertSame([$order->id], $result->alreadyExportedOrderIds);
+        $this->assertDatabaseCount('courier_export_batches', 0);
 
         $this->expectException(RuntimeException::class);
         app(CourierExportService::class)->export([$order->id], CourierCarrier::YAMATO, [$tenant->id], $this->internalUser());
-        $this->assertDatabaseCount('courier_export_batches', 0);
     }
 
     public function test_confirmed_re_export_creates_new_batch(): void
