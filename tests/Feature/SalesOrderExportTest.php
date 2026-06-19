@@ -263,6 +263,65 @@ class SalesOrderExportTest extends TestCase
         $this->assertSame(2, $imported->lines()->count());
     }
 
+    public function test_export_constrains_to_selected_ids(): void
+    {
+        [, $shop, $sku] = $this->salesSku('SELECTED-SKU');
+        $first = $this->orderWithLines($shop, [[$sku, 1]], ['platform_order_id' => 'SELECTED-1']);
+        $second = $this->orderWithLines($shop, [[$sku, 1]], ['platform_order_id' => 'SELECTED-2']);
+        $this->orderWithLines($shop, [[$sku, 1]], ['platform_order_id' => 'NOT-SELECTED']);
+
+        $rows = $this->mappedRows($this->filters([
+            'has_order_id_filter' => true,
+            'order_ids' => [$first->id, $second->id],
+        ]));
+
+        $this->assertSame(['SELECTED-2', 'SELECTED-1'], array_column($rows, 0));
+    }
+
+    public function test_export_ids_respects_tenant_scope(): void
+    {
+        [$tenant] = $this->tenantUser();
+        $shop = Shop::factory()->for($tenant)->create(['status' => 'active']);
+        $ownSku = $this->skuForShop($tenant, $shop, 'IDS-OWN');
+        $ownOrder = $this->orderWithLines($shop, [[$ownSku, 1]], ['platform_order_id' => 'IDS-OWN']);
+        [, $otherShop, $otherSku] = $this->salesSku('IDS-OTHER');
+        $otherOrder = $this->orderWithLines($otherShop, [[$otherSku, 1]], ['platform_order_id' => 'IDS-OTHER']);
+
+        $rows = $this->mappedRows($this->filters([
+            'allowed_tenant_ids' => [$tenant->id],
+            'has_order_id_filter' => true,
+            'order_ids' => [$ownOrder->id, $otherOrder->id],
+        ]));
+
+        $this->assertSame(['IDS-OWN'], array_column($rows, 0));
+    }
+
+    public function test_export_empty_ids_param_behaves_like_full_export(): void
+    {
+        [, $shop, $sku] = $this->salesSku('EMPTY-IDS');
+        $this->orderWithLines($shop, [[$sku, 1]], ['platform_order_id' => 'EMPTY-IDS-ORDER']);
+
+        $rows = $this->mappedRows($this->filters([
+            'has_order_id_filter' => false,
+            'order_ids' => [],
+        ]));
+
+        $this->assertSame(['EMPTY-IDS-ORDER'], array_column($rows, 0));
+    }
+
+    public function test_export_invalid_ids_param_returns_empty_result_not_full_export(): void
+    {
+        [, $shop, $sku] = $this->salesSku('BAD-IDS');
+        $this->orderWithLines($shop, [[$sku, 1]], ['platform_order_id' => 'BAD-IDS-ORDER']);
+
+        $rows = $this->mappedRows($this->filters([
+            'has_order_id_filter' => true,
+            'order_ids' => [],
+        ]));
+
+        $this->assertSame([], $rows);
+    }
+
     private function mappedRows(array $filters): array
     {
         $export = new SalesOrdersExport($filters);
@@ -278,6 +337,8 @@ class SalesOrderExportTest extends TestCase
     {
         return array_merge([
             'allowed_tenant_ids' => Tenant::query()->pluck('id')->all(),
+            'has_order_id_filter' => false,
+            'order_ids' => [],
             'shop_id' => '',
             'shop_filter_allowed' => true,
             'fulfillment' => '',

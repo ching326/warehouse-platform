@@ -8,6 +8,7 @@ use App\Models\Shop;
 use App\Models\Tenant;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -98,6 +99,93 @@ class SalesOrderIndex extends Component
             'updated' => $updated,
             'skipped' => $skipped,
         ]));
+    }
+
+    public function bulkHold(): void
+    {
+        if ($this->selectedIds === []) {
+            return;
+        }
+
+        $selectedIds = $this->normalizedSelectedIds();
+
+        $updated = SalesOrder::query()
+            ->whereIn('id', $selectedIds)
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->where('order_status', SalesOrder::ORDER_STATUS_PENDING)
+            ->whereIn('fulfillment_status', [
+                SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+                SalesOrder::FULFILLMENT_STATUS_READY,
+            ])
+            ->update([
+                'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
+                'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+            ]);
+
+        $this->finishBulk('sales_orders.bulk_hold_result', $updated, count($selectedIds));
+    }
+
+    public function bulkReleaseHold(): void
+    {
+        if ($this->selectedIds === []) {
+            return;
+        }
+
+        $selectedIds = $this->normalizedSelectedIds();
+
+        $updated = SalesOrder::query()
+            ->whereIn('id', $selectedIds)
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->where('order_status', SalesOrder::ORDER_STATUS_ON_HOLD)
+            ->whereIn('fulfillment_status', [
+                SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+                SalesOrder::FULFILLMENT_STATUS_READY,
+            ])
+            ->update(['order_status' => SalesOrder::ORDER_STATUS_PENDING]);
+
+        $this->finishBulk('sales_orders.bulk_release_hold_result', $updated, count($selectedIds));
+    }
+
+    public function bulkCancel(): void
+    {
+        if ($this->selectedIds === []) {
+            return;
+        }
+
+        $selectedIds = $this->normalizedSelectedIds();
+
+        $eligibleIds = SalesOrder::query()
+            ->whereIn('id', $selectedIds)
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->whereNotIn('order_status', [
+                SalesOrder::ORDER_STATUS_CANCELLED,
+                SalesOrder::ORDER_STATUS_COMPLETED,
+            ])
+            ->whereIn('fulfillment_status', [
+                SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+                SalesOrder::FULFILLMENT_STATUS_READY,
+            ])
+            ->pluck('id')
+            ->all();
+
+        DB::transaction(function () use ($eligibleIds) {
+            if ($eligibleIds === []) {
+                return;
+            }
+
+            SalesOrder::query()
+                ->whereIn('id', $eligibleIds)
+                ->update([
+                    'order_status' => SalesOrder::ORDER_STATUS_CANCELLED,
+                    'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_CANCELLED,
+                ]);
+
+            SalesOrderLine::query()
+                ->whereIn('sales_order_id', $eligibleIds)
+                ->update(['line_status' => SalesOrderLine::STATUS_CANCELLED]);
+        });
+
+        $this->finishBulk('sales_orders.bulk_cancel_result', count($eligibleIds), count($selectedIds));
     }
 
     public function fulfillmentStatusLabel(string $status): string
@@ -226,5 +314,20 @@ class SalesOrderIndex extends Component
         if (! $this->isInternalUser() && $this->allowedTenantIds() === []) {
             abort(403);
         }
+    }
+
+    private function normalizedSelectedIds(): array
+    {
+        return array_values(array_unique(array_map('intval', $this->selectedIds)));
+    }
+
+    private function finishBulk(string $messageKey, int $updated, int $selectedCount): void
+    {
+        $this->selectedIds = [];
+
+        session()->flash('status', __($messageKey, [
+            'updated' => $updated,
+            'skipped' => $selectedCount - $updated,
+        ]));
     }
 }

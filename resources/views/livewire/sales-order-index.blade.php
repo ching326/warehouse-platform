@@ -76,6 +76,51 @@
                 <flux:button type="button" size="sm" variant="primary" wire:click="bulkMarkReady">
                     {{ __('sales_orders.btn_bulk_mark_ready') }}
                 </flux:button>
+                <flux:button type="button" size="sm" variant="outline" wire:click="bulkHold">
+                    {{ __('sales_orders.btn_bulk_hold') }}
+                </flux:button>
+                <flux:button type="button" size="sm" variant="outline" wire:click="bulkReleaseHold">
+                    {{ __('sales_orders.btn_bulk_release_hold') }}
+                </flux:button>
+                <flux:button
+                    type="button"
+                    size="sm"
+                    variant="danger"
+                    wire:click="bulkCancel"
+                    wire:confirm="{{ __('sales_orders.bulk_cancel_confirm') }}"
+                >
+                    {{ __('sales_orders.btn_bulk_cancel') }}
+                </flux:button>
+                <flux:button
+                    as="a"
+                    size="sm"
+                    variant="ghost"
+                    href="{{ route('sales.orders.export', [
+                        'ids' => implode(',', $selectedIds),
+                        'shop' => $shopId ?: null,
+                        'fulfillment' => $fulfillmentStatus ?: null,
+                        'order_status' => $orderStatus ?: null,
+                        'q' => $search ?: null,
+                        'format' => 'csv',
+                    ]) }}"
+                >
+                    {{ __('sales_orders.btn_bulk_export_csv') }}
+                </flux:button>
+                <flux:button
+                    as="a"
+                    size="sm"
+                    variant="ghost"
+                    href="{{ route('sales.orders.export', [
+                        'ids' => implode(',', $selectedIds),
+                        'shop' => $shopId ?: null,
+                        'fulfillment' => $fulfillmentStatus ?: null,
+                        'order_status' => $orderStatus ?: null,
+                        'q' => $search ?: null,
+                        'format' => 'xlsx',
+                    ]) }}"
+                >
+                    {{ __('sales_orders.btn_bulk_export_xlsx') }}
+                </flux:button>
             </div>
         @endif
 

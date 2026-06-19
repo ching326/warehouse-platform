@@ -31,8 +31,19 @@ class SalesOrderExportController extends Controller
                 ->exists();
         }
 
+        $idsParam = trim((string) $request->query('ids', ''));
+        $hasOrderIdFilter = $request->query->has('ids') && $idsParam !== '';
+        $orderIds = $idsParam === ''
+            ? []
+            : array_values(array_unique(array_filter(
+                array_map('intval', explode(',', $idsParam)),
+                fn (int $id) => $id > 0
+            )));
+
         $filters = [
             'allowed_tenant_ids' => $allowedTenantIds,
+            'has_order_id_filter' => $hasOrderIdFilter,
+            'order_ids' => $orderIds,
             'shop_id' => $shopId,
             'shop_filter_allowed' => $shopFilterAllowed,
             'fulfillment' => trim((string) $request->query('fulfillment', '')),

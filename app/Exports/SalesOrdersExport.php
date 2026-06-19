@@ -28,7 +28,7 @@ class SalesOrdersExport implements FromQuery, WithHeadings, WithMapping
     ];
 
     /**
-     * @param array{allowed_tenant_ids: array<int,int>, shop_id: string, shop_filter_allowed: bool, fulfillment: string, order_status: string, search: string} $filters
+     * @param array{allowed_tenant_ids: array<int,int>, has_order_id_filter?: bool, order_ids?: array<int,int>, shop_id: string, shop_filter_allowed: bool, fulfillment: string, order_status: string, search: string} $filters
      */
     public function __construct(private array $filters) {}
 
@@ -42,6 +42,9 @@ class SalesOrdersExport implements FromQuery, WithHeadings, WithMapping
             ->whereHas('salesOrder', function (Builder $query) use ($filters) {
                 $query
                     ->whereIn('tenant_id', $filters['allowed_tenant_ids'])
+                    ->when($filters['has_order_id_filter'] ?? false, fn ($query) => ($filters['order_ids'] ?? []) === []
+                        ? $query->whereRaw('1 = 0')
+                        : $query->whereIn('id', $filters['order_ids']))
                     ->when($filters['shop_id'] !== '', fn ($query) => $query->where('shop_id', (int) $filters['shop_id']))
                     ->when($filters['fulfillment'] !== '', fn ($query) => $query->where('fulfillment_status', $filters['fulfillment']))
                     ->when($filters['order_status'] !== '', fn ($query) => $query->where('order_status', $filters['order_status']))

@@ -150,4 +150,13 @@ return [
     'import_row_ok' => 'OK',
     'export_csv_btn' => 'Export CSV',
     'export_xlsx_btn' => 'Export XLSX',
+    'btn_bulk_hold' => 'Hold',
+    'btn_bulk_release_hold' => 'Release hold',
+    'btn_bulk_cancel' => 'Cancel',
+    'btn_bulk_export_csv' => 'Export selected (CSV)',
+    'btn_bulk_export_xlsx' => 'Export selected (XLSX)',
+    'bulk_cancel_confirm' => 'Cancel the selected orders? This also cancels their lines and cannot be undone.',
+    'bulk_hold_result' => ':updated order(s) put on hold. :skipped skipped.',
+    'bulk_release_hold_result' => ':updated order(s) released from hold. :skipped skipped.',
+    'bulk_cancel_result' => ':updated order(s) cancelled. :skipped skipped.',
 ];
