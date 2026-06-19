@@ -1240,6 +1240,15 @@
                 margin-left: auto;
             }
 
+            .sales-order-recipient-header-main {
+                display: flex;
+                align-items: center;
+            }
+
+            .sales-order-recipient-header-copy {
+                flex: 1;
+            }
+
             @media (max-width: 720px) {
                 .page {
                     width: min(100% - 20px, 1180px);

@@ -131,17 +131,19 @@
 
     <section class="table-shell flux-panel form-panel">
         <div class="form-panel-header">
-            <div>
+            <div class="sales-order-recipient-header-main">
+                @if (! $editingRecipient)
+                    <flux:button type="button" variant="primary" wire:click="editRecipient">
+                        {{ __('sales_orders.btn_edit_recipient') }}
+                    </flux:button>
+                @endif
+            </div>
+            <div class="sales-order-recipient-header-copy">
                 <strong>{{ __('sales_orders.field_recipient') }}</strong>
                 @if ($relatedOrders->isEmpty())
                     <span>{{ __('sales_orders.related_orders_none') }}</span>
                 @endif
             </div>
-            @if (! $editingRecipient)
-                <flux:button type="button" variant="outline" wire:click="editRecipient">
-                    {{ __('sales_orders.btn_edit_recipient') }}
-                </flux:button>
-            @endif
         </div>
 
         @if ($editingRecipient)

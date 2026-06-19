@@ -968,6 +968,17 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString('data-action-variant="danger"', $html);
     }
 
+    public function test_sales_order_detail_line_ready_status_label_is_ship_ready(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'LINE-SHIP-READY']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->assertSee('Ship Ready')
+            ->assertDontSee('>Ready<', false);
+    }
+
     /**
      * @return array{0: Tenant, 1: Shop, 2: Sku}
      */

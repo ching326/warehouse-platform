@@ -48,7 +48,7 @@ return [
     'source_csv' => 'CSV',
     'source_api' => 'API',
 
-    'line_ready' => 'Ready',
+    'line_ready' => 'Ship Ready',
     'line_cancelled' => 'Cancelled',
 
     'col_shop' => 'Shop',
@@ -77,7 +77,7 @@ return [
     'btn_create_order' => 'Create order',
     'btn_back_orders' => 'Back to sales orders',
     'btn_cancel_order' => 'Cancel order',
-    'btn_edit_recipient' => 'Edit recipient',
+    'btn_edit_recipient' => 'Edit Recipient',
     'btn_save_recipient' => 'Save recipient',
     'btn_cancel_edit' => 'Cancel',
     'btn_add_line' => 'Add line',
