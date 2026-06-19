@@ -96,6 +96,11 @@ class SalesOrder extends Model
         return $this->hasMany(SalesOrderLine::class)->orderBy('id');
     }
 
+    public function courierExportBatchOrders(): HasMany
+    {
+        return $this->hasMany(CourierExportBatchOrder::class);
+    }
+
     public function recalculateShipTogetherKey(): void
     {
         if (empty(trim((string) $this->recipient_address_line1))) {

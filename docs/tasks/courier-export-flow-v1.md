@@ -35,6 +35,14 @@ Important behavior from the old files:
 - Sagawa filename pattern: `sagawa_YYYYMMDD_HHMM.csv`.
 - Yamato ship date format is `YYYY/MM/DD`.
 - Sagawa ship date format is `YYYYMMDD`.
+- All courier dates and filename timestamps must be computed in Japan time, not the Laravel app
+  default timezone. The current app timezone is UTC, so use `now('Asia/Tokyo')` or
+  `CarbonImmutable::now('Asia/Tokyo')` for:
+  - Yamato `出荷予定日`
+  - Sagawa `出荷日`
+  - filenames such as `yamato_YYYYMMDD_HHMM.csv`
+- Store database timestamp columns with the app timezone (`now()`, UTC in this app). Convert to
+  Japan time only when formatting courier CSV dates, filenames, and user-facing printed dates.
 - After export, old system updates `print_date`; in the new system this maps to
   `sales_orders.courier_csv_exported_at`.
 - Old system logs export events; in the new system use an explicit export batch/history table plus
@@ -122,6 +130,13 @@ Relationships:
 Do not add a hard unique constraint that prevents re-export. Re-export is allowed only after a user
 confirms the warning.
 
+Mixed-tenant exports:
+
+- For v1, reject mixed-tenant selections even for internal users.
+- `courier_export_batches.tenant_id` must always be set to the selected orders' tenant.
+- If selected orders contain more than one tenant, return a hard-block validation error.
+- This keeps batch ownership, re-download authorization, and audit history simple.
+
 ---
 
 ## Carrier constants
@@ -173,6 +188,12 @@ Notes:
 - `validate` returns JSON for the frontend/Livewire confirm step.
 - `export` creates the CSV, records the batch, marks orders exported, and redirects/downloads.
 - `download` lets staff re-download a previous export file.
+- `download` must authorize tenant access server-side:
+  - internal users may download any batch
+  - tenant users may download only batches whose `tenant_id` is in their active tenant ids
+  - if `tenant_id` is null for old/future mixed batches, tenant users must not be allowed to
+    download it unless a future explicit authorization rule exists
+  - never rely on hidden UI links for this; enforce it in `CourierExportDownloadController`
 
 If simpler for Livewire, the validate/export actions may be methods on `SalesOrderIndex` instead
 of controllers, but the actual CSV generation should live in a service class, not the Blade file.
@@ -217,6 +238,7 @@ Responsibilities:
   This block is not confirmable; the user must fix/review the order first.
 - Reject orders with no ready lines.
 - Reject orders whose `shipping_method` does not match the selected carrier.
+- Reject selections that span multiple tenants.
 - Detect already exported orders where `courier_csv_exported_at` is not null.
 - If already exported orders exist and `confirmedReExport = false`, return/throw a validation
   result requiring user confirmation.
@@ -224,7 +246,8 @@ Responsibilities:
 - Generate CSV through the correct builder.
 - Store the CSV under `storage/app/courier_exports/{carrier}/YYYY/MM/`.
 - Create `courier_export_batches` and `courier_export_batch_orders`.
-- Update `sales_orders.courier_csv_exported_at = now()` for exported orders.
+- Update `sales_orders.courier_csv_exported_at = now()` for exported orders. Store the real instant
+  in the app/database timezone; format it as Japan time only when displaying it.
 - Use `DB::transaction()` for database writes after CSV content is successfully built.
 
 Important: do not update `tracking_no` here. Tracking comes from the courier system later.
@@ -243,6 +266,7 @@ Create a simple value object or return array with:
     'missing_order_ids' => [...],
     'blocked_status_order_ids' => [...],
     'wrong_carrier_order_ids' => [...],
+    'mixed_tenant_order_ids' => [...],
     'already_exported_order_ids' => [...],
     'no_ready_lines_order_ids' => [...],
     'message' => '...',
@@ -254,13 +278,17 @@ Rules:
 - If `blocked_status_order_ids` is not empty, block export. User cannot override this.
 - If `wrong_carrier_order_ids` is not empty, block export. User cannot override this.
 - If `no_ready_lines_order_ids` is not empty, block export. User cannot override this.
+- If `mixed_tenant_order_ids` is not empty, block export. User cannot override this.
 - If `already_exported_order_ids` is not empty, require confirm before export.
 - If only already-exported issue exists and user confirms, export may proceed.
+- Any hard-block category refuses the whole export. Do not partially export the valid orders.
+  `valid_order_ids` is informational for UI messaging only.
 
 This directly supports the UX:
 
 - Wrong carrier: "These orders are Yamato/Sagawa mismatch. Fix shipping method first."
 - Re-export: "Some orders were already exported. Export again?"
+- Mixed tenant: "Selected orders belong to multiple tenants. Export one tenant at a time."
 
 ---
 
@@ -297,18 +325,27 @@ Implementation option:
 
 Carrier CSV files must be Shift-JIS encoded.
 
-Use a helper:
-
-```php
-private function sjis(string $value): string
-{
-    return mb_convert_encoding($value, 'SJIS-win', 'UTF-8');
-}
-```
-
 Use `SJIS-win` instead of plain `Shift-JIS` to better handle Japanese Windows carrier systems.
 
-Build CSV using `fputcsv()` into a temp stream, converting each field to SJIS-win before writing.
+Important: do not convert each field to SJIS-win before calling `fputcsv()`. Some Shift-JIS byte
+sequences can contain bytes that look like comma, quote, or backslash to CSV writing logic. That can
+silently corrupt rows.
+
+Safer pattern:
+
+1. Build each CSV row as UTF-8 strings.
+2. Use `fputcsv()` into an in-memory temp stream while still UTF-8.
+3. Use PHP 8.3's empty escape argument: `fputcsv($stream, $row, ',', '"', '')`.
+4. Read the assembled UTF-8 CSV line from the stream.
+5. Normalize line endings to CRLF.
+6. Convert the completed line to `SJIS-win`.
+7. Append the encoded line to the output file.
+
+Carrier Windows systems typically expect CRLF. Use `\r\n` line endings and no UTF-8 BOM.
+
+Confirm quoting style against the old Yamato/Sagawa exports before finalizing the builders.
+`fputcsv()` quotes only fields that need quoting; if the carrier import or old files require every
+field to be quoted, implement that deliberately and cover it with a CSV snapshot-style test.
 
 Do not use Laravel Excel for these carrier CSV files unless it can be proven to preserve the exact
 encoding and header shape. Plain `fputcsv()` is easier to reason about for carrier imports.
@@ -372,7 +409,7 @@ Minimal v1 mapping:
 - 配送方法: empty
 - クール区分: empty
 - 伝票番号: empty
-- 出荷予定日: today in `YYYY/MM/DD`
+- 出荷予定日: Japan today in `YYYY/MM/DD` using `now('Asia/Tokyo')`
 - お届け予定日: empty
 - 配達時間帯: empty
 - お届け先電話番号: `recipient_phone`
@@ -409,6 +446,14 @@ Reference: `export_sagawa.php`.
 
 Header should follow the old Sagawa header array. Keep the same column count/order.
 
+Implementation note:
+
+- Read `C:\laragon\www\order-manage\amzorder\includes\export_sagawa.php` while implementing.
+- Copy the Sagawa header order from the old `$headersArray`.
+- Add a test that asserts the generated Sagawa header has the expected first few labels, last few
+  labels, and exact column count. This prevents accidental column drift without hand-maintaining a
+  second full header list in this spec.
+
 Minimal v1 mapping from old indices:
 
 - お届け先電話番号: `recipient_phone`
@@ -424,7 +469,7 @@ Minimal v1 mapping from old indices:
 - ご依頼主住所２: sender address2 constant/config
 - ご依頼主名称１: shop name or configured sender name
 - 品名１..品名５: item summary fields, each max 16 chars
-- 出荷日: today in `YYYYMMDD`
+- 出荷日: Japan today in `YYYYMMDD` using `now('Asia/Tokyo')`
 - お問い合せ送り状No.: empty
 
 As with Yamato, keep the full Sagawa header shape, but fill unsupported fields as empty strings.
@@ -475,6 +520,10 @@ After successful export:
     - batch_id
     - file_name
     - re_export: true/false
+
+Store export timestamps with `now()` in the app/database timezone. When displaying export timestamps
+to warehouse staff, convert to Japan time first, e.g. `->timezone('Asia/Tokyo')->format('Y-m-d')`.
+This matters for the Sales Orders index `Printed:` label near the UTC/JST date boundary.
 
 If activitylog usage becomes awkward, keep the explicit batch tables as the source of truth and
 defer per-order activitylog to a follow-up. Do not block v1 on activitylog polish.
@@ -554,22 +603,44 @@ Required tests:
    - Other tenant order is ignored or blocked.
    - No leak in CSV.
 
-8. `test_export_blocks_orders_without_ready_lines`
+8. `test_download_scopes_batch_by_tenant`
+   - Tenant user tries to download another tenant's export batch.
+   - Assert forbidden or not found.
+   - Assert no file content leaks.
+
+9. `test_export_blocks_mixed_tenant_selection`
+   - Internal user selects orders from two tenants.
+   - Export is hard-blocked.
+   - No batch created.
+
+10. `test_export_blocks_orders_without_ready_lines`
    - Order has only cancelled lines.
    - Export blocked.
 
-9. `test_export_blocks_orders_with_blocked_order_status`
+11. `test_export_blocks_orders_with_blocked_order_status`
    - `on_hold`, `cancel_requested`, and `cancelled` orders are blocked.
    - This is not confirmable.
 
-10. `test_address_splitter_preserves_address_parts`
+12. `test_address_splitter_preserves_address_parts`
    - Unit-ish test for address splitter.
 
-11. `test_sales_order_index_shows_export_buttons_for_selected_orders`
+13. `test_sales_order_index_shows_export_buttons_for_selected_orders`
     - Selected rows show Yamato/Sagawa export buttons.
 
-12. `test_export_updates_activity_or_batch_history`
+14. `test_export_updates_activity_or_batch_history`
     - Assert batch order row exists with platform order id, carrier, exported_at.
+
+15. `test_export_uses_japan_time_for_ship_date_and_filename`
+    - Freeze time near a UTC/JST date boundary.
+    - Assert Yamato/Sagawa ship date and filename use `Asia/Tokyo`, not UTC.
+
+16. `test_csv_is_sjis_win_with_crlf_line_endings`
+    - Assert generated file is not UTF-8.
+    - Decode with `SJIS-win` and verify expected fields.
+    - Assert line endings are CRLF.
+
+17. `test_sagawa_header_shape_matches_reference`
+    - Assert Sagawa generated header column count and key first/last labels match the old reference.
 
 Run:
 

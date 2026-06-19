@@ -4,6 +4,27 @@
             <flux:badge color="green">{{ session('status') }}</flux:badge>
         </div>
     @endif
+    @if (session('warning'))
+        <div class="active-filter-row">
+            <flux:badge color="amber">{{ session('warning') }}</flux:badge>
+            @if ($pendingCourierExportCarrier)
+                <flux:button
+                    type="button"
+                    size="sm"
+                    variant="primary"
+                    wire:click="confirmCourierExport"
+                    wire:confirm="{{ __('sales_orders.courier_export_confirm_reexport') }}"
+                >
+                    {{ __('sales_orders.courier_export_confirm_btn') }}
+                </flux:button>
+            @endif
+        </div>
+    @endif
+    @if (session('error'))
+        <div class="active-filter-row">
+            <flux:badge color="red">{{ session('error') }}</flux:badge>
+        </div>
+    @endif
 
     <section class="table-shell flux-panel">
         <div class="movement-toolbar">
@@ -135,6 +156,24 @@
                     {{ __('sales_orders.btn_bulk_export_xlsx') }}
                 </flux:button>
             @endif
+            <flux:button
+                type="button"
+                size="sm"
+                variant="outline"
+                wire:click="validateCourierExport('yamato')"
+                :disabled="! $hasSelection"
+            >
+                {{ __('sales_orders.btn_export_yamato_csv') }}
+            </flux:button>
+            <flux:button
+                type="button"
+                size="sm"
+                variant="outline"
+                wire:click="validateCourierExport('sagawa')"
+                :disabled="! $hasSelection"
+            >
+                {{ __('sales_orders.btn_export_sagawa_csv') }}
+            </flux:button>
         </div>
 
         <div class="table-scroll">
@@ -251,7 +290,7 @@
                                 <strong>{{ $order->created_at->format('Y-m-d') }}</strong>
                                 @if ($order->courier_csv_exported_at)
                                     <span class="subtle">
-                                        {{ __('sales_orders.printed_date_label') }} {{ $order->courier_csv_exported_at->format('Y-m-d') }}
+                                        {{ __('sales_orders.printed_date_label') }} {{ $order->courier_csv_exported_at->timezone('Asia/Tokyo')->format('Y-m-d') }}
                                     </span>
                                 @endif
                             </flux:table.cell>

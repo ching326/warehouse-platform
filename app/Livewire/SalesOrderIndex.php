@@ -6,9 +6,12 @@ use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\Shop;
 use App\Models\Tenant;
+use App\Services\Courier\CourierExportService;
+use App\Support\CourierCarrier;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -34,6 +37,10 @@ class SalesOrderIndex extends Component
     public array $trackingDrafts = [];
 
     public array $trackingSavedDrafts = [];
+
+    public ?string $pendingCourierExportCarrier = null;
+
+    public array $pendingCourierExportOrderIds = [];
 
     private bool $allowedTenantIdsResolved = false;
 
@@ -280,6 +287,50 @@ class SalesOrderIndex extends Component
         }
     }
 
+    public function validateCourierExport(string $carrier): void
+    {
+        $this->pendingCourierExportCarrier = null;
+        $this->pendingCourierExportOrderIds = [];
+
+        if ($this->selectedIds === []) {
+            session()->flash('error', __('sales_orders.courier_export_no_selection'));
+
+            return;
+        }
+
+        $carrier = $this->normalizeCourierCarrier($carrier);
+        $result = app(CourierExportService::class)->validateExport(
+            salesOrderIds: $this->normalizedSelectedIds(),
+            carrier: $carrier,
+            allowedTenantIds: $this->allowedTenantIds(),
+        );
+
+        if ($result->hasHardBlock()) {
+            session()->flash('error', $this->courierExportMessage($result->toArray()));
+
+            return;
+        }
+
+        if ($result->requiresConfirmation) {
+            $this->pendingCourierExportCarrier = $carrier;
+            $this->pendingCourierExportOrderIds = $this->normalizedSelectedIds();
+            session()->flash('warning', $result->message);
+
+            return;
+        }
+
+        $this->performCourierExport($carrier, confirmedReExport: false);
+    }
+
+    public function confirmCourierExport(): mixed
+    {
+        if ($this->pendingCourierExportCarrier === null || $this->pendingCourierExportOrderIds === []) {
+            return null;
+        }
+
+        return $this->performCourierExport($this->pendingCourierExportCarrier, confirmedReExport: true, orderIds: $this->pendingCourierExportOrderIds);
+    }
+
     public function render()
     {
         $orders = SalesOrder::query()
@@ -358,6 +409,58 @@ class SalesOrderIndex extends Component
             'japan_post' => __('sales_orders.shipping_method_japan_post'),
             'other' => __('sales_orders.shipping_method_other'),
         ];
+    }
+
+    private function performCourierExport(string $carrier, bool $confirmedReExport, ?array $orderIds = null): mixed
+    {
+        try {
+            $batch = app(CourierExportService::class)->export(
+                salesOrderIds: $orderIds ?? $this->normalizedSelectedIds(),
+                carrier: $carrier,
+                allowedTenantIds: $this->allowedTenantIds(),
+                user: Auth::user(),
+                confirmedReExport: $confirmedReExport,
+            );
+        } catch (RuntimeException $exception) {
+            session()->flash('error', $exception->getMessage());
+
+            return null;
+        }
+
+        $this->selectedIds = [];
+        $this->pendingCourierExportCarrier = null;
+        $this->pendingCourierExportOrderIds = [];
+
+        return redirect()->route('courier-export-batches.download', $batch);
+    }
+
+    private function courierExportMessage(array $result): string
+    {
+        $parts = [$result['message']];
+
+        foreach ([
+            'wrong_carrier_order_ids' => 'courier_export_wrong_carrier_ids',
+            'blocked_status_order_ids' => 'courier_export_blocked_status_ids',
+            'no_ready_lines_order_ids' => 'courier_export_no_ready_lines_ids',
+            'mixed_tenant_order_ids' => 'courier_export_mixed_tenant_ids',
+            'missing_order_ids' => 'courier_export_missing_ids',
+        ] as $key => $translationKey) {
+            if ($result[$key] !== []) {
+                $parts[] = __(
+                    'sales_orders.'.$translationKey,
+                    ['ids' => implode(', ', $result[$key])]
+                );
+            }
+        }
+
+        return implode(' ', $parts);
+    }
+
+    private function normalizeCourierCarrier(string $carrier): string
+    {
+        return in_array($carrier, CourierCarrier::values(), true)
+            ? $carrier
+            : CourierCarrier::YAMATO;
     }
 
     // TODO: remove unauthenticated fallback when auth is implemented
