@@ -220,10 +220,34 @@ class SalesOrderIndex extends Component
         };
     }
 
+    public function updateShippingMethod(int $orderId, string $value): void
+    {
+        $allowed = array_keys($this->shippingMethodOptions());
+
+        if (! in_array($value, $allowed, true)) {
+            return;
+        }
+
+        SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->whereKey($orderId)
+            ->update(['shipping_method' => $value === '' ? null : $value]);
+    }
+
+    public function updateTrackingNo(int $orderId, string $value): void
+    {
+        $trackingNo = trim($value);
+
+        SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->whereKey($orderId)
+            ->update(['tracking_no' => $trackingNo === '' ? null : mb_substr($trackingNo, 0, 255)]);
+    }
+
     public function render()
     {
         $orders = SalesOrder::query()
-            ->with(['shop.tenant'])
+            ->with(['shop.tenant', 'lines.sku'])
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->when($this->shopId !== '', fn ($query) => $query->where('shop_id', (int) $this->shopId))
             ->when($this->fulfillmentStatus !== '', fn ($query) => $query->where('fulfillment_status', $this->fulfillmentStatus))
@@ -243,6 +267,7 @@ class SalesOrderIndex extends Component
             'shops' => $this->shopOptions(),
             'fulfillmentStatuses' => $this->fulfillmentStatuses(),
             'orderStatuses' => $this->orderStatuses(),
+            'shippingMethodOptions' => $this->shippingMethodOptions(),
         ])->layout('inventory', [
             'title' => __('sales_orders.index_page_title'),
             'subtitle' => __('sales_orders.index_page_subtitle'),
@@ -279,6 +304,17 @@ class SalesOrderIndex extends Component
             SalesOrder::ORDER_STATUS_BACKORDER => __('sales_orders.order_backorder'),
             SalesOrder::ORDER_STATUS_CANCELLED => __('sales_orders.order_cancelled'),
             SalesOrder::ORDER_STATUS_COMPLETED => __('sales_orders.order_completed'),
+        ];
+    }
+
+    private function shippingMethodOptions(): array
+    {
+        return [
+            '' => __('sales_orders.shipping_method_unset'),
+            'yamato' => __('sales_orders.shipping_method_yamato'),
+            'sagawa' => __('sales_orders.shipping_method_sagawa'),
+            'japan_post' => __('sales_orders.shipping_method_japan_post'),
+            'other' => __('sales_orders.shipping_method_other'),
         ];
     }
 

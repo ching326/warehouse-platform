@@ -643,6 +643,171 @@ class SalesOrderTest extends TestCase
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_READY, $order->refresh()->fulfillment_status);
     }
 
+    public function test_sales_order_index_hides_internal_id_under_platform_order_id(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'VISIBLE-ORDER-ID']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->assertSee('VISIBLE-ORDER-ID')
+            ->assertDontSee('#'.$order->id);
+    }
+
+    public function test_sales_order_index_platform_order_id_links_to_detail(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'LINK-ORDER-ID']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->assertSee('LINK-ORDER-ID')
+            ->assertSee(route('sales.orders.show', $order), false);
+    }
+
+    public function test_sales_order_index_shows_recipient_phone_and_address(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'ADDRESS-ORDER',
+            'recipient_name' => 'Aiko Tanaka',
+            'recipient_phone' => '+81-90-1234-5678',
+            'recipient_postal_code' => '150-0001',
+            'recipient_state' => 'Tokyo',
+            'recipient_city' => 'Shibuya',
+            'recipient_address_line1' => '1-2-3 Jingumae',
+            'recipient_address_line2' => 'Room 501',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->assertSee('Aiko Tanaka')
+            ->assertSee('+81-90-1234-5678')
+            ->assertSee('150-0001')
+            ->assertSee('Tokyo Shibuya')
+            ->assertSee('1-2-3 Jingumae')
+            ->assertSee('Room 501');
+    }
+
+    public function test_sales_order_index_shows_line_quantities_and_skus(): void
+    {
+        [$tenant, $shop, $skuA] = $this->salesSku();
+        $skuA->update(['sku' => 'INDEX-SKU-A']);
+        $skuB = Sku::factory()->for($tenant)->for($shop)->for(StockItem::factory()->for($tenant)->create())->create([
+            'sku_type' => 'single',
+            'sku' => 'INDEX-SKU-B',
+        ]);
+        $cancelledSku = Sku::factory()->for($tenant)->for($shop)->for(StockItem::factory()->for($tenant)->create())->create([
+            'sku_type' => 'single',
+            'sku' => 'INDEX-CANCELLED-SKU',
+        ]);
+        $order = $this->createPersistedOrder($shop, $skuA, ['platform_order_id' => 'ITEMS-ORDER']);
+        $order->lines()->create(['sku_id' => $skuB->id, 'quantity' => 3, 'line_status' => SalesOrderLine::STATUS_READY]);
+        $order->lines()->create(['sku_id' => $cancelledSku->id, 'quantity' => 9, 'line_status' => SalesOrderLine::STATUS_CANCELLED]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->assertSeeInOrder(['1', 'x', 'INDEX-SKU-A'])
+            ->assertSeeInOrder(['3', 'x', 'INDEX-SKU-B'])
+            ->assertDontSee('INDEX-CANCELLED-SKU');
+    }
+
+    public function test_sales_order_index_updates_shipping_method_with_tenant_scope(): void
+    {
+        [$ownTenant, $tenantUser] = $this->tenantUser();
+        $ownShop = Shop::factory()->for($ownTenant)->create(['status' => 'active']);
+        $ownSku = Sku::factory()->for($ownTenant)->for($ownShop)->for(StockItem::factory()->for($ownTenant)->create())->create(['sku_type' => 'single']);
+        $ownOrder = $this->createPersistedOrder($ownShop, $ownSku, ['platform_order_id' => 'OWN-SHIP-METHOD']);
+        [, $otherShop, $otherSku] = $this->salesSku();
+        $otherOrder = $this->createPersistedOrder($otherShop, $otherSku, ['platform_order_id' => 'OTHER-SHIP-METHOD']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->call('updateShippingMethod', $ownOrder->id, 'yamato');
+
+        $this->assertSame('yamato', $ownOrder->refresh()->shipping_method);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->call('updateShippingMethod', $ownOrder->id, 'unknown_method');
+
+        $this->assertSame('yamato', $ownOrder->refresh()->shipping_method);
+
+        Livewire::actingAs($tenantUser)
+            ->test(SalesOrderIndex::class)
+            ->call('updateShippingMethod', $ownOrder->id, 'sagawa');
+
+        $this->assertSame('sagawa', $ownOrder->refresh()->shipping_method);
+
+        Livewire::actingAs($tenantUser)
+            ->test(SalesOrderIndex::class)
+            ->call('updateShippingMethod', $otherOrder->id, 'japan_post');
+
+        $this->assertNull($otherOrder->refresh()->shipping_method);
+    }
+
+    public function test_sales_order_index_updates_tracking_no_with_tenant_scope(): void
+    {
+        [$ownTenant, $tenantUser] = $this->tenantUser();
+        $ownShop = Shop::factory()->for($ownTenant)->create(['status' => 'active']);
+        $ownSku = Sku::factory()->for($ownTenant)->for($ownShop)->for(StockItem::factory()->for($ownTenant)->create())->create(['sku_type' => 'single']);
+        $ownOrder = $this->createPersistedOrder($ownShop, $ownSku, ['platform_order_id' => 'OWN-TRACKING']);
+        [, $otherShop, $otherSku] = $this->salesSku();
+        $otherOrder = $this->createPersistedOrder($otherShop, $otherSku, ['platform_order_id' => 'OTHER-TRACKING']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->call('updateTrackingNo', $ownOrder->id, ' 1234567890 ');
+
+        $this->assertSame('1234567890', $ownOrder->refresh()->tracking_no);
+
+        Livewire::actingAs($tenantUser)
+            ->test(SalesOrderIndex::class)
+            ->call('updateTrackingNo', $ownOrder->id, 'SELLER-TRACK-1');
+
+        $this->assertSame('SELLER-TRACK-1', $ownOrder->refresh()->tracking_no);
+
+        Livewire::actingAs($tenantUser)
+            ->test(SalesOrderIndex::class)
+            ->call('updateTrackingNo', $otherOrder->id, 'SHOULD-NOT-SAVE');
+
+        $this->assertNull($otherOrder->refresh()->tracking_no);
+    }
+
+    public function test_sales_order_index_shows_printed_date_when_courier_csv_exported(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'PRINTED-ORDER',
+            'courier_csv_exported_at' => '2026-06-18 10:00:00',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->assertSee('Printed: 2026-06-18');
+    }
+
+    public function test_sales_order_index_has_no_view_action_column(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'NO-VIEW-ACTION']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->assertSee('NO-VIEW-ACTION')
+            ->assertDontSee(__('sales_orders.col_actions'))
+            ->assertDontSee(__('sales_orders.btn_view_order'));
+    }
+
+    public function test_sales_order_index_empty_state_spans_all_columns(): void
+    {
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('search', 'no matching order')
+            ->assertSee('colspan="11"', false)
+            ->assertSee(__('sales_orders.empty_state'));
+    }
+
     /**
      * @return array{0: Tenant, 1: Shop, 2: Sku}
      */

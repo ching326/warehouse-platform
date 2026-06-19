@@ -130,30 +130,84 @@
                     <flux:table.column></flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_shop') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_platform_order_id') }}</flux:table.column>
+                    <flux:table.column>{{ __('sales_orders.col_address') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_recipient') }}</flux:table.column>
+                    <flux:table.column>{{ __('sales_orders.col_items') }}</flux:table.column>
+                    <flux:table.column>{{ __('sales_orders.col_shipping_method') }}</flux:table.column>
+                    <flux:table.column>{{ __('sales_orders.col_tracking_no') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_fulfillment_status') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_order_status') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_created_at') }}</flux:table.column>
-                    <flux:table.column>{{ __('sales_orders.col_actions') }}</flux:table.column>
                 </flux:table.columns>
 
                 <flux:table.rows>
                     @forelse ($orders as $order)
                         <flux:table.row :key="$order->id">
                             <flux:table.cell>
-                                <input type="checkbox" wire:model.live="selectedIds" value="{{ $order->id }}" aria-label="{{ __('sales_orders.select_order') }} #{{ $order->id }}">
+                                <input type="checkbox" wire:model.live="selectedIds" value="{{ $order->id }}" aria-label="{{ __('sales_orders.select_order') }} {{ $order->platform_order_id ?: $order->id }}">
                             </flux:table.cell>
                             <flux:table.cell class="so-shop-cell">
                                 <strong>{{ $order->shop->name }}</strong>
                                 <span class="subtle">{{ $order->shop->tenant->code }} / {{ $order->shop->platform }}</span>
                             </flux:table.cell>
                             <flux:table.cell>
-                                <strong>{{ $order->platform_order_id ?: '-' }}</strong>
-                                <span class="subtle">#{{ $order->id }}</span>
+                                <flux:link href="{{ route('sales.orders.show', $order) }}" wire:navigate>
+                                    <strong>{{ $order->platform_order_id ?: '-' }}</strong>
+                                </flux:link>
+                            </flux:table.cell>
+                            <flux:table.cell class="so-address-cell">
+                                <strong>{{ $order->recipient_postal_code ?: '-' }}</strong>
+                                <span class="subtle">{{ trim(($order->recipient_state ?? '').' '.($order->recipient_city ?? '')) ?: '-' }}</span>
+                                <span class="subtle">{{ $order->recipient_address_line1 ?: '-' }}</span>
+                                @if ($order->recipient_address_line2)
+                                    <span class="subtle">{{ $order->recipient_address_line2 }}</span>
+                                @endif
                             </flux:table.cell>
                             <flux:table.cell class="so-recipient-cell">
                                 <strong>{{ $order->recipient_name ?: '-' }}</strong>
-                                <span class="subtle">{{ $order->recipient_city ?: $order->recipient_postal_code ?: '-' }}</span>
+                                <span class="subtle">{{ $order->recipient_phone ?: '-' }}</span>
+                            </flux:table.cell>
+                            <flux:table.cell class="so-items-cell">
+                                @php
+                                    $readyLines = $order->lines->where('line_status', \App\Models\SalesOrderLine::STATUS_READY);
+                                @endphp
+
+                                @forelse ($readyLines as $line)
+                                    <div class="so-item-line">
+                                        @if ($line->quantity > 1)
+                                            <strong class="danger-text">{{ $line->quantity }}</strong>
+                                        @else
+                                            <span class="subtle">{{ $line->quantity }}</span>
+                                        @endif
+                                        <span class="subtle">x</span>
+                                        <strong>{{ $line->sku?->sku ?? '-' }}</strong>
+                                    </div>
+                                @empty
+                                    <span class="subtle">{{ __('sales_orders.no_lines') }}</span>
+                                @endforelse
+                            </flux:table.cell>
+                            <flux:table.cell class="so-control-cell">
+                                <select
+                                    class="table-control"
+                                    aria-label="{{ __('sales_orders.col_shipping_method') }} {{ $order->platform_order_id ?: $order->id }}"
+                                    x-on:change="$wire.updateShippingMethod({{ $order->id }}, $event.target.value)"
+                                >
+                                    @foreach ($shippingMethodOptions as $value => $label)
+                                        <option value="{{ $value }}" @selected(($order->shipping_method ?? '') === $value)>
+                                            {{ $label }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </flux:table.cell>
+                            <flux:table.cell class="so-control-cell">
+                                <input
+                                    type="text"
+                                    class="table-control"
+                                    value="{{ $order->tracking_no }}"
+                                    placeholder="{{ __('sales_orders.tracking_no_placeholder') }}"
+                                    aria-label="{{ __('sales_orders.col_tracking_no') }} {{ $order->platform_order_id ?: $order->id }}"
+                                    x-on:change="$wire.updateTrackingNo({{ $order->id }}, $event.target.value)"
+                                >
                             </flux:table.cell>
                             <flux:table.cell>
                                 <flux:badge color="{{ $this->fulfillmentStatusColor($order->fulfillment_status) }}">
@@ -165,16 +219,18 @@
                                     {{ $this->orderStatusLabel($order->order_status) }}
                                 </flux:badge>
                             </flux:table.cell>
-                            <flux:table.cell>{{ $order->created_at->format('Y-m-d') }}</flux:table.cell>
                             <flux:table.cell>
-                                <flux:button href="{{ route('sales.orders.show', $order) }}" size="xs" variant="outline" wire:navigate>
-                                    {{ __('sales_orders.btn_view_order') }}
-                                </flux:button>
+                                <strong>{{ $order->created_at->format('Y-m-d') }}</strong>
+                                @if ($order->courier_csv_exported_at)
+                                    <span class="subtle">
+                                        {{ __('sales_orders.printed_date_label') }} {{ $order->courier_csv_exported_at->format('Y-m-d') }}
+                                    </span>
+                                @endif
                             </flux:table.cell>
                         </flux:table.row>
                     @empty
                         <flux:table.row>
-                            <flux:table.cell colspan="8">
+                            <flux:table.cell colspan="11">
                                 <div class="empty-state">{{ __('sales_orders.empty_state') }}</div>
                             </flux:table.cell>
                         </flux:table.row>

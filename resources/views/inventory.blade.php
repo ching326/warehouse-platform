@@ -1154,17 +1154,54 @@
                widths defined for these columns and let long platform order ids overflow
                into the neighbouring cell. */
             .sales-order-table {
-                min-width: 820px;
+                min-width: 1320px;
             }
 
+            .so-address-cell,
+            .so-items-cell,
             .so-recipient-cell,
             .so-shop-cell {
                 max-width: 240px;
             }
 
+            .so-address-cell strong,
+            .so-address-cell span,
+            .so-items-cell strong,
+            .so-items-cell span,
             .so-recipient-cell strong,
             .so-shop-cell strong {
+                display: block;
                 overflow-wrap: anywhere;
+            }
+
+            .so-item-line {
+                display: flex;
+                align-items: baseline;
+                gap: 4px;
+                white-space: nowrap;
+            }
+
+            .so-item-line strong,
+            .so-item-line span {
+                display: inline;
+            }
+
+            .so-control-cell {
+                min-width: 150px;
+            }
+
+            .table-control {
+                width: 100%;
+                min-width: 120px;
+                border: 1px solid var(--line);
+                border-radius: 6px;
+                padding: 6px 8px;
+                font: inherit;
+                background: #fff;
+            }
+
+            .danger-text {
+                color: var(--danger);
             }
 
             @media (max-width: 720px) {

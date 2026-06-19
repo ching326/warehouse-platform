@@ -38,6 +38,9 @@ class SalesOrder extends Model
         'platform_order_id',
         'order_status',
         'fulfillment_status',
+        'shipping_method',
+        'tracking_no',
+        'courier_csv_exported_at',
         'recipient_name',
         'recipient_phone',
         'recipient_country_code',
@@ -50,6 +53,13 @@ class SalesOrder extends Model
         'note',
         'created_by_user_id',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'courier_csv_exported_at' => 'datetime',
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {
