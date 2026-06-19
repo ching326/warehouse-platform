@@ -31,6 +31,11 @@ class SalesOrderIndex extends Component
 
     private array $allowedTenantIdsCache = [];
 
+    public function mount(): void
+    {
+        $this->authorizeTenantAccess();
+    }
+
     public function updatedShopId(): void
     {
         $this->resetPage();
@@ -160,5 +165,12 @@ class SalesOrderIndex extends Component
             ->where('status', 'active')
             ->pluck('tenant_id')
             ->all();
+    }
+
+    private function authorizeTenantAccess(): void
+    {
+        if (! $this->isInternalUser() && $this->allowedTenantIds() === []) {
+            abort(403);
+        }
     }
 }

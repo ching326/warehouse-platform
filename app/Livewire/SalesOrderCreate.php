@@ -48,6 +48,11 @@ class SalesOrderCreate extends Component
 
     private array $allowedTenantIdsCache = [];
 
+    public function mount(): void
+    {
+        $this->authorizeTenantAccess();
+    }
+
     public function updatedShopId(): void
     {
         $this->lines = [['sku_id' => '', 'quantity' => '', 'note' => '']];
@@ -244,6 +249,13 @@ class SalesOrderCreate extends Component
             ->where('status', 'active')
             ->pluck('tenant_id')
             ->all();
+    }
+
+    private function authorizeTenantAccess(): void
+    {
+        if (! $this->isInternalUser() && $this->allowedTenantIds() === []) {
+            abort(403);
+        }
     }
 
     private function nullableString(?string $value): ?string
