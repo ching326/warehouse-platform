@@ -132,6 +132,23 @@ class SalesOrderExportTest extends TestCase
         $this->assertSame(['NOPE', 'AMZ-CHAN'], array_column($rows, 0));
     }
 
+    public function test_export_orders_newest_sales_orders_first(): void
+    {
+        [, $shop, $sku] = $this->salesSku('ORDER-SKU');
+        $this->orderWithLines($shop, [[$sku, 1]], [
+            'platform_order_id' => 'OLDER',
+            'created_at' => Carbon::parse('2026-06-18 10:00:00'),
+        ]);
+        $this->orderWithLines($shop, [[$sku, 1]], [
+            'platform_order_id' => 'NEWER',
+            'created_at' => Carbon::parse('2026-06-19 10:00:00'),
+        ]);
+
+        $rows = $this->mappedRows($this->filters());
+
+        $this->assertSame(['NEWER', 'OLDER'], array_column($rows, 0));
+    }
+
     public function test_export_first_thirteen_headings_match_import_header(): void
     {
         $headings = (new SalesOrdersExport($this->filters()))->headings();
