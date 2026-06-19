@@ -31,6 +31,10 @@ class SalesOrderIndex extends Component
 
     public array $selectedIds = [];
 
+    public array $trackingDrafts = [];
+
+    public array $trackingSavedDrafts = [];
+
     private bool $allowedTenantIdsResolved = false;
 
     private array $allowedTenantIdsCache = [];
@@ -62,6 +66,15 @@ class SalesOrderIndex extends Component
     {
         $this->selectedIds = [];
         $this->resetPage();
+    }
+
+    public function updatedTrackingDrafts(mixed $value, string|int $key): void
+    {
+        if (! is_numeric($key)) {
+            return;
+        }
+
+        $this->saveTrackingDraft((int) $key);
     }
 
     public function bulkMarkReady(): void
@@ -244,6 +257,16 @@ class SalesOrderIndex extends Component
             ->update(['tracking_no' => $trackingNo === '' ? null : mb_substr($trackingNo, 0, 255)]);
     }
 
+    public function saveTrackingDraft(int $orderId): void
+    {
+        $trackingNo = trim((string) ($this->trackingDrafts[$orderId] ?? ''));
+        $trackingNo = $trackingNo === '' ? '' : mb_substr($trackingNo, 0, 255);
+
+        $this->trackingDrafts[$orderId] = $trackingNo;
+        $this->updateTrackingNo($orderId, $trackingNo);
+        $this->trackingSavedDrafts[$orderId] = $trackingNo;
+    }
+
     public function render()
     {
         $orders = SalesOrder::query()
@@ -261,6 +284,11 @@ class SalesOrderIndex extends Component
             })
             ->orderByDesc('created_at')
             ->paginate(30);
+
+        foreach ($orders as $order) {
+            $this->trackingDrafts[$order->id] ??= $order->tracking_no ?? '';
+            $this->trackingSavedDrafts[$order->id] ??= $order->tracking_no ?? '';
+        }
 
         return view('livewire.sales-order-index', [
             'orders' => $orders,

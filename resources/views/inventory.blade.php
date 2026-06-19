@@ -1200,6 +1200,15 @@
                 background: #fff;
             }
 
+            .so-unsaved {
+                display: block;
+                margin-top: 4px;
+                color: var(--warning);
+                font-size: 11px;
+                font-weight: 700;
+                line-height: 1.2;
+            }
+
             .danger-text {
                 color: var(--danger);
             }

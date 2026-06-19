@@ -200,14 +200,28 @@
                                 </select>
                             </flux:table.cell>
                             <flux:table.cell class="so-control-cell">
+                                @php
+                                    $trackingDraft = (string) ($trackingDrafts[$order->id] ?? '');
+                                    $trackingSavedDraft = (string) ($trackingSavedDrafts[$order->id] ?? ($order->tracking_no ?? ''));
+                                    $trackingServerDirty = trim($trackingDraft) !== trim($trackingSavedDraft);
+                                @endphp
+
                                 <input
                                     type="text"
                                     class="table-control"
-                                    value="{{ $order->tracking_no }}"
+                                    wire:key="tracking-{{ $order->id }}"
+                                    wire:model.live.debounce.800ms="trackingDrafts.{{ $order->id }}"
                                     placeholder="{{ __('sales_orders.tracking_no_placeholder') }}"
                                     aria-label="{{ __('sales_orders.col_tracking_no') }} {{ $order->platform_order_id ?: $order->id }}"
-                                    x-on:change="$wire.updateTrackingNo({{ $order->id }}, $event.target.value)"
                                 >
+                                <span class="so-unsaved" wire:dirty wire:target="trackingDrafts.{{ $order->id }}">
+                                    {{ __('sales_orders.tracking_unsaved') }}
+                                </span>
+                                @if ($trackingServerDirty)
+                                    <span class="so-unsaved">
+                                        {{ __('sales_orders.tracking_unsaved') }}
+                                    </span>
+                                @endif
                             </flux:table.cell>
                             <flux:table.cell>
                                 <flux:badge color="{{ $this->fulfillmentStatusColor($order->fulfillment_status) }}">

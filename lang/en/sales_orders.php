@@ -156,6 +156,7 @@ return [
     'export_xlsx_btn' => 'Export XLSX',
     'printed_date_label' => 'Printed:',
     'tracking_no_placeholder' => 'Tracking no.',
+    'tracking_unsaved' => 'Unsaved',
     'shipping_method_unset' => 'Not set',
     'shipping_method_yamato' => 'Yamato',
     'shipping_method_sagawa' => 'Sagawa',

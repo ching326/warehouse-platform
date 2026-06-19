@@ -774,6 +774,21 @@ class SalesOrderTest extends TestCase
         $this->assertNull($otherOrder->refresh()->tracking_no);
     }
 
+    public function test_sales_order_index_saves_tracking_draft(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'DRAFT-TRACKING']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set("trackingDrafts.{$order->id}", ' DRAFT-123 ')
+            ->call('saveTrackingDraft', $order->id)
+            ->assertSet("trackingDrafts.{$order->id}", 'DRAFT-123')
+            ->assertSet("trackingSavedDrafts.{$order->id}", 'DRAFT-123');
+
+        $this->assertSame('DRAFT-123', $order->refresh()->tracking_no);
+    }
+
     public function test_sales_order_index_shows_printed_date_when_courier_csv_exported(): void
     {
         [, $shop, $sku] = $this->salesSku();
