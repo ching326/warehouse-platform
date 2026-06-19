@@ -65,7 +65,7 @@
                 </flux:button>
             </div>
 
-            <flux:table class="movement-table">
+            <flux:table class="data-table">
                 <flux:table.columns>
                     <flux:table.column>{{ __('sales_orders.import_col_row') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.import_col_status') }}</flux:table.column>

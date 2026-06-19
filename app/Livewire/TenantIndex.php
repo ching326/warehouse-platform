@@ -69,6 +69,7 @@ class TenantIndex extends Component
         ])->layout('inventory', [
             'title' => __('setup.tenants_page_title'),
             'subtitle' => __('setup.tenants_page_subtitle'),
+            'pageWide' => true,
         ]);
     }
 

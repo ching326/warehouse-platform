@@ -32,7 +32,7 @@
             </flux:button>
         </div>
 
-        <flux:table :paginate="$items" class="movement-table">
+        <flux:table :paginate="$items" class="data-table">
             <flux:table.columns>
                 <flux:table.column>{{ __('setup.packaging_col_code') }}</flux:table.column>
                 <flux:table.column>{{ __('setup.packaging_col_name') }}</flux:table.column>
@@ -56,26 +56,26 @@
                             @if ($item->length_value || $item->width_value || $item->height_value)
                                 <span class="subtle">
                                     {{ number_format($item->length_value, 0) }}
-                                    × {{ number_format($item->width_value, 0) }}
-                                    × {{ number_format($item->height_value, 0) }}
+                                    x {{ number_format($item->width_value, 0) }}
+                                    x {{ number_format($item->height_value, 0) }}
                                     {{ $item->dimension_unit }}
                                 </span>
                             @else
-                                <span class="subtle">—</span>
+                                <span class="subtle">-</span>
                             @endif
                         </flux:table.cell>
                         <flux:table.cell>
                             @if ($item->weight_value)
                                 <span class="subtle">{{ number_format($item->weight_value, 0) }} {{ $item->weight_unit }}</span>
                             @else
-                                <span class="subtle">—</span>
+                                <span class="subtle">-</span>
                             @endif
                         </flux:table.cell>
                         <flux:table.cell>
                             @if ($item->cost)
                                 <span class="subtle">{{ number_format($item->cost, 0) }} {{ $item->currency }}</span>
                             @else
-                                <span class="subtle">—</span>
+                                <span class="subtle">-</span>
                             @endif
                         </flux:table.cell>
                         <flux:table.cell>

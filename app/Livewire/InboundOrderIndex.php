@@ -90,6 +90,7 @@ class InboundOrderIndex extends Component
         ])->layout('inventory', [
             'title' => __('inbound.page_title'),
             'subtitle' => __('inbound.page_subtitle'),
+            'pageWide' => true,
         ]);
     }
 

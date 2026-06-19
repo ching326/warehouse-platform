@@ -48,6 +48,12 @@
                 padding: 32px 0;
             }
 
+            /* Wide variant for data-heavy index/table pages. Forms and detail pages
+               keep the narrower .page width for comfortable reading line length. */
+            .page--wide {
+                width: min(1440px, calc(100% - 32px));
+            }
+
             .page-header {
                 display: flex;
                 align-items: end;
@@ -1112,10 +1118,63 @@
                 font-weight: 700;
             }
 
+            /* Horizontal-scroll safety net: on narrow screens a wide table scrolls
+               instead of overlapping or squishing its columns. */
+            .table-scroll {
+                overflow-x: auto;
+            }
+
+            /* Generic table style for index/detail tables. It avoids the fixed column
+               model used by the movement ledger, so long codes wrap inside their cell
+               instead of bleeding into the next column. */
+            .data-table {
+                table-layout: auto;
+                width: 100%;
+            }
+
+            .data-table th,
+            .data-table td {
+                padding-left: 12px;
+                padding-right: 12px;
+                vertical-align: top;
+            }
+
+            .data-table th {
+                white-space: nowrap;
+            }
+
+            .data-table td strong,
+            .data-table td span,
+            .data-table td small {
+                overflow-wrap: anywhere;
+            }
+
+            /* The sales orders table sizes its columns to content (auto layout) instead
+               of borrowing the inventory-movements fixed-width column model, which has no
+               widths defined for these columns and let long platform order ids overflow
+               into the neighbouring cell. */
+            .sales-order-table {
+                min-width: 820px;
+            }
+
+            .so-recipient-cell,
+            .so-shop-cell {
+                max-width: 240px;
+            }
+
+            .so-recipient-cell strong,
+            .so-shop-cell strong {
+                overflow-wrap: anywhere;
+            }
+
             @media (max-width: 720px) {
                 .page {
                     width: min(100% - 20px, 1180px);
                     padding: 20px 0;
+                }
+
+                .page--wide {
+                    width: min(100% - 20px, 1440px);
                 }
 
                 .page-header {
@@ -1153,7 +1212,7 @@
     <body>
         <x-layout.navigation />
 
-        <main class="page">
+        <main class="page {{ ($pageWide ?? false) ? 'page--wide' : '' }}">
             @php
             $sectionNavLinks = match(true) {
                 request()->routeIs('inventory.*', 'stock-adjustments.*') => [

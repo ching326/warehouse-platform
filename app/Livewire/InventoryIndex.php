@@ -87,6 +87,7 @@ class InventoryIndex extends Component
         ])->layout('inventory', [
             'title' => __('inventory.page_title'),
             'subtitle' => __('inventory.page_subtitle'),
+            'pageWide' => true,
         ]);
     }
 
@@ -118,7 +119,7 @@ class InventoryIndex extends Component
         static $map = null;
         $locale = app()->getLocale();
         $map ??= ProductType::all()->mapWithKeys(
-            fn($t) => [$t->slug => $t->translations[$locale] ?? $t->name]
+            fn ($t) => [$t->slug => $t->translations[$locale] ?? $t->name]
         )->all();
 
         return $map[$type] ?? $type;

@@ -89,6 +89,7 @@ class ShopIndex extends Component
         ])->layout('inventory', [
             'title' => __('shop.shops_page_title'),
             'subtitle' => __('shop.shops_page_subtitle'),
+            'pageWide' => true,
         ]);
     }
 

@@ -213,7 +213,7 @@
                 <flux:button type="button" variant="primary" wire:click="saveLines">{{ __('sales_orders.btn_save_lines') }}</flux:button>
             </div>
         @else
-            <flux:table class="movement-table">
+            <flux:table class="data-table">
                 <flux:table.columns>
                     <flux:table.column>{{ __('sales_orders.col_sku') }}</flux:table.column>
                     <flux:table.column align="end">{{ __('sales_orders.col_qty') }}</flux:table.column>

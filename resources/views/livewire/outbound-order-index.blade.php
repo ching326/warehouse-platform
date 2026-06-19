@@ -39,7 +39,7 @@
             </flux:button>
         </div>
 
-        <flux:table :paginate="$orders" class="movement-table">
+        <flux:table :paginate="$orders" class="data-table">
             <flux:table.columns>
                 <flux:table.column>{{ __('outbound.col_ref') }}</flux:table.column>
                 <flux:table.column>{{ __('outbound.col_tenant_warehouse') }}</flux:table.column>

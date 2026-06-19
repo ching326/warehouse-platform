@@ -68,6 +68,7 @@ class WarehouseIndex extends Component
         ])->layout('inventory', [
             'title' => __('setup.warehouses_page_title'),
             'subtitle' => __('setup.warehouses_page_subtitle'),
+            'pageWide' => true,
         ]);
     }
 

@@ -89,6 +89,7 @@ class FulfillmentGroupIndex extends Component
         ])->layout('inventory', [
             'title' => __('fulfillment_groups.page_title'),
             'subtitle' => __('fulfillment_groups.page_subtitle'),
+            'pageWide' => true,
         ]);
     }
 

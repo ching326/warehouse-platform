@@ -125,7 +125,7 @@
             </div>
         </div>
 
-        <flux:table class="movement-table">
+        <flux:table class="data-table">
             <flux:table.columns>
                 <flux:table.column>{{ __('sales_orders.col_platform_order_id') }}</flux:table.column>
                 <flux:table.column>{{ __('sales_orders.col_recipient') }}</flux:table.column>
@@ -156,7 +156,7 @@
             </div>
         </div>
 
-        <flux:table class="movement-table">
+        <flux:table class="data-table">
             <flux:table.columns>
                 <flux:table.column>{{ __('sales_orders.col_sku') }}</flux:table.column>
                 <flux:table.column align="end">{{ __('sales_orders.col_qty') }}</flux:table.column>

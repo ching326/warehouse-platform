@@ -39,7 +39,7 @@
             </flux:button>
         </div>
 
-        <flux:table :paginate="$locations" class="movement-table">
+        <flux:table :paginate="$locations" class="data-table">
             <flux:table.columns>
                 <flux:table.column>{{ __('locations.col_warehouse') }}</flux:table.column>
                 <flux:table.column>{{ __('locations.col_code') }}</flux:table.column>

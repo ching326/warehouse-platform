@@ -28,9 +28,20 @@ class PackagingMaterialIndex extends Component
         }
     }
 
-    public function updatedSearch(): void { $this->resetPage(); }
-    public function updatedStatusFilter(): void { $this->resetPage(); }
-    public function updatedTypeFilter(): void { $this->resetPage(); }
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedStatusFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedTypeFilter(): void
+    {
+        $this->resetPage();
+    }
 
     public function toggleStatus(int $id): void
     {
@@ -43,11 +54,11 @@ class PackagingMaterialIndex extends Component
     public function render()
     {
         $items = PackagingMaterial::query()
-            ->when($this->statusFilter !== '', fn($q) => $q->where('status', $this->statusFilter))
-            ->when($this->typeFilter !== '', fn($q) => $q->where('type', $this->typeFilter))
+            ->when($this->statusFilter !== '', fn ($q) => $q->where('status', $this->statusFilter))
+            ->when($this->typeFilter !== '', fn ($q) => $q->where('type', $this->typeFilter))
             ->when($this->search !== '', function ($q) {
                 $like = '%'.$this->search.'%';
-                $q->where(fn($q) => $q
+                $q->where(fn ($q) => $q
                     ->where('code', 'like', $like)
                     ->orWhere('name', 'like', $like));
             })
@@ -55,15 +66,16 @@ class PackagingMaterialIndex extends Component
             ->paginate(30);
 
         return view('livewire.packaging-material-index', [
-            'items'    => $items,
-            'types'    => $this->typeOptions(),
+            'items' => $items,
+            'types' => $this->typeOptions(),
             'statuses' => [
-                'active'   => __('setup.status_active'),
+                'active' => __('setup.status_active'),
                 'inactive' => __('setup.status_inactive'),
             ],
         ])->layout('inventory', [
-            'title'    => __('setup.packagings_page_title'),
+            'title' => __('setup.packagings_page_title'),
             'subtitle' => __('setup.packagings_page_subtitle'),
+            'pageWide' => true,
         ]);
     }
 
@@ -75,9 +87,9 @@ class PackagingMaterialIndex extends Component
     public function statusLabel(string $status): string
     {
         return match ($status) {
-            'active'   => __('setup.status_active'),
+            'active' => __('setup.status_active'),
             'inactive' => __('setup.status_inactive'),
-            default    => $status,
+            default => $status,
         };
     }
 
@@ -99,11 +111,11 @@ class PackagingMaterialIndex extends Component
     private function typeOptions(): array
     {
         return [
-            'box'      => __('setup.packaging_types.box'),
-            'bag'      => __('setup.packaging_types.bag'),
+            'box' => __('setup.packaging_types.box'),
+            'bag' => __('setup.packaging_types.bag'),
             'envelope' => __('setup.packaging_types.envelope'),
-            'tube'     => __('setup.packaging_types.tube'),
-            'other'    => __('setup.packaging_types.other'),
+            'tube' => __('setup.packaging_types.tube'),
+            'other' => __('setup.packaging_types.other'),
         ];
     }
 }

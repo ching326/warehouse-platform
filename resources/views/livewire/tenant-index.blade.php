@@ -25,7 +25,7 @@
             </flux:button>
         </div>
 
-        <flux:table :paginate="$tenants" class="movement-table">
+        <flux:table :paginate="$tenants" class="data-table">
             <flux:table.columns>
                 <flux:table.column>{{ __('setup.tenant_col_code') }}</flux:table.column>
                 <flux:table.column>{{ __('setup.tenant_col_name') }}</flux:table.column>

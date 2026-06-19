@@ -90,6 +90,7 @@ class WarehouseLocationIndex extends Component
         ])->layout('inventory', [
             'title' => __('locations.page_title'),
             'subtitle' => __('locations.page_subtitle'),
+            'pageWide' => true,
         ]);
     }
 

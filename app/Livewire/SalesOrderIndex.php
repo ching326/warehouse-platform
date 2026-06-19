@@ -158,6 +158,7 @@ class SalesOrderIndex extends Component
         ])->layout('inventory', [
             'title' => __('sales_orders.index_page_title'),
             'subtitle' => __('sales_orders.index_page_subtitle'),
+            'pageWide' => true,
         ]);
     }
 

@@ -107,6 +107,7 @@ class InventoryMovementsIndex extends Component
         ])->layout('inventory', [
             'title' => __('movements.page_title'),
             'subtitle' => __('movements.page_subtitle'),
+            'pageWide' => true,
         ]);
     }
 
