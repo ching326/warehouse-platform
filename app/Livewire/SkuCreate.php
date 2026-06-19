@@ -13,18 +13,24 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
 class SkuCreate extends Component
 {
+    #[Url(as: 'tenant_id', except: '')]
     public string $tenantId = '';
 
+    #[Url(as: 'shop_id', except: '')]
     public string $shopId = '';
 
+    #[Url(as: 'sku', except: '')]
     public string $sku = '';
 
+    #[Url(as: 'name', except: '')]
     public string $name = '';
 
+    #[Url(as: 'platform_sku', except: '')]
     public string $platformSku = '';
 
     public string $platformProductId = '';
@@ -80,6 +86,8 @@ class SkuCreate extends Component
         if (! $this->isInternalUser()) {
             $this->tenantId = (string) ($this->activeTenantIds()[0] ?? '');
         }
+
+        $this->normalizeQueryPrefill();
     }
 
     public function updatedTenantId(): void
@@ -332,6 +340,28 @@ class SkuCreate extends Component
         }
 
         return Tenant::query()->find($this->tenantId, ['id', 'code', 'name']);
+    }
+
+    private function normalizeQueryPrefill(): void
+    {
+        $allowedTenantIds = $this->allowedTenantIds();
+
+        if ($this->shopId !== '') {
+            $shop = Shop::query()
+                ->whereIn('tenant_id', $allowedTenantIds)
+                ->find((int) $this->shopId, ['id', 'tenant_id']);
+
+            if (! $shop) {
+                $this->shopId = '';
+            } elseif ($this->tenantId === '' || (int) $this->tenantId !== $shop->tenant_id) {
+                $this->tenantId = (string) $shop->tenant_id;
+            }
+        }
+
+        if ($this->tenantId !== '' && ! in_array((int) $this->tenantId, $allowedTenantIds, true)) {
+            $this->tenantId = (string) ($allowedTenantIds[0] ?? '');
+            $this->shopId = '';
+        }
     }
 
     private function isInternalUser(): bool

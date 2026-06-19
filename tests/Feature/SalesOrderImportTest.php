@@ -83,17 +83,29 @@ class SalesOrderImportTest extends TestCase
 
         $this->assertTrue($component->get('hasErrors'));
         $this->assertStringContainsString('UNKNOWN', implode(' ', $component->get('parsedRows')[0]['errors']));
+        $this->assertTrue($component->get('parsedRows')[0]['sku_not_found']);
+        $component
+            ->assertSee('SKU not found')
+            ->assertSee('Add SKU')
+            ->assertSee('/skus/create', false)
+            ->assertSee('shop_id='.$shop->id, false)
+            ->assertSee('sku=UNKNOWN', false)
+            ->assertSee('target="_blank"', false);
     }
 
-    public function test_parse_flags_duplicate_existing_order_id(): void
+    public function test_parse_marks_duplicate_existing_order_id_as_already_imported(): void
     {
         [$tenant, $shop, $sku] = $this->salesSku('DUP-SKU');
         SalesOrder::factory()->for($tenant)->for($shop)->create(['platform_order_id' => 'SO-DUP']);
 
         $component = $this->parseOnly($shop, $this->csv([['SO-DUP', $sku->sku, '1']]));
 
-        $this->assertTrue($component->get('hasErrors'));
-        $this->assertStringContainsString('already exists', implode(' ', $component->get('parsedRows')[0]['errors']));
+        $this->assertFalse($component->get('hasErrors'));
+        $this->assertTrue($component->get('parsedRows')[0]['is_duplicate']);
+        $this->assertSame([], $component->get('parsedRows')[0]['errors']);
+        $component
+            ->assertSee('1 total order(s) in file, 1 already imported, 0 ready to import, 1 line(s) in file')
+            ->assertSee('Already imported');
     }
 
     public function test_parse_flags_bad_quantity(): void
@@ -251,6 +263,21 @@ class SalesOrderImportTest extends TestCase
         $this->assertSame(1, SalesOrder::where('platform_order_id', 'SO-RACE')->count());
     }
 
+    public function test_import_skips_duplicate_orders_and_imports_new_orders(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('SKIP-DUP-SKU');
+        SalesOrder::factory()->for($tenant)->for($shop)->create(['platform_order_id' => 'SO-OLD']);
+
+        $this->parseAndImport($shop, $this->csv([
+            ['SO-OLD', $sku->sku, '1'],
+            ['SO-NEW', $sku->sku, '2'],
+        ]));
+
+        $this->assertSame(2, SalesOrder::count());
+        $this->assertDatabaseHas('sales_orders', ['platform_order_id' => 'SO-NEW']);
+        $this->assertSame(1, SalesOrder::where('platform_order_id', 'SO-OLD')->count());
+    }
+
     public function test_platform_order_id_is_unique_per_tenant_shop(): void
     {
         [$tenant, $shop] = $this->salesSku('UNIQUE-SKU');
@@ -284,15 +311,15 @@ class SalesOrderImportTest extends TestCase
         $this->assertSame(1, SalesOrder::count());
     }
 
-    public function test_parse_row_number_matches_sheet_with_interleaved_blank(): void
+    public function test_parse_row_number_counts_data_rows_only(): void
     {
         [, $shop, $sku] = $this->salesSku('ROW-SKU');
         $csv = $this->header()."\nSO-OK,{$sku->sku},1,,,,,,,,,,\n,,,,,,,,,,,,\nSO-BAD,NOPE,1,,,,,,,,,,\n";
         $component = $this->parseOnly($shop, $csv);
         $rows = $component->get('parsedRows');
 
-        $this->assertSame(2, $rows[0]['row']);
-        $this->assertSame(4, $rows[1]['row']);
+        $this->assertSame(1, $rows[0]['row']);
+        $this->assertSame(2, $rows[1]['row']);
         $this->assertNotEmpty($rows[1]['errors']);
     }
 
@@ -341,14 +368,23 @@ class SalesOrderImportTest extends TestCase
     {
         [, $shop] = $this->amazonSku('AMZ-KNOWN');
 
-        $component = $this->parseOnlyAmazon($shop, [$this->amazonRow(['sku' => 'AMZ-UNKNOWN'])]);
+        $component = $this->parseOnlyAmazon($shop, [$this->amazonRow([
+            'sku' => 'AMZ-UNKNOWN',
+            'product-name' => 'Unknown Amazon Product',
+        ])]);
 
         $this->assertTrue($component->get('hasErrors'));
+        $this->assertTrue($component->get('parsedRows')[0]['sku_not_found']);
+        $component
+            ->assertSee('SKU not found')
+            ->assertSee('Add SKU')
+            ->assertSee('name=Unknown%20Amazon%20Product', false)
+            ->assertSee('platform_sku=AMZ-UNKNOWN', false);
         $component->call('import');
         $this->assertSame(0, SalesOrder::count());
     }
 
-    public function test_amazon_report_rejects_duplicate_existing_order(): void
+    public function test_amazon_report_marks_duplicate_existing_order_as_already_imported(): void
     {
         [$tenant, $shop, $sku] = $this->amazonSku('AMZ-DUP');
         SalesOrder::factory()->for($tenant)->for($shop)->create(['platform_order_id' => 'AMZ-DUP-ORDER']);
@@ -358,8 +394,9 @@ class SalesOrderImportTest extends TestCase
             'sku' => $sku->sku,
         ])]);
 
-        $this->assertTrue($component->get('hasErrors'));
-        $this->assertStringContainsString('already exists', implode(' ', $component->get('parsedRows')[0]['errors']));
+        $this->assertFalse($component->get('hasErrors'));
+        $this->assertTrue($component->get('parsedRows')[0]['is_duplicate']);
+        $this->assertSame([], $component->get('parsedRows')[0]['errors']);
     }
 
     public function test_amazon_report_rechecks_duplicate_during_confirm(): void
@@ -371,6 +408,28 @@ class SalesOrderImportTest extends TestCase
         $component->call('import');
 
         $this->assertSame(1, SalesOrder::where('platform_order_id', 'AMZ-RACE-ORDER')->count());
+    }
+
+    public function test_amazon_report_skips_duplicate_orders_and_imports_new_orders(): void
+    {
+        [$tenant, $shop, $sku] = $this->amazonSku('AMZ-SKIP-DUP');
+        SalesOrder::factory()->for($tenant)->for($shop)->create(['platform_order_id' => 'AMZ-OLD']);
+
+        $this->parseAndImportAmazon($shop, [
+            $this->amazonRow([
+                'order-id' => 'AMZ-OLD',
+                'sku' => 'OLD-SKU-NOT-IN-SYSTEM',
+            ]),
+            $this->amazonRow([
+                'order-id' => 'AMZ-NEW',
+                'order-item-id' => 'AMZ-NEW-LINE',
+                'sku' => $sku->sku,
+            ]),
+        ]);
+
+        $this->assertSame(2, SalesOrder::count());
+        $this->assertDatabaseHas('sales_orders', ['platform_order_id' => 'AMZ-NEW']);
+        $this->assertDatabaseMissing('sales_order_lines', ['platform_line_id' => 'AMZ-LINE-1']);
     }
 
     public function test_amazon_report_cancel_requested_sets_cancel_requested_status(): void

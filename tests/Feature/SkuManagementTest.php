@@ -77,6 +77,27 @@ class SkuManagementTest extends TestCase
         ]);
     }
 
+    public function test_create_page_prefills_from_query_parameters(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create();
+
+        Livewire::actingAs($this->internalUser())
+            ->withQueryParams([
+                'tenant_id' => (string) $tenant->id,
+                'shop_id' => (string) $shop->id,
+                'sku' => 'AMZ-MISSING-SKU',
+                'name' => 'Missing Amazon Product',
+                'platform_sku' => 'AMZ-MISSING-SKU',
+            ])
+            ->test(SkuCreate::class)
+            ->assertSet('tenantId', (string) $tenant->id)
+            ->assertSet('shopId', (string) $shop->id)
+            ->assertSet('sku', 'AMZ-MISSING-SKU')
+            ->assertSet('name', 'Missing Amazon Product')
+            ->assertSet('platformSku', 'AMZ-MISSING-SKU');
+    }
+
     public function test_tenant_user_cannot_link_to_another_tenants_stock_item(): void
     {
         [, $user] = $this->tenantUser();

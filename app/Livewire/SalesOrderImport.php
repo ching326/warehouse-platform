@@ -110,10 +110,17 @@ class SalesOrderImport extends Component
             ->pluck('platform_order_id')
             ->all();
 
-        if ($duplicates !== []) {
-            session()->flash('error', __('sales_orders.import_duplicate_during_confirm', [
-                'ids' => implode(', ', $duplicates),
-            ]));
+        $duplicateLookup = array_flip($duplicates);
+        $groups = array_filter(
+            $groups,
+            fn (string $platformOrderId) => ! isset($duplicateLookup[$platformOrderId]),
+            ARRAY_FILTER_USE_KEY
+        );
+
+        $skippedDuplicateCount = count($duplicates);
+
+        if ($groups === []) {
+            session()->flash('status', __('sales_orders.import_no_new_orders'));
 
             return;
         }
@@ -168,9 +175,7 @@ class SalesOrderImport extends Component
                 throw $exception;
             }
 
-            session()->flash('error', __('sales_orders.import_duplicate_during_confirm', [
-                'ids' => implode(', ', $platformOrderIds),
-            ]));
+            session()->flash('error', __('sales_orders.import_duplicate_race_retry'));
 
             return;
         }
@@ -180,6 +185,7 @@ class SalesOrderImport extends Component
 
         session()->flash('status', __('sales_orders.import_succeeded', [
             'orders' => $orderCount,
+            'skipped' => $skippedDuplicateCount,
         ]));
 
         return redirect()->route('sales.orders.index');
@@ -212,39 +218,44 @@ class SalesOrderImport extends Component
         $parsed = [];
         $hasErrors = false;
 
-        foreach ($rows as $raw) {
-            $rowNo = (int) $raw['__row'];
+        foreach ($rows as $index => $raw) {
+            $rowNo = $index + 1;
             $errors = [];
+            $skuNotFound = false;
 
             $orderId = trim((string) ($raw['platform_order_id'] ?? ''));
             $skuCode = trim((string) ($raw['sku'] ?? ''));
+            $isDuplicate = $orderId !== '' && in_array($orderId, $existingOrderIds, true);
             $quantityRaw = trim((string) ($raw['quantity'] ?? ''));
             $quantity = null;
-
-            if ($quantityRaw === '') {
-                $errors[] = __('sales_orders.import_missing_quantity');
-            } elseif (! preg_match('/^[1-9]\d*$/', $quantityRaw)) {
-                $errors[] = __('sales_orders.import_bad_quantity');
-            } else {
-                $quantity = (int) $quantityRaw;
-            }
 
             if ($orderId === '') {
                 $errors[] = __('sales_orders.import_missing_order_id');
             }
 
-            if ($skuCode === '') {
-                $errors[] = __('sales_orders.import_missing_sku');
-            } elseif (! $skuMap->has($skuCode)) {
-                $errors[] = __('sales_orders.import_unknown_sku', ['sku' => $skuCode]);
-            }
+            if (! $isDuplicate) {
+                if ($quantityRaw === '') {
+                    $errors[] = __('sales_orders.import_missing_quantity');
+                } elseif (! preg_match('/^[1-9]\d*$/', $quantityRaw)) {
+                    $errors[] = __('sales_orders.import_bad_quantity');
+                } else {
+                    $quantity = (int) $quantityRaw;
+                }
 
-            if ($orderId !== '' && in_array($orderId, $existingOrderIds, true)) {
-                $errors[] = __('sales_orders.import_duplicate_order', ['id' => $orderId]);
+                if ($skuCode === '') {
+                    $errors[] = __('sales_orders.import_missing_sku');
+                } elseif (! $skuMap->has($skuCode)) {
+                    $skuNotFound = true;
+                    $errors[] = __('sales_orders.import_unknown_sku', ['sku' => $skuCode]);
+                }
             }
 
             $parsed[] = [
                 'row' => $rowNo,
+                'is_duplicate' => $isDuplicate,
+                'sku_not_found' => $skuNotFound,
+                'tenant_id' => $shop->tenant_id,
+                'shop_id' => $shop->id,
                 'platform_order_id' => $orderId,
                 'sku' => $skuCode,
                 'sku_id' => $skuMap->get($skuCode),
@@ -295,43 +306,44 @@ class SalesOrderImport extends Component
         $parsed = [];
         $hasErrors = false;
 
-        foreach ($rows as $raw) {
+        foreach ($rows as $index => $raw) {
             $errors = [];
+            $skuNotFound = false;
             $orderId = trim((string) ($raw['order-id'] ?? ''));
             $skuCode = trim((string) ($raw['sku'] ?? ''));
+            $isDuplicate = $orderId !== '' && in_array($orderId, $existingOrderIds, true);
             $quantityRaw = trim((string) ($raw['quantity-purchased'] ?? ''));
             $quantity = null;
-
-            if ($quantityRaw === '') {
-                $errors[] = __('sales_orders.import_missing_quantity');
-            } elseif (! preg_match('/^[1-9]\d*$/', $quantityRaw)) {
-                $errors[] = __('sales_orders.import_bad_quantity');
-            } else {
-                $quantity = (int) $quantityRaw;
-            }
 
             if ($orderId === '') {
                 $errors[] = __('sales_orders.import_missing_order_id');
             }
 
-            if ($skuCode === '') {
-                $errors[] = __('sales_orders.import_missing_sku');
-            } elseif (! $skuMap->has($skuCode)) {
-                $errors[] = __('sales_orders.import_unknown_sku', ['sku' => $skuCode]);
-            }
+            if (! $isDuplicate) {
+                if ($quantityRaw === '') {
+                    $errors[] = __('sales_orders.import_missing_quantity');
+                } elseif (! preg_match('/^[1-9]\d*$/', $quantityRaw)) {
+                    $errors[] = __('sales_orders.import_bad_quantity');
+                } else {
+                    $quantity = (int) $quantityRaw;
+                }
 
-            if ($orderId !== '' && in_array($orderId, $existingOrderIds, true)) {
-                $errors[] = __('sales_orders.import_duplicate_order', ['id' => $orderId]);
+                if ($skuCode === '') {
+                    $errors[] = __('sales_orders.import_missing_sku');
+                } elseif (! $skuMap->has($skuCode)) {
+                    $skuNotFound = true;
+                    $errors[] = __('sales_orders.import_unknown_sku', ['sku' => $skuCode]);
+                }
             }
 
             $platformOrderedAt = $this->parseAmazonDate($raw['purchase-date'] ?? null);
             $latestShipAt = $this->parseAmazonDate($raw['latest-ship-date'] ?? null);
 
-            if (($raw['purchase-date'] ?? '') !== '' && $platformOrderedAt === null) {
+            if (! $isDuplicate && ($raw['purchase-date'] ?? '') !== '' && $platformOrderedAt === null) {
                 $errors[] = __('sales_orders.import_amazon_bad_date');
             }
 
-            if (($raw['latest-ship-date'] ?? '') !== '' && $latestShipAt === null) {
+            if (! $isDuplicate && ($raw['latest-ship-date'] ?? '') !== '' && $latestShipAt === null) {
                 $errors[] = __('sales_orders.import_amazon_bad_date');
             }
 
@@ -342,7 +354,11 @@ class SalesOrderImport extends Component
             $itemPrice = trim((string) (($raw['item-price'] ?? '') !== '' ? $raw['item-price'] : ($raw['item-price-amount'] ?? '')));
 
             $row = [
-                'row' => (int) $raw['__row'],
+                'row' => $index + 1,
+                'is_duplicate' => $isDuplicate,
+                'sku_not_found' => $skuNotFound,
+                'tenant_id' => $shop->tenant_id,
+                'shop_id' => $shop->id,
                 'source' => SalesOrder::SOURCE_AMAZON_REPORT,
                 'platform_order_id' => $orderId,
                 'platform_ordered_at' => $platformOrderedAt,
@@ -373,7 +389,7 @@ class SalesOrderImport extends Component
                 'errors' => $errors,
             ];
 
-            if ($row['recipient_country_code'] === '') {
+            if (! $isDuplicate && $row['recipient_country_code'] === '') {
                 $row['errors'][] = __('sales_orders.import_bad_country');
             }
 
@@ -497,6 +513,10 @@ class SalesOrderImport extends Component
     private function validateParsedOrderRows(array $parsed, bool $hasErrors, array $orderFieldKeys): array
     {
         foreach ($parsed as $idx => $row) {
+            if ($row['is_duplicate'] ?? false) {
+                continue;
+            }
+
             if ($row['recipient_country_code'] !== '' && ! preg_match('/^[A-Z]{2}$/', $row['recipient_country_code'])) {
                 $parsed[$idx]['errors'][] = __('sales_orders.import_bad_country');
                 $hasErrors = true;
@@ -519,6 +539,10 @@ class SalesOrderImport extends Component
             $hasConflict = false;
 
             foreach ($indices as $idx) {
+                if ($parsed[$idx]['is_duplicate'] ?? false) {
+                    continue;
+                }
+
                 foreach ($orderFieldKeys as $key) {
                     if (($parsed[$idx][$key] ?? null) !== ($first[$key] ?? null)) {
                         $hasConflict = true;
