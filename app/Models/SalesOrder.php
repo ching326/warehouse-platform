@@ -43,6 +43,7 @@ class SalesOrder extends Model
         'order_status',
         'fulfillment_status',
         'shipping_method',
+        'shipping_method_id',
         'tracking_no',
         'courier_csv_exported_at',
         'recipient_name',
@@ -94,6 +95,11 @@ class SalesOrder extends Model
     public function lines(): HasMany
     {
         return $this->hasMany(SalesOrderLine::class)->orderBy('id');
+    }
+
+    public function shippingMethod(): BelongsTo
+    {
+        return $this->belongsTo(ShippingMethod::class);
     }
 
     public function courierExportBatchOrders(): HasMany

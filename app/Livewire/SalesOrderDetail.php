@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
+use App\Models\ShippingMethod;
 use App\Models\Sku;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Auth;
@@ -360,6 +361,34 @@ class SalesOrderDetail extends Component
         session()->flash('status', __('sales_orders.lines_updated'));
     }
 
+    public function updateShippingMethod(string $value): void
+    {
+        $order = SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->findOrFail($this->orderId);
+
+        $methodId = $value === '' ? null : (int) $value;
+
+        if ($value !== '' && $methodId <= 0) {
+            return;
+        }
+
+        $method = $methodId
+            ? ShippingMethod::query()->where('status', 'active')->with('carrier:id,code')->find($methodId)
+            : null;
+
+        if ($methodId && ! $method) {
+            return;
+        }
+
+        $order->update([
+            'shipping_method_id' => $method?->id,
+            'shipping_method' => $method?->carrier?->code,
+        ]);
+
+        session()->flash('status', __('sales_orders.shipping_method_updated'));
+    }
+
     public function fulfillmentStatusLabel(string $status): string
     {
         return [
@@ -417,7 +446,7 @@ class SalesOrderDetail extends Component
     {
         $order = SalesOrder::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->with(['shop.tenant', 'lines.sku.stockItem', 'createdBy'])
+            ->with(['shop.tenant', 'shippingMethod.carrier', 'lines.sku.stockItem', 'createdBy'])
             ->findOrFail($this->orderId);
 
         $relatedOrders = collect();
@@ -443,6 +472,7 @@ class SalesOrderDetail extends Component
             'relatedOrders' => $relatedOrders,
             'activities' => $activities,
             'skuOptions' => $this->skuOptions($order->tenant_id),
+            'shippingMethods' => $this->shippingMethodOptions($order),
         ])->layout('inventory', [
             'title' => __('sales_orders.detail_page_title'),
             'subtitle' => $order->platform_order_id ?? "#{$order->id}",
@@ -500,6 +530,18 @@ class SalesOrderDetail extends Component
             ->where('status', 'active')
             ->orderBy('sku')
             ->get(['id', 'sku', 'name', 'stock_item_id', 'sku_type']);
+    }
+
+    private function shippingMethodOptions(SalesOrder $order)
+    {
+        return ShippingMethod::query()
+            ->where(function ($query) use ($order) {
+                $query->where('status', 'active')
+                    ->when($order->shipping_method_id, fn ($query) => $query->orWhereKey($order->shipping_method_id));
+            })
+            ->with('carrier:id,code,name')
+            ->orderBy('name')
+            ->get(['id', 'carrier_id', 'name', 'status']);
     }
 
     private function hasManualFulfillmentStatus(SalesOrder $order): bool

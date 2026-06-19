@@ -249,8 +249,9 @@
                                     aria-label="{{ __('sales_orders.col_shipping_method') }} {{ $order->platform_order_id ?: $order->id }}"
                                     x-on:change="$wire.updateShippingMethod({{ $order->id }}, $event.target.value)"
                                 >
+                                    <option value="">{{ __('sales_orders.shipping_method_unset') }}</option>
                                     @foreach ($shippingMethodOptions as $value => $label)
-                                        <option value="{{ $value }}" @selected(($order->shipping_method ?? '') === $value)>
+                                        <option value="{{ $value }}" @selected((string) ($order->shipping_method_id ?? '') === (string) $value)>
                                             {{ $label }}
                                         </option>
                                     @endforeach

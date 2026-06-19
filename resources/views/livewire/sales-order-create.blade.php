@@ -25,10 +25,20 @@
                     <flux:input wire:model="platformOrderId" :label="__('sales_orders.field_platform_order_id')" />
                     <span class="subtle">{{ __('sales_orders.field_platform_order_id_hint') }}</span>
                 </div>
+
+                <flux:select wire:model="shippingMethodId" :label="__('sales_orders.field_shipping_method')">
+                    <flux:select.option value="">{{ __('sales_orders.shipping_method_unset') }}</flux:select.option>
+                    @foreach ($shippingMethods as $method)
+                        <flux:select.option value="{{ $method->id }}">
+                            {{ $method->name }} / {{ $method->carrier->name }}
+                        </flux:select.option>
+                    @endforeach
+                </flux:select>
             </div>
 
             @error('shopId') <p class="form-error">{{ $message }}</p> @enderror
             @error('platform_order_id') <p class="form-error">{{ $message }}</p> @enderror
+            @error('shipping_method_id') <p class="form-error">{{ $message }}</p> @enderror
         </section>
 
         <section class="table-shell flux-panel form-panel">

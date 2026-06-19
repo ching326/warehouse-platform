@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
+use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\Tenant;
@@ -21,6 +22,8 @@ class SalesOrderCreate extends Component
     public string $shopId = '';
 
     public string $platformOrderId = '';
+
+    public string $shippingMethodId = '';
 
     public string $note = '';
 
@@ -79,7 +82,9 @@ class SalesOrderCreate extends Component
         $this->recipientCountryCode = strtoupper(trim($this->recipientCountryCode));
         $this->validateInput($shop);
 
-        $order = DB::transaction(function () use ($shop) {
+        $shippingMethod = $this->selectedShippingMethod();
+
+        $order = DB::transaction(function () use ($shop, $shippingMethod) {
             $order = SalesOrder::create([
                 'tenant_id' => $shop->tenant_id,
                 'shop_id' => $shop->id,
@@ -87,6 +92,8 @@ class SalesOrderCreate extends Component
                 'platform_order_id' => $this->nullableString($this->platformOrderId),
                 'order_status' => SalesOrder::ORDER_STATUS_PENDING,
                 'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+                'shipping_method_id' => $shippingMethod?->id,
+                'shipping_method' => $shippingMethod?->carrier?->code,
                 'recipient_name' => $this->nullableString($this->recipientName),
                 'recipient_phone' => $this->nullableString($this->recipientPhone),
                 'recipient_country_code' => $this->nullableString($this->recipientCountryCode),
@@ -121,6 +128,7 @@ class SalesOrderCreate extends Component
         return view('livewire.sales-order-create', [
             'shops' => $this->shopOptions(),
             'skus' => $this->skuOptions(),
+            'shippingMethods' => $this->shippingMethodOptions(),
             'showShopSelect' => true,
         ])->layout('inventory', [
             'title' => __('sales_orders.create_page_title'),
@@ -132,6 +140,7 @@ class SalesOrderCreate extends Component
     {
         validator([
             'platform_order_id' => $this->platformOrderId,
+            'shipping_method_id' => $this->shippingMethodId,
             'note' => $this->note,
             'recipient_name' => $this->recipientName,
             'recipient_phone' => $this->recipientPhone,
@@ -152,6 +161,7 @@ class SalesOrderCreate extends Component
                     ->where('shop_id', $shop->id),
             ],
             'note' => ['nullable', 'string', 'max:2000'],
+            'shipping_method_id' => ['nullable', 'integer', Rule::exists('shipping_methods', 'id')->where('status', 'active')],
             'recipient_name' => ['nullable', 'string', 'max:255'],
             'recipient_phone' => ['nullable', 'string', 'max:50'],
             'recipient_country_code' => ['nullable', 'string', 'regex:/^[A-Z]{2}$/'],
@@ -222,6 +232,27 @@ class SalesOrderCreate extends Component
             ->with('stockItem:id,code,name')
             ->orderBy('sku')
             ->get(['id', 'tenant_id', 'sku', 'name', 'stock_item_id', 'sku_type']);
+    }
+
+    private function shippingMethodOptions(): Collection
+    {
+        return ShippingMethod::query()
+            ->where('status', 'active')
+            ->with('carrier:id,code,name')
+            ->orderBy('name')
+            ->get(['id', 'carrier_id', 'name']);
+    }
+
+    private function selectedShippingMethod(): ?ShippingMethod
+    {
+        if ($this->shippingMethodId === '') {
+            return null;
+        }
+
+        return ShippingMethod::query()
+            ->where('status', 'active')
+            ->with('carrier:id,code')
+            ->find((int) $this->shippingMethodId);
     }
 
     // TODO: remove unauthenticated fallback when auth is implemented

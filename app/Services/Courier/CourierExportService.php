@@ -35,6 +35,7 @@ class CourierExportService
                 missingOrderIds: [],
                 blockedStatusOrderIds: [],
                 wrongCarrierOrderIds: [],
+                unsupportedCourierOrderIds: [],
                 mixedTenantOrderIds: [],
                 alreadyExportedOrderIds: [],
                 noReadyLinesOrderIds: [],
@@ -60,7 +61,12 @@ class CourierExportService
             ->values()
             ->all();
         $wrongCarrierOrderIds = $orders
-            ->filter(fn (SalesOrder $order) => $order->shipping_method !== $carrier)
+            ->filter(fn (SalesOrder $order) => ! $this->carrierMatches($order, $carrier))
+            ->pluck('id')
+            ->values()
+            ->all();
+        $unsupportedCourierOrderIds = $orders
+            ->filter(fn (SalesOrder $order) => $order->shippingMethod?->supports_courier_csv === false)
             ->pluck('id')
             ->values()
             ->all();
@@ -77,6 +83,7 @@ class CourierExportService
         $hardBlocks = $missingIds !== []
             || $blockedStatusOrderIds !== []
             || $wrongCarrierOrderIds !== []
+            || $unsupportedCourierOrderIds !== []
             || $mixedTenantOrderIds !== []
             || $noReadyLinesOrderIds !== [];
         $requiresConfirmation = ! $hardBlocks && $alreadyExportedOrderIds !== [];
@@ -87,12 +94,14 @@ class CourierExportService
             validOrderIds: array_values(array_diff($foundIds, array_merge(
                 $blockedStatusOrderIds,
                 $wrongCarrierOrderIds,
+                $unsupportedCourierOrderIds,
                 $mixedTenantOrderIds,
                 $noReadyLinesOrderIds,
             ))),
             missingOrderIds: $missingIds,
             blockedStatusOrderIds: $blockedStatusOrderIds,
             wrongCarrierOrderIds: $wrongCarrierOrderIds,
+            unsupportedCourierOrderIds: $unsupportedCourierOrderIds,
             mixedTenantOrderIds: $mixedTenantOrderIds,
             alreadyExportedOrderIds: $alreadyExportedOrderIds,
             noReadyLinesOrderIds: $noReadyLinesOrderIds,
@@ -172,7 +181,7 @@ class CourierExportService
         return SalesOrder::query()
             ->whereIn('id', $ids)
             ->whereIn('tenant_id', $allowedTenantIds)
-            ->with(['shop.tenant', 'lines.sku.stockItem'])
+            ->with(['shop.tenant', 'shippingMethod.carrier', 'lines.sku.stockItem'])
             ->get()
             ->sortBy(fn (SalesOrder $order) => array_search($order->id, $ids, true))
             ->values();
@@ -184,6 +193,12 @@ class CourierExportService
             array_map('intval', $salesOrderIds),
             fn (int $id) => $id > 0,
         )));
+    }
+
+    private function carrierMatches(SalesOrder $order, string $carrier): bool
+    {
+        return $order->shippingMethod?->carrier?->code === $carrier
+            || $order->shipping_method === $carrier;
     }
 
     private function normalizeCarrier(string $carrier): string

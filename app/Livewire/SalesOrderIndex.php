@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
+use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Tenant;
 use App\Services\Courier\CourierExportService;
@@ -243,16 +244,27 @@ class SalesOrderIndex extends Component
 
     public function updateShippingMethod(int $orderId, string $value): void
     {
-        $allowed = array_keys($this->shippingMethodOptions());
+        $methodId = $value === '' ? null : (int) $value;
 
-        if (! in_array($value, $allowed, true)) {
+        if ($value !== '' && $methodId <= 0) {
+            return;
+        }
+
+        $method = $methodId
+            ? ShippingMethod::query()->where('status', 'active')->with('carrier:id,code')->find($methodId)
+            : null;
+
+        if ($methodId && ! $method) {
             return;
         }
 
         SalesOrder::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->whereKey($orderId)
-            ->update(['shipping_method' => $value === '' ? null : $value]);
+            ->update([
+                'shipping_method_id' => $method?->id,
+                'shipping_method' => $method?->carrier?->code,
+            ]);
     }
 
     public function updateTrackingNo(int $orderId, string $value): bool
@@ -334,7 +346,7 @@ class SalesOrderIndex extends Component
     public function render()
     {
         $orders = SalesOrder::query()
-            ->with(['shop.tenant', 'lines.sku.stockItem'])
+            ->with(['shop.tenant', 'shippingMethod.carrier', 'lines.sku.stockItem'])
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->when($this->shopId !== '', fn ($query) => $query->where('shop_id', (int) $this->shopId))
             ->when($this->fulfillmentStatus !== '', fn ($query) => $query->where('fulfillment_status', $this->fulfillmentStatus))
@@ -359,7 +371,7 @@ class SalesOrderIndex extends Component
             'shops' => $this->shopOptions(),
             'fulfillmentStatuses' => $this->fulfillmentStatuses(),
             'orderStatuses' => $this->orderStatuses(),
-            'shippingMethodOptions' => $this->shippingMethodOptions(),
+            'shippingMethodOptions' => $this->shippingMethodSelectOptions(),
         ])->layout('inventory', [
             'title' => __('sales_orders.index_page_title'),
             'subtitle' => __('sales_orders.index_page_subtitle'),
@@ -400,15 +412,17 @@ class SalesOrderIndex extends Component
         ];
     }
 
-    private function shippingMethodOptions(): array
+    private function shippingMethodSelectOptions(): array
     {
-        return [
-            '' => __('sales_orders.shipping_method_unset'),
-            'yamato' => __('sales_orders.shipping_method_yamato'),
-            'sagawa' => __('sales_orders.shipping_method_sagawa'),
-            'japan_post' => __('sales_orders.shipping_method_japan_post'),
-            'other' => __('sales_orders.shipping_method_other'),
-        ];
+        return ShippingMethod::query()
+            ->where('status', 'active')
+            ->with('carrier:id,code,name')
+            ->orderBy('name')
+            ->get(['id', 'carrier_id', 'name'])
+            ->mapWithKeys(fn (ShippingMethod $method) => [
+                (string) $method->id => $method->name.' / '.$method->carrier->name,
+            ])
+            ->all();
     }
 
     private function performCourierExport(string $carrier, bool $confirmedReExport, ?array $orderIds = null): mixed
@@ -440,6 +454,7 @@ class SalesOrderIndex extends Component
 
         foreach ([
             'wrong_carrier_order_ids' => 'courier_export_wrong_carrier_ids',
+            'unsupported_courier_order_ids' => 'courier_export_unsupported_courier_ids',
             'blocked_status_order_ids' => 'courier_export_blocked_status_ids',
             'no_ready_lines_order_ids' => 'courier_export_no_ready_lines_ids',
             'mixed_tenant_order_ids' => 'courier_export_mixed_tenant_ids',

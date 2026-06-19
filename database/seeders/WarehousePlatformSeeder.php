@@ -11,6 +11,9 @@ use App\Models\OutboundOrderLine;
 use App\Models\PackagingMaterial;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
+use App\Models\Carrier;
+use App\Models\ShippingMethod;
+use App\Models\ShippingMethodRate;
 use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\SkuBundleComponent;
@@ -36,6 +39,7 @@ class WarehousePlatformSeeder extends Seeder
         $warehouses = $this->seedWarehouses();
         $this->seedWarehouseLocations($warehouses);
         $packagingMaterials = $this->seedPackagingMaterials();
+        $shippingMethods = $this->seedShippingMethods();
         $shops = $this->seedShops($tenants);
         $stockItems = $this->seedStockItems($tenants);
         $skus = $this->seedSkus($tenants, $shops, $stockItems, $packagingMaterials);
@@ -44,9 +48,60 @@ class WarehousePlatformSeeder extends Seeder
         $stockItems = array_merge($stockItems, $reportStockItems);
         $this->seedSkuBundles($tenants, $skus, $stockItems);
         $this->seedInventory(app(InventoryService::class), $tenants, $warehouses, $stockItems);
-        $this->seedSalesOrders($tenants, $shops, $skus, $users);
+        $this->seedSalesOrders($tenants, $shops, $skus, $users, $shippingMethods);
         $this->seedInboundOrders($tenants, $warehouses, $skus, $users);
         $this->seedOutboundOrders($tenants, $warehouses, $skus, $users);
+    }
+
+    private function seedShippingMethods(): array
+    {
+        $carrierConfigs = [
+            ['yamato', 'Yamato', 'JP'],
+            ['sagawa', 'Sagawa', 'JP'],
+            ['japan_post', 'Japan Post', 'JP'],
+            ['other', 'Other', null],
+        ];
+
+        $carriers = [];
+        foreach ($carrierConfigs as [$code, $name, $country]) {
+            $carriers[$code] = Carrier::updateOrCreate(
+                ['code' => $code],
+                ['name' => $name, 'country_code' => $country, 'status' => 'active'],
+            );
+        }
+
+        $configs = [
+            ['yamato_nekopos', 'Yamato Nekopos', 'yamato', 'mail', false, false, true],
+            ['yamato_tqb', 'Yamato TQB', 'yamato', 'parcel', true, true, true],
+            ['yamato_compact', 'Yamato Compact', 'yamato', 'compact', false, true, true],
+            ['sagawa_thb', 'Sagawa THB', 'sagawa', 'parcel', true, true, true],
+            ['japan_post_yupack', 'Japan Post Yu-Pack', 'japan_post', 'parcel', true, true, true],
+            ['other', 'Other', 'other', 'other', false, false, false],
+        ];
+
+        $methods = [];
+        foreach ($configs as [$code, $name, $carrierCode, $type, $requiresSize, $requiresZone, $supportsCsv]) {
+            $methods[$code] = ShippingMethod::updateOrCreate(
+                ['code' => $code],
+                [
+                    'carrier_id' => $carriers[$carrierCode]->id,
+                    'name' => $name,
+                    'service_type' => $type,
+                    'is_trackable' => true,
+                    'requires_size' => $requiresSize,
+                    'requires_zone' => $requiresZone,
+                    'supports_courier_csv' => $supportsCsv,
+                    'status' => 'active',
+                ],
+            );
+        }
+
+        ShippingMethodRate::updateOrCreate(
+            ['shipping_method_id' => $methods['yamato_nekopos']->id, 'tenant_id' => null, 'rate_type' => 'flat', 'currency' => 'JPY'],
+            ['price' => 198, 'status' => 'active'],
+        );
+
+        return $methods;
     }
 
     private function seedTenants(): array
@@ -557,7 +612,7 @@ class WarehousePlatformSeeder extends Seeder
         );
     }
 
-    private function seedSalesOrders(array $tenants, array $shops, array $skus, array $users): void
+    private function seedSalesOrders(array $tenants, array $shops, array $skus, array $users, array $shippingMethods): void
     {
         $cities = ['Tokyo', 'Osaka', 'Bangkok', 'Singapore', 'Hong Kong', 'Shanghai', 'Seoul'];
         $countryCodes = ['JP', 'TH', 'SG', 'HK', 'CN', 'KR'];
@@ -596,6 +651,8 @@ class WarehousePlatformSeeder extends Seeder
                             'platform_order_id' => $platformOrderId,
                         ],
                         [
+                            'shipping_method_id' => $shippingMethods['yamato_tqb']->id ?? null,
+                            'shipping_method' => $shippingMethods['yamato_tqb']->carrier?->code ?? 'yamato',
                             'source' => SalesOrder::SOURCE_MANUAL,
                             'order_status' => SalesOrder::ORDER_STATUS_PENDING,
                             'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,

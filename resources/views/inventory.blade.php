@@ -911,6 +911,13 @@
                 padding: 16px;
             }
 
+            .form-subsection {
+                display: grid;
+                gap: 12px;
+                border-top: 1px solid var(--line);
+                padding-top: 14px;
+            }
+
             .form-grid {
                 display: grid;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -956,6 +963,12 @@
             }
 
             .segmented-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .checkbox-stack {
                 display: flex;
                 flex-wrap: wrap;
                 gap: 8px;
@@ -1349,6 +1362,7 @@
                 request()->routeIs('setup.*') => [
                     ['label' => __('common.nav_tenants'),        'href' => route('setup.tenants.index'),    'active' => request()->routeIs('setup.tenants.*')],
                     ['label' => __('common.nav_warehouses'),     'href' => route('setup.warehouses.index'), 'active' => request()->routeIs('setup.warehouses.*')],
+                    ['label' => __('common.nav_shipping_methods'), 'href' => route('setup.shipping-methods.index'), 'active' => request()->routeIs('setup.shipping-methods.*')],
                     ['label' => __('common.nav_locations'),      'href' => route('setup.locations.index'),   'active' => request()->routeIs('setup.locations.*')],
                     ['label' => __('common.nav_packagings'),     'href' => route('setup.packagings.index'),  'active' => request()->routeIs('setup.packagings.*')],
                     ['label' => __('common.nav_other_settings'), 'href' => route('setup.other-settings'),   'active' => request()->routeIs('setup.other-settings')],

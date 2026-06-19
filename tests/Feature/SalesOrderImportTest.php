@@ -11,6 +11,7 @@ use App\Models\InventoryBalance;
 use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
+use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\StockItem;
@@ -677,7 +678,26 @@ class SalesOrderImportTest extends TestCase
             'ship-service-level' => 'Standard',
         ])]);
 
-        $this->assertNull(SalesOrder::firstOrFail()->shipping_method);
+        $order = SalesOrder::firstOrFail();
+        $this->assertNull($order->shipping_method);
+        $this->assertNull($order->shipping_method_id);
+    }
+
+    public function test_amazon_report_sets_method_id_and_legacy_carrier_when_mapping_is_clear(): void
+    {
+        [, $shop, $sku] = $this->amazonSku('AMZ-NEKOPOS');
+
+        $this->parseAndImportAmazon($shop, [$this->amazonRow([
+            'sku' => $sku->sku,
+            'ship-service-level' => 'Yamato Nekopos',
+        ])]);
+
+        $order = SalesOrder::firstOrFail();
+        $this->assertSame(
+            ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail()->id,
+            $order->shipping_method_id,
+        );
+        $this->assertSame('yamato', $order->shipping_method);
     }
 
     public function test_amazon_report_requires_amazon_shop(): void

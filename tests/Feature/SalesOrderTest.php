@@ -7,6 +7,7 @@ use App\Livewire\SalesOrderDetail;
 use App\Livewire\SalesOrderIndex;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
+use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\SkuBundleComponent;
@@ -842,30 +843,37 @@ class SalesOrderTest extends TestCase
         $ownOrder = $this->createPersistedOrder($ownShop, $ownSku, ['platform_order_id' => 'OWN-SHIP-METHOD']);
         [, $otherShop, $otherSku] = $this->salesSku();
         $otherOrder = $this->createPersistedOrder($otherShop, $otherSku, ['platform_order_id' => 'OTHER-SHIP-METHOD']);
+        $yamato = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+        $sagawa = ShippingMethod::where('code', 'sagawa_thb')->firstOrFail();
+        $japanPost = ShippingMethod::where('code', 'japan_post_yupack')->firstOrFail();
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
-            ->call('updateShippingMethod', $ownOrder->id, 'yamato');
+            ->call('updateShippingMethod', $ownOrder->id, (string) $yamato->id);
 
+        $this->assertSame($yamato->id, $ownOrder->refresh()->shipping_method_id);
         $this->assertSame('yamato', $ownOrder->refresh()->shipping_method);
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
             ->call('updateShippingMethod', $ownOrder->id, 'unknown_method');
 
+        $this->assertSame($yamato->id, $ownOrder->refresh()->shipping_method_id);
         $this->assertSame('yamato', $ownOrder->refresh()->shipping_method);
 
         Livewire::actingAs($tenantUser)
             ->test(SalesOrderIndex::class)
-            ->call('updateShippingMethod', $ownOrder->id, 'sagawa');
+            ->call('updateShippingMethod', $ownOrder->id, (string) $sagawa->id);
 
+        $this->assertSame($sagawa->id, $ownOrder->refresh()->shipping_method_id);
         $this->assertSame('sagawa', $ownOrder->refresh()->shipping_method);
 
         Livewire::actingAs($tenantUser)
             ->test(SalesOrderIndex::class)
-            ->call('updateShippingMethod', $otherOrder->id, 'japan_post');
+            ->call('updateShippingMethod', $otherOrder->id, (string) $japanPost->id);
 
         $this->assertNull($otherOrder->refresh()->shipping_method);
+        $this->assertNull($otherOrder->refresh()->shipping_method_id);
     }
 
     public function test_sales_order_index_updates_tracking_no_with_tenant_scope(): void

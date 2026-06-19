@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
+use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\Tenant;
@@ -162,6 +163,7 @@ class SalesOrderImport extends Component
                         'order_status' => $first['order_status'] ?? SalesOrder::ORDER_STATUS_PENDING,
                         'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
                         'shipping_method' => $first['shipping_method'] ?? null,
+                        'shipping_method_id' => $first['shipping_method_id'] ?? null,
                         'recipient_name' => $this->nullableString($first['recipient_name']),
                         'recipient_phone' => $this->nullableString($first['recipient_phone']),
                         'recipient_country_code' => $this->nullableString($first['recipient_country_code']),
@@ -373,6 +375,8 @@ class SalesOrderImport extends Component
             $currency = trim((string) (($raw['currency'] ?? '') !== '' ? $raw['currency'] : ($raw['order-currency-code'] ?? '')));
             $itemPrice = trim((string) (($raw['item-price'] ?? '') !== '' ? $raw['item-price'] : ($raw['item-price-amount'] ?? '')));
 
+            $shippingMethod = $this->amazonShippingMethod((string) ($raw['ship-service-level'] ?? ''));
+
             $row = [
                 'row' => $index + 1,
                 'is_duplicate' => $isDuplicate,
@@ -383,7 +387,8 @@ class SalesOrderImport extends Component
                 'platform_order_id' => $orderId,
                 'platform_ordered_at' => $platformOrderedAt,
                 'latest_ship_at' => $latestShipAt,
-                'shipping_method' => $this->normalizeAmazonShippingMethod((string) ($raw['ship-service-level'] ?? '')),
+                'shipping_method' => $shippingMethod?->carrier?->code,
+                'shipping_method_id' => $shippingMethod?->id,
                 'order_status' => $cancelRequested ? SalesOrder::ORDER_STATUS_CANCEL_REQUESTED : SalesOrder::ORDER_STATUS_PENDING,
                 'sku' => $skuCode,
                 'sku_id' => $skuMap->get($skuCode),
@@ -662,14 +667,28 @@ class SalesOrderImport extends Component
         return number_format(((float) $itemPrice) / $quantity, 2, '.', '');
     }
 
-    private function normalizeAmazonShippingMethod(string $shipServiceLevel): ?string
+    private function amazonShippingMethod(string $shipServiceLevel): ?ShippingMethod
     {
-        return match (strtolower(trim($shipServiceLevel))) {
-            'yamato' => 'yamato',
-            'sagawa' => 'sagawa',
-            'japan_post', 'japan post' => 'japan_post',
+        $normalized = strtolower(str_replace(['-', '_'], ' ', trim($shipServiceLevel)));
+        $methodCode = match (true) {
+            str_contains($normalized, 'nekopos'),
+            str_contains($normalized, 'yamato neko') => 'yamato_nekopos',
+            str_contains($normalized, 'tqb'),
+            str_contains($normalized, 'takkyubin'),
+            str_contains($normalized, 'yamato') => 'yamato_tqb',
+            str_contains($normalized, 'sagawa'),
+            str_contains($normalized, 'thb') => 'sagawa_thb',
             default => null,
         };
+
+        if ($methodCode === null) {
+            return null;
+        }
+
+        return ShippingMethod::query()
+            ->where('code', $methodCode)
+            ->with('carrier:id,code')
+            ->first();
     }
 
     private function amazonConsistencyFields(array $raw): array

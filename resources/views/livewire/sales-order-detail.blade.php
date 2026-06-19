@@ -45,6 +45,24 @@
                 <span class="subtle">{{ __('sales_orders.field_platform_order_id') }}</span>
                 <strong>{{ $order->platform_order_id ?: '-' }}</strong>
             </div>
+            <div>
+                <span class="subtle">{{ __('sales_orders.field_shipping_method') }}</span>
+                <select
+                    class="table-control"
+                    aria-label="{{ __('sales_orders.field_shipping_method') }}"
+                    x-on:change="$wire.updateShippingMethod($event.target.value)"
+                >
+                    <option value="">{{ __('sales_orders.shipping_method_unset') }}</option>
+                    @foreach ($shippingMethods as $method)
+                        <option value="{{ $method->id }}" @selected((string) ($order->shipping_method_id ?? '') === (string) $method->id)>
+                            {{ $method->name }} / {{ $method->carrier->name }}
+                            @if ($method->status !== 'active')
+                                ({{ __('shipping.status_inactive') }})
+                            @endif
+                        </option>
+                    @endforeach
+                </select>
+            </div>
         </div>
     </section>
 

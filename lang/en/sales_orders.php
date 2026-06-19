@@ -27,6 +27,7 @@ return [
     'field_quantity' => 'Quantity',
     'field_unit_price' => 'Unit price',
     'field_line_status' => 'Line status',
+    'field_shipping_method' => 'Shipping method',
     'section_actions' => 'Order Actions',
     'section_actions_hint' => 'Move the order through review before fulfillment grouping.',
     'section_lines' => 'Order Lines',
@@ -70,6 +71,7 @@ return [
 
     'order_created' => 'Sales order created.',
     'recipient_updated' => 'Recipient updated.',
+    'shipping_method_updated' => 'Shipping method updated.',
     'order_cancelled_msg' => 'Order cancelled.',
     'cannot_cancel_in_group' => 'Cannot cancel an order that is currently in a fulfillment group.',
     'cannot_cancel_completed' => 'Cannot cancel a completed order.',
@@ -192,6 +194,7 @@ return [
     'courier_export_confirm_reexport' => 'Some selected orders were already exported. Export again?',
     'courier_export_confirm_btn' => 'Export again',
     'courier_export_wrong_carrier_ids' => 'Wrong carrier order IDs: :ids.',
+    'courier_export_unsupported_courier_ids' => 'Courier CSV is not supported for order IDs: :ids.',
     'courier_export_blocked_status_ids' => 'Blocked status order IDs: :ids.',
     'courier_export_no_ready_lines_ids' => 'No ready lines order IDs: :ids.',
     'courier_export_mixed_tenant_ids' => 'Mixed tenant order IDs: :ids.',

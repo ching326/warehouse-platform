@@ -17,6 +17,7 @@ return [
     'nav_tenants' => 'Tenants',
     'nav_warehouses' => 'Warehouses',
     'nav_shops' => 'Shops',
+    'nav_shipping_methods' => 'Shipping Methods',
     'nav_packagings' => 'Packagings',
     'nav_other_settings' => 'Other Settings',
     'all_tenants' => 'All tenants',
