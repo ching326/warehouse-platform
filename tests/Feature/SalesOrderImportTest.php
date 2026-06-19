@@ -481,6 +481,44 @@ class SalesOrderImportTest extends TestCase
         $this->assertSame('ムラタ 酸化銀電池', $order->lines->first()->platform_product_name);
     }
 
+    public function test_amazon_report_imports_utf16le_bom_file(): void
+    {
+        [, $shop, $sku] = $this->amazonSku('AMZ-UTF16');
+        $content = "\xFF\xFE".mb_convert_encoding($this->amazonTsv([
+            $this->amazonRow(['sku' => $sku->sku]),
+        ]), 'UTF-16LE', 'UTF-8');
+
+        $this->parseAndImportAmazonContent($shop, $content);
+
+        $this->assertSame(1, SalesOrder::count());
+        $this->assertSame('AMZ-ORDER-1', SalesOrder::firstOrFail()->platform_order_id);
+    }
+
+    public function test_amazon_report_normalizes_dates_to_utc(): void
+    {
+        [, $shop, $sku] = $this->amazonSku('AMZ-DATE');
+
+        $this->parseAndImportAmazon($shop, [$this->amazonRow([
+            'sku' => $sku->sku,
+            'purchase-date' => '2026-03-03T03:51:43+09:00',
+            'latest-ship-date' => '2026-03-05T14:59:59+09:00',
+        ])]);
+
+        $order = SalesOrder::firstOrFail();
+
+        $this->assertSame('2026-03-02 18:51:43', $order->platform_ordered_at->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-03-05 05:59:59', $order->latest_ship_at->format('Y-m-d H:i:s'));
+    }
+
+    public function test_amazon_report_preview_does_not_expose_internal_consistency_payload(): void
+    {
+        [, $shop, $sku] = $this->amazonSku('AMZ-PAYLOAD');
+
+        $component = $this->parseOnlyAmazon($shop, [$this->amazonRow(['sku' => $sku->sku])]);
+
+        $this->assertArrayNotHasKey('amazon_consistency', $component->get('parsedRows')[0]);
+    }
+
     public function test_amazon_report_rejects_missing_required_headers(): void
     {
         [, $shop] = $this->amazonSku('AMZ-MISSING-HEADER');

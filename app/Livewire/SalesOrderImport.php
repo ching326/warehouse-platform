@@ -384,7 +384,13 @@ class SalesOrderImport extends Component
             $parsed[] = $row;
         }
 
-        return $this->validateParsedOrderRows($parsed, $hasErrors, ['amazon_consistency']);
+        [$parsed, $hasErrors] = $this->validateParsedOrderRows($parsed, $hasErrors, ['amazon_consistency']);
+
+        foreach ($parsed as $idx => $row) {
+            unset($parsed[$idx]['amazon_consistency']);
+        }
+
+        return [$parsed, $hasErrors];
     }
 
     private function readAmazonRows(): array
@@ -393,6 +399,7 @@ class SalesOrderImport extends Component
         $content = file_get_contents($path);
         $content = preg_replace('/^\xEF\xBB\xBF/', '', (string) $content);
         $content = mb_convert_encoding($content, 'UTF-8', $this->detectFileEncoding($path));
+        $content = preg_replace('/^\x{FEFF}/u', '', $content);
         $lines = preg_split("/\r\n|\n|\r/", $content);
 
         if (! $lines || count($lines) < 2) {
@@ -582,7 +589,7 @@ class SalesOrderImport extends Component
         }
 
         try {
-            return Carbon::parse($value)->toDateTimeString();
+            return Carbon::parse($value)->utc()->toDateTimeString();
         } catch (\Throwable) {
             return null;
         }
@@ -592,7 +599,7 @@ class SalesOrderImport extends Component
     {
         $value = trim((string) $value);
 
-        return $value === '' ? null : Carbon::parse($value);
+        return $value === '' ? null : Carbon::createFromFormat('Y-m-d H:i:s', $value, 'UTC');
     }
 
     private function amazonBoolean(?string $value): bool
