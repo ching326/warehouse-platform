@@ -57,12 +57,6 @@
                 </div>
             </div>
 
-            <flux:input
-                wire:model.live.debounce.300ms="skuSearch"
-                :label="__('inbound.search_skus_label')"
-                :placeholder="__('inventory.search_placeholder')"
-            />
-
             @foreach ($lines as $index => $line)
                 <div class="line-row">
                     <flux:select wire:model="lines.{{ $index }}.sku_id" required :label="__('inbound.field_sku')">

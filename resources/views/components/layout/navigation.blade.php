@@ -3,6 +3,7 @@
     $skusActive      = request()->routeIs('skus.*');
     $inboundActive   = request()->routeIs('inbound.*');
     $outboundActive  = request()->routeIs('outbound.*');
+    $salesActive     = request()->routeIs('sales.*');
     $setupActive     = request()->routeIs('setup.*');
 @endphp
 
@@ -92,6 +93,15 @@
                 wire:navigate
             >
                 {{ __('common.nav_outbound') }}
+            </a>
+
+            {{-- Sales Orders --}}
+            <a
+                href="{{ route('sales.orders.index') }}"
+                class="top-nav-btn {{ $salesActive ? 'is-active' : '' }}"
+                wire:navigate
+            >
+                {{ __('common.nav_sales_orders') }}
             </a>
 
             {{-- Setup --}}

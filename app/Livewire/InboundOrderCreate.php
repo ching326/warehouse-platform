@@ -28,8 +28,6 @@ class InboundOrderCreate extends Component
 
     public string $note = '';
 
-    public string $skuSearch = '';
-
     public array $lines = [
         ['sku_id' => '', 'expected_qty' => '', 'note' => ''],
     ];
@@ -174,28 +172,11 @@ class InboundOrderCreate extends Component
 
     private function skuOptions(): Collection
     {
-        $search = '%'.$this->skuSearch.'%';
-
         return Sku::query()
             ->where('tenant_id', $this->tenantId)
             ->where('sku_type', '!=', 'virtual_bundle')
             ->whereNotNull('stock_item_id')
             ->with(['shop:id,code', 'stockItem:id,code,name'])
-            ->when($this->skuSearch !== '', function ($query) use ($search) {
-                $query->where(function ($query) use ($search) {
-                    $query
-                        ->where('sku', 'like', $search)
-                        ->orWhere('name', 'like', $search)
-                        ->orWhere('platform_sku', 'like', $search)
-                        ->orWhere('platform_label_code', 'like', $search)
-                        ->orWhereHas('stockItem', function ($query) use ($search) {
-                            $query
-                                ->where('code', 'like', $search)
-                                ->orWhere('name', 'like', $search)
-                                ->orWhere('barcode', 'like', $search);
-                        });
-                });
-            })
             ->orderBy('sku')
             ->limit(50)
             ->get(['id', 'tenant_id', 'shop_id', 'stock_item_id', 'sku', 'name', 'platform_sku', 'platform_label_code', 'sku_type']);
