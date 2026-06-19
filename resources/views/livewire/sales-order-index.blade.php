@@ -42,6 +42,32 @@
             <flux:button href="{{ route('sales.orders.import') }}" variant="outline" wire:navigate>
                 {{ __('sales_orders.import_btn') }}
             </flux:button>
+            <flux:button
+                as="a"
+                href="{{ route('sales.orders.export', [
+                    'shop' => $shopId ?: null,
+                    'fulfillment' => $fulfillmentStatus ?: null,
+                    'order_status' => $orderStatus ?: null,
+                    'q' => $search ?: null,
+                    'format' => 'csv',
+                ]) }}"
+                variant="ghost"
+            >
+                {{ __('sales_orders.export_csv_btn') }}
+            </flux:button>
+            <flux:button
+                as="a"
+                href="{{ route('sales.orders.export', [
+                    'shop' => $shopId ?: null,
+                    'fulfillment' => $fulfillmentStatus ?: null,
+                    'order_status' => $orderStatus ?: null,
+                    'q' => $search ?: null,
+                    'format' => 'xlsx',
+                ]) }}"
+                variant="ghost"
+            >
+                {{ __('sales_orders.export_xlsx_btn') }}
+            </flux:button>
         </div>
 
         @if (count($selectedIds) > 0)

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\SalesOrderExportController;
 use App\Livewire\FulfillmentGroupCreate;
 use App\Livewire\FulfillmentGroupDetail;
 use App\Livewire\FulfillmentGroupIndex;
@@ -51,6 +52,7 @@ Route::get('/outbound/{order}/ship', OutboundOrderShip::class)->name('outbound.s
 Route::get('/sales-orders', SalesOrderIndex::class)->name('sales.orders.index');
 Route::get('/sales-orders/create', SalesOrderCreate::class)->name('sales.orders.create');
 Route::get('/sales-orders/import', SalesOrderImport::class)->name('sales.orders.import');
+Route::get('/sales-orders/export', SalesOrderExportController::class)->name('sales.orders.export');
 Route::get('/sales-orders/{order}', SalesOrderDetail::class)->name('sales.orders.show');
 Route::get('/fulfillment-groups', FulfillmentGroupIndex::class)->name('fulfillment-groups.index');
 Route::get('/fulfillment-groups/create', FulfillmentGroupCreate::class)->name('fulfillment-groups.create');

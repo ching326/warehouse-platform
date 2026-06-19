@@ -148,4 +148,6 @@ return [
     'import_col_qty' => 'Qty',
     'import_col_errors' => 'Errors',
     'import_row_ok' => 'OK',
+    'export_csv_btn' => 'Export CSV',
+    'export_xlsx_btn' => 'Export XLSX',
 ];
