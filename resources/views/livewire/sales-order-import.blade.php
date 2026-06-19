@@ -3,7 +3,14 @@
     $lineCount = count($parsedRows);
 @endphp
 
-<div class="sales-order-import-page">
+<div
+    class="sales-order-import-page"
+    x-data="{ uploadingImportFile: false }"
+    x-on:livewire-upload-start="uploadingImportFile = true"
+    x-on:livewire-upload-finish="uploadingImportFile = false"
+    x-on:livewire-upload-error="uploadingImportFile = false"
+    x-on:livewire-upload-cancel="uploadingImportFile = false"
+>
     @if (session('status'))
         <div class="active-filter-row">
             <flux:badge color="green">{{ session('status') }}</flux:badge>
@@ -46,6 +53,9 @@
             <label>
                 <span>{{ __('sales_orders.import_file_label') }}</span>
                 <input type="file" wire:model="file" accept="{{ $importFormat === 'amazon_report' ? '.txt' : '.csv,.txt,.xlsx' }}">
+                <span class="subtle" wire:loading wire:target="file">
+                    {{ __('sales_orders.import_uploading_file') }}
+                </span>
             </label>
         </div>
 
@@ -53,7 +63,14 @@
         @error('file') <p class="form-error">{{ $message }}</p> @enderror
 
         <div class="form-actions">
-            <flux:button type="button" variant="primary" wire:click="parse">
+            <flux:button
+                type="button"
+                variant="primary"
+                wire:click="parse"
+                wire:loading.attr="disabled"
+                wire:target="file,parse"
+                x-bind:disabled="uploadingImportFile"
+            >
                 {{ __('sales_orders.import_parse_btn') }}
             </flux:button>
         </div>

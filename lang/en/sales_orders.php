@@ -135,6 +135,7 @@ return [
     'import_parse_btn' => 'Validate file',
     'import_confirm_btn' => 'Confirm import',
     'import_file_label' => 'Order file (CSV or XLSX, max 5 MB)',
+    'import_uploading_file' => 'Uploading file...',
     'import_empty_file' => 'The file has no data rows.',
     'import_nothing_to_import' => 'Validate a file before importing.',
     'import_has_errors' => 'Fix the highlighted rows before importing.',

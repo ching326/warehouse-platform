@@ -219,6 +219,16 @@ class SalesOrderImportTest extends TestCase
             ->assertSee('Import Sales Orders');
     }
 
+    public function test_import_validate_button_waits_for_file_upload(): void
+    {
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderImport::class)
+            ->assertSee('livewire-upload-start', false)
+            ->assertSee('x-bind:disabled', false)
+            ->assertSee('wire:loading.attr', false)
+            ->assertSee('Uploading file', false);
+    }
+
     public function test_import_skips_fully_blank_rows(): void
     {
         [, $shop, $sku] = $this->salesSku('BLANK-SKU');
