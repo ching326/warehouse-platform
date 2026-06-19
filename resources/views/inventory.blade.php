@@ -1203,12 +1203,27 @@
                 background: #fff;
             }
 
-            .so-unsaved {
-                display: block;
-                margin-top: 4px;
+            .tracking-field {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+                min-width: 170px;
+            }
+
+            .tracking-field .table-control {
+                width: 100%;
+            }
+
+            .tracking-unsaved {
+                display: inline-flex;
+                width: fit-content;
+                border-radius: 999px;
+                background: var(--warning-soft);
                 color: var(--warning);
+                padding: 2px 6px;
                 font-size: 11px;
-                font-weight: 700;
+                font-weight: 600;
                 line-height: 1.2;
             }
 
@@ -1240,13 +1255,15 @@
                 margin-left: auto;
             }
 
-            .sales-order-recipient-header-main {
-                display: flex;
-                align-items: center;
+            .sales-order-recipient-header {
+                align-items: flex-start;
+                justify-content: flex-start;
+                flex-direction: column;
+                gap: 12px;
             }
 
-            .sales-order-recipient-header-copy {
-                flex: 1;
+            .sales-order-recipient-edit-button {
+                color: #fff !important;
             }
 
             @media (max-width: 720px) {

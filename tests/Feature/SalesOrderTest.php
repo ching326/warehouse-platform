@@ -892,6 +892,60 @@ class SalesOrderTest extends TestCase
         $this->assertSame('DRAFT-123', $order->refresh()->tracking_no);
     }
 
+    public function test_sales_order_index_does_not_mark_tracking_draft_saved_when_order_is_out_of_scope(): void
+    {
+        [$ownTenant, $tenantUser] = $this->tenantUser();
+        Shop::factory()->for($ownTenant)->create(['status' => 'active']);
+        [, $otherShop, $otherSku] = $this->salesSku();
+        $otherOrder = $this->createPersistedOrder($otherShop, $otherSku, ['platform_order_id' => 'OUT-OF-SCOPE-DRAFT']);
+
+        Livewire::actingAs($tenantUser)
+            ->test(SalesOrderIndex::class)
+            ->set("trackingDrafts.{$otherOrder->id}", 'SHOULD-NOT-SAVE')
+            ->call('saveTrackingDraft', $otherOrder->id)
+            ->assertSet("trackingDrafts.{$otherOrder->id}", 'SHOULD-NOT-SAVE')
+            ->assertNotSet("trackingSavedDrafts.{$otherOrder->id}", 'SHOULD-NOT-SAVE');
+
+        $this->assertNull($otherOrder->refresh()->tracking_no);
+    }
+
+    public function test_sales_order_index_tracking_unsaved_indicator_uses_wire_dirty_label(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'DIRTY-TRACKING']);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->html();
+
+        $this->assertStringContainsString('class="tracking-field"', $html);
+        $this->assertStringContainsString('class="tracking-unsaved"', $html);
+        $this->assertStringContainsString('wire:dirty', $html);
+        $this->assertStringContainsString('wire:target="trackingDrafts.', $html);
+        $this->assertStringNotContainsString('trackingServerDirty', $html);
+        $this->assertStringNotContainsString('class="so-unsaved"', $html);
+    }
+
+    public function test_sales_order_index_tracking_unsaved_indicator_has_wrapper(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'WRAPPED-TRACKING']);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->html();
+
+        $trackingFieldPosition = strpos($html, 'class="tracking-field"');
+        $trackingInputPosition = strpos($html, 'wire:model.live.debounce.800ms="trackingDrafts.'.$order->id.'"');
+        $unsavedPosition = strpos($html, 'class="tracking-unsaved"');
+
+        $this->assertNotFalse($trackingFieldPosition);
+        $this->assertNotFalse($trackingInputPosition);
+        $this->assertNotFalse($unsavedPosition);
+        $this->assertGreaterThan($trackingFieldPosition, $trackingInputPosition);
+        $this->assertGreaterThan($trackingInputPosition, $unsavedPosition);
+    }
+
     public function test_sales_order_index_shows_printed_date_when_courier_csv_exported(): void
     {
         [, $shop, $sku] = $this->salesSku();
@@ -966,6 +1020,27 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString('wire:click="editLines"', $html);
         $this->assertSame(4, substr_count($html, 'data-action-variant="primary"'));
         $this->assertStringContainsString('data-action-variant="danger"', $html);
+    }
+
+    public function test_sales_order_detail_edit_recipient_button_sits_below_recipient_header(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'DETAIL-RECIPIENT',
+        ]);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->html();
+
+        $recipientTitlePosition = strpos($html, '<strong>'.__('sales_orders.field_recipient').'</strong>');
+        $editRecipientPosition = strpos($html, 'data-testid="edit-recipient-button"');
+
+        $this->assertNotFalse($recipientTitlePosition);
+        $this->assertNotFalse($editRecipientPosition);
+        $this->assertGreaterThan($recipientTitlePosition, $editRecipientPosition);
+        $this->assertStringContainsString('wire:click="editRecipient"', $html);
+        $this->assertStringContainsString('sales-order-recipient-edit-button', $html);
     }
 
     public function test_sales_order_detail_line_ready_status_label_is_ship_ready(): void

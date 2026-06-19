@@ -247,14 +247,23 @@ class SalesOrderIndex extends Component
             ->update(['shipping_method' => $value === '' ? null : $value]);
     }
 
-    public function updateTrackingNo(int $orderId, string $value): void
+    public function updateTrackingNo(int $orderId, string $value): bool
     {
         $trackingNo = trim($value);
+        $trackingNo = $trackingNo === '' ? null : mb_substr($trackingNo, 0, 255);
 
-        SalesOrder::query()
+        $order = SalesOrder::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->whereKey($orderId)
-            ->update(['tracking_no' => $trackingNo === '' ? null : mb_substr($trackingNo, 0, 255)]);
+            ->first();
+
+        if (! $order) {
+            return false;
+        }
+
+        $order->update(['tracking_no' => $trackingNo]);
+
+        return true;
     }
 
     public function saveTrackingDraft(int $orderId): void
@@ -263,8 +272,11 @@ class SalesOrderIndex extends Component
         $trackingNo = $trackingNo === '' ? '' : mb_substr($trackingNo, 0, 255);
 
         $this->trackingDrafts[$orderId] = $trackingNo;
-        $this->updateTrackingNo($orderId, $trackingNo);
-        $this->trackingSavedDrafts[$orderId] = $trackingNo;
+        $saved = $this->updateTrackingNo($orderId, $trackingNo);
+
+        if ($saved) {
+            $this->trackingSavedDrafts[$orderId] = $trackingNo;
+        }
     }
 
     public function render()
