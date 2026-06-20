@@ -47,6 +47,7 @@
                 x-on:click.outside="if (openFilter === 'platform') openFilter = null"
             >
                 <summary
+                    class="filter-button"
                     x-on:click.prevent="openFilter = openFilter === 'platform' ? null : 'platform'"
                     x-bind:aria-expanded="openFilter === 'platform'"
                 >
@@ -69,6 +70,7 @@
                 x-on:click.outside="if (openFilter === 'shop') openFilter = null"
             >
                 <summary
+                    class="filter-button"
                     x-on:click.prevent="openFilter = openFilter === 'shop' ? null : 'shop'"
                     x-bind:aria-expanded="openFilter === 'shop'"
                 >
@@ -89,6 +91,7 @@
                 x-on:click.outside="if (openFilter === 'fulfillment') openFilter = null"
             >
                 <summary
+                    class="filter-button"
                     x-on:click.prevent="openFilter = openFilter === 'fulfillment' ? null : 'fulfillment'"
                     x-bind:aria-expanded="openFilter === 'fulfillment'"
                 >
@@ -109,6 +112,7 @@
                 x-on:click.outside="if (openFilter === 'order-status') openFilter = null"
             >
                 <summary
+                    class="filter-button"
                     x-on:click.prevent="openFilter = openFilter === 'order-status' ? null : 'order-status'"
                     x-bind:aria-expanded="openFilter === 'order-status'"
                 >
@@ -129,6 +133,7 @@
                 x-on:click.outside="if (openFilter === 'shipping') openFilter = null"
             >
                 <summary
+                    class="filter-button"
                     x-on:click.prevent="openFilter = openFilter === 'shipping' ? null : 'shipping'"
                     x-bind:aria-expanded="openFilter === 'shipping'"
                 >
@@ -149,6 +154,7 @@
                 x-on:click.outside="if (openFilter === 'date') openFilter = null"
             >
                 <summary
+                    class="filter-button"
                     x-on:click.prevent="openFilter = openFilter === 'date' ? null : 'date'"
                     x-bind:aria-expanded="openFilter === 'date'"
                 >
@@ -179,6 +185,7 @@
                 x-on:click.outside="if (openFilter === 'others') openFilter = null"
             >
                 <summary
+                    class="filter-button"
                     x-on:click.prevent="openFilter = openFilter === 'others' ? null : 'others'"
                     x-bind:aria-expanded="openFilter === 'others'"
                 >
@@ -201,7 +208,7 @@
                 </div>
             </details>
 
-            <label @class(['print-ready-pill', 'is-active' => $printWaiting])>
+            <label @class(['filter-button', 'print-ready-pill', 'is-active' => $printWaiting])>
                 <input class="print-ready-toggle-input" type="checkbox" wire:model.live="printWaiting">
                 <flux:icon.printer class="print-ready-icon" />
                 <span class="print-ready-label">{{ __('sales_orders.print_waiting') }}</span>
@@ -234,31 +241,6 @@
                 </div>
             @endif
         </div>
-
-        <div class="sales-order-page-actions" data-testid="sales-order-page-actions">
-            <flux:button href="{{ route('sales.orders.import') }}" variant="outline" icon="arrow-up-tray" wire:navigate>
-                {{ __('sales_orders.import_btn') }}
-            </flux:button>
-            <details class="action-menu" data-testid="sales-order-page-export-menu">
-                <summary><span class="action-menu-label"><flux:icon.arrow-down-tray />{{ __('sales_orders.export_menu') }}</span></summary>
-                <div class="action-menu-panel">
-                    <a href="{{ route('sales.orders.export', array_filter(array_merge($exportFilters, ['format' => 'csv']), fn ($value) => $value !== null)) }}">
-                        {{ __('sales_orders.export_all_csv') }}
-                    </a>
-                    <a href="{{ route('sales.orders.export', array_filter(array_merge($exportFilters, ['format' => 'xlsx']), fn ($value) => $value !== null)) }}">
-                        {{ __('sales_orders.export_all_xlsx') }}
-                    </a>
-                </div>
-            </details>
-            <flux:button href="{{ route('sales.orders.create') }}" variant="primary" wire:navigate>
-                {{ __('sales_orders.btn_create_order') }}
-            </flux:button>
-        </div>
-
-        @php
-            $selectedCsvBase = route('sales.orders.export', array_filter(array_merge($exportFilters, ['format' => 'csv']), fn ($value) => $value !== null));
-            $selectedXlsxBase = route('sales.orders.export', array_filter(array_merge($exportFilters, ['format' => 'xlsx']), fn ($value) => $value !== null));
-        @endphp
 
         <div
             x-data="{
@@ -302,11 +284,41 @@
 
                     this.selected = Array.from(new Set(this.selectedList().concat(v)));
                 },
-                selectedExportHref(base) {
-                    return base + '&ids=' + this.selectedList().join(',');
-                },
             }"
         >
+        <div class="sales-order-page-actions" data-testid="sales-order-page-actions">
+            <flux:button class="sales-order-top-action" href="{{ route('sales.orders.import') }}" variant="primary" icon="arrow-up-tray" wire:navigate>
+                {{ __('sales_orders.import_btn') }}
+            </flux:button>
+            <details class="action-menu primary" data-testid="sales-order-page-export-menu">
+                <summary><span class="action-menu-label"><flux:icon.arrow-down-tray />{{ __('sales_orders.export_menu') }}</span></summary>
+                <div class="action-menu-panel action-menu-panel-sectioned">
+                    <div class="action-menu-section" data-testid="sales-order-courier-export-menu">
+                        <span>{{ __('sales_orders.courier_export_menu') }}</span>
+                        <button type="button" wire:click="validateCourierExport('yamato')">
+                            {{ __('sales_orders.btn_export_yamato_csv') }}
+                        </button>
+                        <button type="button" wire:click="validateCourierExport('sagawa')">
+                            {{ __('sales_orders.btn_export_sagawa_csv') }}
+                        </button>
+                    </div>
+
+                    <div class="action-menu-section" data-testid="sales-order-shipping-notice-export-menu">
+                        <span>{{ __('sales_orders.shipping_notice_menu') }}</span>
+                        <button type="button" class="action-menu-option-disabled" disabled aria-disabled="true">
+                            {{ __('sales_orders.btn_export_amazon_ship_notice') }}
+                        </button>
+                        <button type="button" class="action-menu-option-disabled" disabled aria-disabled="true">
+                            {{ __('sales_orders.btn_export_rakuten_ship_notice') }}
+                        </button>
+                    </div>
+                </div>
+            </details>
+            <flux:button class="sales-order-top-action" href="{{ route('sales.orders.create') }}" variant="primary" wire:navigate>
+                {{ __('sales_orders.btn_create_order') }}
+            </flux:button>
+        </div>
+
         <div class="sales-order-action-row" data-testid="sales-order-selection-actions">
             <div class="selection-count-slot" aria-live="polite">
                 <flux:badge color="blue" x-show="has()" x-cloak>
@@ -315,62 +327,29 @@
             </div>
             <div class="selection-action-group" data-testid="sales-order-status-actions">
                 <span>{{ __('sales_orders.bulk_status_group') }}</span>
-                <flux:button type="button" size="sm" variant="outline" wire:click="bulkMarkReady" x-bind:disabled="! has()">
+                <flux:button class="bulk-action-button bulk-action-button-teal" type="button" size="sm" variant="outline" wire:click="bulkMarkReady" x-bind:disabled="! has()">
                     {{ __('sales_orders.btn_bulk_mark_ready') }}
                 </flux:button>
-                <flux:button type="button" size="sm" variant="outline" wire:click="bulkMarkShipped" x-bind:disabled="! has()">
+                <flux:button class="bulk-action-button bulk-action-button-teal" type="button" size="sm" variant="outline" wire:click="bulkMarkShipped" x-bind:disabled="! has()">
                     {{ __('sales_orders.btn_mark_shipped') }}
                 </flux:button>
-                <flux:button type="button" size="sm" variant="outline" wire:click="bulkHold" x-bind:disabled="! has()">
+                <flux:button class="bulk-action-button bulk-action-button-teal" type="button" size="sm" variant="outline" wire:click="bulkHold" x-bind:disabled="! has()">
                     {{ __('sales_orders.btn_bulk_hold') }}
                 </flux:button>
-                <flux:button type="button" size="sm" variant="outline" wire:click="bulkReleaseHold" x-bind:disabled="! has()">
+                <flux:button class="bulk-action-button bulk-action-button-teal" type="button" size="sm" variant="outline" wire:click="bulkReleaseHold" x-bind:disabled="! has()">
                     {{ __('sales_orders.btn_bulk_release_hold') }}
                 </flux:button>
                 <flux:button
+                    class="bulk-action-button bulk-action-button-danger"
                     type="button"
                     size="sm"
-                    variant="danger"
+                    variant="outline"
                     wire:click="bulkCancel"
                     wire:confirm="{{ __('sales_orders.bulk_cancel_confirm') }}"
                     x-bind:disabled="! has()"
                 >
                     {{ __('sales_orders.btn_bulk_cancel') }}
                 </flux:button>
-            </div>
-
-            <div class="selection-action-divider"></div>
-
-            <div class="selection-action-group" data-testid="sales-order-selection-export-actions">
-                <span>{{ __('sales_orders.bulk_export_group') }}</span>
-                <details class="action-menu small" data-testid="sales-order-selected-export-menu" x-show="has()" x-cloak>
-                    <summary>{{ __('sales_orders.selected_export_menu') }}</summary>
-                    <div class="action-menu-panel">
-                        <a x-bind:href="selectedExportHref(@js($selectedCsvBase))">
-                            {{ __('sales_orders.btn_bulk_export_csv') }}
-                        </a>
-                        <a x-bind:href="selectedExportHref(@js($selectedXlsxBase))">
-                            {{ __('sales_orders.btn_bulk_export_xlsx') }}
-                        </a>
-                    </div>
-                </details>
-                <details class="action-menu small" data-testid="sales-order-courier-export-menu" x-show="has()" x-cloak>
-                    <summary>{{ __('sales_orders.courier_export_menu') }}</summary>
-                    <div class="action-menu-panel">
-                        <button type="button" wire:click="validateCourierExport('yamato')">
-                            {{ __('sales_orders.btn_export_yamato_csv') }}
-                        </button>
-                        <button type="button" wire:click="validateCourierExport('sagawa')">
-                            {{ __('sales_orders.btn_export_sagawa_csv') }}
-                        </button>
-                    </div>
-                </details>
-                <button type="button" class="action-menu-disabled" disabled aria-disabled="true" x-show="! has()">
-                    {{ __('sales_orders.selected_export_menu') }}
-                </button>
-                <button type="button" class="action-menu-disabled" disabled aria-disabled="true" x-show="! has()">
-                    {{ __('sales_orders.courier_export_menu') }}
-                </button>
             </div>
         </div>
 

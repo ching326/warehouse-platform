@@ -875,10 +875,9 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString(__('sales_orders.btn_bulk_mark_ready'), $html);
         $this->assertStringContainsString(__('sales_orders.btn_bulk_hold'), $html);
         $this->assertStringContainsString(__('sales_orders.btn_bulk_cancel'), $html);
-        $this->assertStringContainsString(__('sales_orders.selected_export_menu'), $html);
         $this->assertStringContainsString(__('sales_orders.courier_export_menu'), $html);
+        $this->assertStringContainsString(__('sales_orders.shipping_notice_menu'), $html);
         $this->assertStringContainsString('x-show="has()"', $html);
-        $this->assertStringContainsString('x-show="! has()"', $html);
         $this->assertStringContainsString('disabled', $html);
     }
 
@@ -1024,17 +1023,18 @@ class SalesOrderTest extends TestCase
             ->html();
 
         $this->assertStringContainsString('data-testid="sales-order-page-export-menu"', $html);
-        $this->assertStringContainsString(__('sales_orders.export_all_csv'), $html);
-        $this->assertStringContainsString(__('sales_orders.export_all_xlsx'), $html);
-        $this->assertStringContainsString('data-testid="sales-order-selected-export-menu"', $html);
-        $this->assertStringContainsString(__('sales_orders.btn_bulk_export_csv'), $html);
-        $this->assertStringContainsString(__('sales_orders.btn_bulk_export_xlsx'), $html);
+        $this->assertStringNotContainsString('Export all', $html);
+        $this->assertStringNotContainsString('data-testid="sales-order-selected-export-menu"', $html);
+        $this->assertStringNotContainsString('Export selected', $html);
         $this->assertStringContainsString('data-testid="sales-order-courier-export-menu"', $html);
         $this->assertStringContainsString(__('sales_orders.btn_export_yamato_csv'), $html);
         $this->assertStringContainsString(__('sales_orders.btn_export_sagawa_csv'), $html);
+        $this->assertStringContainsString('data-testid="sales-order-shipping-notice-export-menu"', $html);
+        $this->assertStringContainsString(__('sales_orders.btn_export_amazon_ship_notice'), $html);
+        $this->assertStringContainsString(__('sales_orders.btn_export_rakuten_ship_notice'), $html);
     }
 
-    public function test_sales_order_index_export_selected_still_carries_selected_ids(): void
+    public function test_sales_order_index_no_longer_renders_selected_order_export_links(): void
     {
         [, $shop, $sku] = $this->salesSku();
         $first = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'SELECTED-EXPORT-1']);
@@ -1045,9 +1045,9 @@ class SalesOrderTest extends TestCase
             ->set('selectedIds', [(string) $first->id, (string) $second->id])
             ->html();
 
-        $this->assertStringContainsString('selectedExportHref', $html);
-        $this->assertStringContainsString('&ids=', $html);
-        $this->assertStringContainsString('selectedList().join', $html);
+        $this->assertStringNotContainsString('selectedExportHref', $html);
+        $this->assertStringNotContainsString('Export selected', $html);
+        $this->assertStringNotContainsString('selectedList().join', $html);
     }
 
     public function test_sales_order_index_select_all_selects_only_visible_page_orders(): void
@@ -1255,7 +1255,7 @@ class SalesOrderTest extends TestCase
             ->assertDontSee('PRINT-WAITING-SHIPPED')
             ->html();
 
-        $this->assertStringContainsString('print_waiting=1', $html);
+        $this->assertStringContainsString(__('sales_orders.print_waiting'), $html);
     }
 
     public function test_sales_order_index_others_filters_multi_item_printed_and_not_printed(): void
@@ -1522,7 +1522,7 @@ class SalesOrderTest extends TestCase
             ->assertSet('selectedIds', []);
     }
 
-    public function test_sales_order_index_export_links_include_new_filters(): void
+    public function test_sales_order_index_filter_chips_include_new_filters_without_export_all_links(): void
     {
         [, $shop, $sku] = $this->salesSku();
         $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'EXPORT-LINK']);
@@ -1539,14 +1539,15 @@ class SalesOrderTest extends TestCase
             ->set('search', 'EXPORT')
             ->html();
 
-        $this->assertStringContainsString('platforms%5B0%5D=amazon', $html);
-        $this->assertStringContainsString('shops%5B0%5D='.$shop->id, $html);
-        $this->assertStringContainsString('fulfillment%5B0%5D=ready', $html);
-        $this->assertStringContainsString('order_status%5B0%5D=pending', $html);
-        $this->assertStringContainsString('shipping%5B0%5D=yamato', $html);
-        $this->assertStringContainsString('others%5B0%5D=multi_item', $html);
-        $this->assertStringContainsString('date_range=last_7_days', $html);
-        $this->assertStringContainsString('q=EXPORT', $html);
+        $this->assertStringContainsString('Platform: amazon', $html);
+        $this->assertStringContainsString('Shop: '.$shop->tenant->code.' / '.$shop->name, $html);
+        $this->assertStringContainsString('Fulfillment: Ship Ready', $html);
+        $this->assertStringContainsString('Order Status: Pending', $html);
+        $this->assertStringContainsString('Shipping: Yamato', $html);
+        $this->assertStringContainsString('Others: Multi-item order', $html);
+        $this->assertStringContainsString('Order Date: Last 7 days', $html);
+        $this->assertStringContainsString('Search: EXPORT', $html);
+        $this->assertStringNotContainsString('Export all', $html);
     }
 
     public function test_sales_order_index_updates_shipping_method_with_tenant_scope(): void

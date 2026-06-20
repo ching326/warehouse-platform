@@ -18,6 +18,7 @@
                 --page: #f4f7fb;
                 --panel: #ffffff;
                 --accent: #146c5f;
+                --accent-hover: #0f5b50;
                 --accent-soft: #e6f4f1;
                 --warning: #9a5b00;
                 --warning-soft: #fff4d6;
@@ -864,7 +865,7 @@
                 min-width: 0;
             }
 
-            .filter-menu summary,
+            .filter-button,
             .action-menu summary,
             .action-menu-disabled {
                 display: flex;
@@ -885,12 +886,12 @@
                 list-style: none;
             }
 
-            .filter-menu summary::-webkit-details-marker,
+            .filter-button::-webkit-details-marker,
             .action-menu summary::-webkit-details-marker {
                 display: none;
             }
 
-            .filter-menu summary::after,
+            .filter-menu .filter-button::after,
             .action-menu summary::after {
                 color: var(--muted);
                 content: "v";
@@ -898,29 +899,61 @@
                 line-height: 1;
             }
 
-            .filter-menu[open] summary,
-            .filter-menu.is-active summary,
+            .filter-menu[open] .filter-button,
+            .filter-menu.is-active .filter-button,
+            .print-ready-pill.is-active,
             .action-menu[open] summary {
                 border-color: var(--accent);
                 box-shadow: 0 0 0 3px var(--accent-soft);
             }
 
-            .filter-menu.is-active summary {
+            .action-menu.primary summary {
+                border-color: var(--accent);
+                background: var(--accent);
+                color: #fff;
+            }
+
+            .sales-order-top-action {
+                border-color: var(--accent) !important;
+                background: var(--accent) !important;
+                color: #fff !important;
+            }
+
+            .sales-order-top-action:hover {
+                border-color: var(--accent-hover) !important;
+                background: var(--accent-hover) !important;
+                color: #fff !important;
+            }
+
+            .action-menu.primary summary::after,
+            .action-menu.primary .action-menu-label svg {
+                color: #fff;
+            }
+
+            .action-menu.primary[open] summary {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 3px var(--accent-soft);
+            }
+
+            .filter-menu.is-active .filter-button,
+            .print-ready-pill.is-active {
                 background: #e6f7f3;
                 color: var(--accent);
             }
 
-            .filter-menu summary span {
+            .filter-menu .filter-button span {
                 color: var(--ink);
                 font-size: 13px;
                 font-weight: 700;
             }
 
-            .filter-menu.is-active summary span {
+            .filter-menu.is-active .filter-button span,
+            .print-ready-pill.is-active .print-ready-label,
+            .print-ready-pill.is-active .print-ready-icon {
                 color: var(--accent);
             }
 
-            .filter-menu.is-active summary span::before {
+            .filter-menu.is-active .filter-button span::before {
                 display: inline-block;
                 width: 6px;
                 height: 6px;
@@ -931,7 +964,7 @@
                 vertical-align: 1px;
             }
 
-            .filter-menu summary strong {
+            .filter-menu .filter-button strong {
                 display: block;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -960,6 +993,29 @@
                 left: auto;
                 display: grid;
                 min-width: 190px;
+            }
+
+            .action-menu-panel-sectioned {
+                gap: 8px;
+                min-width: 220px;
+            }
+
+            .action-menu-section {
+                display: grid;
+                gap: 2px;
+            }
+
+            .action-menu-section + .action-menu-section {
+                border-top: 1px solid var(--line);
+                padding-top: 8px;
+            }
+
+            .action-menu-section > span {
+                color: var(--muted);
+                font-size: 11px;
+                font-weight: 800;
+                padding: 0 9px 3px;
+                text-transform: uppercase;
             }
 
             .filter-panel {
@@ -1018,49 +1074,24 @@
             }
 
             .print-ready-label {
+                display: inline-flex;
+                align-items: center;
+                margin-bottom: 0;
                 white-space: nowrap;
-                color: var(--ink);
-                font-size: 13px;
-                font-weight: 700;
-                line-height: 1;
+                line-height: 1.2;
             }
 
             .print-ready-pill {
-                display: inline-flex;
-                align-items: center;
-                gap: 8px;
-                box-sizing: border-box;
-                border: 1px solid var(--line);
-                border-radius: 6px;
-                background: #fff;
-                color: var(--ink);
-                cursor: pointer;
-                font-size: 13px;
-                font-weight: 700;
-                height: 38px;
-                min-height: 38px;
-                padding: 0 11px;
-                box-shadow: 0 1px 1px rgba(15, 23, 42, 0.03);
+                justify-content: center;
                 user-select: none;
             }
 
             .print-ready-icon {
+                display: block;
                 width: 16px;
                 height: 16px;
                 flex-shrink: 0;
                 color: var(--ink);
-            }
-
-            .print-ready-pill.is-active {
-                border-color: var(--accent);
-                background: #e6f7f3;
-                color: var(--accent);
-                box-shadow: 0 0 0 3px var(--accent-soft);
-            }
-
-            .print-ready-pill.is-active .print-ready-label,
-            .print-ready-pill.is-active .print-ready-icon {
-                color: var(--accent);
             }
 
             .filter-helper {
@@ -1272,6 +1303,41 @@
                 text-transform: uppercase;
             }
 
+            .bulk-action-button {
+                transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+            }
+
+            .bulk-action-button-teal {
+                border-color: var(--accent) !important;
+                color: var(--accent) !important;
+            }
+
+            .bulk-action-button-teal:not(:disabled) {
+                background: var(--accent) !important;
+                color: #fff !important;
+            }
+
+            .bulk-action-button-teal:not(:disabled):hover {
+                border-color: var(--accent-hover) !important;
+                background: var(--accent-hover) !important;
+                color: #fff !important;
+            }
+
+            .bulk-action-button-danger {
+                border-color: var(--danger) !important;
+                color: var(--danger) !important;
+            }
+
+            .bulk-action-button-danger:not(:disabled) {
+                background: var(--danger) !important;
+                color: #fff !important;
+            }
+
+            .bulk-action-button-danger:not(:disabled):hover {
+                background: #dc2626 !important;
+                color: #fff !important;
+            }
+
             .selection-action-divider {
                 align-self: stretch;
                 width: 1px;
@@ -1308,6 +1374,17 @@
                 padding: 8px 9px;
                 text-align: left;
                 text-decoration: none;
+            }
+
+            .action-menu-panel .action-menu-option-disabled {
+                color: var(--muted);
+                cursor: default;
+                opacity: 0.62;
+            }
+
+            .action-menu-panel .action-menu-option-disabled:hover {
+                background: transparent;
+                color: var(--muted);
             }
 
             .sku-table {
