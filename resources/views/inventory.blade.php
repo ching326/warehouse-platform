@@ -940,12 +940,12 @@
             .filter-panel {
                 display: grid;
                 gap: 6px;
-                max-height: 136px;
+                max-height: 326px;
                 overflow: auto;
             }
 
             .filter-panel.compact {
-                max-height: 116px;
+                max-height: 326px;
             }
 
             .filter-panel label,

@@ -166,6 +166,14 @@
                         {{ __('common.nav_shops') }}
                     </a>
                     <a
+                        href="{{ route('setup.shipping-methods.index') }}"
+                        class="{{ request()->routeIs('setup.shipping-methods.*') ? 'is-active' : '' }}"
+                        wire:navigate
+                        @click="open = false"
+                    >
+                        {{ __('common.nav_shipping_methods') }}
+                    </a>
+                    <a
                         href="{{ route('setup.locations.index') }}"
                         class="{{ request()->routeIs('setup.locations.*') ? 'is-active' : '' }}"
                         wire:navigate
