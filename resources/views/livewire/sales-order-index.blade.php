@@ -34,7 +34,7 @@
         @endif
 
         <div class="sales-order-filter-grid" data-testid="sales-order-filter-row">
-            <details class="filter-menu">
+            <details class="filter-menu" wire:ignore.self>
                 <summary>
                     <span>{{ __('sales_orders.field_platform') }}</span>
                     <strong>{{ $this->filterButtonLabel(__('sales_orders.all_platforms'), $platforms, $platformFilterOptions) }}</strong>
@@ -48,7 +48,7 @@
                 </div>
             </details>
 
-            <details class="filter-menu">
+            <details class="filter-menu" wire:ignore.self>
                 <summary>
                     <span>{{ __('sales_orders.field_shop') }}</span>
                     <strong>{{ $this->filterButtonLabel(__('sales_orders.all_shops'), $shopIds, $shopFilterOptions) }}</strong>
@@ -60,7 +60,7 @@
                 </div>
             </details>
 
-            <details class="filter-menu">
+            <details class="filter-menu" wire:ignore.self>
                 <summary>
                     <span>{{ __('sales_orders.field_fulfillment_status') }}</span>
                     <strong>{{ $this->filterButtonLabel(__('sales_orders.all_fulfillment_status'), $fulfillmentStatusesFilter, $fulfillmentStatuses) }}</strong>
@@ -72,7 +72,7 @@
                 </div>
             </details>
 
-            <details class="filter-menu">
+            <details class="filter-menu" wire:ignore.self>
                 <summary>
                     <span>{{ __('sales_orders.field_order_status') }}</span>
                     <strong>{{ $this->filterButtonLabel(__('sales_orders.all_order_status'), $orderStatusesFilter, $orderStatuses) }}</strong>
@@ -84,7 +84,7 @@
                 </div>
             </details>
 
-            <details class="filter-menu">
+            <details class="filter-menu" wire:ignore.self>
                 <summary>
                     <span>{{ __('sales_orders.field_shipping_method') }}</span>
                     <strong>{{ $this->filterButtonLabel(__('sales_orders.all_shipping_methods'), $shippingMethodsFilter, $shippingMethodFilterOptions) }}</strong>
