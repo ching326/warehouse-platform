@@ -54,16 +54,7 @@ class SalesOrderExportController extends Controller
                 abort(422, __('sales_orders.date_range_too_wide'));
             }
 
-            if (
-                $filters['date_range'] === SalesOrderFilters::DATE_ALL
-                && (
-                    SalesOrderFilters::hasHistoricalStatus($filters)
-                    || (
-                        ! SalesOrderFilters::hasExplicitStatusFilter($filters)
-                        && ! ($filters['active_only'] ?? true)
-                    )
-                )
-            ) {
+            if (SalesOrderFilters::requiresExplicitDateRange($filters)) {
                 abort(422, __('sales_orders.export_requires_date_range'));
             }
         }

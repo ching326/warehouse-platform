@@ -148,6 +148,24 @@ class SalesOrderFilters
             ]) !== [];
     }
 
+    /**
+     * True when a filter-based export needs an explicit date range because
+     * an all-dates result could include historical orders.
+     *
+     * @param array<string,mixed> $filters
+     */
+    public static function requiresExplicitDateRange(array $filters): bool
+    {
+        if (($filters['date_range'] ?? self::DATE_ALL) !== self::DATE_ALL) {
+            return false;
+        }
+
+        $hasStatusFilter = self::hasExplicitStatusFilter($filters);
+
+        return self::hasHistoricalStatus($filters)
+            || (! $hasStatusFilter && ! ($filters['active_only'] ?? true));
+    }
+
     public static function hasExplicitStatusFilter(array $filters): bool
     {
         return ($filters['fulfillment'] ?? []) !== [] || ($filters['order_status'] ?? []) !== [];

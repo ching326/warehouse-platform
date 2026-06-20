@@ -400,6 +400,106 @@ class SalesOrderExportTest extends TestCase
             ->assertSee(__('sales_orders.export_requires_date_range'));
     }
 
+    public function test_export_blocks_active_only_off_with_no_status_and_all_dates(): void
+    {
+        Excel::fake();
+        [, $shop, $sku] = $this->salesSku('UNBOUNDED-BYPASS');
+        $this->orderWithLines($shop, [[$sku, 1]], [
+            'platform_order_id' => 'UNBOUNDED-BYPASS',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_SHIPPED,
+            'order_status' => SalesOrder::ORDER_STATUS_COMPLETED,
+        ]);
+
+        $this->actingAs($this->internalUser())
+            ->get(route('sales.orders.export', [
+                'active_only' => '0',
+                'date_range' => SalesOrderFilters::DATE_ALL,
+            ]))
+            ->assertStatus(422)
+            ->assertSee(__('sales_orders.export_requires_date_range'));
+    }
+
+    public function test_export_allows_default_active_all_dates(): void
+    {
+        Excel::fake();
+        [, $shop, $sku] = $this->salesSku('ACTIVE-ALL-DATES');
+        $this->orderWithLines($shop, [[$sku, 1]], [
+            'platform_order_id' => 'ACTIVE-ALL-DATES',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+            'order_status' => SalesOrder::ORDER_STATUS_PENDING,
+        ]);
+
+        $this->actingAs($this->internalUser())
+            ->get(route('sales.orders.export'))
+            ->assertOk();
+    }
+
+    public function test_export_still_blocks_historical_status_with_all_dates(): void
+    {
+        Excel::fake();
+
+        $this->actingAs($this->internalUser())
+            ->get(route('sales.orders.export', [
+                'order_status' => [SalesOrder::ORDER_STATUS_COMPLETED],
+                'date_range' => SalesOrderFilters::DATE_ALL,
+            ]))
+            ->assertStatus(422)
+            ->assertSee(__('sales_orders.export_requires_date_range'));
+    }
+
+    public function test_export_allows_selected_ids_regardless_of_date_range(): void
+    {
+        Excel::fake();
+        [, $shop, $sku] = $this->salesSku('SELECTED-HISTORICAL');
+        $order = $this->orderWithLines($shop, [[$sku, 1]], [
+            'platform_order_id' => 'SELECTED-HISTORICAL',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_SHIPPED,
+            'order_status' => SalesOrder::ORDER_STATUS_COMPLETED,
+        ]);
+
+        $this->actingAs($this->internalUser())
+            ->get(route('sales.orders.export', [
+                'ids' => (string) $order->id,
+                'date_range' => SalesOrderFilters::DATE_ALL,
+                'active_only' => '0',
+            ]))
+            ->assertOk();
+    }
+
+    public function test_requires_explicit_date_range_rule(): void
+    {
+        $this->assertFalse(SalesOrderFilters::requiresExplicitDateRange([
+            'date_range' => SalesOrderFilters::DATE_ALL,
+            'fulfillment' => [],
+            'order_status' => [],
+            'active_only' => true,
+        ]));
+        $this->assertFalse(SalesOrderFilters::requiresExplicitDateRange([
+            'date_range' => SalesOrderFilters::DATE_ALL,
+            'fulfillment' => [],
+            'order_status' => [SalesOrder::ORDER_STATUS_PENDING],
+            'active_only' => false,
+        ]));
+        $this->assertFalse(SalesOrderFilters::requiresExplicitDateRange([
+            'date_range' => SalesOrderFilters::DATE_LAST_30_DAYS,
+            'fulfillment' => [],
+            'order_status' => [],
+            'active_only' => false,
+        ]));
+        $this->assertTrue(SalesOrderFilters::requiresExplicitDateRange([
+            'date_range' => SalesOrderFilters::DATE_ALL,
+            'fulfillment' => [],
+            'order_status' => [],
+            'active_only' => false,
+        ]));
+        $this->assertTrue(SalesOrderFilters::requiresExplicitDateRange([
+            'date_range' => SalesOrderFilters::DATE_ALL,
+            'fulfillment' => [SalesOrder::FULFILLMENT_STATUS_SHIPPED],
+            'order_status' => [],
+            'active_only' => true,
+        ]));
+    }
+
     public function test_sales_order_export_blocks_raw_all_dates_when_active_only_is_disabled(): void
     {
         Excel::fake();
