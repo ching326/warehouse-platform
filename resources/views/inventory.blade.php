@@ -1022,13 +1022,26 @@
             }
 
             .print-ready-pill {
-                justify-self: start;
-                min-width: 0;
-                border-color: var(--line);
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                border: 1px solid var(--line);
+                border-radius: 6px;
                 background: #fff;
                 color: var(--ink);
+                cursor: pointer;
+                font-size: 13px;
                 font-weight: 700;
+                min-height: 38px;
+                padding: 8px 9px;
+                box-shadow: 0 1px 1px rgba(15, 23, 42, 0.03);
                 user-select: none;
+            }
+
+            .print-ready-icon {
+                width: 16px;
+                height: 16px;
+                flex-shrink: 0;
             }
 
             .print-ready-pill.is-active {
@@ -1064,10 +1077,18 @@
                 color: var(--accent);
             }
 
+            .sales-order-search-bar-row {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 8px 16px;
+                margin-bottom: 12px;
+            }
+
             .sales-order-search-row {
                 position: relative;
-                flex: 1 1 270px;
-                max-width: 320px;
+                flex: 0 1 340px;
+                max-width: 380px;
                 min-width: 240px;
             }
 
@@ -1080,7 +1101,7 @@
                 color: var(--ink);
                 font-size: 13px;
                 font-weight: 600;
-                padding: 8px 10px 8px 34px;
+                padding: 8px 10px 8px 38px;
                 box-shadow: 0 1px 1px rgba(15, 23, 42, 0.03);
             }
 
@@ -1098,26 +1119,12 @@
             .sales-order-search-icon {
                 position: absolute;
                 top: 50%;
-                left: 13px;
-                width: 12px;
-                height: 12px;
-                border: 1.7px solid var(--muted);
-                border-radius: 999px;
-                transform: translateY(-58%);
+                left: 11px;
+                width: 16px;
+                height: 16px;
+                color: var(--muted);
+                transform: translateY(-50%);
                 pointer-events: none;
-            }
-
-            .sales-order-search-icon::after {
-                position: absolute;
-                right: -5px;
-                bottom: -4px;
-                width: 6px;
-                height: 1.7px;
-                border-radius: 999px;
-                background: var(--muted);
-                content: "";
-                transform: rotate(45deg);
-                transform-origin: left center;
             }
 
             .date-custom-grid {
@@ -1130,18 +1137,26 @@
             .filter-chip-row {
                 display: flex;
                 flex-wrap: wrap;
+                align-items: center;
                 gap: 6px;
-                margin: 0 0 12px;
+                flex: 1 1 240px;
+                margin: 0;
+            }
+
+            .action-menu-label {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
             }
 
             .filter-chip {
                 display: inline-flex;
                 align-items: center;
                 gap: 7px;
-                border: 1px solid var(--line);
+                border: 1px solid #c4e7df;
                 border-radius: 999px;
-                background: #fff;
-                color: var(--ink);
+                background: #e6f7f3;
+                color: var(--accent);
                 cursor: pointer;
                 font-size: 12px;
                 font-weight: 700;
@@ -1151,12 +1166,12 @@
 
             .filter-chip:hover {
                 border-color: var(--accent);
-                background: var(--accent-soft);
+                background: #d4f0e9;
                 color: var(--accent);
             }
 
             .filter-chip strong {
-                color: var(--muted);
+                color: var(--accent);
                 font-size: 13px;
                 line-height: 1;
             }
@@ -1880,24 +1895,26 @@
             };
             @endphp
 
-            <header class="page-header">
-                <div>
-                    <h1>{{ $title ?? __('inventory.page_title') }}</h1>
-                    <p>{{ $subtitle ?? __('inventory.page_subtitle') }}</p>
-                </div>
+            @if (! ($hidePageHeader ?? false))
+                <header class="page-header">
+                    <div>
+                        <h1>{{ $title ?? __('inventory.page_title') }}</h1>
+                        <p>{{ $subtitle ?? __('inventory.page_subtitle') }}</p>
+                    </div>
 
-                @if ($sectionNavLinks)
-                    <nav class="section-nav">
-                        @foreach ($sectionNavLinks as $link)
-                            <a
-                                href="{{ $link['href'] }}"
-                                class="section-nav-link {{ $link['active'] ? 'is-active' : '' }}"
-                                wire:navigate
-                            >{{ $link['label'] }}</a>
-                        @endforeach
-                    </nav>
-                @endif
-            </header>
+                    @if ($sectionNavLinks)
+                        <nav class="section-nav">
+                            @foreach ($sectionNavLinks as $link)
+                                <a
+                                    href="{{ $link['href'] }}"
+                                    class="section-nav-link {{ $link['active'] ? 'is-active' : '' }}"
+                                    wire:navigate
+                                >{{ $link['label'] }}</a>
+                            @endforeach
+                        </nav>
+                    @endif
+                </header>
+            @endif
 
             {{ $slot }}
         </main>

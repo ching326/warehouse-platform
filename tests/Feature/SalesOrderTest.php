@@ -363,7 +363,11 @@ class SalesOrderTest extends TestCase
         [, $shop, $sku] = $this->salesSku();
         $order = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'ROUTE-SALES']);
 
-        $this->actingAs($this->internalUser())->get('/sales-orders')->assertOk()->assertSee('Sales Orders');
+        $this->actingAs($this->internalUser())
+            ->get('/sales-orders')
+            ->assertOk()
+            ->assertSee('ROUTE-SALES')
+            ->assertDontSee('View and manage platform sales orders.');
         $this->actingAs($this->internalUser())->get('/sales-orders/create')->assertOk()->assertSee('Create Sales Order');
         $this->actingAs($this->internalUser())->get(route('sales.orders.show', $order))->assertOk()->assertSee('ROUTE-SALES');
     }
@@ -867,7 +871,7 @@ class SalesOrderTest extends TestCase
             ->html();
 
         $this->assertStringContainsString('x-text="selectedList().length"', $html);
-        $this->assertStringContainsString(__('sales_orders.selected_suffix'), $html);
+        $this->assertStringContainsString('x-show="has()"', $html);
         $this->assertStringContainsString(__('sales_orders.btn_bulk_mark_ready'), $html);
         $this->assertStringContainsString(__('sales_orders.btn_bulk_hold'), $html);
         $this->assertStringContainsString(__('sales_orders.btn_bulk_cancel'), $html);

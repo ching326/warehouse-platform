@@ -141,7 +141,6 @@ return [
     'select_order' => 'Select order',
     'select_visible_orders' => 'Select visible orders',
     'selected_count' => '{1}:count order selected|[2,*]:count orders selected',
-    'selected_suffix' => 'selected',
 
     'related_orders_label' => 'Same recipient - can ship together',
     'related_orders_none' => 'No other orders share this recipient address.',

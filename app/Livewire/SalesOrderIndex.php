@@ -562,6 +562,7 @@ class SalesOrderIndex extends Component
             'title' => __('sales_orders.index_page_title'),
             'subtitle' => __('sales_orders.index_page_subtitle'),
             'pageWide' => true,
+            'hidePageHeader' => true,
         ]);
     }
 

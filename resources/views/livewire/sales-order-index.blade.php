@@ -39,19 +39,9 @@
             x-data="{ openFilter: null }"
             x-on:keydown.escape.window="openFilter = null"
         >
-            <div class="sales-order-search-row">
-                <span class="sales-order-search-icon" aria-hidden="true"></span>
-                <input
-                    type="text"
-                    class="sales-order-search-input"
-                    wire:model.live.debounce.300ms="search"
-                    aria-label="{{ __('common.search') }}"
-                    placeholder="{{ __('sales_orders.search_placeholder') }}"
-                >
-            </div>
-
             <details
                 @class(['filter-menu', 'is-active' => count((array) $platforms) > 0])
+                x-bind:class="{ 'is-active': $wire.platforms.length > 0 }"
                 wire:ignore.self
                 x-bind:open="openFilter === 'platform'"
                 x-on:click.outside="if (openFilter === 'platform') openFilter = null"
@@ -73,6 +63,7 @@
 
             <details
                 @class(['filter-menu', 'is-active' => count((array) $shopIds) > 0])
+                x-bind:class="{ 'is-active': $wire.shopIds.length > 0 }"
                 wire:ignore.self
                 x-bind:open="openFilter === 'shop'"
                 x-on:click.outside="if (openFilter === 'shop') openFilter = null"
@@ -92,6 +83,7 @@
 
             <details
                 @class(['filter-menu', 'is-active' => count((array) $fulfillmentStatusesFilter) > 0])
+                x-bind:class="{ 'is-active': $wire.fulfillmentStatusesFilter.length > 0 }"
                 wire:ignore.self
                 x-bind:open="openFilter === 'fulfillment'"
                 x-on:click.outside="if (openFilter === 'fulfillment') openFilter = null"
@@ -111,6 +103,7 @@
 
             <details
                 @class(['filter-menu', 'is-active' => count((array) $orderStatusesFilter) > 0])
+                x-bind:class="{ 'is-active': $wire.orderStatusesFilter.length > 0 }"
                 wire:ignore.self
                 x-bind:open="openFilter === 'order-status'"
                 x-on:click.outside="if (openFilter === 'order-status') openFilter = null"
@@ -130,6 +123,7 @@
 
             <details
                 @class(['filter-menu', 'is-active' => count((array) $shippingMethodsFilter) > 0])
+                x-bind:class="{ 'is-active': $wire.shippingMethodsFilter.length > 0 }"
                 wire:ignore.self
                 x-bind:open="openFilter === 'shipping'"
                 x-on:click.outside="if (openFilter === 'shipping') openFilter = null"
@@ -149,6 +143,7 @@
 
             <details
                 @class(['filter-menu', 'is-active' => $dateRange !== \App\Support\SalesOrderFilters::DATE_ALL || $dateFrom !== '' || $dateTo !== ''])
+                x-bind:class="{ 'is-active': $wire.dateRange !== '{{ \App\Support\SalesOrderFilters::DATE_ALL }}' || $wire.dateFrom !== '' || $wire.dateTo !== '' }"
                 wire:ignore.self
                 x-bind:open="openFilter === 'date'"
                 x-on:click.outside="if (openFilter === 'date') openFilter = null"
@@ -178,6 +173,7 @@
 
             <details
                 @class(['filter-menu', 'is-active' => count((array) $othersFilter) > 0])
+                x-bind:class="{ 'is-active': $wire.othersFilter.length > 0 }"
                 wire:ignore.self
                 x-bind:open="openFilter === 'others'"
                 x-on:click.outside="if (openFilter === 'others') openFilter = null"
@@ -205,32 +201,46 @@
                 </div>
             </details>
 
-            <label @class(['print-waiting-toggle', 'print-ready-pill', 'compact-filter-toggle', 'is-active' => $printWaiting])>
+            <label @class(['print-ready-pill', 'is-active' => $printWaiting])>
                 <input class="print-ready-toggle-input" type="checkbox" wire:model.live="printWaiting">
+                <flux:icon.printer class="print-ready-icon" />
                 <span class="print-ready-label">{{ __('sales_orders.print_waiting') }}</span>
             </label>
         </div>
 
-        @if ($activeFilterChips !== [])
-            <div class="filter-chip-row" data-testid="sales-order-filter-chips">
-                @foreach ($activeFilterChips as $chip)
-                    <button type="button" class="filter-chip" wire:click="removeFilterChip('{{ $chip['group'] }}', '{{ $chip['value'] }}')">
-                        <span>{{ $chip['text'] }}</span>
-                        <strong aria-hidden="true">x</strong>
-                    </button>
-                @endforeach
-                <button type="button" class="filter-chip-clear" wire:click="clearAllFilters">
-                    {{ __('sales_orders.clear_all_filters') }}
-                </button>
+        <div class="sales-order-search-bar-row">
+            <div class="sales-order-search-row">
+                <flux:icon.magnifying-glass class="sales-order-search-icon" />
+                <input
+                    type="text"
+                    class="sales-order-search-input"
+                    wire:model.live.debounce.300ms="search"
+                    aria-label="{{ __('common.search') }}"
+                    placeholder="{{ __('sales_orders.search_placeholder') }}"
+                >
             </div>
-        @endif
+
+            @if ($activeFilterChips !== [])
+                <div class="filter-chip-row" data-testid="sales-order-filter-chips">
+                    @foreach ($activeFilterChips as $chip)
+                        <button type="button" class="filter-chip" wire:click="removeFilterChip('{{ $chip['group'] }}', '{{ $chip['value'] }}')">
+                            <span>{{ $chip['text'] }}</span>
+                            <strong aria-hidden="true">x</strong>
+                        </button>
+                    @endforeach
+                    <button type="button" class="filter-chip-clear" wire:click="clearAllFilters">
+                        {{ __('sales_orders.clear_all_filters') }}
+                    </button>
+                </div>
+            @endif
+        </div>
 
         <div class="sales-order-page-actions" data-testid="sales-order-page-actions">
-            <flux:button href="{{ route('sales.orders.import') }}" variant="outline" wire:navigate>
+            <flux:button href="{{ route('sales.orders.import') }}" variant="outline" icon="arrow-up-tray" wire:navigate>
                 {{ __('sales_orders.import_btn') }}
             </flux:button>
             <details class="action-menu" data-testid="sales-order-page-export-menu">
-                <summary>{{ __('sales_orders.export_menu') }}</summary>
+                <summary><span class="action-menu-label"><flux:icon.arrow-down-tray />{{ __('sales_orders.export_menu') }}</span></summary>
                 <div class="action-menu-panel">
                     <a href="{{ route('sales.orders.export', array_filter(array_merge($exportFilters, ['format' => 'csv']), fn ($value) => $value !== null)) }}">
                         {{ __('sales_orders.export_all_csv') }}
@@ -298,8 +308,8 @@
             }"
         >
         <div class="sales-order-action-row" data-testid="sales-order-selection-actions">
-            <flux:badge x-bind:color="has() ? 'blue' : 'zinc'">
-                <span x-text="selectedList().length"></span> {{ __('sales_orders.selected_suffix') }}
+            <flux:badge color="blue" x-show="has()" x-cloak>
+                <span x-text="selectedList().length"></span>
             </flux:badge>
             <div class="selection-action-group" data-testid="sales-order-status-actions">
                 <span>{{ __('sales_orders.bulk_status_group') }}</span>
