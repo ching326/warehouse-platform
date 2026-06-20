@@ -8,6 +8,9 @@ use App\Http\Controllers\MarketplaceShippingNoticeDownloadController;
 use App\Livewire\FulfillmentGroupCreate;
 use App\Livewire\FulfillmentGroupDetail;
 use App\Livewire\FulfillmentGroupIndex;
+use App\Livewire\ExceptionCaseCreate;
+use App\Livewire\ExceptionCaseIndex;
+use App\Livewire\ExceptionCaseShow;
 use App\Livewire\InventoryIndex;
 use App\Livewire\InventoryMovementsIndex;
 use App\Livewire\InboundOrderCreate;
@@ -67,6 +70,7 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/sales-orders/export', SalesOrderExportController::class)->name('sales.orders.export');
     Route::post('/sales-orders/courier-export/validate', CourierExportValidateController::class)->name('sales.orders.courier-export.validate');
     Route::post('/sales-orders/courier-export', CourierExportController::class)->name('sales.orders.courier-export');
+    Route::get('/sales-orders/{order}/exception-cases/create', ExceptionCaseCreate::class)->name('sales.orders.exception-cases.create');
     Route::get('/sales-orders/{order}', SalesOrderDetail::class)->name('sales.orders.show');
     Route::get('/courier-export-batches/{batch}/download', CourierExportDownloadController::class)->name('courier-export-batches.download');
     Route::get('/marketplace-shipping-notice-batches/{batch}/download', MarketplaceShippingNoticeDownloadController::class)
@@ -74,6 +78,9 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/fulfillment-groups', FulfillmentGroupIndex::class)->name('fulfillment-groups.index');
     Route::get('/fulfillment-groups/create', FulfillmentGroupCreate::class)->name('fulfillment-groups.create');
     Route::get('/fulfillment-groups/{group}', FulfillmentGroupDetail::class)->name('fulfillment-groups.show');
+    Route::get('/exception-cases', ExceptionCaseIndex::class)->name('exception-cases.index');
+    Route::get('/exception-cases/create', ExceptionCaseCreate::class)->name('exception-cases.create');
+    Route::get('/exception-cases/{exceptionCase}', ExceptionCaseShow::class)->name('exception-cases.show');
     Route::get('/skus', SkusIndex::class)->name('skus.index');
     Route::get('/skus/create', SkuCreate::class)->name('skus.create');
     Route::get('/setup/tenants', TenantIndex::class)->name('setup.tenants.index');

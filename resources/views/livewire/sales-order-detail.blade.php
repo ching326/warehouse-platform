@@ -120,6 +120,10 @@
                         {{ __('sales_orders.btn_edit_lines') }}
                     </flux:button>
                 @endif
+
+                <flux:button href="{{ route('sales.orders.exception-cases.create', $order) }}" variant="outline" wire:navigate>
+                    {{ __('exception_cases.btn_create_from_order') }}
+                </flux:button>
             </div>
 
             @if (
@@ -150,6 +154,43 @@
                     </flux:button>
                 @endforeach
             </div>
+        </section>
+    @endif
+
+    @if ($order->exceptionCases->isNotEmpty())
+        <section class="table-shell flux-panel form-panel">
+            <div class="form-panel-header">
+                <div>
+                    <strong>{{ __('exception_cases.linked_cases_title') }}</strong>
+                    <span>{{ __('exception_cases.linked_cases_hint') }}</span>
+                </div>
+            </div>
+            <flux:table class="data-table">
+                <flux:table.columns>
+                    <flux:table.column>{{ __('exception_cases.col_case_no') }}</flux:table.column>
+                    <flux:table.column>{{ __('exception_cases.col_type') }}</flux:table.column>
+                    <flux:table.column>{{ __('exception_cases.col_status') }}</flux:table.column>
+                    <flux:table.column>{{ __('exception_cases.col_updated') }}</flux:table.column>
+                    <flux:table.column>{{ __('exception_cases.col_actions') }}</flux:table.column>
+                </flux:table.columns>
+                <flux:table.rows>
+                    @foreach ($order->exceptionCases as $case)
+                        <flux:table.row :key="$case->id">
+                            <flux:table.cell><strong>{{ $case->case_no }}</strong></flux:table.cell>
+                            <flux:table.cell>{{ $case->typeLabel() }}</flux:table.cell>
+                            <flux:table.cell>
+                                <flux:badge color="{{ $case->statusColor() }}">{{ $case->statusLabel() }}</flux:badge>
+                            </flux:table.cell>
+                            <flux:table.cell>{{ $case->updated_at->format('Y-m-d H:i') }}</flux:table.cell>
+                            <flux:table.cell>
+                                <flux:button href="{{ route('exception-cases.show', $case) }}" size="xs" variant="outline" wire:navigate>
+                                    {{ __('exception_cases.btn_view') }}
+                                </flux:button>
+                            </flux:table.cell>
+                        </flux:table.row>
+                    @endforeach
+                </flux:table.rows>
+            </flux:table>
         </section>
     @endif
 

@@ -5,6 +5,7 @@
     $outboundActive  = request()->routeIs('outbound.*');
     $salesActive     = request()->routeIs('sales.*');
     $fulfillmentActive = request()->routeIs('fulfillment-groups.*');
+    $exceptionCasesActive = request()->routeIs('exception-cases.*');
     $setupActive     = request()->routeIs('setup.*');
 @endphp
 
@@ -112,6 +113,15 @@
                 wire:navigate
             >
                 {{ __('common.nav_fulfillment_groups') }}
+            </a>
+
+            {{-- Exception Cases --}}
+            <a
+                href="{{ route('exception-cases.index') }}"
+                class="top-nav-btn {{ $exceptionCasesActive ? 'is-active' : '' }}"
+                wire:navigate
+            >
+                {{ __('common.nav_exception_cases') }}
             </a>
 
             {{-- Setup --}}
