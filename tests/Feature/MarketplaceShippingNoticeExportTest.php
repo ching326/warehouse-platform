@@ -20,6 +20,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use RuntimeException;
 use Tests\TestCase;
 
 class MarketplaceShippingNoticeExportTest extends TestCase
@@ -265,6 +266,34 @@ class MarketplaceShippingNoticeExportTest extends TestCase
 
         $this->assertNotNull($order->fresh()->marketplace_shipping_notice_exported_at);
         $this->assertSame($tenant->id, MarketplaceShippingNoticeBatch::firstOrFail()->tenant_id);
+    }
+
+    public function test_marketplace_notice_export_cleans_up_file_when_database_write_fails(): void
+    {
+        Storage::fake('local');
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-06-20 00:00:00', 'Asia/Tokyo'));
+        [$tenant, $shop, $sku] = $this->salesSku('amazon');
+        $order = $this->order($shop, $sku);
+        $this->mapping($order->shippingMethod, 'amazon');
+        $path = 'marketplace_shipping_notices/amazon/2026/06/amazon-shipping-notice-20260620-000000.txt';
+
+        MarketplaceShippingNoticeBatch::creating(function (): void {
+            throw new RuntimeException('Simulated notice batch failure.');
+        });
+
+        try {
+            app(MarketplaceShippingNoticeExportService::class)->export([$order->id], 'amazon', [$tenant->id], $this->internalUser());
+            $this->fail('Expected marketplace notice export to fail.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Simulated notice batch failure.', $exception->getMessage());
+        } finally {
+            MarketplaceShippingNoticeBatch::flushEventListeners();
+        }
+
+        Storage::disk('local')->assertMissing($path);
+        $this->assertSame([], Storage::disk('local')->allFiles('tmp/marketplace_shipping_notices'));
+        $this->assertDatabaseCount('marketplace_shipping_notice_batches', 0);
+        $this->assertNull($order->fresh()->marketplace_shipping_notice_exported_at);
     }
 
     private function salesSku(string $platform, ?Tenant $tenant = null): array

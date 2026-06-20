@@ -284,7 +284,13 @@ class SkuCreate extends Component
 
     private function activeTenantIds(): array
     {
-        return Auth::user()
+        $user = Auth::user();
+
+        if (! $user) {
+            return [];
+        }
+
+        return $user
             ->tenantUsers()
             ->where('status', 'active')
             ->pluck('tenant_id')
@@ -368,7 +374,7 @@ class SkuCreate extends Component
     {
         $user = Auth::user();
 
-        return ! $user || $user->user_type === 'internal';
+        return $user?->user_type === 'internal';
     }
 
     private function nullableString(?string $value): ?string

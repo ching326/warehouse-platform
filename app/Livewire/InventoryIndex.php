@@ -186,7 +186,7 @@ class InventoryIndex extends Component
     {
         $user = Auth::user();
 
-        return (! $user || $user->user_type === 'internal') && $this->tenantId === '';
+        return $user?->user_type === 'internal' && $this->tenantId === '';
     }
 
     /**
@@ -277,7 +277,11 @@ class InventoryIndex extends Component
         $this->visibleTenantIdsResolved = true;
         $user = Auth::user();
 
-        if (! $user || $user->user_type === 'internal') {
+        if (! $user) {
+            return $this->visibleTenantIdsCache = [];
+        }
+
+        if ($user->user_type === 'internal') {
             return $this->visibleTenantIdsCache = null;
         }
 

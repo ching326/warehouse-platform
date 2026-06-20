@@ -142,13 +142,11 @@ class OutboundOrderShip extends Component
             'ship_note' => ['nullable', 'string', 'max:1000'],
         ])->validate();
     }
-
-    // TODO: remove unauthenticated fallback when auth is implemented
     private function isInternalUser(): bool
     {
         $user = Auth::user();
 
-        return ! $user || $user->user_type === 'internal';
+        return $user?->user_type === 'internal';
     }
 
     private function visibleTenantIds(): array
@@ -163,7 +161,13 @@ class OutboundOrderShip extends Component
             return $this->visibleTenantIdsCache = Tenant::query()->pluck('id')->all();
         }
 
-        return $this->visibleTenantIdsCache = Auth::user()
+        $user = Auth::user();
+
+        if (! $user) {
+            return $this->visibleTenantIdsCache = [];
+        }
+
+        return $this->visibleTenantIdsCache = $user
             ->tenantUsers()
             ->where('status', 'active')
             ->pluck('tenant_id')

@@ -76,13 +76,11 @@ class OtherSettings extends Component
         $this->loadTypes();
         session()->flash('saved', true);
     }
-
-    // TODO: remove unauthenticated fallback when auth is implemented
     private function isInternalUser(): bool
     {
         $user = Auth::user();
 
-        return ! $user || $user->user_type === 'internal';
+        return $user?->user_type === 'internal';
     }
 
     private function loadTypes(): void

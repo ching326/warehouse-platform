@@ -86,7 +86,7 @@ class TenantEdit extends Component
             ],
         ])->layout('inventory', [
             'title'    => __('setup.tenant_edit_page_title'),
-            'subtitle' => $this->tenant->code.' — '.$this->tenant->name,
+            'subtitle' => $this->tenant->code.'  E'.$this->tenant->name,
         ]);
     }
 
@@ -94,7 +94,7 @@ class TenantEdit extends Component
     {
         $user = Auth::user();
 
-        return ! $user || $user->user_type === 'internal';
+        return $user?->user_type === 'internal';
     }
 
     private function nullableString(?string $value): ?string

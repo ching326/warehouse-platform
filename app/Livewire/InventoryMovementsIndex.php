@@ -142,7 +142,7 @@ class InventoryMovementsIndex extends Component
     {
         $user = Auth::user();
 
-        return (! $user || $user->user_type === 'internal')
+        return $user?->user_type === 'internal'
             && $this->tenantId === ''
             && $this->stockItemId === '';
     }
@@ -318,7 +318,11 @@ class InventoryMovementsIndex extends Component
         $this->visibleTenantIdsResolved = true;
         $user = Auth::user();
 
-        if (! $user || $user->user_type === 'internal') {
+        if (! $user) {
+            return $this->visibleTenantIdsCache = [];
+        }
+
+        if ($user->user_type === 'internal') {
             return $this->visibleTenantIdsCache = null;
         }
 

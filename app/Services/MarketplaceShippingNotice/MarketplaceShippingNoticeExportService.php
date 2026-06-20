@@ -11,6 +11,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -169,52 +170,61 @@ class MarketplaceShippingNoticeExportService
         $japanNow = CarbonImmutable::now('Asia/Tokyo');
         $fileName = $this->fileName($platform, $japanNow);
         $path = 'marketplace_shipping_notices/'.$platform.'/'.$japanNow->format('Y/m').'/'.$fileName;
+        $temporaryPath = 'tmp/marketplace_shipping_notices/'.Str::uuid().'.tmp';
         $lineCount = $this->lineCount($platform, $orders);
         $content = $this->buildContent($platform, $orders, $mappings, $japanNow);
 
-        Storage::disk('local')->put($path, $content);
+        Storage::disk('local')->put($temporaryPath, $content);
 
-        return DB::transaction(function () use ($orders, $tenantId, $marketplace, $platform, $fileName, $path, $user, $confirmedReExport, $lineCount) {
-            $exportedAt = now();
-            $batch = MarketplaceShippingNoticeBatch::create([
-                'tenant_id' => $tenantId,
-                'platform' => $platform,
-                'marketplace' => $marketplace,
-                'file_name' => $fileName,
-                'disk' => 'local',
-                'path' => $path,
-                'order_count' => $orders->count(),
-                'line_count' => $lineCount,
-                'exported_by_user_id' => $user?->id,
-                'exported_at' => $exportedAt,
-            ]);
+        try {
+            return DB::transaction(function () use ($orders, $tenantId, $marketplace, $platform, $fileName, $path, $temporaryPath, $user, $confirmedReExport, $lineCount) {
+                Storage::disk('local')->move($temporaryPath, $path);
 
-            foreach ($orders as $order) {
-                $batch->batchOrders()->create([
-                    'sales_order_id' => $order->id,
-                    'platform_order_id' => $order->platform_order_id,
-                    'tracking_no' => $order->tracking_no,
-                    'shipping_method_id' => $order->shipping_method_id,
+                $exportedAt = now();
+                $batch = MarketplaceShippingNoticeBatch::create([
+                    'tenant_id' => $tenantId,
+                    'platform' => $platform,
+                    'marketplace' => $marketplace,
+                    'file_name' => $fileName,
+                    'disk' => 'local',
+                    'path' => $path,
+                    'order_count' => $orders->count(),
+                    'line_count' => $lineCount,
+                    'exported_by_user_id' => $user?->id,
                     'exported_at' => $exportedAt,
                 ]);
 
-                $order->update(['marketplace_shipping_notice_exported_at' => $exportedAt]);
+                foreach ($orders as $order) {
+                    $batch->batchOrders()->create([
+                        'sales_order_id' => $order->id,
+                        'platform_order_id' => $order->platform_order_id,
+                        'tracking_no' => $order->tracking_no,
+                        'shipping_method_id' => $order->shipping_method_id,
+                        'exported_at' => $exportedAt,
+                    ]);
 
-                activity('sales_order')
-                    ->performedOn($order)
-                    ->causedBy($user)
-                    ->event('marketplace_shipping_notice_exported')
-                    ->withProperties([
-                        'platform' => $platform,
-                        'batch_id' => $batch->id,
-                        'file_name' => $fileName,
-                        're_export' => $confirmedReExport,
-                    ])
-                    ->log('marketplace_shipping_notice_exported');
-            }
+                    $order->update(['marketplace_shipping_notice_exported_at' => $exportedAt]);
 
-            return $batch;
-        });
+                    activity('sales_order')
+                        ->performedOn($order)
+                        ->causedBy($user)
+                        ->event('marketplace_shipping_notice_exported')
+                        ->withProperties([
+                            'platform' => $platform,
+                            'batch_id' => $batch->id,
+                            'file_name' => $fileName,
+                            're_export' => $confirmedReExport,
+                        ])
+                        ->log('marketplace_shipping_notice_exported');
+                }
+
+                return $batch;
+            });
+        } catch (\Throwable $exception) {
+            Storage::disk('local')->delete([$temporaryPath, $path]);
+
+            throw $exception;
+        }
     }
 
     private function loadOrders(array $ids, array $allowedTenantIds): Collection

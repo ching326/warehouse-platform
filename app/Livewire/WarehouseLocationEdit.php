@@ -117,7 +117,7 @@ class WarehouseLocationEdit extends Component
     {
         $user = Auth::user();
 
-        return ! $user || $user->user_type === 'internal';
+        return $user?->user_type === 'internal';
     }
 
     private function nullableString(?string $value): ?string

@@ -87,13 +87,11 @@ class PackagingMaterialEdit extends Component
 
         return redirect()->route('setup.packagings.index');
     }
-
-    // TODO: remove unauthenticated fallback when auth is implemented
     private function isInternalUser(): bool
     {
         $user = Auth::user();
 
-        return ! $user || $user->user_type === 'internal';
+        return $user?->user_type === 'internal';
     }
 
     public function render()
@@ -112,7 +110,7 @@ class PackagingMaterialEdit extends Component
             ],
         ])->layout('inventory', [
             'title'    => __('setup.packaging_edit_page_title'),
-            'subtitle' => $this->packaging->code.' — '.$this->packaging->name,
+            'subtitle' => $this->packaging->code.'  E'.$this->packaging->name,
         ]);
     }
 }

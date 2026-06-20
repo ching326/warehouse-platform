@@ -103,7 +103,7 @@ class WarehouseEdit extends Component
             'timezones' => \DateTimeZone::listIdentifiers(),
         ])->layout('inventory', [
             'title'    => __('setup.warehouse_edit_page_title'),
-            'subtitle' => $this->warehouse->code.' — '.$this->warehouse->name,
+            'subtitle' => $this->warehouse->code.'  E'.$this->warehouse->name,
         ]);
     }
 
@@ -111,7 +111,7 @@ class WarehouseEdit extends Component
     {
         $user = Auth::user();
 
-        return ! $user || $user->user_type === 'internal';
+        return $user?->user_type === 'internal';
     }
 
     private function nullableString(?string $value): ?string

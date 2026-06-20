@@ -673,13 +673,11 @@ class SalesOrderImport extends Component
             'amazon_report' => __('sales_orders.import_format_amazon_report'),
         ];
     }
-
-    // TODO: remove unauthenticated fallback when auth is implemented
     private function isInternalUser(): bool
     {
         $user = Auth::user();
 
-        return ! $user || $user->user_type === 'internal';
+        return $user?->user_type === 'internal';
     }
 
     private function allowedTenantIds(): array
@@ -694,7 +692,13 @@ class SalesOrderImport extends Component
             return $this->allowedTenantIdsCache = Tenant::query()->pluck('id')->all();
         }
 
-        return $this->allowedTenantIdsCache = Auth::user()
+        $user = Auth::user();
+
+        if (! $user) {
+            return $this->allowedTenantIdsCache = [];
+        }
+
+        return $this->allowedTenantIdsCache = $user
             ->tenantUsers()
             ->where('status', 'active')
             ->pluck('tenant_id')

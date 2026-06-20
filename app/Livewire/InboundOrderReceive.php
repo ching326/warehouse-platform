@@ -185,13 +185,11 @@ class InboundOrderReceive extends Component
 
         validator(['lineInputs' => $this->lineInputs], $rules)->validate();
     }
-
-    // TODO: remove unauthenticated fallback when auth is implemented
     private function isInternalUser(): bool
     {
         $user = Auth::user();
 
-        return ! $user || $user->user_type === 'internal';
+        return $user?->user_type === 'internal';
     }
 
     private function visibleTenantIds(): array
@@ -200,7 +198,13 @@ class InboundOrderReceive extends Component
             return Tenant::query()->pluck('id')->all();
         }
 
-        return Auth::user()
+        $user = Auth::user();
+
+        if (! $user) {
+            return [];
+        }
+
+        return $user
             ->tenantUsers()
             ->where('status', 'active')
             ->pluck('tenant_id')

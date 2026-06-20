@@ -11,6 +11,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -132,48 +133,57 @@ class CourierExportService
         $japanNow = CarbonImmutable::now('Asia/Tokyo');
         $fileName = $carrier.'_'.$japanNow->format('Ymd_Hi').'.csv';
         $path = 'courier_exports/'.$carrier.'/'.$japanNow->format('Y/m').'/'.$fileName;
+        $temporaryPath = 'tmp/courier_exports/'.Str::uuid().'.csv';
         $csv = $this->buildCsv($carrier, $orders, $japanNow);
 
-        Storage::disk('local')->put($path, $csv);
+        Storage::disk('local')->put($temporaryPath, $csv);
 
-        return DB::transaction(function () use ($orders, $tenantId, $carrier, $fileName, $path, $user, $confirmedReExport) {
-            $exportedAt = now();
-            $batch = CourierExportBatch::create([
-                'tenant_id' => $tenantId,
-                'carrier' => $carrier,
-                'file_name' => $fileName,
-                'disk' => 'local',
-                'path' => $path,
-                'order_count' => $orders->count(),
-                'exported_by_user_id' => $user?->id,
-                'exported_at' => $exportedAt,
-            ]);
+        try {
+            return DB::transaction(function () use ($orders, $tenantId, $carrier, $fileName, $path, $temporaryPath, $user, $confirmedReExport) {
+                Storage::disk('local')->move($temporaryPath, $path);
 
-            foreach ($orders as $order) {
-                $batch->batchOrders()->create([
-                    'sales_order_id' => $order->id,
-                    'platform_order_id' => $order->platform_order_id,
+                $exportedAt = now();
+                $batch = CourierExportBatch::create([
+                    'tenant_id' => $tenantId,
                     'carrier' => $carrier,
+                    'file_name' => $fileName,
+                    'disk' => 'local',
+                    'path' => $path,
+                    'order_count' => $orders->count(),
+                    'exported_by_user_id' => $user?->id,
                     'exported_at' => $exportedAt,
                 ]);
 
-                $order->update(['courier_csv_exported_at' => $exportedAt]);
-
-                activity('sales_order')
-                    ->performedOn($order)
-                    ->causedBy($user)
-                    ->event('courier_exported')
-                    ->withProperties([
+                foreach ($orders as $order) {
+                    $batch->batchOrders()->create([
+                        'sales_order_id' => $order->id,
+                        'platform_order_id' => $order->platform_order_id,
                         'carrier' => $carrier,
-                        'batch_id' => $batch->id,
-                        'file_name' => $fileName,
-                        're_export' => $confirmedReExport,
-                    ])
-                    ->log('courier_exported');
-            }
+                        'exported_at' => $exportedAt,
+                    ]);
 
-            return $batch;
-        });
+                    $order->update(['courier_csv_exported_at' => $exportedAt]);
+
+                    activity('sales_order')
+                        ->performedOn($order)
+                        ->causedBy($user)
+                        ->event('courier_exported')
+                        ->withProperties([
+                            'carrier' => $carrier,
+                            'batch_id' => $batch->id,
+                            'file_name' => $fileName,
+                            're_export' => $confirmedReExport,
+                        ])
+                        ->log('courier_exported');
+                }
+
+                return $batch;
+            });
+        } catch (\Throwable $exception) {
+            Storage::disk('local')->delete([$temporaryPath, $path]);
+
+            throw $exception;
+        }
     }
 
     private function loadOrders(array $ids, array $allowedTenantIds): Collection

@@ -189,6 +189,6 @@ class ShippingMethodCreate extends Component
     {
         $user = Auth::user();
 
-        return ! $user || $user->user_type === 'internal';
+        return $user?->user_type === 'internal';
     }
 }

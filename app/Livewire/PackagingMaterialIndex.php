@@ -99,13 +99,11 @@ class PackagingMaterialIndex extends Component
             ? __('setup.packaging_types.'.$type)
             : str($type)->replace('_', ' ')->title()->toString();
     }
-
-    // TODO: remove unauthenticated fallback when auth is implemented
     private function isInternalUser(): bool
     {
         $user = Auth::user();
 
-        return ! $user || $user->user_type === 'internal';
+        return $user?->user_type === 'internal';
     }
 
     private function typeOptions(): array

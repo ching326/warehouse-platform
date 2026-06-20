@@ -123,13 +123,11 @@ class InboundOrderIndex extends Component
             ->orderByDesc('id')
             ->paginate($this->perPage);
     }
-
-    // TODO: remove unauthenticated fallback when auth is implemented
     private function isInternalUser(): bool
     {
         $user = Auth::user();
 
-        return ! $user || $user->user_type === 'internal';
+        return $user?->user_type === 'internal';
     }
 
     private function visibleTenantIds(): ?array
@@ -141,7 +139,11 @@ class InboundOrderIndex extends Component
         $this->visibleTenantIdsResolved = true;
         $user = Auth::user();
 
-        if (! $user || $user->user_type === 'internal') {
+        if (! $user) {
+            return $this->visibleTenantIdsCache = [];
+        }
+
+        if ($user->user_type === 'internal') {
             return $this->visibleTenantIdsCache = null;
         }
 

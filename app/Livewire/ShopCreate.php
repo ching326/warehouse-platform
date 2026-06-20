@@ -107,13 +107,11 @@ class ShopCreate extends Component
             'note' => ['nullable', 'string', 'max:2000'],
         ])->validate();
     }
-
-    // TODO: remove unauthenticated fallback when auth is implemented
     private function isInternalUser(): bool
     {
         $user = Auth::user();
 
-        return ! $user || $user->user_type === 'internal';
+        return $user?->user_type === 'internal';
     }
 
     private function nullableString(?string $value): ?string

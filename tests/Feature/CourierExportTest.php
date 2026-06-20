@@ -270,6 +270,33 @@ class CourierExportTest extends TestCase
         $this->assertSame(1, CourierExportBatchOrder::count());
     }
 
+    public function test_export_cleans_up_file_when_database_write_fails(): void
+    {
+        Storage::fake('local');
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-06-20 00:00:00', 'Asia/Tokyo'));
+        [$tenant, $shop, $sku] = $this->salesSku();
+        $order = $this->order($shop, $sku, ['shipping_method' => CourierCarrier::YAMATO]);
+        $path = 'courier_exports/yamato/2026/06/yamato_20260620_0000.csv';
+
+        CourierExportBatch::creating(function (): void {
+            throw new RuntimeException('Simulated batch failure.');
+        });
+
+        try {
+            app(CourierExportService::class)->export([$order->id], CourierCarrier::YAMATO, [$tenant->id], $this->internalUser());
+            $this->fail('Expected courier export to fail.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Simulated batch failure.', $exception->getMessage());
+        } finally {
+            CourierExportBatch::flushEventListeners();
+        }
+
+        Storage::disk('local')->assertMissing($path);
+        $this->assertSame([], Storage::disk('local')->allFiles('tmp/courier_exports'));
+        $this->assertDatabaseCount('courier_export_batches', 0);
+        $this->assertNull($order->fresh()->courier_csv_exported_at);
+    }
+
     public function test_export_uses_japan_time_for_ship_date_and_filename(): void
     {
         Storage::fake('local');
