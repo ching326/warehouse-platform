@@ -40,6 +40,7 @@ class SalesOrderFilters
             'date_from' => trim((string) ($input['date_from'] ?? '')),
             'date_to' => trim((string) ($input['date_to'] ?? '')),
             'active_only' => self::boolValue($input['active_only'] ?? true),
+            'print_waiting' => self::boolValue($input['print_waiting'] ?? false),
             'search' => trim((string) ($input['search'] ?? $input['q'] ?? '')),
         ];
     }
@@ -84,6 +85,21 @@ class SalesOrderFilters
 
         if (($filters['fulfillment'] ?? []) === [] && ($filters['order_status'] ?? []) === [] && ($filters['active_only'] ?? true)) {
             self::applyActiveOnly($query);
+        }
+
+        if ($filters['print_waiting'] ?? false) {
+            $query
+                ->where('order_status', SalesOrder::ORDER_STATUS_PENDING)
+                ->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_READY)
+                ->whereNull('courier_csv_exported_at')
+                ->whereNotIn('order_status', [
+                    SalesOrder::ORDER_STATUS_COMPLETED,
+                    SalesOrder::ORDER_STATUS_CANCELLED,
+                ])
+                ->whereNotIn('fulfillment_status', [
+                    SalesOrder::FULFILLMENT_STATUS_SHIPPED,
+                    SalesOrder::FULFILLMENT_STATUS_CANCELLED,
+                ]);
         }
 
         self::applyDateRange($query, $filters);
@@ -157,6 +173,10 @@ class SalesOrderFilters
     public static function requiresExplicitDateRange(array $filters): bool
     {
         if (($filters['date_range'] ?? self::DATE_ALL) !== self::DATE_ALL) {
+            return false;
+        }
+
+        if ($filters['print_waiting'] ?? false) {
             return false;
         }
 

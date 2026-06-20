@@ -950,12 +950,33 @@
 
             .filter-panel label,
             .date-range-options label,
-            .active-only-toggle {
+            .print-waiting-toggle {
                 display: flex;
                 align-items: center;
                 gap: 6px;
                 color: var(--muted);
                 font-size: 12px;
+                font-weight: 700;
+            }
+
+            .print-waiting-toggle {
+                align-items: center;
+                border: 1px solid var(--line);
+                border-radius: 6px;
+                background: #fff;
+                color: var(--ink);
+                min-height: 40px;
+                padding: 7px 10px;
+            }
+
+            .print-waiting-toggle span {
+                display: grid;
+                gap: 1px;
+            }
+
+            .print-waiting-toggle small {
+                color: var(--muted);
+                font-size: 11px;
                 font-weight: 700;
             }
 
@@ -1409,7 +1430,54 @@
                widths defined for these columns and let long platform order ids overflow
                into the neighbouring cell. */
             .sales-order-table {
-                min-width: 1160px;
+                min-width: 1320px;
+            }
+
+            .sales-order-table th:nth-child(1),
+            .sales-order-table td:nth-child(1) {
+                width: 52px;
+                min-width: 52px;
+                max-width: 52px;
+            }
+
+            .sales-order-table th:nth-child(2),
+            .sales-order-table td:nth-child(2) {
+                width: 160px;
+                min-width: 150px;
+            }
+
+            .sales-order-table th:nth-child(3),
+            .sales-order-table td:nth-child(3) {
+                width: 280px;
+                min-width: 240px;
+            }
+
+            .sales-order-table th:nth-child(4),
+            .sales-order-table td:nth-child(4) {
+                width: 170px;
+                min-width: 150px;
+            }
+
+            .sales-order-table th:nth-child(5),
+            .sales-order-table td:nth-child(5) {
+                width: 230px;
+                min-width: 200px;
+            }
+
+            .sales-order-table th:nth-child(6),
+            .sales-order-table td:nth-child(6),
+            .sales-order-table th:nth-child(7),
+            .sales-order-table td:nth-child(7) {
+                width: 170px;
+                min-width: 150px;
+            }
+
+            .sales-order-table th:nth-child(8),
+            .sales-order-table td:nth-child(8),
+            .sales-order-table th:nth-child(9),
+            .sales-order-table td:nth-child(9) {
+                width: 120px;
+                min-width: 110px;
             }
 
             .so-address-cell,
@@ -1418,6 +1486,10 @@
             .so-recipient-cell,
             .so-shop-cell {
                 max-width: 240px;
+            }
+
+            .so-address-cell {
+                max-width: 320px;
             }
 
             .so-address-cell strong,
@@ -1463,6 +1535,35 @@
 
             .so-control-cell {
                 min-width: 150px;
+            }
+
+            .so-select-cell {
+                text-align: center;
+            }
+
+            .so-checkbox-hitbox {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 34px;
+                height: 34px;
+                border-radius: 6px;
+                cursor: pointer;
+            }
+
+            .so-checkbox-hitbox:hover {
+                background: var(--accent-soft);
+            }
+
+            .so-checkbox-hitbox input {
+                width: 18px;
+                height: 18px;
+                cursor: pointer;
+            }
+
+            .so-checkbox-hitbox-header {
+                width: 30px;
+                height: 30px;
             }
 
             .table-control {

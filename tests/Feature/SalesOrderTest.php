@@ -928,6 +928,43 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString('ids='.$first->id.'%2C'.$second->id, $html);
     }
 
+    public function test_sales_order_index_select_all_selects_only_visible_page_orders(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $orders = collect(range(1, 31))->map(fn (int $index) => $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => sprintf('SELECT-PAGE-%02d', $index),
+        ]));
+
+        $component = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->call('toggleVisibleSelection');
+
+        $selectedIds = array_map('intval', $component->get('selectedIds'));
+
+        $this->assertCount(30, $selectedIds);
+        $this->assertNotContains($orders->first()->id, $selectedIds);
+        $component->assertSee('30 orders selected');
+
+        $component->call('toggleVisibleSelection');
+        $this->assertSame([], $component->get('selectedIds'));
+    }
+
+    public function test_sales_order_index_checkbox_hitboxes_are_rendered_without_row_selection(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'CHECKBOX-HITBOX']);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->html();
+
+        $this->assertStringContainsString('so-checkbox-hitbox-header', $html);
+        $this->assertStringContainsString('class="so-checkbox-hitbox"', $html);
+        $this->assertStringContainsString('wire:model.live="selectedIds"', $html);
+        $this->assertStringContainsString('wire:click="toggleVisibleSelection"', $html);
+        $this->assertStringNotContainsString('wire:click="toggleRowSelection"', $html);
+    }
+
     public function test_sales_order_index_reserves_mark_shipped_slot(): void
     {
         [, $shop, $sku] = $this->salesSku();
@@ -948,6 +985,34 @@ class SalesOrderTest extends TestCase
         $this->assertGreaterThan($markShippedPosition, $holdPosition);
     }
 
+    public function test_sales_order_index_bulk_mark_shipped_updates_only_ship_ready_orders(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $ready = $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'BULK-SHIP-READY',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+        ]);
+        $unfulfilled = $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'BULK-SHIP-UNFULFILLED',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $ready->id, (string) $unfulfilled->id])
+            ->call('bulkMarkShipped')
+            ->assertSee(__('sales_orders.bulk_shipped_result', ['updated' => 1, 'skipped' => 1]));
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_SHIPPED, $ready->refresh()->fulfillment_status);
+        $this->assertSame(SalesOrder::ORDER_STATUS_COMPLETED, $ready->order_status);
+        $this->assertNotNull($ready->shipped_at);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $unfulfilled->refresh()->fulfillment_status);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->assertDontSee('BULK-SHIP-READY')
+            ->assertSee('BULK-SHIP-UNFULFILLED');
+    }
+
     public function test_sales_order_index_default_view_shows_active_backlog_all_dates(): void
     {
         [, $shop, $sku] = $this->salesSku();
@@ -965,16 +1030,104 @@ class SalesOrderTest extends TestCase
             'order_status' => SalesOrder::ORDER_STATUS_COMPLETED,
             'order_date' => now()->subYears(2),
         ]);
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'OLD-CANCELLED',
+            'order_status' => SalesOrder::ORDER_STATUS_CANCELLED,
+            'order_date' => now()->subYears(2),
+        ]);
 
-        Livewire::actingAs($this->internalUser())
+        $component = Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
             ->assertSet('activeOnly', true)
             ->assertSee('OLD-ACTIVE')
             ->assertDontSee('OLD-SHIPPED')
             ->assertDontSee('OLD-COMPLETED')
-            ->assertSee(__('sales_orders.active_orders'));
+            ->assertDontSee('OLD-CANCELLED');
+
+        $html = $component->html();
+        $this->assertStringNotContainsString('wire:model.live="activeOnly"', $html);
+        $this->assertStringNotContainsString('active-only-toggle', $html);
+        $this->assertStringContainsString(__('sales_orders.print_waiting'), $html);
 
         $this->assertNotNull($oldActive->refresh()->order_date);
+    }
+
+    public function test_sales_order_index_default_view_still_shows_operational_exceptions(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'OPEN-HOLD',
+            'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
+        ]);
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'OPEN-BACKORDER',
+            'order_status' => SalesOrder::ORDER_STATUS_BACKORDER,
+        ]);
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'OPEN-CANCEL-REQUEST',
+            'order_status' => SalesOrder::ORDER_STATUS_CANCEL_REQUESTED,
+        ]);
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'OPEN-SHIP-READY',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->assertSee('OPEN-HOLD')
+            ->assertSee('OPEN-BACKORDER')
+            ->assertSee('OPEN-CANCEL-REQUEST')
+            ->assertSee('OPEN-SHIP-READY');
+    }
+
+    public function test_sales_order_index_print_waiting_filters_ready_pending_not_exported_orders(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $ready = $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'PRINT-WAITING-READY',
+            'order_status' => SalesOrder::ORDER_STATUS_PENDING,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+        ]);
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'PRINT-WAITING-UNFULFILLED']);
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'PRINT-WAITING-HOLD',
+            'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+        ]);
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'PRINT-WAITING-BACKORDER',
+            'order_status' => SalesOrder::ORDER_STATUS_BACKORDER,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+        ]);
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'PRINT-WAITING-CANCEL-REQUEST',
+            'order_status' => SalesOrder::ORDER_STATUS_CANCEL_REQUESTED,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+        ]);
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'PRINT-WAITING-EXPORTED',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+            'courier_csv_exported_at' => now(),
+        ]);
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'PRINT-WAITING-SHIPPED',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_SHIPPED,
+            'order_status' => SalesOrder::ORDER_STATUS_COMPLETED,
+        ]);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('printWaiting', true)
+            ->assertSee($ready->platform_order_id)
+            ->assertDontSee('PRINT-WAITING-UNFULFILLED')
+            ->assertDontSee('PRINT-WAITING-HOLD')
+            ->assertDontSee('PRINT-WAITING-BACKORDER')
+            ->assertDontSee('PRINT-WAITING-CANCEL-REQUEST')
+            ->assertDontSee('PRINT-WAITING-EXPORTED')
+            ->assertDontSee('PRINT-WAITING-SHIPPED')
+            ->html();
+
+        $this->assertStringContainsString('print_waiting=1', $html);
     }
 
     public function test_sales_order_index_historical_status_defaults_to_last_30_days(): void
@@ -1394,8 +1547,51 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString('wire:click="hold"', $html);
         $this->assertStringContainsString('wire:click="markBackorder"', $html);
         $this->assertStringContainsString('wire:click="editLines"', $html);
-        $this->assertSame(4, substr_count($html, 'data-action-variant="primary"'));
+        $this->assertSame(5, substr_count($html, 'data-action-variant="primary"'));
         $this->assertStringContainsString('data-action-variant="danger"', $html);
+    }
+
+    public function test_sales_order_detail_mark_shipped_visibility_and_action(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $ready = $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'DETAIL-SHIP-READY',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+        ]);
+        $unfulfilled = $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'DETAIL-SHIP-UNFULFILLED',
+        ]);
+        $hold = $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'DETAIL-SHIP-HOLD',
+            'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $ready])
+            ->assertSee(__('sales_orders.btn_mark_shipped'))
+            ->call('markShipped')
+            ->assertSee(__('sales_orders.marked_shipped'));
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_SHIPPED, $ready->refresh()->fulfillment_status);
+        $this->assertSame(SalesOrder::ORDER_STATUS_COMPLETED, $ready->order_status);
+        $this->assertNotNull($ready->shipped_at);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $unfulfilled])
+            ->assertDontSee(__('sales_orders.btn_mark_shipped'))
+            ->call('markShipped')
+            ->assertSee(__('sales_orders.cannot_mark_shipped'));
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $hold])
+            ->assertDontSee(__('sales_orders.btn_mark_shipped'));
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->assertDontSee('DETAIL-SHIP-READY')
+            ->set('fulfillmentStatusesFilter', [SalesOrder::FULFILLMENT_STATUS_SHIPPED])
+            ->assertSee('DETAIL-SHIP-READY');
     }
 
     public function test_sales_order_detail_edit_recipient_button_sits_below_recipient_header(): void

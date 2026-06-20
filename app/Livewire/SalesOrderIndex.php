@@ -43,6 +43,9 @@ class SalesOrderIndex extends Component
     #[Url(as: 'active_only', except: true)]
     public bool $activeOnly = true;
 
+    #[Url(as: 'print_waiting', except: false)]
+    public bool $printWaiting = false;
+
     #[Url(as: 'date_from', except: '')]
     public string $dateFrom = '';
 
@@ -53,6 +56,8 @@ class SalesOrderIndex extends Component
     public string $search = '';
 
     public array $selectedIds = [];
+
+    public array $visibleOrderIds = [];
 
     public array $trackingDrafts = [];
 
@@ -119,6 +124,11 @@ class SalesOrderIndex extends Component
     }
 
     public function updatedActiveOnly(): void
+    {
+        $this->filterChanged();
+    }
+
+    public function updatedPrintWaiting(): void
     {
         $this->filterChanged();
     }
@@ -196,6 +206,28 @@ class SalesOrderIndex extends Component
             ]);
 
         $this->finishBulk('sales_orders.bulk_hold_result', $updated, count($selectedIds));
+    }
+
+    public function bulkMarkShipped(): void
+    {
+        if ($this->selectedIds === []) {
+            return;
+        }
+
+        $selectedIds = $this->normalizedSelectedIds();
+
+        $updated = SalesOrder::query()
+            ->whereIn('id', $selectedIds)
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->where('order_status', SalesOrder::ORDER_STATUS_PENDING)
+            ->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_READY)
+            ->update([
+                'order_status' => SalesOrder::ORDER_STATUS_COMPLETED,
+                'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_SHIPPED,
+                'shipped_at' => now(),
+            ]);
+
+        $this->finishBulk('sales_orders.bulk_shipped_result', $updated, count($selectedIds));
     }
 
     public function bulkReleaseHold(): void
@@ -351,6 +383,27 @@ class SalesOrderIndex extends Component
         }
     }
 
+    public function toggleVisibleSelection(): void
+    {
+        $visibleIds = array_values(array_unique(array_map('intval', $this->visibleOrderIds)));
+
+        if ($visibleIds === []) {
+            return;
+        }
+
+        $selectedIds = $this->normalizedSelectedIds();
+        $selectedLookup = array_flip($selectedIds);
+        $allVisibleSelected = collect($visibleIds)->every(fn (int $id): bool => isset($selectedLookup[$id]));
+
+        if ($allVisibleSelected) {
+            $this->selectedIds = array_values(array_diff($selectedIds, $visibleIds));
+
+            return;
+        }
+
+        $this->selectedIds = array_values(array_unique(array_merge($selectedIds, $visibleIds)));
+    }
+
     public function validateCourierExport(string $carrier): mixed
     {
         $this->pendingCourierExportCarrier = null;
@@ -416,6 +469,8 @@ class SalesOrderIndex extends Component
             $this->trackingSavedDrafts[$order->id] ??= $order->tracking_no ?? '';
         }
 
+        $this->visibleOrderIds = $orders->getCollection()->pluck('id')->map(fn ($id) => (int) $id)->all();
+
         return view('livewire.sales-order-index', [
             'orders' => $orders,
             'platformOptions' => $platformOptions,
@@ -430,6 +485,7 @@ class SalesOrderIndex extends Component
             'shippingMethodFilterOptions' => $this->shippingMethodFilterOptions(),
             'dateRanges' => $this->dateRanges(),
             'exportFilters' => $this->exportFilterParams(),
+            'visibleOrderIds' => $this->visibleOrderIds,
         ])->layout('inventory', [
             'title' => __('sales_orders.index_page_title'),
             'subtitle' => __('sales_orders.index_page_subtitle'),
@@ -600,6 +656,7 @@ class SalesOrderIndex extends Component
             'active_only' => $this->activeOnly,
             'date_from' => $this->dateFrom,
             'date_to' => $this->dateTo,
+            'print_waiting' => $query['print_waiting'] ?? $this->printWaiting,
             'search' => $this->search,
         ]);
     }
@@ -618,6 +675,7 @@ class SalesOrderIndex extends Component
             'active_only' => $this->activeOnly,
             'date_from' => $this->dateFrom,
             'date_to' => $this->dateTo,
+            'print_waiting' => $this->printWaiting,
             'search' => $this->search,
         ]);
 
@@ -630,6 +688,7 @@ class SalesOrderIndex extends Component
         $this->activeOnly = $filters['active_only'];
         $this->dateFrom = $filters['date_from'];
         $this->dateTo = $filters['date_to'];
+        $this->printWaiting = $filters['print_waiting'];
         $this->search = $filters['search'];
     }
 
@@ -662,6 +721,7 @@ class SalesOrderIndex extends Component
             'active_only' => $this->activeOnly ? null : '0',
             'date_from' => $this->dateFrom ?: null,
             'date_to' => $this->dateTo ?: null,
+            'print_waiting' => $this->printWaiting ? '1' : null,
             'q' => $this->search ?: null,
         ];
     }

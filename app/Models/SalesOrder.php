@@ -47,6 +47,7 @@ class SalesOrder extends Model
         'shipping_method_id',
         'tracking_no',
         'courier_csv_exported_at',
+        'shipped_at',
         'recipient_name',
         'recipient_phone',
         'recipient_country_code',
@@ -67,6 +68,7 @@ class SalesOrder extends Model
             'order_date' => 'datetime',
             'latest_ship_at' => 'datetime',
             'courier_csv_exported_at' => 'datetime',
+            'shipped_at' => 'datetime',
         ];
     }
 

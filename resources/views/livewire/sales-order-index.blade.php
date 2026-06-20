@@ -151,9 +151,12 @@
         </div>
 
         <div class="sales-order-date-row">
-            <label class="active-only-toggle">
-                <input type="checkbox" wire:model.live="activeOnly">
-                {{ __('sales_orders.active_orders') }}
+            <label class="print-waiting-toggle">
+                <input type="checkbox" wire:model.live="printWaiting">
+                <span>
+                    <strong>{{ __('sales_orders.print_waiting') }}</strong>
+                    <small>{{ __('sales_orders.print_waiting_hint') }}</small>
+                </span>
             </label>
 
             <div class="date-range-options">
@@ -202,7 +205,7 @@
                 <flux:button type="button" size="sm" variant="outline" wire:click="bulkMarkReady" :disabled="! $hasSelection">
                     {{ __('sales_orders.btn_bulk_mark_ready') }}
                 </flux:button>
-                <flux:button type="button" size="sm" variant="outline" disabled aria-disabled="true">
+                <flux:button type="button" size="sm" variant="outline" wire:click="bulkMarkShipped" :disabled="! $hasSelection">
                     {{ __('sales_orders.btn_mark_shipped') }}
                 </flux:button>
                 <flux:button type="button" size="sm" variant="outline" wire:click="bulkHold" :disabled="! $hasSelection">
@@ -261,10 +264,28 @@
             </div>
         </div>
 
+        @php
+            $visibleIds = array_map('intval', $visibleOrderIds);
+            $selectedLookup = array_flip(array_map('intval', $selectedIds));
+            $visibleSelectedCount = count(array_filter($visibleIds, fn ($id) => isset($selectedLookup[$id])));
+            $allVisibleSelected = $visibleIds !== [] && $visibleSelectedCount === count($visibleIds);
+            $someVisibleSelected = $visibleSelectedCount > 0 && ! $allVisibleSelected;
+        @endphp
+
         <div class="table-scroll">
             <flux:table :paginate="$orders" class="data-table sales-order-table">
                 <flux:table.columns>
-                    <flux:table.column></flux:table.column>
+                    <flux:table.column>
+                        <label class="so-checkbox-hitbox so-checkbox-hitbox-header" title="{{ __('sales_orders.select_visible_orders') }}">
+                            <input
+                                type="checkbox"
+                                wire:click="toggleVisibleSelection"
+                                @checked($allVisibleSelected)
+                                data-indeterminate="{{ $someVisibleSelected ? 'true' : 'false' }}"
+                                aria-label="{{ __('sales_orders.select_visible_orders') }}"
+                            >
+                        </label>
+                    </flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_platform_order_id') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_address') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_recipient') }}</flux:table.column>
@@ -279,8 +300,10 @@
                 <flux:table.rows>
                     @forelse ($orders as $order)
                         <flux:table.row :key="$order->id">
-                            <flux:table.cell>
-                                <input type="checkbox" wire:model.live="selectedIds" value="{{ $order->id }}" aria-label="{{ __('sales_orders.select_order') }} {{ $order->platform_order_id ?: $order->id }}">
+                            <flux:table.cell class="so-select-cell">
+                                <label class="so-checkbox-hitbox">
+                                    <input type="checkbox" wire:model.live="selectedIds" value="{{ $order->id }}" aria-label="{{ __('sales_orders.select_order') }} {{ $order->platform_order_id ?: $order->id }}">
+                                </label>
                             </flux:table.cell>
                             <flux:table.cell class="so-order-cell">
                                 <flux:link href="{{ route('sales.orders.show', $order) }}" wire:navigate>

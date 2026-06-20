@@ -88,6 +88,12 @@
                     </flux:button>
                 @endif
 
+                @if ($canMarkShipped)
+                    <flux:button type="button" variant="primary" wire:click="markShipped" data-action-variant="primary">
+                        {{ __('sales_orders.btn_mark_shipped') }}
+                    </flux:button>
+                @endif
+
                 @if ($order->order_status === 'pending' && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true))
                     <flux:button type="button" variant="primary" wire:click="hold" data-action-variant="primary">
                         {{ __('sales_orders.btn_hold') }}
