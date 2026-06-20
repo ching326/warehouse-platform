@@ -33,9 +33,22 @@
             </div>
         @endif
 
-        <div class="sales-order-filter-grid" data-testid="sales-order-filter-row">
-            <details class="filter-menu" wire:ignore.self>
-                <summary>
+        <div
+            class="sales-order-filter-grid"
+            data-testid="sales-order-filter-row"
+            x-data="{ openFilter: null }"
+            x-on:keydown.escape.window="openFilter = null"
+        >
+            <details
+                class="filter-menu"
+                wire:ignore.self
+                x-bind:open="openFilter === 'platform'"
+                x-on:click.outside="if (openFilter === 'platform') openFilter = null"
+            >
+                <summary
+                    x-on:click.prevent="openFilter = openFilter === 'platform' ? null : 'platform'"
+                    x-bind:aria-expanded="openFilter === 'platform'"
+                >
                     <span>{{ __('sales_orders.field_platform') }}</span>
                     <strong>{{ $this->filterButtonLabel(__('sales_orders.all_platforms'), $platforms, $platformFilterOptions) }}</strong>
                 </summary>
@@ -48,8 +61,16 @@
                 </div>
             </details>
 
-            <details class="filter-menu" wire:ignore.self>
-                <summary>
+            <details
+                class="filter-menu"
+                wire:ignore.self
+                x-bind:open="openFilter === 'shop'"
+                x-on:click.outside="if (openFilter === 'shop') openFilter = null"
+            >
+                <summary
+                    x-on:click.prevent="openFilter = openFilter === 'shop' ? null : 'shop'"
+                    x-bind:aria-expanded="openFilter === 'shop'"
+                >
                     <span>{{ __('sales_orders.field_shop') }}</span>
                     <strong>{{ $this->filterButtonLabel(__('sales_orders.all_shops'), $shopIds, $shopFilterOptions) }}</strong>
                 </summary>
@@ -60,8 +81,16 @@
                 </div>
             </details>
 
-            <details class="filter-menu" wire:ignore.self>
-                <summary>
+            <details
+                class="filter-menu"
+                wire:ignore.self
+                x-bind:open="openFilter === 'fulfillment'"
+                x-on:click.outside="if (openFilter === 'fulfillment') openFilter = null"
+            >
+                <summary
+                    x-on:click.prevent="openFilter = openFilter === 'fulfillment' ? null : 'fulfillment'"
+                    x-bind:aria-expanded="openFilter === 'fulfillment'"
+                >
                     <span>{{ __('sales_orders.field_fulfillment_status') }}</span>
                     <strong>{{ $this->filterButtonLabel(__('sales_orders.all_fulfillment_status'), $fulfillmentStatusesFilter, $fulfillmentStatuses) }}</strong>
                 </summary>
@@ -72,8 +101,16 @@
                 </div>
             </details>
 
-            <details class="filter-menu" wire:ignore.self>
-                <summary>
+            <details
+                class="filter-menu"
+                wire:ignore.self
+                x-bind:open="openFilter === 'order-status'"
+                x-on:click.outside="if (openFilter === 'order-status') openFilter = null"
+            >
+                <summary
+                    x-on:click.prevent="openFilter = openFilter === 'order-status' ? null : 'order-status'"
+                    x-bind:aria-expanded="openFilter === 'order-status'"
+                >
                     <span>{{ __('sales_orders.field_order_status') }}</span>
                     <strong>{{ $this->filterButtonLabel(__('sales_orders.all_order_status'), $orderStatusesFilter, $orderStatuses) }}</strong>
                 </summary>
@@ -84,8 +121,16 @@
                 </div>
             </details>
 
-            <details class="filter-menu" wire:ignore.self>
-                <summary>
+            <details
+                class="filter-menu"
+                wire:ignore.self
+                x-bind:open="openFilter === 'shipping'"
+                x-on:click.outside="if (openFilter === 'shipping') openFilter = null"
+            >
+                <summary
+                    x-on:click.prevent="openFilter = openFilter === 'shipping' ? null : 'shipping'"
+                    x-bind:aria-expanded="openFilter === 'shipping'"
+                >
                     <span>{{ __('sales_orders.field_shipping_method') }}</span>
                     <strong>{{ $this->filterButtonLabel(__('sales_orders.all_shipping_methods'), $shippingMethodsFilter, $shippingMethodFilterOptions) }}</strong>
                 </summary>
