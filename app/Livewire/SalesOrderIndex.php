@@ -191,6 +191,23 @@ class SalesOrderIndex extends Component
         $this->filterChanged();
     }
 
+    public function clearAllFilters(): void
+    {
+        $this->platforms = [];
+        $this->shopIds = [];
+        $this->fulfillmentStatusesFilter = [];
+        $this->orderStatusesFilter = [];
+        $this->shippingMethodsFilter = [];
+        $this->othersFilter = [];
+        $this->dateRange = SalesOrderFilters::DATE_ALL;
+        $this->dateFrom = '';
+        $this->dateTo = '';
+        $this->search = '';
+        $this->printWaiting = false;
+
+        $this->filterChanged();
+    }
+
     public function updatedTrackingDrafts(mixed $value, string|int $key): void
     {
         if (! is_numeric($key)) {

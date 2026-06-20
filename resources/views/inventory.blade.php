@@ -913,7 +913,6 @@
                 color: var(--muted);
                 font-size: 11px;
                 font-weight: 700;
-                text-transform: uppercase;
             }
 
             .filter-menu summary strong {
@@ -997,6 +996,7 @@
             }
 
             .print-ready-toggle {
+                justify-self: start;
                 min-width: 118px;
                 gap: 8px;
                 color: var(--ink);
@@ -1120,6 +1120,16 @@
                 color: var(--muted);
                 font-size: 13px;
                 line-height: 1;
+            }
+
+            .filter-chip-clear {
+                border: none;
+                background: transparent;
+                color: var(--accent);
+                cursor: pointer;
+                font-size: 12px;
+                font-weight: 700;
+                padding: 6px 8px;
             }
 
             .sales-order-date-row {

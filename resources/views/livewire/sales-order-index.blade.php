@@ -217,6 +217,9 @@
                         <strong aria-hidden="true">x</strong>
                     </button>
                 @endforeach
+                <button type="button" class="filter-chip-clear" wire:click="clearAllFilters">
+                    {{ __('sales_orders.clear_all_filters') }}
+                </button>
             </div>
         @endif
 

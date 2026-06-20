@@ -957,6 +957,56 @@ class SalesOrderTest extends TestCase
             ->assertSet('printWaiting', false);
     }
 
+    public function test_sales_order_index_clear_all_filters_resets_user_filters(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'CLEAR-FILTERS']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('platforms', ['amazon'])
+            ->set('shopIds', [(string) $shop->id])
+            ->set('fulfillmentStatusesFilter', [SalesOrder::FULFILLMENT_STATUS_READY])
+            ->set('orderStatusesFilter', [SalesOrder::ORDER_STATUS_PENDING])
+            ->set('shippingMethodsFilter', ['yamato'])
+            ->set('othersFilter', [SalesOrderFilters::OTHER_NOT_PRINTED])
+            ->set('dateRange', SalesOrderFilters::DATE_LAST_30_DAYS)
+            ->set('dateFrom', '2026-06-01')
+            ->set('dateTo', '2026-06-20')
+            ->set('search', 'Tanaka')
+            ->set('printWaiting', true)
+            ->call('clearAllFilters')
+            ->assertSet('platforms', [])
+            ->assertSet('shopIds', [])
+            ->assertSet('fulfillmentStatusesFilter', [])
+            ->assertSet('orderStatusesFilter', [])
+            ->assertSet('shippingMethodsFilter', [])
+            ->assertSet('othersFilter', [])
+            ->assertSet('dateRange', SalesOrderFilters::DATE_ALL)
+            ->assertSet('dateFrom', '')
+            ->assertSet('dateTo', '')
+            ->assertSet('search', '')
+            ->assertSet('printWaiting', false);
+    }
+
+    public function test_sales_order_index_filter_chips_show_clear_all_only_when_filters_are_active(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'CLEAR-CHIP']);
+
+        $component = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class);
+
+        $this->assertStringNotContainsString('data-testid="sales-order-filter-chips"', $component->html());
+
+        $html = $component
+            ->set('search', 'Tanaka')
+            ->html();
+
+        $this->assertStringContainsString('data-testid="sales-order-filter-chips"', $html);
+        $this->assertStringContainsString(__('sales_orders.clear_all_filters'), $html);
+    }
+
     public function test_sales_order_index_export_menus_present(): void
     {
         [, $shop, $sku] = $this->salesSku();
