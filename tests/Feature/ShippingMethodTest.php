@@ -6,6 +6,7 @@ use App\Actions\BackfillShippingMethodIds;
 use App\Livewire\SalesOrderIndex;
 use App\Livewire\ShippingMethodCreate;
 use App\Livewire\ShippingMethodEdit;
+use App\Livewire\ShippingMethodIndex;
 use App\Models\Carrier;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
@@ -231,6 +232,65 @@ class ShippingMethodTest extends TestCase
 
         Livewire::actingAs($tenantUser)->test(ShippingMethodCreate::class)->assertForbidden();
         Livewire::actingAs($tenantUser)->test(ShippingMethodEdit::class, ['method' => $method])->assertForbidden();
+        Livewire::actingAs($tenantUser)->test(ShippingMethodIndex::class)->assertForbidden();
+    }
+
+    public function test_shipping_method_index_can_create_and_update_carrier(): void
+    {
+        Livewire::actingAs($this->internalUser())
+            ->test(ShippingMethodIndex::class)
+            ->set('carrierCode', 'SF Express')
+            ->set('carrierName', 'SF Express')
+            ->set('carrierCountryCode', 'cn')
+            ->call('saveCarrier')
+            ->assertSet('carrierCode', '')
+            ->assertSee('SF Express');
+
+        $carrier = Carrier::where('code', 'sf_express')->firstOrFail();
+
+        $this->assertSame('SF Express', $carrier->name);
+        $this->assertSame('CN', $carrier->country_code);
+        $this->assertSame('active', $carrier->status);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ShippingMethodIndex::class)
+            ->call('editCarrier', $carrier->id)
+            ->assertSet('carrierCode', 'sf_express')
+            ->set('carrierName', 'SF International')
+            ->set('carrierCountryCode', 'hk')
+            ->set('carrierStatus', 'inactive')
+            ->call('saveCarrier')
+            ->assertSet('editingCarrierId', null);
+
+        $carrier->refresh();
+        $this->assertSame('SF International', $carrier->name);
+        $this->assertSame('HK', $carrier->country_code);
+        $this->assertSame('inactive', $carrier->status);
+    }
+
+    public function test_shipping_method_index_rejects_duplicate_carrier_code(): void
+    {
+        Livewire::actingAs($this->internalUser())
+            ->test(ShippingMethodIndex::class)
+            ->set('carrierCode', 'Yamato')
+            ->set('carrierName', 'Duplicate Yamato')
+            ->call('saveCarrier')
+            ->assertHasErrors(['carrier_code']);
+
+        $this->assertSame(1, Carrier::where('code', 'yamato')->count());
+    }
+
+    public function test_shipping_method_index_can_deactivate_carrier_without_deleting_it(): void
+    {
+        $carrier = Carrier::where('code', 'japan_post')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ShippingMethodIndex::class)
+            ->call('toggleCarrierStatus', $carrier->id)
+            ->assertSee(__('shipping.carrier_status_updated'));
+
+        $this->assertSame('inactive', $carrier->refresh()->status);
+        $this->assertDatabaseHas('carriers', ['id' => $carrier->id]);
     }
 
     public function test_courier_export_accepts_method_by_carrier(): void

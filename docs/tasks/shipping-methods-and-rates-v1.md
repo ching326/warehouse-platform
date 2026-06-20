@@ -15,7 +15,7 @@ That is enough for early courier export, but not enough for a real overseas ware
 
 We need shipping methods to support:
 
-- choosing detailed services such as Yamato Nekopos / Yamato Takkyubin / Sagawa
+- choosing detailed services such as Yamato Nekopos / Yamato TQB / Sagawa THB
 - preventing wrong courier CSV export
 - exporting marketplace shipment notification files for Amazon / Rakuten / Shopify
 - calculating shipping fees charged to tenants
@@ -38,12 +38,12 @@ Example:
 Carrier: Yamato
 Shipping methods:
 - Yamato Nekopos
-- Yamato Takkyubin
+- Yamato TQB
 - Yamato Compact
 
 Carrier: Sagawa
 Shipping methods:
-- Sagawa Takkyubin
+- Sagawa THB
 
 Carrier: Japan Post
 Shipping methods:
@@ -104,7 +104,7 @@ Notes:
 Schema::create('shipping_methods', function (Blueprint $table) {
     $table->id();
     $table->foreignId('carrier_id')->constrained()->restrictOnDelete();
-    $table->string('code')->unique(); // yamato_nekopos / yamato_takkyubin
+    $table->string('code')->unique(); // yamato_nekopos / yamato_tqb
     $table->string('name');           // Yamato Nekopos
     $table->string('service_type')->nullable(); // mail / parcel / compact / other
     $table->boolean('is_trackable')->default(true);
@@ -122,12 +122,12 @@ Schema::create('shipping_methods', function (Blueprint $table) {
 Recommended initial records:
 
 ```text
-yamato_nekopos      Yamato Nekopos      carrier yamato, service_type mail, requires_size false, requires_zone false
-yamato_takkyubin    Yamato Takkyubin    carrier yamato, service_type parcel, requires_size true, requires_zone true
-yamato_compact      Yamato Compact      carrier yamato, service_type compact, requires_size false/true, requires_zone true
-sagawa_takkyubin    Sagawa Takkyubin    carrier sagawa, service_type parcel, requires_size true, requires_zone true
-japan_post_yupack   Japan Post Yu-Pack  carrier japan_post, service_type parcel, requires_size true, requires_zone true
-other               Other               carrier other
+yamato_nekopos      Yamato Nekopos   carrier yamato, service_type mail, requires_size false, requires_zone false
+yamato_tqb          Yamato TQB       carrier yamato, service_type parcel, requires_size true, requires_zone true
+yamato_compact      Yamato Compact   carrier yamato, service_type compact, requires_size false, requires_zone true
+sagawa_thb          Sagawa THB       carrier sagawa, service_type parcel, requires_size true, requires_zone true
+japan_post_yupack   Japan Post Yu-Pack carrier japan_post, service_type parcel, requires_size true, requires_zone true
+other               Other            carrier other
 ```
 
 ### `sales_orders`
@@ -135,18 +135,44 @@ other               Other               carrier other
 Add:
 
 ```php
-$table->foreignId('shipping_method_id')->nullable()->after('shipping_method')->constrained('shipping_methods')->nullOnDelete();
+$table->foreignId('shipping_method_id')->nullable()->after('shipping_method')->constrained('shipping_methods')->restrictOnDelete();
 ```
+
+Use `restrictOnDelete()`, not `nullOnDelete()`:
+
+- `shipping_method_id` carries service-level history (Yamato Nekopos vs Yamato TQB) used by historical
+  order display, courier export records, tenant billing, and rate reconciliation.
+- If a method were deleted with `nullOnDelete()`, old orders would silently lose that service-level
+  detail even though the legacy `shipping_method = yamato` carrier string remains.
+- `restrictOnDelete()` blocks deleting a method that any sales order references. This pairs with the
+  deactivate-only CRUD rule below (shipping methods are retired via `status = inactive`, never hard
+  deleted in v1).
 
 Migration strategy:
 
 - Keep old `sales_orders.shipping_method` string for compatibility during transition.
 - Add `shipping_method_id`.
-- Backfill:
-  - `yamato` -> `yamato_takkyubin` or a generic `yamato_takkyubin` default
-  - `sagawa` -> `sagawa_takkyubin`
+- Canonical `carriers` and `shipping_methods` rows must be inserted in the migration before
+  backfilling `sales_orders.shipping_method_id`.
+- Do not rely on seeders for this. Migrations run before seeders, and test `RefreshDatabase` runs
+  migrations without running the warehouse platform seeder. If the canonical rows live only in the
+  seeder, the backfill silently does nothing.
+- The seeder may still use `updateOrCreate()` for dev/demo convenience, but the migration is the
+  source of truth for the initial carrier/method records needed by the backfill.
+- Backfill mapping:
+  - `yamato` -> `yamato_tqb`
+  - `sagawa` -> `sagawa_thb`
   - `japan_post` -> `japan_post_yupack`
   - `other` -> `other`
+- Put the backfill logic in a reusable callable action, e.g. `App\Actions\BackfillShippingMethodIds`.
+  The migration calls this action after inserting the canonical rows.
+- Implement the action with plain `DB` query builder (join legacy carrier string to method `code`),
+  not Eloquent model events or Livewire/UI logic. This keeps it stable when migrations are replayed
+  and avoids coupling a migration to app-layer behavior that may change later.
+- Reason: the migration runs against an empty database under test `RefreshDatabase`, so a backfill
+  written inline as a one-off `DB::table()->update()` inside the migration cannot be tested with a
+  seed-then-migrate flow. There are no rows present when the migration runs. A callable action lets a
+  test insert a legacy-string order and invoke the backfill directly. See test #13.
 - After UI and services use `shipping_method_id`, keep the old string as a denormalized legacy field
   for one or two phases.
 
@@ -164,7 +190,7 @@ Schema::create('shipping_method_marketplace_mappings', function (Blueprint $tabl
     $table->id();
     $table->foreignId('shipping_method_id')->constrained()->cascadeOnDelete();
     $table->string('platform');              // amazon / rakuten / shopify / tiktok / yahoo
-    $table->string('marketplace')->nullable(); // JP / US / null
+    $table->string('marketplace')->default(''); // JP / US / empty string for platform-wide default
     $table->string('carrier_code')->nullable();
     $table->string('carrier_name')->nullable();
     $table->string('service_code')->nullable();
@@ -179,6 +205,12 @@ Schema::create('shipping_method_marketplace_mappings', function (Blueprint $tabl
 });
 ```
 
+Important:
+
+- Do not use nullable `marketplace` here. In MySQL, unique indexes allow multiple `NULL` values, so
+  duplicate platform-wide mappings would slip through.
+- Use empty string `''` for platform-wide/default mappings.
+
 Examples:
 
 ```text
@@ -190,16 +222,28 @@ Yamato Nekopos + Amazon JP
 - service_code: null
 - service_name: Nekopos
 
-Yamato Takkyubin + Rakuten
+Yamato TQB + Rakuten
 - platform: rakuten
 - marketplace: JP
 - carrier_code: 1001 or required Rakuten carrier code
 - carrier_name: Yamato
-- service_name: Takkyubin
+- service_name: TQB
 ```
 
 The exact marketplace code values can be refined when building marketplace shipment notification
 exports. The table should exist now so the mapping has a home.
+
+### Models and relationships
+
+Create models with these relationships:
+
+- `Carrier hasMany ShippingMethod`
+- `ShippingMethod belongsTo Carrier`
+- `ShippingMethod hasMany ShippingMethodRate`
+- `ShippingMethod hasMany ShippingMethodMarketplaceMapping`
+- `ShippingMethodRate belongsTo ShippingMethod` and `belongsTo Tenant`
+- `SalesOrder belongsTo ShippingMethod` (relation name `shippingMethod`; used by courier export's
+  carrier check and the rate resolver)
 
 ---
 
@@ -253,16 +297,46 @@ Rules:
   - `price = 198`
   - `currency = JPY`
   - `rate_type = flat`
-- For Yamato Takkyubin:
+- For Yamato TQB:
   - create method record now
   - do not require full price matrix in v1
   - either leave rate empty or add only known default placeholder rates
 
+Rate lookup must be deterministic:
+
+1. filter `status = active`
+2. filter by `shipping_method_id`
+3. filter effective window for the quote/ship date:
+   - `effective_from IS NULL OR effective_from <= date`
+   - `effective_to IS NULL OR effective_to >= date`
+4. prefer tenant-specific rows over default rows:
+   - first `tenant_id = selected tenant`
+   - fallback `tenant_id IS NULL`
+5. order by:
+   - tenant match first
+   - `effective_from DESC`
+   - `id DESC`
+6. take the first row
+
+This avoids ambiguity when multiple active rates overlap.
+
+Rate lookup home:
+
+- Implement the lookup in a dedicated service, e.g. `App\Services\ShippingRateResolver`.
+- Suggested method:
+
+```php
+resolve(?int $tenantId, ShippingMethod|int $shippingMethod, CarbonInterface|string $date): ?ShippingMethodRate
+```
+
+- Tests #9-11 should call this resolver directly.
+- Do not hide the lookup inside a Livewire component.
+
 ---
 
-## Takkyubin Charging Strategy
+## TQB / THB Charging Strategy
 
-Yamato Takkyubin depends on:
+Yamato TQB depends on:
 
 - parcel size
 - destination area / prefecture / zone
@@ -333,6 +407,21 @@ Create setup pages:
 /setup/shipping-methods/{method}/edit
 ```
 
+Authorization:
+
+- These setup pages are **internal-user only**.
+- Tenant users must not be able to create, edit, deactivate, or delete carriers, shipping methods,
+  marketplace mappings, or default rates.
+- Reason: `carriers`, `shipping_methods`, marketplace mappings, and `tenant_id = null` default rates
+  are global system records. A tenant user changing them would affect every tenant.
+- Tenant-specific rate editing can be considered in a later billing task, but the method/carrier
+  catalog remains internal-owned.
+
+Required behavior:
+
+- Internal admin/staff can access `/setup/shipping-methods`.
+- Tenant user receives 403 for index/create/edit routes.
+
 Recommended UI fields:
 
 - Carrier
@@ -357,6 +446,23 @@ For v1, keep UI simple:
 
 Do not build a complex zone/size matrix editor yet.
 
+No hard delete in v1:
+
+- CRUD provides create, edit, and deactivate (`status = inactive`) only. Do not offer a delete action
+  for carriers or shipping methods.
+- Reason: a method carries service-level history used by orders, courier export records, billing, and
+  reconciliation. Retire methods via `status = inactive` so historical data stays intact.
+- Enforce no-delete at the app level too, not only via the `restrictOnDelete()` foreign key. The
+  SQLite test database does not enforce foreign keys added to an existing table, so a delete route
+  must not exist (or must refuse) regardless of the DB constraint.
+- Inactive methods stop appearing in new shipping-method selection but remain resolvable for existing
+  orders.
+
+Validation:
+
+- Validate `shipping_methods.code` uniqueness in the form before saving.
+- Duplicate codes should show a friendly validation error, not a raw database exception / 500.
+
 ---
 
 ## Sales Order Integration
@@ -368,16 +474,32 @@ Update Sales Orders index/detail/create/import where needed.
 - Shipping method dropdown should use active `shipping_methods`.
 - Display method name, e.g. `Yamato Nekopos`.
 - Store `shipping_method_id`.
+- The existing `updateShippingMethod(int $orderId, string $value)` flow currently accepts legacy
+  carrier strings such as `yamato`, `sagawa`, and `japan_post`. This task changes the dropdown to
+  select a shipping method id. Update/rename the Livewire method and rewrite the existing
+  `SalesOrderTest` coverage that calls the old method with carrier strings.
 - During transition, also update old `shipping_method` string to the carrier code:
   - Yamato Nekopos -> `yamato`
-  - Yamato Takkyubin -> `yamato`
-  - Sagawa Takkyubin -> `sagawa`
+  - Yamato TQB -> `yamato`
+  - Sagawa THB -> `sagawa`
   - Japan Post -> `japan_post`
 
 Reason:
 
 - Existing courier export service still checks the simple carrier string.
 - This keeps old flows working while new data model is introduced.
+
+### Detail / Create
+
+Sales Order detail and create screens should use the same active `shipping_methods` dropdown as the
+index row dropdown.
+
+When a user selects a method:
+
+- store `shipping_method_id`
+- dual-write legacy `sales_orders.shipping_method` to the selected method's carrier code
+
+Do not leave detail/create on the old hardcoded carrier-only options.
 
 ### Amazon order report import
 
@@ -387,10 +509,11 @@ For v1:
 
 - Keep old behavior if mapping is uncertain.
 - If `ship-service-level` clearly maps to a method, set `shipping_method_id`.
+- When `shipping_method_id` is set, also dual-write the legacy `shipping_method` carrier string.
 - Examples:
   - Nekopos-like service -> Yamato Nekopos
-  - Yamato/Takkyubin-like service -> Yamato Takkyubin
-  - Sagawa-like service -> Sagawa Takkyubin
+  - Yamato TQB-like service -> Yamato TQB
+  - Sagawa-like service -> Sagawa THB
   - Standard / unknown -> null
 
 Do not overfit this mapping until real Amazon report values are confirmed.
@@ -404,10 +527,67 @@ During transition:
 - Accept orders when either:
   - `shipping_method_id` points to a method whose carrier code matches selected carrier, or
   - old `shipping_method` string matches selected carrier
+- This string fallback is mandatory in v1. Existing courier export tests seed legacy
+  `sales_orders.shipping_method = yamato/sagawa`; they must remain green.
+
+Eager loading:
+
+- `CourierExportService` currently loads `with(['shop.tenant', 'lines.sku.stockItem'])`.
+- Add `shippingMethod.carrier` to that eager load. The carrier check reads
+  `$order->shippingMethod?->carrier?->code` per order and would be an N+1 otherwise.
+
+Example transition check:
+
+```php
+$methodCarrier = $order->shippingMethod?->carrier?->code;
+
+$carrierMatches = $methodCarrier === $carrier || $order->shipping_method === $carrier;
+```
+
+`supports_courier_csv` hard-block:
+
+- If a method has `supports_courier_csv = false`, courier export validation must hard-block that
+  order even when the carrier matches.
+- This is a new hard-block category. It requires extending `CourierExportValidationResult`:
+  - add a field such as `unsupportedCourierOrderIds`
+  - include it in `hasHardBlock()`
+  - add a matching message key in the Livewire message map
+- Null-safe rule: this check only applies when `shipping_method_id` is set. A legacy string-only
+  order has `shippingMethod = null`, so use `$order->shippingMethod?->supports_courier_csv === false`.
+  A null method must not be blocked here; it relies on the legacy carrier string and must stay green
+  in the existing courier export tests.
 
 After migration is stable:
 
 - use `shipping_method_id` only
+
+### Coordination with Sales Order Index Filters
+
+This task and `docs/tasks/sales-order-index-filters-ui-v1.md` both touch Sales Orders index shipping
+method UI.
+
+Keep the split clear:
+
+- The row dropdown becomes **service-level** and writes `shipping_method_id`.
+  - Example: Yamato Nekopos, Yamato TQB, Sagawa THB
+- The index filter remains **carrier-level** during v1 and uses the legacy
+  `sales_orders.shipping_method` string.
+  - Example: Yamato, Sagawa, Japan Post, Not set
+
+Recommended implementation order:
+
+1. Ship this shipping method table/service dropdown task.
+2. Ensure the legacy `shipping_method` carrier string is still updated whenever `shipping_method_id`
+   changes.
+3. Then implement the filters task, keeping its shipping-method filter carrier-granular.
+
+Do not let both tasks independently redefine `shippingMethodOptions()` with different meanings. Use
+two distinct, clearly named methods instead of one shared `shippingMethodOptions()`:
+
+- `shippingMethodSelectOptions()` (this task): service-level method records (id => name) for the row,
+  detail, and create dropdowns that write `shipping_method_id`.
+- `shippingMethodFilterOptions()` (filters task): carrier-level legacy string values
+  (yamato / sagawa / japan_post / other / not set) for the index multi-select filter.
 
 ### Marketplace shipment notification
 
@@ -467,9 +647,9 @@ other        Other
 
 ```text
 yamato_nekopos
-yamato_takkyubin
+yamato_tqb
 yamato_compact
-sagawa_takkyubin
+sagawa_thb
 japan_post_yupack
 other
 ```
@@ -527,6 +707,7 @@ Add tests for:
 
 2. `test_shipping_method_code_is_unique`
    - Duplicate `shipping_methods.code` rejected.
+   - Assert it is a validation error, not a raw database exception.
 
 3. `test_shipping_method_can_store_marketplace_mapping`
    - Add Amazon/Rakuten mapping.
@@ -540,23 +721,61 @@ Add tests for:
    - Select Yamato Nekopos.
    - Assert `shipping_method_id` set.
    - Assert legacy `shipping_method = yamato`.
+   - Rewrite existing SalesOrder index shipping-method tests that call the old string API.
 
 6. `test_courier_export_accepts_method_by_carrier`
    - Order has `shipping_method_id = yamato_nekopos`.
    - Yamato export validation accepts it.
    - Sagawa export validation rejects it.
+   - Existing legacy string-only courier export tests must remain green.
 
 7. `test_amazon_report_import_can_leave_unknown_shipping_method_null`
    - Unknown/Standard service should not guess.
 
-8. `test_rate_lookup_prefers_tenant_specific_rate`
+8. `test_amazon_report_import_sets_method_id_and_legacy_carrier_when_mapping_is_clear`
+   - Amazon report service level maps to Yamato Nekopos or Yamato TQB.
+   - Assert `shipping_method_id` is set.
+   - Assert legacy `shipping_method = yamato`.
+
+9. `test_rate_lookup_prefers_tenant_specific_rate`
    - Default rate exists.
    - Tenant override exists.
    - Lookup returns tenant override.
 
-9. `test_rate_lookup_falls_back_to_default_rate`
+10. `test_rate_lookup_falls_back_to_default_rate`
    - No tenant override.
    - Lookup returns default rate.
+
+11. `test_rate_lookup_uses_latest_effective_matching_rate`
+    - Create overlapping active rates.
+    - Assert lookup picks tenant-specific first, then latest `effective_from`, then highest id.
+
+12. `test_marketplace_mapping_uses_empty_marketplace_for_default_and_is_unique`
+    - Create platform-wide mapping with `marketplace = ''`.
+    - Duplicate method/platform/empty marketplace is rejected.
+
+13. `test_legacy_shipping_method_backfill_action_sets_method_id`
+    - Insert an order with legacy `sales_orders.shipping_method = yamato` and null `shipping_method_id`.
+    - Call the `BackfillShippingMethodIds` action directly.
+    - Assert it now has `shipping_method_id = yamato_tqb`.
+    - Do not try to assert this purely from the migration run: under `RefreshDatabase` the migration
+      executes against an empty table before any order exists, so the backfill must be tested through
+      the callable action.
+
+14. `test_shipping_method_setup_pages_are_internal_only`
+    - Internal user can access `/setup/shipping-methods`.
+    - Tenant user gets 403 for index/create/edit routes.
+
+15. `test_courier_export_hard_blocks_method_without_courier_csv_support`
+    - Order has `shipping_method_id` for a method with `supports_courier_csv = false` whose carrier
+      matches the selected carrier.
+    - Export validation hard-blocks the order (new `unsupportedCourierOrderIds` category).
+    - A legacy string-only order with a null `shipping_method_id` is not blocked by this rule.
+
+16. `test_shipping_method_in_use_cannot_be_deleted`
+    - The CRUD exposes no delete action for shipping methods (deactivate only).
+    - A method referenced by a sales order cannot be hard deleted; retiring it sets `status = inactive`.
+    - An inactive method no longer appears for new selection but still resolves for existing orders.
 
 Run full suite:
 
@@ -579,6 +798,8 @@ C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe artisan test
 - No TypeScript.
 - Keep tenant scoping server-side.
 - Do not remove old `sales_orders.shipping_method` in v1.
+- Do not hard delete carriers or shipping methods in v1; deactivate via `status = inactive` and use
+  `restrictOnDelete()` on `sales_orders.shipping_method_id`.
 - Do not break existing courier export.
 - Do not build full Yamato/Sagawa invoice import in v1.
 - Do not build complex zone/size matrix UI in v1.
@@ -595,4 +816,3 @@ C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe artisan test
 4. Marketplace shipment notification export.
 5. Auto-select shipping method based on shop/order/import rules.
 6. Billing line generation after shipment.
-

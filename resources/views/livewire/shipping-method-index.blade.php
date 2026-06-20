@@ -6,6 +6,93 @@
     @endif
 
     <section class="table-shell flux-panel">
+        <div class="form-panel-header">
+            <div>
+                <strong>{{ __('shipping.section_carriers') }}</strong>
+                <span>{{ __('shipping.carrier_section_hint') }}</span>
+            </div>
+        </div>
+
+        <form wire:submit="saveCarrier" class="form-grid four">
+            <div>
+                <flux:input wire:model="carrierCode" :label="__('shipping.field_carrier_code')" />
+                @error('carrier_code') <p class="form-error">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <flux:input wire:model="carrierName" :label="__('shipping.field_carrier_name')" />
+                @error('carrier_name') <p class="form-error">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <flux:input wire:model="carrierCountryCode" maxlength="2" :label="__('shipping.field_country_code')" />
+                @error('carrier_country_code') <p class="form-error">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <flux:select wire:model="carrierStatus" :label="__('shipping.field_status')">
+                    @foreach ($statuses as $value => $label)
+                        <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+                @error('carrier_status') <p class="form-error">{{ $message }}</p> @enderror
+            </div>
+
+            <div class="active-filter-row">
+                <flux:button type="submit" variant="primary">
+                    {{ $editingCarrierId ? __('shipping.btn_update_carrier') : __('shipping.btn_create_carrier') }}
+                </flux:button>
+                @if ($editingCarrierId)
+                    <flux:button type="button" variant="outline" wire:click="resetCarrierForm">
+                        {{ __('shipping.btn_cancel_carrier_edit') }}
+                    </flux:button>
+                @endif
+            </div>
+        </form>
+
+        <flux:table class="data-table">
+            <flux:table.columns>
+                <flux:table.column>{{ __('shipping.field_carrier') }}</flux:table.column>
+                <flux:table.column>{{ __('shipping.field_country_code') }}</flux:table.column>
+                <flux:table.column>{{ __('shipping.method_count') }}</flux:table.column>
+                <flux:table.column>{{ __('shipping.field_status') }}</flux:table.column>
+                <flux:table.column>{{ __('shipping.col_actions') }}</flux:table.column>
+            </flux:table.columns>
+            <flux:table.rows>
+                @foreach ($carrierRows as $carrier)
+                    <flux:table.row :key="'carrier-'.$carrier->id">
+                        <flux:table.cell>
+                            <strong>{{ $carrier->name }}</strong>
+                            <span class="subtle">{{ $carrier->code }}</span>
+                        </flux:table.cell>
+                        <flux:table.cell>{{ $carrier->country_code ?: '-' }}</flux:table.cell>
+                        <flux:table.cell>{{ $carrier->shipping_methods_count }}</flux:table.cell>
+                        <flux:table.cell>
+                            <flux:badge color="{{ $this->statusColor($carrier->status) }}">
+                                {{ $this->statusLabel($carrier->status) }}
+                            </flux:badge>
+                        </flux:table.cell>
+                        <flux:table.cell>
+                            <div class="active-filter-row">
+                                <flux:button type="button" variant="primary" wire:click="editCarrier({{ $carrier->id }})">
+                                    {{ __('setup.btn_edit') }}
+                                </flux:button>
+                                <flux:button type="button" variant="outline" wire:click="toggleCarrierStatus({{ $carrier->id }})">
+                                    {{ $carrier->status === 'active' ? __('shipping.btn_deactivate') : __('shipping.btn_activate') }}
+                                </flux:button>
+                            </div>
+                        </flux:table.cell>
+                    </flux:table.row>
+                @endforeach
+            </flux:table.rows>
+        </flux:table>
+    </section>
+
+    <section class="table-shell flux-panel">
+        <div class="form-panel-header">
+            <div>
+                <strong>{{ __('shipping.section_shipping_methods') }}</strong>
+                <span>{{ __('shipping.shipping_methods_section_hint') }}</span>
+            </div>
+        </div>
+
         <div class="movement-toolbar">
             <flux:select wire:model.live="carrierId" :label="__('shipping.field_carrier')">
                 <flux:select.option value="">{{ __('shipping.all_carriers') }}</flux:select.option>

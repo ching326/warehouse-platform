@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Carrier;
 use App\Models\ShippingMethod;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -21,6 +22,12 @@ class ShippingMethodIndex extends Component
 
     #[Url(as: 'q', except: '')]
     public string $search = '';
+
+    public ?int $editingCarrierId = null;
+    public string $carrierCode = '';
+    public string $carrierName = '';
+    public string $carrierCountryCode = '';
+    public string $carrierStatus = 'active';
 
     public function mount(): void
     {
@@ -52,6 +59,59 @@ class ShippingMethodIndex extends Component
         session()->flash('status', __('shipping.status_updated'));
     }
 
+    public function saveCarrier(): void
+    {
+        $this->normalizeCarrierForm();
+        $this->validateCarrierInput();
+
+        $payload = [
+            'code' => $this->carrierCode,
+            'name' => trim($this->carrierName),
+            'country_code' => $this->nullableString($this->carrierCountryCode),
+            'status' => $this->carrierStatus,
+        ];
+
+        $this->editingCarrierId
+            ? Carrier::query()->findOrFail($this->editingCarrierId)->update($payload)
+            : Carrier::query()->create($payload);
+
+        session()->flash('status', $this->editingCarrierId
+            ? __('shipping.carrier_updated')
+            : __('shipping.carrier_created'));
+
+        $this->resetCarrierForm();
+    }
+
+    public function editCarrier(int $carrierId): void
+    {
+        $carrier = Carrier::query()->findOrFail($carrierId);
+
+        $this->editingCarrierId = $carrier->id;
+        $this->carrierCode = $carrier->code;
+        $this->carrierName = $carrier->name;
+        $this->carrierCountryCode = $carrier->country_code ?? '';
+        $this->carrierStatus = $carrier->status;
+    }
+
+    public function resetCarrierForm(): void
+    {
+        $this->reset('editingCarrierId', 'carrierCode', 'carrierName', 'carrierCountryCode');
+        $this->carrierStatus = 'active';
+        $this->resetValidation();
+    }
+
+    public function toggleCarrierStatus(int $carrierId): void
+    {
+        $carrier = Carrier::query()->findOrFail($carrierId);
+        $carrier->update(['status' => $carrier->status === 'active' ? 'inactive' : 'active']);
+
+        if ((int) $this->carrierId === $carrier->id && $carrier->status !== 'active') {
+            $this->carrierId = '';
+        }
+
+        session()->flash('status', __('shipping.carrier_status_updated'));
+    }
+
     public function render()
     {
         $methods = ShippingMethod::query()
@@ -71,6 +131,7 @@ class ShippingMethodIndex extends Component
         return view('livewire.shipping-method-index', [
             'methods' => $methods,
             'carriers' => Carrier::orderBy('name')->get(['id', 'code', 'name']),
+            'carrierRows' => Carrier::query()->withCount('shippingMethods')->orderBy('name')->get(),
             'statuses' => $this->statuses(),
         ])->layout('inventory', [
             'title' => __('shipping.index_page_title'),
@@ -95,6 +156,34 @@ class ShippingMethodIndex extends Component
             'active' => __('shipping.status_active'),
             'inactive' => __('shipping.status_inactive'),
         ];
+    }
+
+    private function validateCarrierInput(): void
+    {
+        validator([
+            'carrier_code' => $this->carrierCode,
+            'carrier_name' => $this->carrierName,
+            'carrier_country_code' => $this->carrierCountryCode,
+            'carrier_status' => $this->carrierStatus,
+        ], [
+            'carrier_code' => ['required', 'string', 'max:100', Rule::unique('carriers', 'code')->ignore($this->editingCarrierId)],
+            'carrier_name' => ['required', 'string', 'max:255'],
+            'carrier_country_code' => ['nullable', 'string', 'size:2'],
+            'carrier_status' => ['required', Rule::in(array_keys($this->statuses()))],
+        ])->validate();
+    }
+
+    private function normalizeCarrierForm(): void
+    {
+        $this->carrierCode = str($this->carrierCode)->trim()->lower()->replaceMatches('/[^a-z0-9_]+/', '_')->replaceMatches('/_+/', '_')->trim('_')->toString();
+        $this->carrierCountryCode = strtoupper(trim($this->carrierCountryCode));
+    }
+
+    private function nullableString(?string $value): ?string
+    {
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
     }
 
     private function isInternalUser(): bool
