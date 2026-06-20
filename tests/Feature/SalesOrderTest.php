@@ -1162,8 +1162,9 @@ class SalesOrderTest extends TestCase
         $html = $component->html();
         $this->assertStringNotContainsString('wire:model.live="activeOnly"', $html);
         $this->assertStringNotContainsString('active-only-toggle', $html);
+        $this->assertStringContainsString('sales-order-search-icon', $html);
         $this->assertStringContainsString(__('sales_orders.print_waiting'), $html);
-        $this->assertStringContainsString('print-ready-toggle', $html);
+        $this->assertStringContainsString('print-ready-pill', $html);
 
         $this->assertNotNull($oldActive->refresh()->order_date);
     }

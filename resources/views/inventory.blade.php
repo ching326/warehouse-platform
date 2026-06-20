@@ -847,14 +847,15 @@
             }
 
             .sales-order-filter-grid {
-                display: grid;
-                grid-template-columns: repeat(7, minmax(112px, 132px)) minmax(220px, 1fr);
-                gap: 10px;
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 8px;
                 margin-bottom: 12px;
             }
 
             .sales-order-filter-toolbar {
-                align-items: end;
+                align-items: center;
             }
 
             .filter-menu,
@@ -869,7 +870,7 @@
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                gap: 10px;
+                gap: 8px;
                 min-width: 0;
                 border: 1px solid var(--line);
                 border-radius: 6px;
@@ -879,7 +880,7 @@
                 font-size: 13px;
                 font-weight: 700;
                 min-height: 38px;
-                padding: 8px 10px;
+                padding: 8px 9px;
                 box-shadow: 0 1px 1px rgba(15, 23, 42, 0.03);
                 list-style: none;
             }
@@ -905,14 +906,29 @@
             }
 
             .filter-menu.is-active summary {
-                background: var(--accent-soft);
+                background: #e6f7f3;
                 color: var(--accent);
             }
 
             .filter-menu summary span {
-                color: var(--muted);
-                font-size: 11px;
+                color: var(--ink);
+                font-size: 13px;
                 font-weight: 700;
+            }
+
+            .filter-menu.is-active summary span {
+                color: var(--accent);
+            }
+
+            .filter-menu.is-active summary span::before {
+                display: inline-block;
+                width: 6px;
+                height: 6px;
+                margin-right: 6px;
+                border-radius: 999px;
+                background: var(--accent);
+                content: "";
+                vertical-align: 1px;
             }
 
             .filter-menu summary strong {
@@ -995,60 +1011,31 @@
                 font-weight: 700;
             }
 
-            .print-ready-toggle {
-                justify-self: start;
-                min-width: 118px;
-                gap: 8px;
-                color: var(--ink);
-                font-weight: 700;
-                user-select: none;
-            }
-
-            .print-ready-toggle:has(.print-ready-toggle-input:checked) {
-                border-color: var(--accent);
-                background: #f8fffe;
-                color: var(--accent);
-            }
-
             .print-ready-toggle-input {
                 position: absolute;
                 opacity: 0;
                 pointer-events: none;
             }
 
-            .print-ready-switch {
-                position: relative;
-                width: 30px;
-                height: 18px;
-                flex: 0 0 auto;
-                border-radius: 999px;
-                background: #d1d5db;
-                transition: background 0.15s ease;
-            }
-
-            .print-ready-switch::after {
-                content: "";
-                position: absolute;
-                top: 3px;
-                left: 3px;
-                width: 12px;
-                height: 12px;
-                border-radius: 999px;
-                background: #fff;
-                box-shadow: 0 1px 2px rgba(15, 23, 42, 0.25);
-                transition: transform 0.15s ease;
-            }
-
-            .print-ready-toggle-input:checked + .print-ready-switch {
-                background: var(--accent);
-            }
-
-            .print-ready-toggle-input:checked + .print-ready-switch::after {
-                transform: translateX(12px);
-            }
-
             .print-ready-label {
                 white-space: nowrap;
+            }
+
+            .print-ready-pill {
+                justify-self: start;
+                min-width: 0;
+                border-color: var(--line);
+                background: #fff;
+                color: var(--ink);
+                font-weight: 700;
+                user-select: none;
+            }
+
+            .print-ready-pill.is-active {
+                border-color: var(--accent);
+                background: #e6f7f3;
+                color: var(--accent);
+                box-shadow: 0 0 0 3px var(--accent-soft);
             }
 
             .filter-helper {
@@ -1078,7 +1065,59 @@
             }
 
             .sales-order-search-row {
-                min-width: 220px;
+                position: relative;
+                flex: 1 1 270px;
+                max-width: 320px;
+                min-width: 240px;
+            }
+
+            .sales-order-search-input {
+                width: 100%;
+                min-height: 38px;
+                border: 1px solid var(--line);
+                border-radius: 6px;
+                background: #fff;
+                color: var(--ink);
+                font-size: 13px;
+                font-weight: 600;
+                padding: 8px 10px 8px 34px;
+                box-shadow: 0 1px 1px rgba(15, 23, 42, 0.03);
+            }
+
+            .sales-order-search-input:focus {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 3px var(--accent-soft);
+                outline: none;
+            }
+
+            .sales-order-search-input::placeholder {
+                color: var(--muted);
+                font-weight: 500;
+            }
+
+            .sales-order-search-icon {
+                position: absolute;
+                top: 50%;
+                left: 13px;
+                width: 12px;
+                height: 12px;
+                border: 1.7px solid var(--muted);
+                border-radius: 999px;
+                transform: translateY(-58%);
+                pointer-events: none;
+            }
+
+            .sales-order-search-icon::after {
+                position: absolute;
+                right: -5px;
+                bottom: -4px;
+                width: 6px;
+                height: 1.7px;
+                border-radius: 999px;
+                background: var(--muted);
+                content: "";
+                transform: rotate(45deg);
+                transform-origin: left center;
             }
 
             .date-custom-grid {
@@ -1564,6 +1603,7 @@
                widths defined for these columns and let long platform order ids overflow
                into the neighbouring cell. */
             .sales-order-table {
+                table-layout: fixed;
                 min-width: 1320px;
             }
 
@@ -1612,6 +1652,11 @@
             .sales-order-table td:nth-child(9) {
                 width: 120px;
                 min-width: 110px;
+            }
+
+            .sales-order-table th:nth-child(10),
+            .sales-order-table td:nth-child(10) {
+                width: 180px;
             }
 
             .so-address-cell,

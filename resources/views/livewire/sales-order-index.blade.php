@@ -39,6 +39,17 @@
             x-data="{ openFilter: null }"
             x-on:keydown.escape.window="openFilter = null"
         >
+            <div class="sales-order-search-row">
+                <span class="sales-order-search-icon" aria-hidden="true"></span>
+                <input
+                    type="text"
+                    class="sales-order-search-input"
+                    wire:model.live.debounce.300ms="search"
+                    aria-label="{{ __('common.search') }}"
+                    placeholder="{{ __('sales_orders.search_placeholder') }}"
+                >
+            </div>
+
             <details
                 @class(['filter-menu', 'is-active' => count((array) $platforms) > 0])
                 wire:ignore.self
@@ -194,19 +205,10 @@
                 </div>
             </details>
 
-            <label class="print-waiting-toggle print-ready-toggle compact-filter-toggle">
+            <label @class(['print-waiting-toggle', 'print-ready-pill', 'compact-filter-toggle', 'is-active' => $printWaiting])>
                 <input class="print-ready-toggle-input" type="checkbox" wire:model.live="printWaiting">
-                <span class="print-ready-switch" aria-hidden="true"></span>
                 <span class="print-ready-label">{{ __('sales_orders.print_waiting') }}</span>
             </label>
-
-            <div class="sales-order-search-row">
-                <flux:input
-                    wire:model.live.debounce.300ms="search"
-                    :label="__('common.search')"
-                    :placeholder="__('sales_orders.search_placeholder')"
-                />
-            </div>
         </div>
 
         @if ($activeFilterChips !== [])
