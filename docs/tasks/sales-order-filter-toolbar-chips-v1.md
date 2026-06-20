@@ -153,11 +153,21 @@ Order Date: From 2026-06-01  x
 Order Date: To 2026-06-20  x
 ```
 
-7. If no filters are active, the chip row may be hidden.
+7. Removing any Order Date chip should reset the date filter to the internal default:
 
-8. Default open-work filtering should not need a chip unless the UI already communicates it elsewhere.
+```text
+date_range = all
+date_from = ''
+date_to = ''
+```
 
-9. Print Waiting should show a chip when enabled.
+Do not reset to `last_30_days` just because **All time** is no longer visible in the menu.
+
+8. If no filters are active, the chip row may be hidden.
+
+9. Default open-work filtering should not need a chip unless the UI already communicates it elsewhere.
+
+10. Print Waiting should show a chip when enabled.
 
 ## Part C: Others Filter
 
@@ -297,6 +307,7 @@ Important:
 - Keep `date_range = all` as the implicit default for the open-work view.
 - Do not change the default value in a way that breaks the current open-work default query.
 - Existing date-range/export protections must remain intact.
+- Removing the Order Date chip resets back to internal `DATE_ALL`, even though **All time** is not shown as a selectable menu option.
 
 Custom date should use `YYYY-MM-DD`.
 
