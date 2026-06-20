@@ -14,6 +14,7 @@ use App\Livewire\InboundOrderCreate;
 use App\Livewire\InboundOrderIndex;
 use App\Livewire\InboundOrderReceive;
 use App\Livewire\OutboundOrderCreate;
+use App\Livewire\OutboundOrderDetail;
 use App\Livewire\OutboundOrderIndex;
 use App\Livewire\OutboundOrderShip;
 use App\Livewire\AmazonSpapiOrderImport;
@@ -58,6 +59,7 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/outbound', OutboundOrderIndex::class)->name('outbound.index');
     Route::get('/outbound/create', OutboundOrderCreate::class)->name('outbound.create');
     Route::get('/outbound/{order}/ship', OutboundOrderShip::class)->name('outbound.ship');
+    Route::get('/outbound/{order}', OutboundOrderDetail::class)->name('outbound.show');
     Route::get('/sales-orders', SalesOrderIndex::class)->name('sales.orders.index');
     Route::get('/sales-orders/create', SalesOrderCreate::class)->name('sales.orders.create');
     Route::get('/sales-orders/import', SalesOrderImport::class)->name('sales.orders.import');

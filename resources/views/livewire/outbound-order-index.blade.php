@@ -54,7 +54,7 @@
                     <flux:table.row :key="$order->id">
                         <flux:table.cell>
                             <strong>{{ $order->ref ?: '-' }}</strong>
-                            <span class="subtle">#{{ $order->id }}</span>
+                            <a class="subtle" href="{{ route('outbound.show', $order) }}" wire:navigate>#{{ $order->id }}</a>
                         </flux:table.cell>
                         <flux:table.cell>
                             <strong>{{ $order->tenant->code }}</strong>
@@ -75,15 +75,6 @@
                             @if ($order->status === 'pending')
                                 <flux:button href="{{ route('outbound.ship', $order) }}" size="xs" variant="outline" wire:navigate>
                                     {{ __('outbound.btn_ship') }}
-                                </flux:button>
-                                <flux:button
-                                    type="button"
-                                    size="xs"
-                                    variant="danger"
-                                    wire:click="cancel({{ $order->id }})"
-                                    wire:confirm="{{ __('outbound.confirm_cancel') }}"
-                                >
-                                    {{ __('outbound.btn_cancel_order') }}
                                 </flux:button>
                             @else
                                 <span class="muted-dash">-</span>

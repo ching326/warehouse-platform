@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\OutboundOrderCreate;
+use App\Livewire\OutboundOrderDetail;
 use App\Livewire\OutboundOrderIndex;
 use App\Livewire\OutboundOrderShip;
 use App\Models\InventoryBalance;
@@ -191,21 +192,129 @@ class OutboundOrderTest extends TestCase
         $this->assertSame(16, $balanceB->available_qty);
     }
 
+    public function test_outbound_index_links_to_detail_and_removes_row_cancel(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
+        $this->createOrder($tenant, $warehouse, $sku, qty: 1, ref: 'OB-INDEX-LINK');
+        $order = OutboundOrder::where('ref', 'OB-INDEX-LINK')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderIndex::class)
+            ->assertSee(route('outbound.show', $order), false)
+            ->assertSee('#'.$order->id)
+            ->assertSee(__('outbound.btn_ship'))
+            ->assertDontSee(__('outbound.btn_cancel_order'));
+    }
+
+    public function test_outbound_detail_route_renders_for_internal_user(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
+        $this->createOrder($tenant, $warehouse, $sku, qty: 1, ref: 'OB-DETAIL-ROUTE');
+        $order = OutboundOrder::where('ref', 'OB-DETAIL-ROUTE')->firstOrFail();
+
+        $this->actingAs($this->internalUser())
+            ->get(route('outbound.show', $order))
+            ->assertOk()
+            ->assertSee('OB-DETAIL-ROUTE')
+            ->assertSee(__('outbound.section_actions'))
+            ->assertSee(__('outbound.section_recipient'))
+            ->assertSee(__('outbound.section_lines'));
+    }
+
+    public function test_outbound_detail_is_tenant_scoped(): void
+    {
+        [$ownTenant, $user] = $this->tenantUser();
+        [$otherTenant, $warehouse, $otherSku] = $this->skuWithStock(10);
+        $ownStockItem = StockItem::factory()->for($ownTenant)->create();
+        $ownShop = Shop::factory()->for($ownTenant)->create();
+        $ownSku = Sku::factory()->for($ownTenant)->for($ownShop)->for($ownStockItem)->create(['sku' => 'OWN-DETAIL-SKU']);
+
+        app(InventoryService::class)->adjustStock($ownTenant->id, $warehouse->id, $ownStockItem->id, 10);
+        $this->createOrder($ownTenant, $warehouse, $ownSku, qty: 1, ref: 'OWN-DETAIL', user: $user);
+        $this->createOrder($otherTenant, $warehouse, $otherSku, qty: 1, ref: 'OTHER-DETAIL');
+
+        $ownOrder = OutboundOrder::where('ref', 'OWN-DETAIL')->firstOrFail();
+        $otherOrder = OutboundOrder::where('ref', 'OTHER-DETAIL')->firstOrFail();
+
+        $this->actingAs($user)->get(route('outbound.show', $ownOrder))->assertOk()->assertSee('OWN-DETAIL');
+        $this->actingAs($user)->get(route('outbound.show', $otherOrder))->assertNotFound();
+    }
+
+    public function test_outbound_detail_cancel_button_only_shows_for_pending_orders(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(30);
+        $this->createOrder($tenant, $warehouse, $sku, qty: 1, ref: 'OB-PENDING-CANCEL');
+        $this->createOrder($tenant, $warehouse, $sku, qty: 1, ref: 'OB-SHIPPED-NO-CANCEL');
+        $this->createOrder($tenant, $warehouse, $sku, qty: 1, ref: 'OB-CANCELLED-NO-CANCEL');
+
+        $pending = OutboundOrder::where('ref', 'OB-PENDING-CANCEL')->firstOrFail();
+        $shipped = OutboundOrder::where('ref', 'OB-SHIPPED-NO-CANCEL')->firstOrFail();
+        $cancelled = OutboundOrder::where('ref', 'OB-CANCELLED-NO-CANCEL')->firstOrFail();
+        $shipped->update(['status' => OutboundOrder::STATUS_SHIPPED, 'shipped_at' => now()]);
+        $cancelled->update(['status' => OutboundOrder::STATUS_CANCELLED, 'cancelled_at' => now()]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderDetail::class, ['order' => $pending])
+            ->assertSee(__('outbound.btn_cancel_order'));
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderDetail::class, ['order' => $shipped])
+            ->assertDontSee(__('outbound.btn_cancel_order'));
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderDetail::class, ['order' => $cancelled])
+            ->assertDontSee(__('outbound.btn_cancel_order'));
+    }
+
+    public function test_cannot_cancel_another_tenants_outbound_order(): void
+    {
+        [, $user] = $this->tenantUser();
+        [$otherTenant, $warehouse, $sku] = $this->skuWithStock(10);
+        $this->createOrder($otherTenant, $warehouse, $sku, qty: 1, ref: 'OTHER-CANCEL');
+        $order = OutboundOrder::where('ref', 'OTHER-CANCEL')->firstOrFail();
+
+        $this->actingAs($user)
+            ->get(route('outbound.show', $order))
+            ->assertNotFound();
+
+        $this->assertSame(OutboundOrder::STATUS_PENDING, $order->refresh()->status);
+    }
+
+    public function test_outbound_detail_shows_virtual_bundle_child_lines(): void
+    {
+        [$tenant, $warehouse, $bundleSku, $componentA, $componentB] = $this->virtualBundleWithStock();
+        $this->createOrder($tenant, $warehouse, $bundleSku, qty: 2, ref: 'OB-BUNDLE-DETAIL');
+        $order = OutboundOrder::where('ref', 'OB-BUNDLE-DETAIL')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderDetail::class, ['order' => $order])
+            ->assertSee($bundleSku->sku)
+            ->assertSee($componentA->code)
+            ->assertSee($componentB->code)
+            ->assertSee((string) 2)
+            ->assertSee((string) 4);
+    }
+
     public function test_cancel_releases_reserved_stock(): void
     {
         [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
         $this->createOrder($tenant, $warehouse, $sku, qty: 4, ref: 'OB-CANCEL');
         $order = OutboundOrder::where('ref', 'OB-CANCEL')->firstOrFail();
+        $user = $this->internalUser();
 
-        Livewire::actingAs($this->internalUser())
-            ->test(OutboundOrderIndex::class)
-            ->call('cancel', $order->id);
+        Livewire::actingAs($user)
+            ->test(OutboundOrderDetail::class, ['order' => $order])
+            ->call('cancel');
 
         $balance = $this->balance($tenant, $warehouse, $sku->stockItem);
+        $releaseMovement = InventoryMovement::where('movement_type', InventoryMovement::TYPE_RELEASE_RESERVE)->firstOrFail();
 
-        $this->assertSame(OutboundOrder::STATUS_CANCELLED, $order->refresh()->status);
+        $order->refresh();
+        $this->assertSame(OutboundOrder::STATUS_CANCELLED, $order->status);
+        $this->assertNotNull($order->cancelled_at);
+        $this->assertSame($user->id, $order->cancelled_by_user_id);
         $this->assertSame(0, $balance->reserved_qty);
         $this->assertSame(10, $balance->available_qty);
+        $this->assertSame(-4, $releaseMovement->reserved_delta);
+        $this->assertSame(4, $releaseMovement->available_delta);
     }
 
     public function test_cancel_is_blocked_for_shipped_order(): void
@@ -219,8 +328,8 @@ class OutboundOrderTest extends TestCase
             ->call('save');
 
         Livewire::actingAs($this->internalUser())
-            ->test(OutboundOrderIndex::class)
-            ->call('cancel', $order->id);
+            ->test(OutboundOrderDetail::class, ['order' => $order])
+            ->call('cancel');
 
         $this->assertSame(OutboundOrder::STATUS_SHIPPED, $order->refresh()->status);
     }
@@ -232,8 +341,8 @@ class OutboundOrderTest extends TestCase
         $order = OutboundOrder::where('ref', 'OB-BLOCKED')->firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(OutboundOrderIndex::class)
-            ->call('cancel', $order->id);
+            ->test(OutboundOrderDetail::class, ['order' => $order])
+            ->call('cancel');
 
         $this->actingAs($this->internalUser())
             ->get(route('outbound.ship', $order->refresh()))
@@ -267,6 +376,7 @@ class OutboundOrderTest extends TestCase
         $this->actingAs($this->internalUser())->get('/outbound')->assertOk()->assertSee('Outbound Orders');
         $this->actingAs($this->internalUser())->get('/outbound/create')->assertOk()->assertSee('Create Outbound Order');
         $this->actingAs($this->internalUser())->get(route('outbound.ship', $order))->assertOk()->assertSee('Ship Order');
+        $this->actingAs($this->internalUser())->get(route('outbound.show', $order))->assertOk()->assertSee('OB-ROUTE');
     }
 
     /**

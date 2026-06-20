@@ -5,9 +5,7 @@ namespace App\Livewire;
 use App\Models\OutboundOrder;
 use App\Models\Tenant;
 use App\Models\Warehouse;
-use App\Services\InventoryService;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -42,40 +40,6 @@ class OutboundOrderIndex extends Component
     public function updatedStatusFilter(): void
     {
         $this->resetPage();
-    }
-
-    public function cancel(int $orderId): void
-    {
-        $order = OutboundOrder::with('leafLines')
-            ->whereIn('tenant_id', $this->visibleTenantIds())
-            ->findOrFail($orderId);
-
-        if ($order->status !== OutboundOrder::STATUS_PENDING) {
-            return;
-        }
-
-        DB::transaction(function () use ($order) {
-            foreach ($order->leafLines as $line) {
-                app(InventoryService::class)->releaseReserve(
-                    tenantId: $order->tenant_id,
-                    warehouseId: $order->warehouse_id,
-                    stockItemId: $line->stock_item_id,
-                    quantity: $line->qty,
-                    context: [
-                        'ref_type' => 'outbound_order',
-                        'ref_id' => (string) $order->id,
-                        'user_id' => Auth::id(),
-                    ],
-                );
-            }
-
-            $order->status = OutboundOrder::STATUS_CANCELLED;
-            $order->cancelled_at = now();
-            $order->cancelled_by_user_id = Auth::id();
-            $order->save();
-        });
-
-        session()->flash('status', __('outbound.order_cancelled'));
     }
 
     public function statusLabel(string $status): string

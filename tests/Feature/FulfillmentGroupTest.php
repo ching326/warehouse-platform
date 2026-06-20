@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Livewire\FulfillmentGroupCreate;
 use App\Livewire\FulfillmentGroupDetail;
 use App\Livewire\FulfillmentGroupIndex;
-use App\Livewire\OutboundOrderIndex;
+use App\Livewire\OutboundOrderDetail;
 use App\Livewire\OutboundOrderShip;
 use App\Models\FulfillmentGroup;
 use App\Models\InventoryBalance;
@@ -291,8 +291,8 @@ class FulfillmentGroupTest extends TestCase
         $outbound = $group->outboundOrder()->firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(OutboundOrderIndex::class)
-            ->call('cancel', $outbound->id);
+            ->test(OutboundOrderDetail::class, ['order' => $outbound])
+            ->call('cancel');
 
         $this->assertSame(FulfillmentGroup::STATUS_CANCELLED, $group->refresh()->status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_READY, $order->refresh()->fulfillment_status);
