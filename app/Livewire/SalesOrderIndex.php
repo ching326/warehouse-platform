@@ -548,22 +548,6 @@ class SalesOrderIndex extends Component
         ]);
     }
 
-    public function filterButtonLabel(string $allLabel, mixed $selected, array $options): string
-    {
-        $selected = array_values(array_filter((array) $selected, fn ($value) => (string) $value !== ''));
-        $count = count($selected);
-
-        if ($count === 0) {
-            return $allLabel;
-        }
-
-        if ($count === 1) {
-            return $options[(string) $selected[0]] ?? (string) $selected[0];
-        }
-
-        return __('sales_orders.multi_selected', ['count' => $count]);
-    }
-
     private function platformOptions(): Collection
     {
         return Shop::query()

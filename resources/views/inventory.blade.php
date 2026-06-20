@@ -996,6 +996,61 @@
                 font-weight: 700;
             }
 
+            .print-ready-toggle {
+                min-width: 118px;
+                gap: 8px;
+                color: var(--ink);
+                font-weight: 700;
+                user-select: none;
+            }
+
+            .print-ready-toggle:has(.print-ready-toggle-input:checked) {
+                border-color: var(--accent);
+                background: #f8fffe;
+                color: var(--accent);
+            }
+
+            .print-ready-toggle-input {
+                position: absolute;
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            .print-ready-switch {
+                position: relative;
+                width: 30px;
+                height: 18px;
+                flex: 0 0 auto;
+                border-radius: 999px;
+                background: #d1d5db;
+                transition: background 0.15s ease;
+            }
+
+            .print-ready-switch::after {
+                content: "";
+                position: absolute;
+                top: 3px;
+                left: 3px;
+                width: 12px;
+                height: 12px;
+                border-radius: 999px;
+                background: #fff;
+                box-shadow: 0 1px 2px rgba(15, 23, 42, 0.25);
+                transition: transform 0.15s ease;
+            }
+
+            .print-ready-toggle-input:checked + .print-ready-switch {
+                background: var(--accent);
+            }
+
+            .print-ready-toggle-input:checked + .print-ready-switch::after {
+                transform: translateX(12px);
+            }
+
+            .print-ready-label {
+                white-space: nowrap;
+            }
+
             .filter-helper {
                 display: block;
                 color: var(--muted);

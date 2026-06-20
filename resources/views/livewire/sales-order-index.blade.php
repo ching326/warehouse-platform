@@ -194,11 +194,10 @@
                 </div>
             </details>
 
-            <label class="print-waiting-toggle compact-filter-toggle">
-                <input type="checkbox" wire:model.live="printWaiting">
-                <span>
-                    <strong>{{ __('sales_orders.print_waiting') }}</strong>
-                </span>
+            <label class="print-waiting-toggle print-ready-toggle compact-filter-toggle">
+                <input class="print-ready-toggle-input" type="checkbox" wire:model.live="printWaiting">
+                <span class="print-ready-switch" aria-hidden="true"></span>
+                <span class="print-ready-label">{{ __('sales_orders.print_waiting') }}</span>
             </label>
 
             <div class="sales-order-search-row">
