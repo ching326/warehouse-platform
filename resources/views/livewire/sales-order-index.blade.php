@@ -287,7 +287,7 @@
             }"
         >
         <div class="sales-order-page-actions" data-testid="sales-order-page-actions">
-            <flux:button class="sales-order-top-action" href="{{ route('sales.orders.import') }}" variant="primary" icon="arrow-up-tray" wire:navigate>
+            <flux:button href="{{ route('sales.orders.import') }}" variant="primary" icon="arrow-up-tray" wire:navigate>
                 {{ __('sales_orders.import_btn') }}
             </flux:button>
             <details class="action-menu primary" data-testid="sales-order-page-export-menu">
@@ -314,7 +314,7 @@
                     </div>
                 </div>
             </details>
-            <flux:button class="sales-order-top-action" href="{{ route('sales.orders.create') }}" variant="primary" wire:navigate>
+            <flux:button href="{{ route('sales.orders.create') }}" variant="primary" wire:navigate>
                 {{ __('sales_orders.btn_create_order') }}
             </flux:button>
         </div>
@@ -327,26 +327,51 @@
             </div>
             <div class="selection-action-group" data-testid="sales-order-status-actions">
                 <span>{{ __('sales_orders.bulk_status_group') }}</span>
-                <flux:button class="bulk-action-button bulk-action-button-teal" type="button" size="sm" variant="outline" wire:click="bulkMarkReady" x-bind:disabled="! has()">
+                <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
                     {{ __('sales_orders.btn_bulk_mark_ready') }}
                 </flux:button>
-                <flux:button class="bulk-action-button bulk-action-button-teal" type="button" size="sm" variant="outline" wire:click="bulkMarkShipped" x-bind:disabled="! has()">
+                <flux:button type="button" size="sm" variant="primary" wire:click="bulkMarkReady" x-show="has()" x-cloak>
+                    {{ __('sales_orders.btn_bulk_mark_ready') }}
+                </flux:button>
+
+                <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
                     {{ __('sales_orders.btn_mark_shipped') }}
                 </flux:button>
-                <flux:button class="bulk-action-button bulk-action-button-teal" type="button" size="sm" variant="outline" wire:click="bulkHold" x-bind:disabled="! has()">
+                <flux:button type="button" size="sm" variant="primary" wire:click="bulkMarkShipped" x-show="has()" x-cloak>
+                    {{ __('sales_orders.btn_mark_shipped') }}
+                </flux:button>
+
+                <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
                     {{ __('sales_orders.btn_bulk_hold') }}
                 </flux:button>
-                <flux:button class="bulk-action-button bulk-action-button-teal" type="button" size="sm" variant="outline" wire:click="bulkReleaseHold" x-bind:disabled="! has()">
+                <flux:button type="button" size="sm" variant="primary" wire:click="bulkHold" x-show="has()" x-cloak>
+                    {{ __('sales_orders.btn_bulk_hold') }}
+                </flux:button>
+
+                <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
                     {{ __('sales_orders.btn_bulk_release_hold') }}
                 </flux:button>
+                <flux:button type="button" size="sm" variant="primary" wire:click="bulkReleaseHold" x-show="has()" x-cloak>
+                    {{ __('sales_orders.btn_bulk_release_hold') }}
+                </flux:button>
+
                 <flux:button
-                    class="bulk-action-button bulk-action-button-danger"
                     type="button"
                     size="sm"
                     variant="outline"
+                    disabled
+                    x-show="! has()"
+                >
+                    {{ __('sales_orders.btn_bulk_cancel') }}
+                </flux:button>
+                <flux:button
+                    type="button"
+                    size="sm"
+                    variant="danger"
                     wire:click="bulkCancel"
                     wire:confirm="{{ __('sales_orders.bulk_cancel_confirm') }}"
-                    x-bind:disabled="! has()"
+                    x-show="has()"
+                    x-cloak
                 >
                     {{ __('sales_orders.btn_bulk_cancel') }}
                 </flux:button>

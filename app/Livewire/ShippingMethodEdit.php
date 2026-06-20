@@ -23,6 +23,7 @@ class ShippingMethodEdit extends ShippingMethodCreate
         $this->code = $method->code;
         $this->name = $method->name;
         $this->serviceType = $method->service_type ?? '';
+        $this->sortOrder = (string) $method->sort_order;
         $this->isTrackable = $method->is_trackable;
         $this->requiresSize = $method->requires_size;
         $this->requiresZone = $method->requires_zone;
@@ -62,7 +63,7 @@ class ShippingMethodEdit extends ShippingMethodCreate
     public function render()
     {
         return view('livewire.shipping-method-edit', [
-            'carriers' => Carrier::orderBy('name')->get(['id', 'code', 'name']),
+            'carriers' => Carrier::ordered()->get(['id', 'code', 'name']),
             'statuses' => $this->statuses(),
             'method' => $this->method,
         ])->layout('inventory', [

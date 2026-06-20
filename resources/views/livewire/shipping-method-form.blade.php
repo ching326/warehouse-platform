@@ -25,6 +25,11 @@
     </div>
 
     <div>
+        <flux:input wire:model="sortOrder" type="number" min="0" step="1" :label="__('shipping.field_sort_order')" />
+        @error('sort_order') <p class="form-error">{{ $message }}</p> @enderror
+    </div>
+
+    <div>
         <flux:select wire:model="status" :label="__('shipping.field_status')">
             @foreach ($statuses as $value => $label)
                 <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>

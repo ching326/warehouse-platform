@@ -27,6 +27,10 @@
                 @error('carrier_country_code') <p class="form-error">{{ $message }}</p> @enderror
             </div>
             <div>
+                <flux:input wire:model="carrierSortOrder" type="number" min="0" step="1" :label="__('shipping.field_sort_order')" />
+                @error('carrier_sort_order') <p class="form-error">{{ $message }}</p> @enderror
+            </div>
+            <div>
                 <flux:select wire:model="carrierStatus" :label="__('shipping.field_status')">
                     @foreach ($statuses as $value => $label)
                         <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
@@ -49,6 +53,7 @@
 
         <flux:table class="data-table">
             <flux:table.columns>
+                <flux:table.column>{{ __('shipping.field_sort_order') }}</flux:table.column>
                 <flux:table.column>{{ __('shipping.field_carrier') }}</flux:table.column>
                 <flux:table.column>{{ __('shipping.field_country_code') }}</flux:table.column>
                 <flux:table.column>{{ __('shipping.method_count') }}</flux:table.column>
@@ -58,6 +63,15 @@
             <flux:table.rows>
                 @foreach ($carrierRows as $carrier)
                     <flux:table.row :key="'carrier-'.$carrier->id">
+                        <flux:table.cell>
+                            <flux:input
+                                wire:model="carrierSortOrders.{{ $carrier->id }}"
+                                type="number"
+                                min="0"
+                                step="1"
+                                aria-label="{{ __('shipping.field_sort_order') }} {{ $carrier->name }}"
+                            />
+                        </flux:table.cell>
                         <flux:table.cell>
                             <strong>{{ $carrier->name }}</strong>
                             <span class="subtle">{{ $carrier->code }}</span>
@@ -83,6 +97,12 @@
                 @endforeach
             </flux:table.rows>
         </flux:table>
+
+        <div class="form-actions compact">
+            <flux:button type="button" variant="primary" wire:click="saveCarrierOrder">
+                {{ __('shipping.btn_save_order') }}
+            </flux:button>
+        </div>
     </section>
 
     <section class="table-shell flux-panel">
@@ -117,6 +137,7 @@
 
         <flux:table :paginate="$methods" class="data-table">
             <flux:table.columns>
+                <flux:table.column>{{ __('shipping.field_sort_order') }}</flux:table.column>
                 <flux:table.column>{{ __('shipping.field_carrier') }}</flux:table.column>
                 <flux:table.column>{{ __('shipping.field_code') }}</flux:table.column>
                 <flux:table.column>{{ __('shipping.field_name') }}</flux:table.column>
@@ -128,6 +149,15 @@
             <flux:table.rows>
                 @forelse ($methods as $method)
                     <flux:table.row :key="$method->id">
+                        <flux:table.cell>
+                            <flux:input
+                                wire:model="methodSortOrders.{{ $method->id }}"
+                                type="number"
+                                min="0"
+                                step="1"
+                                aria-label="{{ __('shipping.field_sort_order') }} {{ $method->name }}"
+                            />
+                        </flux:table.cell>
                         <flux:table.cell>
                             <strong>{{ $method->carrier->name }}</strong>
                             <span class="subtle">{{ $method->carrier->code }}</span>
@@ -162,12 +192,18 @@
                     </flux:table.row>
                 @empty
                     <flux:table.row>
-                        <flux:table.cell colspan="7">
+                        <flux:table.cell colspan="8">
                             <div class="empty-state">{{ __('shipping.empty_state') }}</div>
                         </flux:table.cell>
                     </flux:table.row>
                 @endforelse
             </flux:table.rows>
         </flux:table>
+
+        <div class="form-actions compact">
+            <flux:button type="button" variant="primary" wire:click="saveMethodOrder">
+                {{ __('shipping.btn_save_order') }}
+            </flux:button>
+        </div>
     </section>
 </div>

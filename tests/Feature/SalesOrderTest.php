@@ -921,10 +921,12 @@ class SalesOrderTest extends TestCase
     public function test_sales_order_index_filter_chips_render_and_remove_individual_filters(): void
     {
         [, $shop, $sku] = $this->salesSku();
+        $yamato = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
         $this->createPersistedOrder($shop, $sku, [
             'platform_order_id' => 'FILTER-CHIPS',
             'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
             'shipping_method' => 'yamato',
+            'shipping_method_id' => $yamato->id,
         ]);
 
         $component = Livewire::actingAs($this->internalUser())
@@ -933,16 +935,16 @@ class SalesOrderTest extends TestCase
             ->set('shopIds', [(string) $shop->id])
             ->set('fulfillmentStatusesFilter', [SalesOrder::FULFILLMENT_STATUS_READY])
             ->set('orderStatusesFilter', [SalesOrder::ORDER_STATUS_PENDING])
-            ->set('shippingMethodsFilter', ['yamato'])
+            ->set('shippingMethodsFilter', [(string) $yamato->id])
             ->call('toggleOtherFilter', SalesOrderFilters::OTHER_NOT_PRINTED)
             ->set('dateRange', SalesOrderFilters::DATE_LAST_30_DAYS)
             ->set('search', 'Tanaka')
             ->set('printWaiting', true)
             ->assertSee('Platform: amazon')
             ->assertSee('Shop: '.$shop->tenant->code.' / '.$shop->name)
-            ->assertSee('Fulfillment: Ship Ready')
+            ->assertSee('Ship status: Ship Ready')
             ->assertSee('Order Status: Pending')
-            ->assertSee('Shipping: Yamato')
+            ->assertSee('Shipping: Yamato Nekopos')
             ->assertSee('Others: Not Printed')
             ->assertSee('Order Date: Last 30 days')
             ->assertSee('Search: Tanaka')
@@ -1032,6 +1034,26 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString('data-testid="sales-order-shipping-notice-export-menu"', $html);
         $this->assertStringContainsString(__('sales_orders.btn_export_amazon_ship_notice'), $html);
         $this->assertStringContainsString(__('sales_orders.btn_export_rakuten_ship_notice'), $html);
+    }
+
+    public function test_sales_order_index_shipping_filter_matches_order_shipping_dropdown_options(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'SHIPPING-FILTER-OPTIONS']);
+        $yamato = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+        $sagawa = ShippingMethod::where('code', 'sagawa_thb')->firstOrFail();
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->html();
+
+        $this->assertMatchesRegularExpression('/<input type="checkbox"[^>]*wire:model\.live="shippingMethodsFilter"[^>]*value="'.preg_quote((string) $yamato->id, '/').'"[^>]*>\s*Yamato Nekopos/', $html);
+        $this->assertMatchesRegularExpression('/<input type="checkbox"[^>]*wire:model\.live="shippingMethodsFilter"[^>]*value="'.preg_quote((string) $sagawa->id, '/').'"[^>]*>\s*Sagawa THB/', $html);
+        $this->assertMatchesRegularExpression('/<option value="'.preg_quote((string) $yamato->id, '/').'"\s*>\s*Yamato Nekopos\s*<\/option>/', $html);
+        $this->assertMatchesRegularExpression('/<option value="'.preg_quote((string) $sagawa->id, '/').'"\s*>\s*Sagawa THB\s*<\/option>/', $html);
+        $this->assertStringContainsString('value="'.SalesOrderFilters::EMPTY_SHIPPING.'"', $html);
+        $this->assertStringContainsString(__('sales_orders.shipping_method_unset'), $html);
+        $this->assertStringNotContainsString('Yamato Compact / Yamato Nekopos / Yamato TQB', $html);
     }
 
     public function test_sales_order_index_no_longer_renders_selected_order_export_links(): void
@@ -1442,6 +1464,9 @@ class SalesOrderTest extends TestCase
     public function test_sales_order_index_filters_by_multiple_platforms_shops_statuses_and_shipping_methods(): void
     {
         $tenant = Tenant::factory()->create(['status' => 'active']);
+        $yamato = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+        $sagawa = ShippingMethod::where('code', 'sagawa_thb')->firstOrFail();
+        $japanPost = ShippingMethod::where('code', 'japan_post_yupack')->firstOrFail();
         $amazon = Shop::factory()->for($tenant)->create(['status' => 'active', 'platform' => 'amazon', 'name' => 'Amazon Shop']);
         $rakuten = Shop::factory()->for($tenant)->create(['status' => 'active', 'platform' => 'rakuten', 'name' => 'Rakuten Shop']);
         $shopify = Shop::factory()->for($tenant)->create(['status' => 'active', 'platform' => 'shopify', 'name' => 'Shopify Shop']);
@@ -1451,18 +1476,21 @@ class SalesOrderTest extends TestCase
         $this->createPersistedOrder($amazon, $amazonSku, [
             'platform_order_id' => 'AMAZON-YAMATO',
             'shipping_method' => 'yamato',
+            'shipping_method_id' => $yamato->id,
             'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
             'order_status' => SalesOrder::ORDER_STATUS_PENDING,
         ]);
         $this->createPersistedOrder($rakuten, $rakutenSku, [
             'platform_order_id' => 'RAKUTEN-SAGAWA',
             'shipping_method' => 'sagawa',
+            'shipping_method_id' => $sagawa->id,
             'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
             'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
         ]);
         $this->createPersistedOrder($shopify, $shopifySku, [
             'platform_order_id' => 'SHOPIFY-POST',
             'shipping_method' => 'japan_post',
+            'shipping_method_id' => $japanPost->id,
             'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
             'order_status' => SalesOrder::ORDER_STATUS_BACKORDER,
         ]);
@@ -1473,7 +1501,7 @@ class SalesOrderTest extends TestCase
             ->set('shopIds', [(string) $amazon->id, (string) $rakuten->id])
             ->set('fulfillmentStatusesFilter', [SalesOrder::FULFILLMENT_STATUS_READY, SalesOrder::FULFILLMENT_STATUS_IN_GROUP])
             ->set('orderStatusesFilter', [SalesOrder::ORDER_STATUS_PENDING, SalesOrder::ORDER_STATUS_ON_HOLD])
-            ->set('shippingMethodsFilter', ['yamato', 'sagawa'])
+            ->set('shippingMethodsFilter', [(string) $yamato->id, (string) $sagawa->id])
             ->assertSee('AMAZON-YAMATO')
             ->assertSee('RAKUTEN-SAGAWA')
             ->assertDontSee('SHOPIFY-POST');
@@ -1482,8 +1510,13 @@ class SalesOrderTest extends TestCase
     public function test_sales_order_index_filters_by_unset_shipping_method(): void
     {
         [, $shop, $sku] = $this->salesSku();
+        $yamato = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
         $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'NO-SHIP', 'shipping_method' => null]);
-        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'HAS-SHIP', 'shipping_method' => 'yamato']);
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'HAS-SHIP',
+            'shipping_method' => 'yamato',
+            'shipping_method_id' => $yamato->id,
+        ]);
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
@@ -1525,6 +1558,7 @@ class SalesOrderTest extends TestCase
     public function test_sales_order_index_filter_chips_include_new_filters_without_export_all_links(): void
     {
         [, $shop, $sku] = $this->salesSku();
+        $yamato = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
         $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'EXPORT-LINK']);
 
         $html = Livewire::actingAs($this->internalUser())
@@ -1533,7 +1567,7 @@ class SalesOrderTest extends TestCase
             ->set('shopIds', [(string) $shop->id])
             ->set('fulfillmentStatusesFilter', [SalesOrder::FULFILLMENT_STATUS_READY])
             ->set('orderStatusesFilter', [SalesOrder::ORDER_STATUS_PENDING])
-            ->set('shippingMethodsFilter', ['yamato'])
+            ->set('shippingMethodsFilter', [(string) $yamato->id])
             ->set('othersFilter', [SalesOrderFilters::OTHER_MULTI_ITEM])
             ->set('dateRange', SalesOrderFilters::DATE_LAST_7_DAYS)
             ->set('search', 'EXPORT')
@@ -1541,9 +1575,9 @@ class SalesOrderTest extends TestCase
 
         $this->assertStringContainsString('Platform: amazon', $html);
         $this->assertStringContainsString('Shop: '.$shop->tenant->code.' / '.$shop->name, $html);
-        $this->assertStringContainsString('Fulfillment: Ship Ready', $html);
+        $this->assertStringContainsString('Ship status: Ship Ready', $html);
         $this->assertStringContainsString('Order Status: Pending', $html);
-        $this->assertStringContainsString('Shipping: Yamato', $html);
+        $this->assertStringContainsString('Shipping: Yamato Nekopos', $html);
         $this->assertStringContainsString('Others: Multi-item order', $html);
         $this->assertStringContainsString('Order Date: Last 7 days', $html);
         $this->assertStringContainsString('Search: EXPORT', $html);

@@ -15,6 +15,7 @@ class ShippingMethodCreate extends Component
     public string $code = '';
     public string $name = '';
     public string $serviceType = '';
+    public string $sortOrder = '';
     public bool $isTrackable = true;
     public bool $requiresSize = false;
     public bool $requiresZone = false;
@@ -56,7 +57,7 @@ class ShippingMethodCreate extends Component
     public function render()
     {
         return view('livewire.shipping-method-create', [
-            'carriers' => Carrier::where('status', 'active')->orderBy('name')->get(['id', 'code', 'name']),
+            'carriers' => Carrier::where('status', 'active')->ordered()->get(['id', 'code', 'name']),
             'statuses' => $this->statuses(),
         ])->layout('inventory', [
             'title' => __('shipping.create_page_title'),
@@ -71,6 +72,7 @@ class ShippingMethodCreate extends Component
             'code' => ['required', 'string', 'max:100', Rule::unique('shipping_methods', 'code')->ignore($ignoreId)],
             'name' => ['required', 'string', 'max:255'],
             'service_type' => ['nullable', 'string', 'max:100'],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],
             'status' => ['required', Rule::in(['active', 'inactive'])],
             'note' => ['nullable', 'string', 'max:2000'],
             'flat_fee' => ['nullable', 'numeric', 'min:0'],
@@ -99,6 +101,9 @@ class ShippingMethodCreate extends Component
             'code' => $this->code,
             'name' => trim($this->name),
             'service_type' => $this->nullableString($this->serviceType),
+            'sort_order' => $this->sortOrder === ''
+                ? $this->nextSortOrder((int) $this->carrierId)
+                : (int) $this->sortOrder,
             'is_trackable' => $this->isTrackable,
             'requires_size' => $this->requiresSize,
             'requires_zone' => $this->requiresZone,
@@ -144,6 +149,7 @@ class ShippingMethodCreate extends Component
             'code' => $this->code,
             'name' => $this->name,
             'service_type' => $this->serviceType,
+            'sort_order' => $this->sortOrder,
             'status' => $this->status,
             'note' => $this->note,
             'flat_fee' => $this->flatFee,
@@ -170,6 +176,13 @@ class ShippingMethodCreate extends Component
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    protected function nextSortOrder(int $carrierId): int
+    {
+        return ((int) ShippingMethod::query()
+            ->where('carrier_id', $carrierId)
+            ->max('sort_order')) + 10;
     }
 
     protected function isInternalUser(): bool

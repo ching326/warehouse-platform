@@ -559,12 +559,12 @@ class SalesOrderDetail extends Component
     {
         return ShippingMethod::query()
             ->where(function ($query) use ($order) {
-                $query->where('status', 'active')
+                $query->where('shipping_methods.status', 'active')
                     ->when($order->shipping_method_id, fn ($query) => $query->orWhereKey($order->shipping_method_id));
             })
             ->with('carrier:id,code,name')
-            ->orderBy('name')
-            ->get(['id', 'carrier_id', 'name', 'status']);
+            ->ordered()
+            ->get();
     }
 
     private function hasManualFulfillmentStatus(SalesOrder $order): bool

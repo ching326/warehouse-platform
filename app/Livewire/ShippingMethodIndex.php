@@ -27,7 +27,10 @@ class ShippingMethodIndex extends Component
     public string $carrierCode = '';
     public string $carrierName = '';
     public string $carrierCountryCode = '';
+    public string $carrierSortOrder = '';
     public string $carrierStatus = 'active';
+    public array $carrierSortOrders = [];
+    public array $methodSortOrders = [];
 
     public function mount(): void
     {
@@ -68,6 +71,9 @@ class ShippingMethodIndex extends Component
             'code' => $this->carrierCode,
             'name' => trim($this->carrierName),
             'country_code' => $this->nullableString($this->carrierCountryCode),
+            'sort_order' => $this->carrierSortOrder === ''
+                ? $this->nextCarrierSortOrder()
+                : (int) $this->carrierSortOrder,
             'status' => $this->carrierStatus,
         ];
 
@@ -90,12 +96,13 @@ class ShippingMethodIndex extends Component
         $this->carrierCode = $carrier->code;
         $this->carrierName = $carrier->name;
         $this->carrierCountryCode = $carrier->country_code ?? '';
+        $this->carrierSortOrder = (string) $carrier->sort_order;
         $this->carrierStatus = $carrier->status;
     }
 
     public function resetCarrierForm(): void
     {
-        $this->reset('editingCarrierId', 'carrierCode', 'carrierName', 'carrierCountryCode');
+        $this->reset('editingCarrierId', 'carrierCode', 'carrierName', 'carrierCountryCode', 'carrierSortOrder');
         $this->carrierStatus = 'active';
         $this->resetValidation();
     }
@@ -112,12 +119,52 @@ class ShippingMethodIndex extends Component
         session()->flash('status', __('shipping.carrier_status_updated'));
     }
 
+    public function saveCarrierOrder(): void
+    {
+        $this->validate([
+            'carrierSortOrders' => ['array'],
+            'carrierSortOrders.*' => ['required', 'integer', 'min:0', 'max:65535'],
+        ]);
+
+        foreach ($this->carrierSortOrders as $carrierId => $sortOrder) {
+            if (! ctype_digit((string) $carrierId)) {
+                continue;
+            }
+
+            Carrier::query()
+                ->whereKey((int) $carrierId)
+                ->update(['sort_order' => (int) $sortOrder]);
+        }
+
+        session()->flash('status', __('shipping.order_updated'));
+    }
+
+    public function saveMethodOrder(): void
+    {
+        $this->validate([
+            'methodSortOrders' => ['array'],
+            'methodSortOrders.*' => ['required', 'integer', 'min:0', 'max:65535'],
+        ]);
+
+        foreach ($this->methodSortOrders as $methodId => $sortOrder) {
+            if (! ctype_digit((string) $methodId)) {
+                continue;
+            }
+
+            ShippingMethod::query()
+                ->whereKey((int) $methodId)
+                ->update(['sort_order' => (int) $sortOrder]);
+        }
+
+        session()->flash('status', __('shipping.order_updated'));
+    }
+
     public function render()
     {
         $methods = ShippingMethod::query()
             ->with(['carrier', 'rates' => fn ($query) => $query->whereNull('tenant_id')->where('rate_type', 'flat')])
             ->when($this->carrierId !== '', fn ($query) => $query->where('carrier_id', (int) $this->carrierId))
-            ->when($this->statusFilter !== '', fn ($query) => $query->where('status', $this->statusFilter))
+            ->when($this->statusFilter !== '', fn ($query) => $query->where('shipping_methods.status', $this->statusFilter))
             ->when($this->search !== '', function ($query) {
                 $like = '%'.$this->search.'%';
 
@@ -125,13 +172,16 @@ class ShippingMethodIndex extends Component
                     ->where('code', 'like', $like)
                     ->orWhere('name', 'like', $like));
             })
-            ->orderBy('name')
+            ->ordered()
             ->paginate(30);
+
+        $carrierRows = Carrier::query()->withCount('shippingMethods')->ordered()->get();
+        $this->syncSortInputs($carrierRows, $methods->getCollection());
 
         return view('livewire.shipping-method-index', [
             'methods' => $methods,
-            'carriers' => Carrier::orderBy('name')->get(['id', 'code', 'name']),
-            'carrierRows' => Carrier::query()->withCount('shippingMethods')->orderBy('name')->get(),
+            'carriers' => Carrier::ordered()->get(['id', 'code', 'name']),
+            'carrierRows' => $carrierRows,
             'statuses' => $this->statuses(),
         ])->layout('inventory', [
             'title' => __('shipping.index_page_title'),
@@ -164,11 +214,13 @@ class ShippingMethodIndex extends Component
             'carrier_code' => $this->carrierCode,
             'carrier_name' => $this->carrierName,
             'carrier_country_code' => $this->carrierCountryCode,
+            'carrier_sort_order' => $this->carrierSortOrder,
             'carrier_status' => $this->carrierStatus,
         ], [
             'carrier_code' => ['required', 'string', 'max:100', Rule::unique('carriers', 'code')->ignore($this->editingCarrierId)],
             'carrier_name' => ['required', 'string', 'max:255'],
             'carrier_country_code' => ['nullable', 'string', 'size:2'],
+            'carrier_sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],
             'carrier_status' => ['required', Rule::in(array_keys($this->statuses()))],
         ])->validate();
     }
@@ -184,6 +236,22 @@ class ShippingMethodIndex extends Component
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    private function nextCarrierSortOrder(): int
+    {
+        return ((int) Carrier::query()->max('sort_order')) + 10;
+    }
+
+    private function syncSortInputs($carrierRows, $methodRows): void
+    {
+        foreach ($carrierRows as $carrier) {
+            $this->carrierSortOrders[$carrier->id] ??= (string) $carrier->sort_order;
+        }
+
+        foreach ($methodRows as $method) {
+            $this->methodSortOrders[$method->id] ??= (string) $method->sort_order;
+        }
     }
 
     private function isInternalUser(): bool

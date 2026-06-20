@@ -237,10 +237,10 @@ class SalesOrderCreate extends Component
     private function shippingMethodOptions(): Collection
     {
         return ShippingMethod::query()
-            ->where('status', 'active')
+            ->where('shipping_methods.status', 'active')
             ->with('carrier:id,code,name')
-            ->orderBy('name')
-            ->get(['id', 'carrier_id', 'name']);
+            ->ordered()
+            ->get();
     }
 
     private function selectedShippingMethod(): ?ShippingMethod

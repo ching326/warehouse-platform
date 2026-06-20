@@ -18,7 +18,6 @@
                 --page: #f4f7fb;
                 --panel: #ffffff;
                 --accent: #146c5f;
-                --accent-hover: #0f5b50;
                 --accent-soft: #e6f4f1;
                 --warning: #9a5b00;
                 --warning-soft: #fff4d6;
@@ -908,26 +907,14 @@
             }
 
             .action-menu.primary summary {
-                border-color: var(--accent);
-                background: var(--accent);
-                color: #fff;
-            }
-
-            .sales-order-top-action {
-                border-color: var(--accent) !important;
-                background: var(--accent) !important;
-                color: #fff !important;
-            }
-
-            .sales-order-top-action:hover {
-                border-color: var(--accent-hover) !important;
-                background: var(--accent-hover) !important;
-                color: #fff !important;
+                border-color: var(--color-accent);
+                background: var(--color-accent);
+                color: var(--color-accent-foreground);
             }
 
             .action-menu.primary summary::after,
             .action-menu.primary .action-menu-label svg {
-                color: #fff;
+                color: var(--color-accent-foreground);
             }
 
             .action-menu.primary[open] summary {
@@ -1301,41 +1288,6 @@
                 font-size: 11px;
                 font-weight: 800;
                 text-transform: uppercase;
-            }
-
-            .bulk-action-button {
-                transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
-            }
-
-            .bulk-action-button-teal {
-                border-color: var(--accent) !important;
-                color: var(--accent) !important;
-            }
-
-            .bulk-action-button-teal:not(:disabled) {
-                background: var(--accent) !important;
-                color: #fff !important;
-            }
-
-            .bulk-action-button-teal:not(:disabled):hover {
-                border-color: var(--accent-hover) !important;
-                background: var(--accent-hover) !important;
-                color: #fff !important;
-            }
-
-            .bulk-action-button-danger {
-                border-color: var(--danger) !important;
-                color: var(--danger) !important;
-            }
-
-            .bulk-action-button-danger:not(:disabled) {
-                background: var(--danger) !important;
-                color: #fff !important;
-            }
-
-            .bulk-action-button-danger:not(:disabled):hover {
-                background: #dc2626 !important;
-                color: #fff !important;
             }
 
             .selection-action-divider {

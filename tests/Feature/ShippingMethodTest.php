@@ -118,6 +118,37 @@ class ShippingMethodTest extends TestCase
             ->assertDontSee($inactive->name);
     }
 
+    public function test_shipping_method_order_controls_sales_order_dropdown_order(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->order($shop, $sku);
+
+        $yamato = Carrier::where('code', 'yamato')->firstOrFail();
+        $japanPost = Carrier::where('code', 'japan_post')->firstOrFail();
+        $compact = ShippingMethod::where('code', 'yamato_compact')->firstOrFail();
+        $nekopos = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+        $tqb = ShippingMethod::where('code', 'yamato_tqb')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ShippingMethodIndex::class)
+            ->set("carrierSortOrders.{$yamato->id}", '5')
+            ->set("carrierSortOrders.{$japanPost->id}", '50')
+            ->call('saveCarrierOrder')
+            ->set("methodSortOrders.{$tqb->id}", '5')
+            ->set("methodSortOrders.{$compact->id}", '20')
+            ->set("methodSortOrders.{$nekopos->id}", '30')
+            ->call('saveMethodOrder')
+            ->assertSee(__('shipping.order_updated'));
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->html();
+
+        $this->assertStringOrder($html, 'Yamato TQB', 'Yamato Compact');
+        $this->assertStringOrder($html, 'Yamato Compact', 'Yamato Nekopos');
+        $this->assertStringOrder($html, 'Yamato Nekopos', 'Japan Post Yu-Pack');
+    }
+
     public function test_rate_lookup_prefers_tenant_specific_rate(): void
     {
         $tenant = Tenant::factory()->create();
@@ -409,5 +440,15 @@ class ShippingMethodTest extends TestCase
         ]);
 
         return $user;
+    }
+
+    private function assertStringOrder(string $haystack, string $before, string $after): void
+    {
+        $beforePosition = strpos($haystack, $before);
+        $afterPosition = strpos($haystack, $after);
+
+        $this->assertNotFalse($beforePosition, "{$before} was not found.");
+        $this->assertNotFalse($afterPosition, "{$after} was not found.");
+        $this->assertLessThan($afterPosition, $beforePosition, "{$before} should appear before {$after}.");
     }
 }

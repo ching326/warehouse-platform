@@ -41,7 +41,7 @@ class SalesOrderFilters
             'shops' => self::numericStringArray(self::firstFilled($input, ['shops', 'shop_ids', 'shop_id', 'shop'])),
             'fulfillment' => self::onlyKnown(self::stringArray($input['fulfillment'] ?? $input['fulfillment_status'] ?? []), self::fulfillmentStatuses()),
             'order_status' => self::onlyKnown(self::stringArray($input['order_status'] ?? []), self::orderStatuses()),
-            'shipping' => self::onlyKnown(self::stringArray($input['shipping'] ?? $input['shipping_methods'] ?? $input['shipping_method'] ?? []), self::shippingMethods()),
+            'shipping' => self::shippingArray($input['shipping'] ?? $input['shipping_methods'] ?? $input['shipping_method'] ?? []),
             'others' => self::onlyKnown(self::stringArray($input['others'] ?? $input['other_filter'] ?? []), self::otherFilters()),
             'date_range' => $dateRange,
             'date_from' => trim((string) ($input['date_from'] ?? '')),
@@ -77,13 +77,24 @@ class SalesOrderFilters
         if (($filters['shipping'] ?? []) !== []) {
             $query->where(function ($query) use ($filters) {
                 $shipping = array_values(array_diff($filters['shipping'], [self::EMPTY_SHIPPING]));
+                $methodIds = array_values(array_filter($shipping, fn (string $value): bool => ctype_digit($value)));
+                $carrierCodes = array_values(array_diff($shipping, $methodIds));
+                $hasShippingFilter = false;
 
-                if ($shipping !== []) {
-                    $query->whereIn('shipping_method', $shipping);
+                if ($methodIds !== []) {
+                    $query->whereIn('shipping_method_id', array_map('intval', $methodIds));
+                    $hasShippingFilter = true;
+                }
+
+                if ($carrierCodes !== []) {
+                    $hasShippingFilter
+                        ? $query->orWhereIn('shipping_method', $carrierCodes)
+                        : $query->whereIn('shipping_method', $carrierCodes);
+                    $hasShippingFilter = true;
                 }
 
                 if (in_array(self::EMPTY_SHIPPING, $filters['shipping'], true)) {
-                    $shipping === []
+                    ! $hasShippingFilter
                         ? $query->whereNull('shipping_method')
                         : $query->orWhereNull('shipping_method');
                 }
@@ -346,6 +357,14 @@ class SalesOrderFilters
     private static function numericStringArray(mixed $value): array
     {
         return array_values(array_filter(self::stringArray($value), fn (string $item) => ctype_digit($item) && (int) $item > 0));
+    }
+
+    private static function shippingArray(mixed $value): array
+    {
+        return array_values(array_filter(
+            self::stringArray($value),
+            fn (string $item) => in_array($item, self::shippingMethods(), true) || (ctype_digit($item) && (int) $item > 0),
+        ));
     }
 
     private static function arrayValue(mixed $value): array
