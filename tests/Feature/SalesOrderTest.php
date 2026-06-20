@@ -1687,6 +1687,24 @@ class SalesOrderTest extends TestCase
         $this->assertGreaterThan($trackingInputPosition, $unsavedPosition);
     }
 
+    public function test_sales_order_index_combines_shipping_and_tracking_and_shows_method_names(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'SHIP-TRACK-CELL']);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->html();
+
+        $this->assertStringContainsString(__('sales_orders.col_shipping_tracking'), $html);
+        $this->assertStringNotContainsString('<div class="flex in-[.group\\/center-align]:justify-center in-[.group\\/end-align]:justify-end">'.__('sales_orders.col_tracking_no').'</div>', $html);
+        $this->assertStringContainsString('Yamato Nekopos', $html);
+        $this->assertMatchesRegularExpression('/<option value="\d+"\s*>\s*Yamato Nekopos\s*<\/option>/', $html);
+        $this->assertDoesNotMatchRegularExpression('/<option value="\d+"\s*>\s*Yamato Nekopos \/ Yamato\s*<\/option>/', $html);
+        $this->assertStringContainsString('class="shipping-tracking-stack"', $html);
+        $this->assertStringContainsString('class="tracking-field"', $html);
+    }
+
     public function test_sales_order_index_shows_printed_date_when_courier_csv_exported(): void
     {
         [, $shop, $sku] = $this->salesSku();
@@ -1717,7 +1735,7 @@ class SalesOrderTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
             ->set('search', 'no matching order')
-            ->assertSee('colspan="10"', false)
+            ->assertSee('colspan="9"', false)
             ->assertSee(__('sales_orders.empty_state'));
     }
 

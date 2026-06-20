@@ -1619,7 +1619,7 @@
                into the neighbouring cell. */
             .sales-order-table {
                 table-layout: fixed;
-                min-width: 1320px;
+                min-width: 1160px;
             }
 
             .sales-order-table th:nth-child(1),
@@ -1654,23 +1654,21 @@
             }
 
             .sales-order-table th:nth-child(6),
-            .sales-order-table td:nth-child(6),
-            .sales-order-table th:nth-child(7),
-            .sales-order-table td:nth-child(7) {
-                width: 170px;
-                min-width: 150px;
+            .sales-order-table td:nth-child(6) {
+                width: 220px;
+                min-width: 200px;
             }
 
+            .sales-order-table th:nth-child(7),
+            .sales-order-table td:nth-child(7),
             .sales-order-table th:nth-child(8),
-            .sales-order-table td:nth-child(8),
-            .sales-order-table th:nth-child(9),
-            .sales-order-table td:nth-child(9) {
+            .sales-order-table td:nth-child(8) {
                 width: 120px;
                 min-width: 110px;
             }
 
-            .sales-order-table th:nth-child(10),
-            .sales-order-table td:nth-child(10) {
+            .sales-order-table th:nth-child(9),
+            .sales-order-table td:nth-child(9) {
                 width: 180px;
             }
 
@@ -1775,11 +1773,17 @@
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 4px;
-                min-width: 170px;
+                min-width: 0;
             }
 
             .tracking-field .table-control {
                 width: 100%;
+            }
+
+            .shipping-tracking-stack {
+                display: grid;
+                gap: 6px;
+                min-width: 0;
             }
 
             .tracking-unsaved {

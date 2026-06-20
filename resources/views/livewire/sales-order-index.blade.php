@@ -390,8 +390,7 @@
                     <flux:table.column>{{ __('sales_orders.col_address') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_recipient') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.field_sku') }}</flux:table.column>
-                    <flux:table.column>{{ __('sales_orders.col_shipping_method') }}</flux:table.column>
-                    <flux:table.column>{{ __('sales_orders.col_tracking_no') }}</flux:table.column>
+                    <flux:table.column>{{ __('sales_orders.col_shipping_tracking') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_order_status') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_created_at') }}</flux:table.column>
                     <flux:table.column>{{ __('sales_orders.col_note') }}</flux:table.column>
@@ -457,38 +456,39 @@
                                     <span class="subtle">{{ __('sales_orders.no_lines') }}</span>
                                 @endforelse
                             </flux:table.cell>
-                            <flux:table.cell class="so-control-cell">
-                                <select
-                                    class="table-control"
-                                    aria-label="{{ __('sales_orders.col_shipping_method') }} {{ $order->platform_order_id ?: $order->id }}"
-                                    x-on:change="$wire.updateShippingMethod({{ $order->id }}, $event.target.value)"
-                                >
-                                    <option value="">{{ __('sales_orders.shipping_method_unset') }}</option>
-                                    @foreach ($shippingMethodOptions as $value => $label)
-                                        <option value="{{ $value }}" @selected((string) ($order->shipping_method_id ?? '') === (string) $value)>
-                                            {{ $label }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </flux:table.cell>
-                            <flux:table.cell class="so-control-cell">
-                                <div class="tracking-field">
-                                    <input
-                                        type="text"
+                            <flux:table.cell class="so-control-cell so-shipping-cell">
+                                <div class="shipping-tracking-stack">
+                                    <select
                                         class="table-control"
-                                        wire:key="tracking-{{ $order->id }}"
-                                        wire:model.live.debounce.800ms="trackingDrafts.{{ $order->id }}"
-                                        placeholder="{{ __('sales_orders.tracking_no_placeholder') }}"
-                                        aria-label="{{ __('sales_orders.col_tracking_no') }} {{ $order->platform_order_id ?: $order->id }}"
+                                        aria-label="{{ __('sales_orders.col_shipping_method') }} {{ $order->platform_order_id ?: $order->id }}"
+                                        x-on:change="$wire.updateShippingMethod({{ $order->id }}, $event.target.value)"
                                     >
+                                        <option value="">{{ __('sales_orders.shipping_method_unset') }}</option>
+                                        @foreach ($shippingMethodOptions as $value => $label)
+                                            <option value="{{ $value }}" @selected((string) ($order->shipping_method_id ?? '') === (string) $value)>
+                                                {{ $label }}
+                                            </option>
+                                        @endforeach
+                                    </select>
 
-                                    <span
-                                        class="tracking-unsaved"
-                                        wire:dirty
-                                        wire:target="trackingDrafts.{{ $order->id }}"
-                                    >
-                                        {{ __('sales_orders.tracking_unsaved') }}
-                                    </span>
+                                    <div class="tracking-field">
+                                        <input
+                                            type="text"
+                                            class="table-control"
+                                            wire:key="tracking-{{ $order->id }}"
+                                            wire:model.live.debounce.800ms="trackingDrafts.{{ $order->id }}"
+                                            placeholder="{{ __('sales_orders.tracking_no_placeholder') }}"
+                                            aria-label="{{ __('sales_orders.col_tracking_no') }} {{ $order->platform_order_id ?: $order->id }}"
+                                        >
+
+                                        <span
+                                            class="tracking-unsaved"
+                                            wire:dirty
+                                            wire:target="trackingDrafts.{{ $order->id }}"
+                                        >
+                                            {{ __('sales_orders.tracking_unsaved') }}
+                                        </span>
+                                    </div>
                                 </div>
                             </flux:table.cell>
                             <flux:table.cell>
@@ -519,7 +519,7 @@
                         </flux:table.row>
                     @empty
                         <flux:table.row>
-                            <flux:table.cell colspan="10">
+                            <flux:table.cell colspan="9">
                                 <div class="empty-state">{{ __('sales_orders.empty_state') }}</div>
                             </flux:table.cell>
                         </flux:table.row>

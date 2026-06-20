@@ -614,22 +614,35 @@ class SalesOrderIndex extends Component
     {
         return ShippingMethod::query()
             ->where('status', 'active')
-            ->with('carrier:id,code,name')
             ->orderBy('name')
-            ->get(['id', 'carrier_id', 'name'])
+            ->get(['id', 'name'])
             ->mapWithKeys(fn (ShippingMethod $method) => [
-                (string) $method->id => $method->name.' / '.$method->carrier->name,
+                (string) $method->id => $method->name,
             ])
             ->all();
     }
 
     private function shippingMethodFilterOptions(): array
     {
+        $methods = ShippingMethod::query()
+            ->where('status', 'active')
+            ->with('carrier:id,code')
+            ->orderBy('name')
+            ->get(['id', 'carrier_id', 'name'])
+            ->groupBy(fn (ShippingMethod $method) => (string) $method->carrier?->code)
+            ->map(fn (Collection $methods) => $methods
+                ->pluck('name')
+                ->filter()
+                ->unique()
+                ->implode(' / '))
+            ->filter()
+            ->all();
+
         return [
-            'yamato' => __('sales_orders.shipping_method_yamato'),
-            'sagawa' => __('sales_orders.shipping_method_sagawa'),
-            'japan_post' => __('sales_orders.shipping_method_japan_post'),
-            'other' => __('sales_orders.shipping_method_other'),
+            'yamato' => $methods['yamato'] ?? __('sales_orders.shipping_method_yamato'),
+            'sagawa' => $methods['sagawa'] ?? __('sales_orders.shipping_method_sagawa'),
+            'japan_post' => $methods['japan_post'] ?? __('sales_orders.shipping_method_japan_post'),
+            'other' => $methods['other'] ?? __('sales_orders.shipping_method_other'),
             SalesOrderFilters::EMPTY_SHIPPING => __('sales_orders.shipping_method_unset'),
         ];
     }

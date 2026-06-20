@@ -69,6 +69,7 @@ return [
     'col_recipient' => 'Recipient',
     'col_items' => 'Items',
     'col_shipping_method' => 'Shipping method',
+    'col_shipping_tracking' => 'Shipping / Tracking',
     'col_tracking_no' => 'Tracking no.',
     'col_fulfillment_status' => 'Fulfillment',
     'col_order_status' => 'Status',
