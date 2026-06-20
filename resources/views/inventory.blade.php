@@ -853,32 +853,102 @@
                 margin-bottom: 12px;
             }
 
-            .filter-box {
+            .filter-menu,
+            .action-menu {
+                position: relative;
+                min-width: 0;
+            }
+
+            .filter-menu summary,
+            .action-menu summary,
+            .action-menu-disabled {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
                 min-width: 0;
                 border: 1px solid var(--line);
                 border-radius: 6px;
                 background: #fff;
-                padding: 10px;
+                color: var(--ink);
+                cursor: pointer;
+                font-size: 13px;
+                font-weight: 700;
+                min-height: 38px;
+                padding: 8px 10px;
+                box-shadow: 0 1px 1px rgba(15, 23, 42, 0.03);
+                list-style: none;
             }
 
-            .filter-box strong {
+            .filter-menu summary::-webkit-details-marker,
+            .action-menu summary::-webkit-details-marker {
+                display: none;
+            }
+
+            .filter-menu summary::after,
+            .action-menu summary::after {
+                color: var(--muted);
+                content: "v";
+                font-size: 12px;
+                line-height: 1;
+            }
+
+            .filter-menu[open] summary,
+            .action-menu[open] summary {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 3px var(--accent-soft);
+            }
+
+            .filter-menu summary span {
+                color: var(--muted);
+                font-size: 11px;
+                font-weight: 700;
+                text-transform: uppercase;
+            }
+
+            .filter-menu summary strong {
                 display: block;
-                margin-bottom: 8px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
                 font-size: 12px;
             }
 
-            .filter-options {
+            .filter-panel,
+            .action-menu-panel {
+                position: absolute;
+                z-index: 30;
+                top: calc(100% + 6px);
+                left: 0;
+                min-width: 100%;
+                width: max-content;
+                max-width: min(360px, calc(100vw - 32px));
+                border: 1px solid var(--line);
+                border-radius: 6px;
+                background: #fff;
+                box-shadow: 0 16px 32px rgba(15, 23, 42, 0.16);
+                padding: 8px;
+            }
+
+            .action-menu-panel {
+                right: 0;
+                left: auto;
+                display: grid;
+                min-width: 190px;
+            }
+
+            .filter-panel {
                 display: grid;
                 gap: 6px;
                 max-height: 136px;
                 overflow: auto;
             }
 
-            .filter-options.compact {
+            .filter-panel.compact {
                 max-height: 116px;
             }
 
-            .filter-options label,
+            .filter-panel label,
             .date-range-options label,
             .active-only-toggle {
                 display: flex;
@@ -887,6 +957,19 @@
                 color: var(--muted);
                 font-size: 12px;
                 font-weight: 700;
+            }
+
+            .filter-panel label {
+                min-width: 180px;
+                border-radius: 5px;
+                padding: 5px 6px;
+            }
+
+            .filter-panel label:hover,
+            .action-menu-panel a:hover,
+            .action-menu-panel button:hover {
+                background: var(--accent-soft);
+                color: var(--accent);
             }
 
             .sales-order-search-row {
@@ -912,9 +995,75 @@
                 padding: 8px 10px;
             }
 
-            .sales-order-toolbar {
-                grid-template-columns: repeat(4, minmax(140px, auto));
-                justify-content: start;
+            .sales-order-page-actions {
+                display: flex;
+                justify-content: flex-end;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 12px;
+            }
+
+            .sales-order-action-row {
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 8px;
+                border-top: 1px solid var(--line);
+                border-bottom: 1px solid var(--line);
+                margin-bottom: 12px;
+                padding: 10px 0;
+            }
+
+            .selection-action-group {
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+
+            .selection-action-group > span {
+                color: var(--muted);
+                font-size: 11px;
+                font-weight: 800;
+                text-transform: uppercase;
+            }
+
+            .selection-action-divider {
+                align-self: stretch;
+                width: 1px;
+                min-height: 28px;
+                background: var(--line);
+                margin: 0 2px;
+            }
+
+            .action-menu.small summary,
+            .action-menu-disabled {
+                min-height: 32px;
+                padding: 6px 9px;
+                font-size: 12px;
+            }
+
+            .action-menu-disabled {
+                color: var(--muted);
+                cursor: default;
+                opacity: 0.65;
+            }
+
+            .action-menu-panel a,
+            .action-menu-panel button {
+                display: block;
+                width: 100%;
+                border: 0;
+                border-radius: 5px;
+                background: transparent;
+                color: var(--ink);
+                cursor: pointer;
+                font: inherit;
+                font-size: 12px;
+                font-weight: 700;
+                padding: 8px 9px;
+                text-align: left;
+                text-decoration: none;
             }
 
             .sku-table {

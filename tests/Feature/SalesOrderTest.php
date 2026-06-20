@@ -870,9 +870,82 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString(__('sales_orders.btn_bulk_mark_ready'), $html);
         $this->assertStringContainsString(__('sales_orders.btn_bulk_hold'), $html);
         $this->assertStringContainsString(__('sales_orders.btn_bulk_cancel'), $html);
-        $this->assertStringContainsString(__('sales_orders.btn_bulk_export_csv'), $html);
+        $this->assertStringContainsString(__('sales_orders.selected_export_menu'), $html);
+        $this->assertStringContainsString(__('sales_orders.courier_export_menu'), $html);
         $this->assertStringContainsString('disabled', $html);
         $this->assertStringNotContainsString('ids=', $html);
+    }
+
+    public function test_sales_order_index_toolbar_groups_actions_by_zone(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'TOOLBAR-ZONES']);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->html();
+
+        $this->assertStringContainsString('data-testid="sales-order-filter-row"', $html);
+        $this->assertStringContainsString('data-testid="sales-order-page-actions"', $html);
+        $this->assertStringContainsString('data-testid="sales-order-selection-actions"', $html);
+        $this->assertStringContainsString(__('sales_orders.import_btn'), $html);
+        $this->assertStringContainsString(__('sales_orders.export_menu'), $html);
+        $this->assertStringContainsString(__('sales_orders.btn_create_order'), $html);
+    }
+
+    public function test_sales_order_index_export_menus_present(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'EXPORT-MENUS']);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $order->id])
+            ->html();
+
+        $this->assertStringContainsString('data-testid="sales-order-page-export-menu"', $html);
+        $this->assertStringContainsString(__('sales_orders.export_all_csv'), $html);
+        $this->assertStringContainsString(__('sales_orders.export_all_xlsx'), $html);
+        $this->assertStringContainsString('data-testid="sales-order-selected-export-menu"', $html);
+        $this->assertStringContainsString(__('sales_orders.btn_bulk_export_csv'), $html);
+        $this->assertStringContainsString(__('sales_orders.btn_bulk_export_xlsx'), $html);
+        $this->assertStringContainsString('data-testid="sales-order-courier-export-menu"', $html);
+        $this->assertStringContainsString(__('sales_orders.btn_export_yamato_csv'), $html);
+        $this->assertStringContainsString(__('sales_orders.btn_export_sagawa_csv'), $html);
+    }
+
+    public function test_sales_order_index_export_selected_still_carries_selected_ids(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $first = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'SELECTED-EXPORT-1']);
+        $second = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'SELECTED-EXPORT-2']);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $first->id, (string) $second->id])
+            ->html();
+
+        $this->assertStringContainsString('ids='.$first->id.'%2C'.$second->id, $html);
+    }
+
+    public function test_sales_order_index_reserves_mark_shipped_slot(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'MARK-SHIPPED-SLOT']);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->html();
+
+        $markReadyPosition = strpos($html, __('sales_orders.btn_bulk_mark_ready'));
+        $markShippedPosition = strpos($html, __('sales_orders.btn_mark_shipped'));
+        $holdPosition = strpos($html, __('sales_orders.btn_bulk_hold'));
+
+        $this->assertNotFalse($markReadyPosition);
+        $this->assertNotFalse($markShippedPosition);
+        $this->assertNotFalse($holdPosition);
+        $this->assertGreaterThan($markReadyPosition, $markShippedPosition);
+        $this->assertGreaterThan($markShippedPosition, $holdPosition);
     }
 
     public function test_sales_order_index_default_view_shows_active_backlog_all_dates(): void

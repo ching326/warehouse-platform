@@ -399,6 +399,8 @@ class SalesOrderIndex extends Component
     {
         $filters = $this->filters();
         $this->filterWarning = SalesOrderFilters::dateRangeError($filters);
+        $platformOptions = $this->platformOptions();
+        $shops = $this->shopOptions();
 
         $orders = SalesOrder::query()
             ->with(['shop.tenant', 'shippingMethod.carrier', 'lines.sku.stockItem'])
@@ -416,8 +418,12 @@ class SalesOrderIndex extends Component
 
         return view('livewire.sales-order-index', [
             'orders' => $orders,
-            'platformOptions' => $this->platformOptions(),
-            'shops' => $this->shopOptions(),
+            'platformOptions' => $platformOptions,
+            'shops' => $shops,
+            'platformFilterOptions' => $platformOptions->mapWithKeys(fn (string $platform) => [$platform => $platform])->all(),
+            'shopFilterOptions' => $shops->mapWithKeys(fn (Shop $shop) => [
+                (string) $shop->id => $shop->tenant->code.' / '.$shop->name,
+            ])->all(),
             'fulfillmentStatuses' => $this->fulfillmentStatuses(),
             'orderStatuses' => $this->orderStatuses(),
             'shippingMethodOptions' => $this->shippingMethodSelectOptions(),
@@ -429,6 +435,22 @@ class SalesOrderIndex extends Component
             'subtitle' => __('sales_orders.index_page_subtitle'),
             'pageWide' => true,
         ]);
+    }
+
+    public function filterButtonLabel(string $allLabel, mixed $selected, array $options): string
+    {
+        $selected = array_values(array_filter((array) $selected, fn ($value) => (string) $value !== ''));
+        $count = count($selected);
+
+        if ($count === 0) {
+            return $allLabel;
+        }
+
+        if ($count === 1) {
+            return $options[(string) $selected[0]] ?? (string) $selected[0];
+        }
+
+        return __('sales_orders.multi_selected', ['count' => $count]);
     }
 
     private function platformOptions(): Collection

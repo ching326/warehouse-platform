@@ -13,7 +13,8 @@ The page should let staff quickly find and filter orders by:
 
 Also add a `Note` column back to the table so staff can see order notes without opening detail.
 
-This task is UI/query behavior only. Do not implement courier CSV generation here.
+This task covers Sales Orders index UI/query behavior plus the stored `sales_orders.order_date`
+performance column. Do not implement courier CSV generation here.
 
 ---
 
@@ -84,9 +85,10 @@ Requested changes:
 9. Add Shipping method filter to the right of Order status.
 10. Shipping method filter should be multi-select.
 11. Add order date filter:
+    - all dates
     - last 3 days
     - last 7 days
-    - last 1 month
+    - last 30 days
     - last 3 months
     - last 1 year
     - custom from/to
@@ -113,41 +115,113 @@ For this task:
 
 Future improvement:
 
-- If the business needs `yamato_nekopos`, `yamato_takkyubin`, etc., add them as explicit shipping
+- If the business needs `yamato_nekopos`, `yamato_tqb`, `sagawa_thb`, etc., add them as explicit shipping
   method values in a separate task.
 - Courier export should then map detailed methods back to a carrier family:
   - `yamato_nekopos` -> Yamato export
-  - `yamato_takkyubin` -> Yamato export
-  - `sagawa_*` -> Sagawa export
+  - `yamato_tqb` -> Yamato export
+  - `sagawa_thb` -> Sagawa export
 
 Do not mix this migration into the filter UI task.
 
 ---
 
-## Date Filter Semantics
+## Date Filter Semantics + Performance Foundation
 
 Use **Order date** as the user-facing label.
 
-Query rule:
+Add a stored `sales_orders.order_date` column in this task.
 
-- Prefer `sales_orders.platform_ordered_at` when it is not null.
-- Fall back to `sales_orders.created_at` when `platform_ordered_at` is null.
+Meaning:
+
+```text
+order_date = platform_ordered_at date/time if present, otherwise created_at
+```
+
+Use `order_date` for:
+
+- Sales Orders index date filter
+- Sales Orders index default sorting
+- Sales Orders CSV/XLSX export filters
 
 Reason:
 
 - Amazon reports have a real platform purchase/order date.
 - Manually created orders may not have `platform_ordered_at`.
+- `WHERE COALESCE(platform_ordered_at, created_at)` is not reliably index-friendly. It can force a
+  full scan as order volume grows.
+- A stored `order_date` column lets MySQL use normal indexes.
 
-Implementation approach:
+Migration:
 
-Use a SQL expression or grouped conditions so the effective date is:
-
-```sql
-COALESCE(platform_ordered_at, created_at)
+```php
+Schema::table('sales_orders', function (Blueprint $table) {
+    $table->timestamp('order_date')->nullable()->after('platform_ordered_at');
+    $table->index(['tenant_id', 'order_date'], 'sales_orders_tenant_order_date_idx');
+    $table->index(['tenant_id', 'fulfillment_status', 'order_date'], 'sales_orders_tenant_fulfillment_order_date_idx');
+    $table->index(['tenant_id', 'order_status', 'order_date'], 'sales_orders_tenant_status_order_date_idx');
+});
 ```
 
-Date presets should use the app date/time consistently. For UI filtering, app timezone is OK unless
-a later courier/date task says otherwise. Display dates as `YYYY-MM-DD`.
+Backfill (existing production rows):
+
+- Put the backfill logic in a reusable callable action, e.g. `App\Actions\BackfillSalesOrderDate`.
+  The migration calls this action.
+- Reason: the migration runs against an empty database under test `RefreshDatabase`, so a backfill
+  written inline as a one-off `DB::table()->update()` cannot be tested with a seed-then-migrate flow.
+  There are no rows present when the migration runs. A callable action lets a test insert a row and
+  invoke the backfill directly. See test #1.
+- The action sets `order_date = COALESCE(platform_ordered_at, created_at)` for rows where it is null.
+
+Write path (all new rows):
+
+- Add `order_date` to `App\Models\SalesOrder` fillable and casts.
+- Guarantee `order_date` at the model level with a `creating` hook so factory inserts, the importer,
+  and manual create all populate it uniformly. Do not rely on each app code path to set it; the
+  factory does not set it, so factory-created orders would otherwise have a null `order_date` and the
+  date-filter tests would break.
+
+```php
+protected static function booted(): void
+{
+    static::creating(function (SalesOrder $order) {
+        if ($order->order_date !== null) {
+            return;
+        }
+
+        if ($order->platform_ordered_at !== null) {
+            $order->order_date = $order->platform_ordered_at;
+
+            return;
+        }
+
+        // No platform date: pin order_date to the same instant as created_at.
+        // The creating event fires before Laravel's updateTimestamps(), so setting
+        // created_at/updated_at here makes them dirty and updateTimestamps() skips them,
+        // guaranteeing order_date === created_at exactly (not a few microseconds off).
+        $timestamp = $order->created_at ?? $order->freshTimestamp();
+
+        $order->created_at ??= $timestamp;
+        $order->updated_at ??= $timestamp;
+        $order->order_date = $timestamp;
+    });
+}
+```
+
+- Do not use a bare `freshTimestamp()` for the fallback. The `creating` event runs before Laravel
+  sets `created_at`, so a separate `freshTimestamp()` would differ from `created_at` by a few
+  microseconds and make any `order_date = created_at` assertion flaky.
+- When editing `platform_ordered_at` in the future, recompute `order_date`.
+- Once the hook exists, the factory and tests do not need to set `order_date` explicitly.
+
+Do not add many speculative indexes. For v1, keep only:
+
+- `(tenant_id, order_date)`
+- `(tenant_id, fulfillment_status, order_date)`
+- `(tenant_id, order_status, order_date)`
+
+Do not add `shipping_method + order_date` or `shop_id + order_date` unless profiling later proves it
+is needed.
 
 ---
 
@@ -175,8 +249,11 @@ public array $orderStatusesFilter = [];
 #[Url(as: 'shipping', except: [])]
 public array $shippingMethodsFilter = [];
 
-#[Url(as: 'date_range', except: '')]
-public string $dateRange = 'last_7_days';
+#[Url(as: 'date_range', except: 'all')]
+public string $dateRange = 'all';
+
+#[Url(as: 'active_only', except: true)]
+public bool $activeOnly = true;
 
 #[Url(as: 'date_from', except: '')]
 public string $dateFrom = '';
@@ -239,22 +316,36 @@ Examples:
 - `Fulfillment: Ship Ready, In fulfillment`
 - `Shipping: Yamato, Sagawa`
 
-Acceptable simpler v1:
+Important visual decision after reviewing the rendered v1:
 
-- Use a visually clean checkbox group panel in the filter area.
-- Do not use the native `<select multiple>` unless it looks acceptable and is easy to use.
+- Do **not** ship five always-open checkbox panels as the final v1 UI.
+- Always-open panels are functional, but they read as a raw admin form and consume too much vertical
+  space before the table.
+- The finished v1 should use compact dropdown/popover-style multi-select controls.
+- A native `<details>` dropdown is acceptable if it is styled to match the current Flux/table visual
+  language and remains keyboard/mouse usable.
+- Native checkboxes inside the dropdown are acceptable; native `<select multiple>` is not.
 
 Important:
 
 - Multi-select filters should be easy on a 12-inch laptop.
 - Avoid very tall panels that push the table too far down.
 - If options exceed about 8 items, make the option list scroll.
+- The closed filter row should stay compact enough that the table begins near the first viewport on
+  normal laptop width.
 
 ---
 
 ## Suggested Layout
 
-Use three compact rows above the table.
+Use compact filter/search/date rows above the table.
+
+Important:
+
+- This task owns filter/search/date behavior.
+- `docs/tasks/sales-order-index-toolbar-layout-v1.md` owns Create / Import / Export / selection
+  action placement.
+- Do not place Create / Import / Export controls in the filter rows.
 
 ### Row 1: Main Filters
 
@@ -265,13 +356,6 @@ Left to right:
 3. Fulfillment status multi-select
 4. Order status multi-select
 5. Shipping method multi-select
-6. Create order button
-7. Import CSV button
-
-Keep export CSV / XLSX buttons either:
-
-- in the same row if space allows, or
-- in the selected-actions row, grouped with other export actions.
 
 ### Row 2: Global Search
 
@@ -294,9 +378,10 @@ keeping it in Row 1 is fine.
 
 Use a segmented/preset control plus custom dates:
 
+- All dates
 - Last 3 days
 - Last 7 days
-- Last 1 month
+- Last 30 days
 - Last 3 months
 - Last 1 year
 - Custom
@@ -307,6 +392,37 @@ If `Custom` is selected, show:
 - Date to
 
 If not custom, hide or disable the custom date inputs.
+
+Default behavior:
+
+- Default to `All dates`.
+- Do not default to `last_7_days`.
+- Default to `Active orders only`.
+- Reason: Sales Orders index is a warehouse shipping work surface. Old unshipped/backlog orders must
+  remain visible by default, while old shipped/completed/cancelled history should not be loaded
+  without an explicit date range.
+- Show a visible filter chip/control such as `Active orders` so users understand shipped/completed
+  orders are not shown by default.
+
+Active orders rule:
+
+```text
+order_status NOT IN (completed, cancelled)
+AND fulfillment_status NOT IN (shipped, cancelled)
+```
+
+If the user explicitly selects historical statuses such as shipped/completed/cancelled:
+
+- turn off `activeOnly`
+- if `date_range = all`, visibly set `date_range = last_30_days`
+- do not silently mutate without reflecting it in the date control
+
+General status-filter rule:
+
+- If any explicit fulfillment status or order status filter is selected, do not also apply the
+  default `activeOnly` NOT IN filter.
+- Reason: an explicit status filter is the user's actual intent. `activeOnly` must not silently
+  subtract from it.
 
 ---
 
@@ -319,6 +435,18 @@ Update the `render()` query.
 Filter by `shops.platform`.
 
 Use `whereHas('shop', ...)` or join carefully.
+
+Build platform filter options from active shops visible to the current user:
+
+```php
+Shop::query()
+    ->whereIn('tenant_id', $this->allowedTenantIds())
+    ->where('status', 'active')
+    ->select('platform')
+    ->distinct()
+```
+
+This keeps options aligned with actual shop setup.
 
 ### Shop filter
 
@@ -352,28 +480,58 @@ Example:
 - selected: `['yamato', '__empty__']`
 - SQL: `(shipping_method = 'yamato' OR shipping_method IS NULL)`
 
+Unset means `NULL`, not an empty string. Current inline update code stores unset as `NULL`; imported
+and manually-created orders should also use `NULL`. Add test coverage with an imported/created order
+whose shipping method was never edited through the UI.
+
 ### Date filter
 
-Use effective order date:
+Use stored order date:
 
 ```sql
-COALESCE(platform_ordered_at, created_at)
+sales_orders.order_date
 ```
 
 Preset ranges:
 
+- `all`
 - `last_3_days`
 - `last_7_days`
-- `last_1_month`
+- `last_30_days`
 - `last_3_months`
 - `last_1_year`
 - `custom`
+
+If `date_range = all`, do not apply any date constraint.
+
+Historical status guard:
+
+- If user selects shipped/completed/cancelled historical statuses while `date_range = all`, visibly
+  switch date range to `last_30_days`.
+- Keep the date control honest: the UI must show `Last 30 days`.
+- Do not hard-block to a blank page unless validation fails for an explicit invalid custom range.
 
 For custom:
 
 - validate/ignore invalid date strings safely
 - if only from is provided, filter from that date onward
 - if only to is provided, filter up to that date
+- `date_to` must be inclusive for the whole selected day. Use `< date_to + 1 day` or
+  `<= date_to 23:59:59`, not `<= date_to 00:00:00`.
+- maximum custom range is 365 days. If the user selects a wider range, show a validation warning and
+  do not run the broad query.
+
+Pagination:
+
+- Use `simplePaginate(30)` on the Sales Orders index instead of `paginate(30)`.
+- Reason: `paginate()` performs a total `COUNT(*)` over the whole filtered set. On large shipped
+  history this count query is often more expensive than loading the current page.
+- The index does not need an exact total row count; previous/next pagination is enough for this
+  operational page.
+- Verify the existing `<flux:table :paginate="$orders">` UI works with Laravel's simple paginator.
+  `simplePaginate()` returns a `Paginator`, not a `LengthAwarePaginator`.
+- If Flux table pagination expects a length-aware paginator, replace that pagination UI with a simple
+  previous/next control for this page.
 
 ### Search
 
@@ -395,7 +553,45 @@ Search must cover:
 - `stock_items.short_name`
 - `stock_items.name`
 
-Use `whereHas('lines.sku.stockItem', ...)` as needed.
+Use nested `orWhereHas` inside the search OR-closure. Do not use a single
+`whereHas('lines.sku.stockItem', ...)` for all SKU fields, because that only searches stock item
+fields and misses `skus.sku`, `skus.name`, and `sales_order_lines.note`.
+
+Required structure:
+
+```php
+$query->where(function ($query) use ($like) {
+    $query
+        ->where('platform_order_id', 'like', $like)
+        ->orWhere('recipient_name', 'like', $like)
+        ->orWhere('recipient_phone', 'like', $like)
+        ->orWhere('recipient_postal_code', 'like', $like)
+        ->orWhere('recipient_state', 'like', $like)
+        ->orWhere('recipient_city', 'like', $like)
+        ->orWhere('recipient_address_line1', 'like', $like)
+        ->orWhere('recipient_address_line2', 'like', $like)
+        ->orWhere('tracking_no', 'like', $like)
+        ->orWhere('note', 'like', $like)
+        ->orWhereHas('lines', fn ($lineQuery) => $lineQuery
+            ->where('note', 'like', $like))
+        ->orWhereHas('lines.sku', fn ($skuQuery) => $skuQuery
+            ->where('sku', 'like', $like)
+            ->orWhere('name', 'like', $like))
+        ->orWhereHas('lines.sku.stockItem', fn ($stockItemQuery) => $stockItemQuery
+            ->where('short_name', 'like', $like)
+            ->orWhere('name', 'like', $like));
+});
+```
+
+The nested conditions must be `orWhereHas`, not `whereHas`, otherwise SKU/note search may accidentally
+AND with the order column search.
+
+Performance note:
+
+- This v1 global search uses `%LIKE%` and several `orWhereHas` clauses.
+- It is intentionally broad for operator convenience, but it is not index-friendly at high volume.
+- The date/status guards above are still required.
+- Future search optimization should use FULLTEXT, a search index table, or a dedicated search service.
 
 Avoid N+1:
 
@@ -452,10 +648,58 @@ The existing sales order CSV/XLSX export links should include the new filters:
 - date to
 - q/search
 
+Use the same query parameter names as the index URL aliases:
+
+```text
+platforms
+shops
+fulfillment
+order_status
+shipping
+date_range
+date_from
+date_to
+q
+```
+
 If selected ids are provided, selected ids should still take priority for bulk export, but keep the
 filters in the URL where existing behavior already does so.
 
-Update `SalesOrdersExport` and export controller if they currently only understand scalar filters.
+Update `SalesOrdersExport` and export controller to accept both:
+
+- new array filters
+- old scalar filters
+
+Backward-compatible examples:
+
+```text
+shop=1                    -> shops = [1]
+fulfillment=ready         -> fulfillment = ['ready']
+order_status=pending      -> order_status = ['pending']
+shipping=yamato,sagawa    -> shipping = ['yamato', 'sagawa']
+```
+
+Do not break the v4 order-id export guard:
+
+- `ids=` empty must not export everything as "selected".
+- selected ids, when non-empty, still take priority over filters.
+
+Export performance guard:
+
+- Export has no pagination, so it must be stricter than the index view.
+- These broad-export guards apply to filter-based exports only.
+- If non-empty selected ids are provided, export only those selected ids after tenant scoping and keep
+  the existing selected-id priority behavior.
+- For filter-based exports with no explicit fulfillment/order status filter, apply the same default
+  active-orders rule as the index. Do not export all historical orders by default.
+- If the user explicitly requests all statuses / historical statuses with `date_range = all`, block
+  the export and ask for a date range.
+- Do not allow `All dates + shipped/completed/cancelled` export.
+- If historical statuses are selected, require an explicit date range.
+- Custom export date range maximum is 365 days for v1.
+- If a safer operational limit is needed, use 90 days for historical export and document it in the
+  validation message.
+- Export query should stream/chunk rows where possible; do not load very large result sets into memory.
 
 Do not break:
 
@@ -477,15 +721,17 @@ Suggested keys:
 'field_order_date' => 'Order date',
 'field_date_from' => 'Date from',
 'field_date_to' => 'Date to',
+'date_all' => 'All dates',
 'all_platforms' => 'All platforms',
 'all_shops' => 'All shops',
 'all_fulfillment_status' => 'All fulfillment',
 'all_order_status' => 'All statuses',
 'all_shipping_methods' => 'All shipping methods',
 'multi_selected' => ':count selected',
+'active_orders' => 'Active orders',
 'date_last_3_days' => 'Last 3 days',
 'date_last_7_days' => 'Last 7 days',
-'date_last_1_month' => 'Last 1 month',
+'date_last_30_days' => 'Last 30 days',
 'date_last_3_months' => 'Last 3 months',
 'date_last_1_year' => 'Last 1 year',
 'date_custom' => 'Custom',
@@ -503,12 +749,44 @@ Add/update tests in `tests/Feature/SalesOrderTest.php` and `tests/Feature/SalesO
 
 Required SalesOrderIndex tests:
 
-1. `test_sales_order_index_shows_note_column`
+1. `test_backfill_sales_order_date_action_sets_order_date`
+   - Insert rows with a null `order_date`: one with `platform_ordered_at`, one without.
+   - Call the `BackfillSalesOrderDate` action directly.
+   - Assert the row with `platform_ordered_at` gets `order_date = platform_ordered_at`.
+   - Assert the row without `platform_ordered_at` gets `order_date = created_at`.
+   - Do not try to assert this purely from the migration run: under `RefreshDatabase` the migration
+     executes against an empty table before any order exists, so the backfill must be tested through
+     the callable action.
+
+2. `test_sales_order_creating_hook_sets_order_date`
+   - Factory-create an order with `platform_ordered_at` set; assert `order_date = platform_ordered_at`.
+   - Factory-create an order with null `platform_ordered_at`; assert `order_date = created_at`.
+   - Confirms the model `creating` hook populates `order_date` for factory/import/manual create
+     without each path setting it explicitly.
+
+3. `test_sales_order_index_uses_simple_pagination`
+   - Assert rendered paginator does not require exact total count, or assert component uses
+     `simplePaginate`.
+
+4. `test_sales_order_index_default_view_shows_active_backlog_all_dates`
+   - Old unshipped/backlog order remains visible by default.
+   - Old shipped/completed order is hidden by default.
+   - Active filter chip/control is visible.
+
+5. `test_sales_order_index_historical_status_defaults_to_last_30_days`
+   - Select shipped/completed/cancelled historical status while date range is all.
+   - Assert date range becomes last 30 days and UI reflects it.
+
+6. `test_sales_order_index_custom_date_range_cannot_exceed_365_days`
+   - Set a custom range over 365 days.
+   - Assert validation warning and no broad query/export.
+
+7. `test_sales_order_index_shows_note_column`
    - Order has note.
    - Assert note visible.
    - Assert column label visible.
 
-2. `test_sales_order_index_searches_address_phone_tracking_note_and_sku`
+8. `test_sales_order_index_searches_address_phone_tracking_note_and_sku`
    - Create orders where each searchable field is unique.
    - Search each term and assert matching order appears while unrelated order does not.
    - Include:
@@ -520,61 +798,86 @@ Required SalesOrderIndex tests:
      - SKU name
      - stock item short name
 
-3. `test_sales_order_index_filters_by_multiple_platforms`
+9. `test_sales_order_index_filters_by_multiple_platforms`
    - Create Amazon, Rakuten, Shopify shops/orders.
    - Select two platforms.
    - Assert only those two platforms appear.
 
-4. `test_sales_order_index_filters_by_multiple_shops`
+10. `test_sales_order_index_filters_by_multiple_shops`
    - Select two shop ids.
    - Assert selected shops appear and unselected shop does not.
 
-5. `test_sales_order_index_filters_by_multiple_fulfillment_statuses`
+11. `test_sales_order_index_filters_by_multiple_fulfillment_statuses`
    - Select two statuses.
    - Assert matching orders appear.
 
-6. `test_sales_order_index_filters_by_multiple_order_statuses`
+12. `test_sales_order_index_filters_by_multiple_order_statuses`
    - Select two statuses.
    - Assert matching orders appear.
 
-7. `test_sales_order_index_filters_by_multiple_shipping_methods`
+13. `test_sales_order_index_filters_by_multiple_shipping_methods`
    - Select Yamato and Sagawa.
    - Assert both appear.
    - Assert Japan Post / unset do not appear.
 
-8. `test_sales_order_index_filters_by_unset_shipping_method`
+14. `test_sales_order_index_filters_by_unset_shipping_method`
    - Select internal not-set value.
    - Assert null shipping method orders appear.
 
-9. `test_sales_order_index_filters_by_order_date_preset`
+15. `test_sales_order_index_filters_by_order_date_preset`
    - Create orders with `platform_ordered_at` across dates.
    - Select last 7 days.
    - Assert older order hidden.
 
-10. `test_sales_order_index_order_date_filter_falls_back_to_created_at`
+16. `test_sales_order_index_order_date_filter_uses_backfilled_created_at`
     - Create one order with null `platform_ordered_at`.
     - Ensure preset/custom date uses `created_at`.
 
-11. `test_sales_order_index_filters_by_custom_order_date_range`
+17. `test_sales_order_index_filters_by_custom_order_date_range`
     - Set custom from/to.
     - Assert only orders in range appear.
 
-12. `test_sales_order_index_filter_changes_clear_selection`
+18. `test_sales_order_index_filter_changes_clear_selection`
     - Select an order.
     - Change any filter.
     - Assert `selectedIds` is empty.
 
-13. `test_sales_order_index_export_links_include_new_filters`
+19. `test_sales_order_index_export_links_include_new_filters`
     - Set multi filters.
     - Assert export CSV/XLSX URLs include the new filter parameters.
 
+Existing test migration:
+
+- Update existing SalesOrder index tests that currently call `->set('shopId', (string) $shop->id)`.
+- New property is `shopIds`, so those direct Livewire property sets should become:
+
+```php
+->set('shopIds', [(string) $shop->id])
+```
+
+- This is separate from URL scalar normalization. URL normalization protects old browser URLs;
+  direct Livewire test property names still need to be updated.
+- Update the existing empty-state colspan assertion from `colspan="9"` to `colspan="10"` because the
+  table gains a Note column.
+- Any index test that expects shipped/completed/cancelled orders to be visible must explicitly set a
+  historical status/date filter or disable `activeOnly`; the default index view intentionally hides
+  historical orders.
+
 Required SalesOrdersExport tests:
 
-14. `test_sales_order_export_respects_multi_select_filters`
+20. `test_sales_order_export_respects_multi_select_filters`
     - Export should match index filters for platforms, shops, statuses, shipping methods, and date.
 
-15. `test_sales_order_export_search_matches_new_search_fields`
+21. `test_sales_order_export_search_matches_new_search_fields`
     - Export search should match tracking/order note/SKU/stock item short name too.
+
+22. `test_sales_order_export_blocks_unbounded_historical_export`
+    - No explicit status filter + all dates should export active orders only, not full history.
+    - Historical status + all dates should be blocked.
+    - Historical status + valid explicit date range should proceed.
+
+23. `test_sales_order_export_rejects_custom_range_over_365_days`
+    - Export should not materialize very broad historical ranges.
 
 Run:
 
@@ -597,6 +900,9 @@ C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe artisan test
 - No TypeScript.
 - Keep tenant scoping server-side.
 - Do not implement courier CSV generation in this task.
+- Do add `sales_orders.order_date` and use it for date filtering/sorting/export filtering.
+- Do not use `COALESCE(platform_ordered_at, created_at)` in normal index/export filter queries.
+- Use `simplePaginate(30)` on this operational index page.
 - Do not change the meaning of stored `shipping_method` values in this task.
 - Do not remove existing bulk action buttons.
 - Do not remove existing import/export buttons.

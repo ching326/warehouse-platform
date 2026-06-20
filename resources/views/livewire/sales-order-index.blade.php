@@ -33,56 +33,68 @@
             </div>
         @endif
 
-        <div class="sales-order-filter-grid">
-            <div class="filter-box">
-                <strong>{{ __('sales_orders.field_platform') }}</strong>
-                <div class="filter-options compact">
-                    @forelse ($platformOptions as $platform)
-                        <label><input type="checkbox" wire:model.live="platforms" value="{{ $platform }}"> {{ $platform }}</label>
+        <div class="sales-order-filter-grid" data-testid="sales-order-filter-row">
+            <details class="filter-menu">
+                <summary>
+                    <span>{{ __('sales_orders.field_platform') }}</span>
+                    <strong>{{ $this->filterButtonLabel(__('sales_orders.all_platforms'), $platforms, $platformFilterOptions) }}</strong>
+                </summary>
+                <div class="filter-panel compact">
+                    @forelse ($platformFilterOptions as $platform => $label)
+                        <label><input type="checkbox" wire:model.live="platforms" value="{{ $platform }}"> {{ $label }}</label>
                     @empty
                         <span class="subtle">{{ __('sales_orders.all_platforms') }}</span>
                     @endforelse
                 </div>
-            </div>
+            </details>
 
-            <div class="filter-box">
-                <strong>{{ __('sales_orders.field_shop') }}</strong>
-                <div class="filter-options">
-                    @foreach ($shops as $shop)
-                        <label>
-                            <input type="checkbox" wire:model.live="shopIds" value="{{ $shop->id }}">
-                            {{ $shop->tenant->code }} / {{ $shop->name }}
-                        </label>
+            <details class="filter-menu">
+                <summary>
+                    <span>{{ __('sales_orders.field_shop') }}</span>
+                    <strong>{{ $this->filterButtonLabel(__('sales_orders.all_shops'), $shopIds, $shopFilterOptions) }}</strong>
+                </summary>
+                <div class="filter-panel">
+                    @foreach ($shopFilterOptions as $shopId => $label)
+                        <label><input type="checkbox" wire:model.live="shopIds" value="{{ $shopId }}"> {{ $label }}</label>
                     @endforeach
                 </div>
-            </div>
+            </details>
 
-            <div class="filter-box">
-                <strong>{{ __('sales_orders.field_fulfillment_status') }}</strong>
-                <div class="filter-options compact">
+            <details class="filter-menu">
+                <summary>
+                    <span>{{ __('sales_orders.field_fulfillment_status') }}</span>
+                    <strong>{{ $this->filterButtonLabel(__('sales_orders.all_fulfillment_status'), $fulfillmentStatusesFilter, $fulfillmentStatuses) }}</strong>
+                </summary>
+                <div class="filter-panel compact">
                     @foreach ($fulfillmentStatuses as $status => $label)
                         <label><input type="checkbox" wire:model.live="fulfillmentStatusesFilter" value="{{ $status }}"> {{ $label }}</label>
                     @endforeach
                 </div>
-            </div>
+            </details>
 
-            <div class="filter-box">
-                <strong>{{ __('sales_orders.field_order_status') }}</strong>
-                <div class="filter-options compact">
+            <details class="filter-menu">
+                <summary>
+                    <span>{{ __('sales_orders.field_order_status') }}</span>
+                    <strong>{{ $this->filterButtonLabel(__('sales_orders.all_order_status'), $orderStatusesFilter, $orderStatuses) }}</strong>
+                </summary>
+                <div class="filter-panel compact">
                     @foreach ($orderStatuses as $status => $label)
                         <label><input type="checkbox" wire:model.live="orderStatusesFilter" value="{{ $status }}"> {{ $label }}</label>
                     @endforeach
                 </div>
-            </div>
+            </details>
 
-            <div class="filter-box">
-                <strong>{{ __('sales_orders.field_shipping_method') }}</strong>
-                <div class="filter-options compact">
+            <details class="filter-menu">
+                <summary>
+                    <span>{{ __('sales_orders.field_shipping_method') }}</span>
+                    <strong>{{ $this->filterButtonLabel(__('sales_orders.all_shipping_methods'), $shippingMethodsFilter, $shippingMethodFilterOptions) }}</strong>
+                </summary>
+                <div class="filter-panel compact">
                     @foreach ($shippingMethodFilterOptions as $method => $label)
                         <label><input type="checkbox" wire:model.live="shippingMethodsFilter" value="{{ $method }}"> {{ $label }}</label>
                     @endforeach
                 </div>
-            </div>
+            </details>
         </div>
 
         <div class="sales-order-search-row">
@@ -114,27 +126,23 @@
             @endif
         </div>
 
-        <div class="movement-toolbar sales-order-toolbar">
-
-            <flux:button href="{{ route('sales.orders.create') }}" variant="primary" wire:navigate>
-                {{ __('sales_orders.btn_create_order') }}
-            </flux:button>
+        <div class="sales-order-page-actions" data-testid="sales-order-page-actions">
             <flux:button href="{{ route('sales.orders.import') }}" variant="outline" wire:navigate>
                 {{ __('sales_orders.import_btn') }}
             </flux:button>
-            <flux:button
-                as="a"
-                href="{{ route('sales.orders.export', array_filter(array_merge($exportFilters, ['format' => 'csv']), fn ($value) => $value !== null)) }}"
-                variant="ghost"
-            >
-                {{ __('sales_orders.export_csv_btn') }}
-            </flux:button>
-            <flux:button
-                as="a"
-                href="{{ route('sales.orders.export', array_filter(array_merge($exportFilters, ['format' => 'xlsx']), fn ($value) => $value !== null)) }}"
-                variant="ghost"
-            >
-                {{ __('sales_orders.export_xlsx_btn') }}
+            <details class="action-menu" data-testid="sales-order-page-export-menu">
+                <summary>{{ __('sales_orders.export_menu') }}</summary>
+                <div class="action-menu-panel">
+                    <a href="{{ route('sales.orders.export', array_filter(array_merge($exportFilters, ['format' => 'csv']), fn ($value) => $value !== null)) }}">
+                        {{ __('sales_orders.export_all_csv') }}
+                    </a>
+                    <a href="{{ route('sales.orders.export', array_filter(array_merge($exportFilters, ['format' => 'xlsx']), fn ($value) => $value !== null)) }}">
+                        {{ __('sales_orders.export_all_xlsx') }}
+                    </a>
+                </div>
+            </details>
+            <flux:button href="{{ route('sales.orders.create') }}" variant="primary" wire:navigate>
+                {{ __('sales_orders.btn_create_order') }}
             </flux:button>
         </div>
 
@@ -142,71 +150,70 @@
             $hasSelection = count($selectedIds) > 0;
         @endphp
 
-        <div class="active-filter-row sales-order-action-row">
+        <div class="sales-order-action-row" data-testid="sales-order-selection-actions">
             <flux:badge color="{{ $hasSelection ? 'blue' : 'zinc' }}">{{ trans_choice('sales_orders.selected_count', count($selectedIds), ['count' => count($selectedIds)]) }}</flux:badge>
-            <flux:button type="button" size="sm" variant="primary" wire:click="bulkMarkReady" :disabled="! $hasSelection">
-                {{ __('sales_orders.btn_bulk_mark_ready') }}
-            </flux:button>
-            <flux:button type="button" size="sm" variant="outline" wire:click="bulkHold" :disabled="! $hasSelection">
-                {{ __('sales_orders.btn_bulk_hold') }}
-            </flux:button>
-            <flux:button type="button" size="sm" variant="outline" wire:click="bulkReleaseHold" :disabled="! $hasSelection">
-                {{ __('sales_orders.btn_bulk_release_hold') }}
-            </flux:button>
-            <flux:button
-                type="button"
-                size="sm"
-                variant="danger"
-                wire:click="bulkCancel"
-                wire:confirm="{{ __('sales_orders.bulk_cancel_confirm') }}"
-                :disabled="! $hasSelection"
-            >
-                {{ __('sales_orders.btn_bulk_cancel') }}
-            </flux:button>
+            <div class="selection-action-group" data-testid="sales-order-status-actions">
+                <span>{{ __('sales_orders.bulk_status_group') }}</span>
+                <flux:button type="button" size="sm" variant="outline" wire:click="bulkMarkReady" :disabled="! $hasSelection">
+                    {{ __('sales_orders.btn_bulk_mark_ready') }}
+                </flux:button>
+                <flux:button type="button" size="sm" variant="outline" disabled aria-disabled="true">
+                    {{ __('sales_orders.btn_mark_shipped') }}
+                </flux:button>
+                <flux:button type="button" size="sm" variant="outline" wire:click="bulkHold" :disabled="! $hasSelection">
+                    {{ __('sales_orders.btn_bulk_hold') }}
+                </flux:button>
+                <flux:button type="button" size="sm" variant="outline" wire:click="bulkReleaseHold" :disabled="! $hasSelection">
+                    {{ __('sales_orders.btn_bulk_release_hold') }}
+                </flux:button>
+                <flux:button
+                    type="button"
+                    size="sm"
+                    variant="danger"
+                    wire:click="bulkCancel"
+                    wire:confirm="{{ __('sales_orders.bulk_cancel_confirm') }}"
+                    :disabled="! $hasSelection"
+                >
+                    {{ __('sales_orders.btn_bulk_cancel') }}
+                </flux:button>
+            </div>
 
-            @if ($hasSelection)
-                <flux:button
-                    as="a"
-                    size="sm"
-                    variant="ghost"
-                    href="{{ route('sales.orders.export', array_filter(array_merge($exportFilters, ['ids' => implode(',', $selectedIds), 'format' => 'csv']), fn ($value) => $value !== null)) }}"
-                >
-                    {{ __('sales_orders.btn_bulk_export_csv') }}
-                </flux:button>
-                <flux:button
-                    as="a"
-                    size="sm"
-                    variant="ghost"
-                    href="{{ route('sales.orders.export', array_filter(array_merge($exportFilters, ['ids' => implode(',', $selectedIds), 'format' => 'xlsx']), fn ($value) => $value !== null)) }}"
-                >
-                    {{ __('sales_orders.btn_bulk_export_xlsx') }}
-                </flux:button>
-            @else
-                <flux:button type="button" size="sm" variant="ghost" disabled aria-disabled="true">
-                    {{ __('sales_orders.btn_bulk_export_csv') }}
-                </flux:button>
-                <flux:button type="button" size="sm" variant="ghost" disabled aria-disabled="true">
-                    {{ __('sales_orders.btn_bulk_export_xlsx') }}
-                </flux:button>
-            @endif
-            <flux:button
-                type="button"
-                size="sm"
-                variant="outline"
-                wire:click="validateCourierExport('yamato')"
-                :disabled="! $hasSelection"
-            >
-                {{ __('sales_orders.btn_export_yamato_csv') }}
-            </flux:button>
-            <flux:button
-                type="button"
-                size="sm"
-                variant="outline"
-                wire:click="validateCourierExport('sagawa')"
-                :disabled="! $hasSelection"
-            >
-                {{ __('sales_orders.btn_export_sagawa_csv') }}
-            </flux:button>
+            <div class="selection-action-divider"></div>
+
+            <div class="selection-action-group" data-testid="sales-order-selection-export-actions">
+                <span>{{ __('sales_orders.bulk_export_group') }}</span>
+                @if ($hasSelection)
+                    <details class="action-menu small" data-testid="sales-order-selected-export-menu">
+                        <summary>{{ __('sales_orders.selected_export_menu') }}</summary>
+                        <div class="action-menu-panel">
+                            <a href="{{ route('sales.orders.export', array_filter(array_merge($exportFilters, ['ids' => implode(',', $selectedIds), 'format' => 'csv']), fn ($value) => $value !== null)) }}">
+                                {{ __('sales_orders.btn_bulk_export_csv') }}
+                            </a>
+                            <a href="{{ route('sales.orders.export', array_filter(array_merge($exportFilters, ['ids' => implode(',', $selectedIds), 'format' => 'xlsx']), fn ($value) => $value !== null)) }}">
+                                {{ __('sales_orders.btn_bulk_export_xlsx') }}
+                            </a>
+                        </div>
+                    </details>
+                    <details class="action-menu small" data-testid="sales-order-courier-export-menu">
+                        <summary>{{ __('sales_orders.courier_export_menu') }}</summary>
+                        <div class="action-menu-panel">
+                            <button type="button" wire:click="validateCourierExport('yamato')">
+                                {{ __('sales_orders.btn_export_yamato_csv') }}
+                            </button>
+                            <button type="button" wire:click="validateCourierExport('sagawa')">
+                                {{ __('sales_orders.btn_export_sagawa_csv') }}
+                            </button>
+                        </div>
+                    </details>
+                @else
+                    <button type="button" class="action-menu-disabled" disabled aria-disabled="true">
+                        {{ __('sales_orders.selected_export_menu') }}
+                    </button>
+                    <button type="button" class="action-menu-disabled" disabled aria-disabled="true">
+                        {{ __('sales_orders.courier_export_menu') }}
+                    </button>
+                @endif
+            </div>
         </div>
 
         <div class="table-scroll">
