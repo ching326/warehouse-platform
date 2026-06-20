@@ -47,6 +47,7 @@ class SalesOrder extends Model
         'shipping_method_id',
         'tracking_no',
         'courier_csv_exported_at',
+        'marketplace_shipping_notice_exported_at',
         'shipped_at',
         'recipient_name',
         'recipient_phone',
@@ -68,6 +69,7 @@ class SalesOrder extends Model
             'order_date' => 'datetime',
             'latest_ship_at' => 'datetime',
             'courier_csv_exported_at' => 'datetime',
+            'marketplace_shipping_notice_exported_at' => 'datetime',
             'shipped_at' => 'datetime',
         ];
     }
@@ -130,6 +132,11 @@ class SalesOrder extends Model
     public function courierExportBatchOrders(): HasMany
     {
         return $this->hasMany(CourierExportBatchOrder::class);
+    }
+
+    public function marketplaceShippingNoticeBatchOrders(): HasMany
+    {
+        return $this->hasMany(MarketplaceShippingNoticeBatchOrder::class);
     }
 
     public function recalculateShipTogetherKey(): void

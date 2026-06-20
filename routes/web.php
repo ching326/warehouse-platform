@@ -4,6 +4,7 @@ use App\Http\Controllers\SalesOrderExportController;
 use App\Http\Controllers\CourierExportController;
 use App\Http\Controllers\CourierExportDownloadController;
 use App\Http\Controllers\CourierExportValidateController;
+use App\Http\Controllers\MarketplaceShippingNoticeDownloadController;
 use App\Livewire\FulfillmentGroupCreate;
 use App\Livewire\FulfillmentGroupDetail;
 use App\Livewire\FulfillmentGroupIndex;
@@ -65,6 +66,8 @@ Route::post('/sales-orders/courier-export/validate', CourierExportValidateContro
 Route::post('/sales-orders/courier-export', CourierExportController::class)->name('sales.orders.courier-export');
 Route::get('/sales-orders/{order}', SalesOrderDetail::class)->name('sales.orders.show');
 Route::get('/courier-export-batches/{batch}/download', CourierExportDownloadController::class)->name('courier-export-batches.download');
+Route::get('/marketplace-shipping-notice-batches/{batch}/download', MarketplaceShippingNoticeDownloadController::class)
+    ->name('marketplace-shipping-notice-batches.download');
 Route::get('/fulfillment-groups', FulfillmentGroupIndex::class)->name('fulfillment-groups.index');
 Route::get('/fulfillment-groups/create', FulfillmentGroupCreate::class)->name('fulfillment-groups.create');
 Route::get('/fulfillment-groups/{group}', FulfillmentGroupDetail::class)->name('fulfillment-groups.show');

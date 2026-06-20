@@ -8,6 +8,7 @@ use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Tenant;
 use App\Services\Courier\CourierExportService;
+use App\Services\MarketplaceShippingNotice\MarketplaceShippingNoticeExportService;
 use App\Support\CourierCarrier;
 use App\Support\SalesOrderFilters;
 use Illuminate\Support\Collection;
@@ -69,6 +70,10 @@ class SalesOrderIndex extends Component
     public ?string $pendingCourierExportCarrier = null;
 
     public array $pendingCourierExportOrderIds = [];
+
+    public ?string $pendingMarketplaceNoticePlatform = null;
+
+    public array $pendingMarketplaceNoticeOrderIds = [];
 
     public ?string $filterWarning = null;
 
@@ -518,6 +523,59 @@ class SalesOrderIndex extends Component
         return $this->performCourierExport($this->pendingCourierExportCarrier, confirmedReExport: true, orderIds: $this->pendingCourierExportOrderIds);
     }
 
+    public function validateMarketplaceShippingNoticeExport(string $platform): mixed
+    {
+        $this->pendingMarketplaceNoticePlatform = null;
+        $this->pendingMarketplaceNoticeOrderIds = [];
+
+        if ($this->selectedIds === []) {
+            session()->flash('error', __('sales_orders.marketplace_notice_export_no_selection'));
+
+            return null;
+        }
+
+        try {
+            $result = app(MarketplaceShippingNoticeExportService::class)->validateExport(
+                salesOrderIds: $this->normalizedSelectedIds(),
+                platform: $platform,
+                allowedTenantIds: $this->allowedTenantIds(),
+            );
+        } catch (\InvalidArgumentException) {
+            session()->flash('error', __('sales_orders.marketplace_notice_export_wrong_platform', ['platform' => ucfirst($platform)]));
+
+            return null;
+        }
+
+        if ($result->hasHardBlock()) {
+            session()->flash('error', $this->marketplaceNoticeExportMessage($result->toArray()));
+
+            return null;
+        }
+
+        if ($result->requiresConfirmation) {
+            $this->pendingMarketplaceNoticePlatform = strtolower($platform);
+            $this->pendingMarketplaceNoticeOrderIds = $this->normalizedSelectedIds();
+            session()->flash('warning', $result->message);
+
+            return null;
+        }
+
+        return $this->performMarketplaceShippingNoticeExport($platform, confirmedReExport: false);
+    }
+
+    public function confirmMarketplaceShippingNoticeExport(): mixed
+    {
+        if ($this->pendingMarketplaceNoticePlatform === null || $this->pendingMarketplaceNoticeOrderIds === []) {
+            return null;
+        }
+
+        return $this->performMarketplaceShippingNoticeExport(
+            $this->pendingMarketplaceNoticePlatform,
+            confirmedReExport: true,
+            orderIds: $this->pendingMarketplaceNoticeOrderIds,
+        );
+    }
+
     public function render()
     {
         $filters = $this->filters();
@@ -676,6 +734,57 @@ class SalesOrderIndex extends Component
             'no_ready_lines_order_ids' => 'courier_export_no_ready_lines_ids',
             'mixed_tenant_order_ids' => 'courier_export_mixed_tenant_ids',
             'missing_order_ids' => 'courier_export_missing_ids',
+        ] as $key => $translationKey) {
+            if ($result[$key] !== []) {
+                $parts[] = __(
+                    'sales_orders.'.$translationKey,
+                    ['ids' => implode(', ', $result[$key])]
+                );
+            }
+        }
+
+        return implode(' ', $parts);
+    }
+
+    private function performMarketplaceShippingNoticeExport(string $platform, bool $confirmedReExport, ?array $orderIds = null): mixed
+    {
+        try {
+            $batch = app(MarketplaceShippingNoticeExportService::class)->export(
+                salesOrderIds: $orderIds ?? $this->normalizedSelectedIds(),
+                platform: $platform,
+                allowedTenantIds: $this->allowedTenantIds(),
+                user: Auth::user(),
+                confirmedReExport: $confirmedReExport,
+            );
+        } catch (RuntimeException $exception) {
+            session()->flash('error', $exception->getMessage());
+
+            return null;
+        }
+
+        $this->selectedIds = [];
+        $this->pendingMarketplaceNoticePlatform = null;
+        $this->pendingMarketplaceNoticeOrderIds = [];
+
+        return redirect()->route('marketplace-shipping-notice-batches.download', $batch);
+    }
+
+    private function marketplaceNoticeExportMessage(array $result): string
+    {
+        $parts = [$result['message']];
+
+        foreach ([
+            'missing_order_ids' => 'marketplace_notice_export_missing_ids',
+            'mixed_tenant_order_ids' => 'marketplace_notice_export_mixed_tenant_ids',
+            'mixed_platform_order_ids' => 'marketplace_notice_export_mixed_platform_ids',
+            'wrong_platform_order_ids' => 'marketplace_notice_export_wrong_platform_ids',
+            'blocked_status_order_ids' => 'marketplace_notice_export_blocked_status_ids',
+            'missing_platform_order_ids' => 'marketplace_notice_export_missing_platform_order_ids',
+            'missing_shipping_method_order_ids' => 'marketplace_notice_export_missing_shipping_method_ids',
+            'missing_tracking_order_ids' => 'marketplace_notice_export_missing_tracking_ids',
+            'missing_mapping_order_ids' => 'marketplace_notice_export_missing_mapping_ids',
+            'missing_carrier_code_order_ids' => 'marketplace_notice_export_missing_carrier_code_ids',
+            'no_ready_lines_order_ids' => 'marketplace_notice_export_no_ready_lines_ids',
         ] as $key => $translationKey) {
             if ($result[$key] !== []) {
                 $parts[] = __(

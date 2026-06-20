@@ -18,6 +18,17 @@
                     {{ __('sales_orders.courier_export_confirm_btn') }}
                 </flux:button>
             @endif
+            @if ($pendingMarketplaceNoticePlatform)
+                <flux:button
+                    type="button"
+                    size="sm"
+                    variant="primary"
+                    wire:click="confirmMarketplaceShippingNoticeExport"
+                    wire:confirm="{{ __('sales_orders.marketplace_notice_export_confirm_reexport') }}"
+                >
+                    {{ __('sales_orders.marketplace_notice_export_confirm_btn') }}
+                </flux:button>
+            @endif
         </div>
     @endif
     @if (session('error'))
@@ -305,10 +316,10 @@
 
                     <div class="action-menu-section" data-testid="sales-order-shipping-notice-export-menu">
                         <span>{{ __('sales_orders.shipping_notice_menu') }}</span>
-                        <button type="button" class="action-menu-option-disabled" disabled aria-disabled="true">
+                        <button type="button" wire:click="validateMarketplaceShippingNoticeExport('amazon')">
                             {{ __('sales_orders.btn_export_amazon_ship_notice') }}
                         </button>
-                        <button type="button" class="action-menu-option-disabled" disabled aria-disabled="true">
+                        <button type="button" wire:click="validateMarketplaceShippingNoticeExport('rakuten')">
                             {{ __('sales_orders.btn_export_rakuten_ship_notice') }}
                         </button>
                     </div>
