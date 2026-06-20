@@ -60,9 +60,11 @@ class AmazonOrderMapper
             }
 
             $address = $order['ShippingAddress'] ?? [];
-            if (! is_array($address) || trim((string) ($address['AddressLine1'] ?? '')) === '') {
+            if ($mappedOrderStatus === SalesOrder::ORDER_STATUS_PENDING
+                && (! is_array($address) || trim((string) ($address['AddressLine1'] ?? '')) === '')) {
                 throw new AmazonSpapiApiException(__('amazon_spapi_import.pii_missing'));
             }
+            $address = is_array($address) ? $address : [];
 
             $items = $itemsByOrder[$amazonOrderId] ?? [];
             if ($items === []) {

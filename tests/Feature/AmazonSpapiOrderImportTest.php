@@ -160,6 +160,39 @@ class AmazonSpapiOrderImportTest extends TestCase
             ->assertHasErrors(['api']);
     }
 
+    public function test_addressless_cancelled_and_cancel_requested_orders_do_not_abort_preview(): void
+    {
+        $connection = $this->connection();
+        $sku = $this->sku($connection->shop, 'ADDRESSLESS-CANCEL');
+        $cancelled = $this->amazonOrder('AMZ-CANCELLED-NO-ADDRESS', ['OrderStatus' => 'Canceled']);
+        $cancelRequested = $this->amazonOrder('AMZ-CANCEL-REQUEST-NO-ADDRESS', [
+            'BuyerRequestedCancel' => ['IsBuyerRequestedCancel' => true],
+        ]);
+        unset($cancelled['ShippingAddress'], $cancelRequested['ShippingAddress']);
+
+        $this->fakeAmazon([$cancelled, $cancelRequested], [
+            'AMZ-CANCELLED-NO-ADDRESS' => [$this->amazonItem($sku->sku)],
+            'AMZ-CANCEL-REQUEST-NO-ADDRESS' => [$this->amazonItem($sku->sku)],
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(AmazonSpapiOrderImport::class)
+            ->set('shopId', (string) $connection->shop_id)
+            ->call('fetchPreview')
+            ->assertHasNoErrors()
+            ->assertSet('parsedRows.0.order_status', SalesOrder::ORDER_STATUS_CANCELLED)
+            ->assertSet('parsedRows.1.order_status', SalesOrder::ORDER_STATUS_CANCEL_REQUESTED)
+            ->call('confirmImport');
+
+        $cancelledOrder = SalesOrder::where('platform_order_id', 'AMZ-CANCELLED-NO-ADDRESS')->firstOrFail();
+        $cancelRequestedOrder = SalesOrder::where('platform_order_id', 'AMZ-CANCEL-REQUEST-NO-ADDRESS')->firstOrFail();
+
+        $this->assertSame(SalesOrder::ORDER_STATUS_CANCELLED, $cancelledOrder->order_status);
+        $this->assertSame(SalesOrder::ORDER_STATUS_CANCEL_REQUESTED, $cancelRequestedOrder->order_status);
+        $this->assertNull($cancelledOrder->recipient_address_line1);
+        $this->assertNull($cancelRequestedOrder->recipient_address_line1);
+    }
+
     public function test_preview_groups_multiple_items_for_same_order(): void
     {
         $connection = $this->connection();
