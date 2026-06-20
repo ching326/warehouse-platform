@@ -328,8 +328,13 @@
                                 type="checkbox"
                                 wire:click="toggleVisibleSelection"
                                 @checked($allVisibleSelected)
-                                x-init="$el.indeterminate = {{ $someVisibleSelected ? 'true' : 'false' }}"
-                                x-effect="$el.indeterminate = {{ $someVisibleSelected ? 'true' : 'false' }}"
+                                x-data="{ visibleIds: @js($visibleIds) }"
+                                x-effect="
+                                    const selected = ($wire.selectedIds || []).map((id) => Number(id));
+                                    const visibleSelectedCount = visibleIds.filter((id) => selected.includes(Number(id))).length;
+                                    $el.checked = visibleIds.length > 0 && visibleSelectedCount === visibleIds.length;
+                                    $el.indeterminate = visibleSelectedCount > 0 && visibleSelectedCount < visibleIds.length;
+                                "
                                 data-indeterminate="{{ $someVisibleSelected ? 'true' : 'false' }}"
                                 aria-label="{{ __('sales_orders.select_visible_orders') }}"
                             >
