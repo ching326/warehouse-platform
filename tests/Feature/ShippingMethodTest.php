@@ -149,6 +149,15 @@ class ShippingMethodTest extends TestCase
         $this->assertStringOrder($html, 'Yamato Nekopos', 'Japan Post Yu-Pack');
     }
 
+    public function test_shipping_method_index_search_filters_methods_with_ordered_scope(): void
+    {
+        Livewire::actingAs($this->internalUser())
+            ->test(ShippingMethodIndex::class)
+            ->set('search', 'Nekopos')
+            ->assertSee('Yamato Nekopos')
+            ->assertDontSee('Sagawa THB');
+    }
+
     public function test_rate_lookup_prefers_tenant_specific_rate(): void
     {
         $tenant = Tenant::factory()->create();
