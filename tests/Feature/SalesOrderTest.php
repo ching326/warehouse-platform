@@ -866,14 +866,16 @@ class SalesOrderTest extends TestCase
             ->test(SalesOrderIndex::class)
             ->html();
 
-        $this->assertStringContainsString('0 orders selected', $html);
+        $this->assertStringContainsString('x-text="selectedList().length"', $html);
+        $this->assertStringContainsString(__('sales_orders.selected_suffix'), $html);
         $this->assertStringContainsString(__('sales_orders.btn_bulk_mark_ready'), $html);
         $this->assertStringContainsString(__('sales_orders.btn_bulk_hold'), $html);
         $this->assertStringContainsString(__('sales_orders.btn_bulk_cancel'), $html);
         $this->assertStringContainsString(__('sales_orders.selected_export_menu'), $html);
         $this->assertStringContainsString(__('sales_orders.courier_export_menu'), $html);
+        $this->assertStringContainsString('x-show="has()"', $html);
+        $this->assertStringContainsString('x-show="! has()"', $html);
         $this->assertStringContainsString('disabled', $html);
-        $this->assertStringNotContainsString('ids=', $html);
     }
 
     public function test_sales_order_index_toolbar_groups_actions_by_zone(): void
@@ -1039,7 +1041,9 @@ class SalesOrderTest extends TestCase
             ->set('selectedIds', [(string) $first->id, (string) $second->id])
             ->html();
 
-        $this->assertStringContainsString('ids='.$first->id.'%2C'.$second->id, $html);
+        $this->assertStringContainsString('selectedExportHref', $html);
+        $this->assertStringContainsString('&ids=', $html);
+        $this->assertStringContainsString('selectedList().join', $html);
     }
 
     public function test_sales_order_index_select_all_selects_only_visible_page_orders(): void
@@ -1057,7 +1061,7 @@ class SalesOrderTest extends TestCase
 
         $this->assertCount(30, $selectedIds);
         $this->assertNotContains($orders->first()->id, $selectedIds);
-        $component->assertSee('30 orders selected');
+        $this->assertSame($selectedIds, $component->get('selectedIds'));
 
         $component->call('toggleVisibleSelection');
         $this->assertSame([], $component->get('selectedIds'));
@@ -1074,9 +1078,12 @@ class SalesOrderTest extends TestCase
 
         $this->assertStringContainsString('so-checkbox-hitbox-header', $html);
         $this->assertStringContainsString('class="so-checkbox-hitbox"', $html);
-        $this->assertStringContainsString('wire:model.live="selectedIds"', $html);
-        $this->assertStringContainsString('wire:click="toggleVisibleSelection"', $html);
-        $this->assertStringContainsString('$el.indeterminate', $html);
+        $this->assertStringContainsString("\$wire.entangle('selectedIds')", $html);
+        $this->assertStringContainsString('x-on:change="toggleAll()"', $html);
+        $this->assertStringContainsString('x-bind:indeterminate.prop="someVisibleSelected"', $html);
+        $this->assertStringContainsString('x-on:change="toggleRow(', $html);
+        $this->assertStringNotContainsString('wire:model.live="selectedIds"', $html);
+        $this->assertStringNotContainsString('wire:click="toggleVisibleSelection"', $html);
         $this->assertStringNotContainsString('wire:click="toggleRowSelection"', $html);
     }
 

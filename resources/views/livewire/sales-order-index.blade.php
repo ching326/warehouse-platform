@@ -246,23 +246,73 @@
         </div>
 
         @php
-            $hasSelection = count($selectedIds) > 0;
+            $selectedCsvBase = route('sales.orders.export', array_filter(array_merge($exportFilters, ['format' => 'csv']), fn ($value) => $value !== null));
+            $selectedXlsxBase = route('sales.orders.export', array_filter(array_merge($exportFilters, ['format' => 'xlsx']), fn ($value) => $value !== null));
         @endphp
 
+        <div
+            x-data="{
+                selected: $wire.entangle('selectedIds'),
+                visible: $wire.entangle('visibleOrderIds'),
+                selectedList() { return (this.selected || []).map(String); },
+                visibleList() { return (this.visible || []).map(String); },
+                has() { return this.selectedList().length > 0; },
+                isSelected(id) { return this.selectedList().includes(String(id)); },
+                toggleRow(id) {
+                    id = String(id);
+                    const list = this.selectedList();
+                    const i = list.indexOf(id);
+
+                    if (i === -1) {
+                        this.selected = list.concat([id]);
+                        return;
+                    }
+
+                    list.splice(i, 1);
+                    this.selected = list;
+                },
+                get allVisibleSelected() {
+                    const v = this.visibleList();
+                    const selected = this.selectedList();
+                    return v.length > 0 && v.every((id) => selected.includes(id));
+                },
+                get someVisibleSelected() {
+                    const v = this.visibleList();
+                    const selected = this.selectedList();
+                    const n = v.filter((id) => selected.includes(id)).length;
+                    return n > 0 && n < v.length;
+                },
+                toggleAll() {
+                    const v = this.visibleList();
+
+                    if (this.allVisibleSelected) {
+                        this.selected = this.selectedList().filter((id) => ! v.includes(id));
+                        return;
+                    }
+
+                    this.selected = Array.from(new Set(this.selectedList().concat(v)));
+                },
+                selectedExportHref(base) {
+                    return base + '&ids=' + this.selectedList().join(',');
+                },
+            }"
+        >
         <div class="sales-order-action-row" data-testid="sales-order-selection-actions">
-            <flux:badge color="{{ $hasSelection ? 'blue' : 'zinc' }}">{{ trans_choice('sales_orders.selected_count', count($selectedIds), ['count' => count($selectedIds)]) }}</flux:badge>
+            <flux:badge x-bind:color="has() ? 'blue' : 'zinc'">
+                <span x-text="selectedList().length"></span> {{ __('sales_orders.selected_suffix') }}
+            </flux:badge>
             <div class="selection-action-group" data-testid="sales-order-status-actions">
                 <span>{{ __('sales_orders.bulk_status_group') }}</span>
-                <flux:button type="button" size="sm" variant="outline" wire:click="bulkMarkReady" :disabled="! $hasSelection">
+                <flux:button type="button" size="sm" variant="outline" wire:click="bulkMarkReady" x-bind:disabled="! has()">
                     {{ __('sales_orders.btn_bulk_mark_ready') }}
                 </flux:button>
-                <flux:button type="button" size="sm" variant="outline" wire:click="bulkMarkShipped" :disabled="! $hasSelection">
+                <flux:button type="button" size="sm" variant="outline" wire:click="bulkMarkShipped" x-bind:disabled="! has()">
                     {{ __('sales_orders.btn_mark_shipped') }}
                 </flux:button>
-                <flux:button type="button" size="sm" variant="outline" wire:click="bulkHold" :disabled="! $hasSelection">
+                <flux:button type="button" size="sm" variant="outline" wire:click="bulkHold" x-bind:disabled="! has()">
                     {{ __('sales_orders.btn_bulk_hold') }}
                 </flux:button>
-                <flux:button type="button" size="sm" variant="outline" wire:click="bulkReleaseHold" :disabled="! $hasSelection">
+                <flux:button type="button" size="sm" variant="outline" wire:click="bulkReleaseHold" x-bind:disabled="! has()">
                     {{ __('sales_orders.btn_bulk_release_hold') }}
                 </flux:button>
                 <flux:button
@@ -271,7 +321,7 @@
                     variant="danger"
                     wire:click="bulkCancel"
                     wire:confirm="{{ __('sales_orders.bulk_cancel_confirm') }}"
-                    :disabled="! $hasSelection"
+                    x-bind:disabled="! has()"
                 >
                     {{ __('sales_orders.btn_bulk_cancel') }}
                 </flux:button>
@@ -281,47 +331,36 @@
 
             <div class="selection-action-group" data-testid="sales-order-selection-export-actions">
                 <span>{{ __('sales_orders.bulk_export_group') }}</span>
-                @if ($hasSelection)
-                    <details class="action-menu small" data-testid="sales-order-selected-export-menu">
-                        <summary>{{ __('sales_orders.selected_export_menu') }}</summary>
-                        <div class="action-menu-panel">
-                            <a href="{{ route('sales.orders.export', array_filter(array_merge($exportFilters, ['ids' => implode(',', $selectedIds), 'format' => 'csv']), fn ($value) => $value !== null)) }}">
-                                {{ __('sales_orders.btn_bulk_export_csv') }}
-                            </a>
-                            <a href="{{ route('sales.orders.export', array_filter(array_merge($exportFilters, ['ids' => implode(',', $selectedIds), 'format' => 'xlsx']), fn ($value) => $value !== null)) }}">
-                                {{ __('sales_orders.btn_bulk_export_xlsx') }}
-                            </a>
-                        </div>
-                    </details>
-                    <details class="action-menu small" data-testid="sales-order-courier-export-menu">
-                        <summary>{{ __('sales_orders.courier_export_menu') }}</summary>
-                        <div class="action-menu-panel">
-                            <button type="button" wire:click="validateCourierExport('yamato')">
-                                {{ __('sales_orders.btn_export_yamato_csv') }}
-                            </button>
-                            <button type="button" wire:click="validateCourierExport('sagawa')">
-                                {{ __('sales_orders.btn_export_sagawa_csv') }}
-                            </button>
-                        </div>
-                    </details>
-                @else
-                    <button type="button" class="action-menu-disabled" disabled aria-disabled="true">
-                        {{ __('sales_orders.selected_export_menu') }}
-                    </button>
-                    <button type="button" class="action-menu-disabled" disabled aria-disabled="true">
-                        {{ __('sales_orders.courier_export_menu') }}
-                    </button>
-                @endif
+                <details class="action-menu small" data-testid="sales-order-selected-export-menu" x-show="has()" x-cloak>
+                    <summary>{{ __('sales_orders.selected_export_menu') }}</summary>
+                    <div class="action-menu-panel">
+                        <a x-bind:href="selectedExportHref(@js($selectedCsvBase))">
+                            {{ __('sales_orders.btn_bulk_export_csv') }}
+                        </a>
+                        <a x-bind:href="selectedExportHref(@js($selectedXlsxBase))">
+                            {{ __('sales_orders.btn_bulk_export_xlsx') }}
+                        </a>
+                    </div>
+                </details>
+                <details class="action-menu small" data-testid="sales-order-courier-export-menu" x-show="has()" x-cloak>
+                    <summary>{{ __('sales_orders.courier_export_menu') }}</summary>
+                    <div class="action-menu-panel">
+                        <button type="button" wire:click="validateCourierExport('yamato')">
+                            {{ __('sales_orders.btn_export_yamato_csv') }}
+                        </button>
+                        <button type="button" wire:click="validateCourierExport('sagawa')">
+                            {{ __('sales_orders.btn_export_sagawa_csv') }}
+                        </button>
+                    </div>
+                </details>
+                <button type="button" class="action-menu-disabled" disabled aria-disabled="true" x-show="! has()">
+                    {{ __('sales_orders.selected_export_menu') }}
+                </button>
+                <button type="button" class="action-menu-disabled" disabled aria-disabled="true" x-show="! has()">
+                    {{ __('sales_orders.courier_export_menu') }}
+                </button>
             </div>
         </div>
-
-        @php
-            $visibleIds = array_map('intval', $visibleOrderIds);
-            $selectedLookup = array_flip(array_map('intval', $selectedIds));
-            $visibleSelectedCount = count(array_filter($visibleIds, fn ($id) => isset($selectedLookup[$id])));
-            $allVisibleSelected = $visibleIds !== [] && $visibleSelectedCount === count($visibleIds);
-            $someVisibleSelected = $visibleSelectedCount > 0 && ! $allVisibleSelected;
-        @endphp
 
         <div class="table-scroll">
             <flux:table :paginate="$orders" class="data-table sales-order-table">
@@ -330,16 +369,9 @@
                         <label class="so-checkbox-hitbox so-checkbox-hitbox-header" title="{{ __('sales_orders.select_visible_orders') }}">
                             <input
                                 type="checkbox"
-                                wire:click="toggleVisibleSelection"
-                                @checked($allVisibleSelected)
-                                x-data="{ visibleIds: @js($visibleIds) }"
-                                x-effect="
-                                    const selected = ($wire.selectedIds || []).map((id) => Number(id));
-                                    const visibleSelectedCount = visibleIds.filter((id) => selected.includes(Number(id))).length;
-                                    $el.checked = visibleIds.length > 0 && visibleSelectedCount === visibleIds.length;
-                                    $el.indeterminate = visibleSelectedCount > 0 && visibleSelectedCount < visibleIds.length;
-                                "
-                                data-indeterminate="{{ $someVisibleSelected ? 'true' : 'false' }}"
+                                x-bind:checked="allVisibleSelected"
+                                x-bind:indeterminate.prop="someVisibleSelected"
+                                x-on:change="toggleAll()"
                                 aria-label="{{ __('sales_orders.select_visible_orders') }}"
                             >
                         </label>
@@ -360,7 +392,12 @@
                         <flux:table.row :key="$order->id">
                             <flux:table.cell class="so-select-cell">
                                 <label class="so-checkbox-hitbox">
-                                    <input type="checkbox" wire:model.live="selectedIds" value="{{ $order->id }}" aria-label="{{ __('sales_orders.select_order') }} {{ $order->platform_order_id ?: $order->id }}">
+                                    <input
+                                        type="checkbox"
+                                        x-bind:checked="isSelected({{ $order->id }})"
+                                        x-on:change="toggleRow({{ $order->id }})"
+                                        aria-label="{{ __('sales_orders.select_order') }} {{ $order->platform_order_id ?: $order->id }}"
+                                    >
                                 </label>
                             </flux:table.cell>
                             <flux:table.cell class="so-order-cell">
@@ -479,6 +516,7 @@
                     @endforelse
                 </flux:table.rows>
             </flux:table>
+        </div>
         </div>
     </section>
 </div>
