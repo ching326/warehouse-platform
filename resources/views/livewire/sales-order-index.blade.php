@@ -34,13 +34,13 @@
         @endif
 
         <div
-            class="sales-order-filter-grid"
+            class="sales-order-filter-grid sales-order-filter-toolbar"
             data-testid="sales-order-filter-row"
             x-data="{ openFilter: null }"
             x-on:keydown.escape.window="openFilter = null"
         >
             <details
-                class="filter-menu"
+                @class(['filter-menu', 'is-active' => count((array) $platforms) > 0])
                 wire:ignore.self
                 x-bind:open="openFilter === 'platform'"
                 x-on:click.outside="if (openFilter === 'platform') openFilter = null"
@@ -50,7 +50,6 @@
                     x-bind:aria-expanded="openFilter === 'platform'"
                 >
                     <span>{{ __('sales_orders.field_platform') }}</span>
-                    <strong>{{ $this->filterButtonLabel(__('sales_orders.all_platforms'), $platforms, $platformFilterOptions) }}</strong>
                 </summary>
                 <div class="filter-panel compact">
                     @forelse ($platformFilterOptions as $platform => $label)
@@ -62,7 +61,7 @@
             </details>
 
             <details
-                class="filter-menu"
+                @class(['filter-menu', 'is-active' => count((array) $shopIds) > 0])
                 wire:ignore.self
                 x-bind:open="openFilter === 'shop'"
                 x-on:click.outside="if (openFilter === 'shop') openFilter = null"
@@ -72,7 +71,6 @@
                     x-bind:aria-expanded="openFilter === 'shop'"
                 >
                     <span>{{ __('sales_orders.field_shop') }}</span>
-                    <strong>{{ $this->filterButtonLabel(__('sales_orders.all_shops'), $shopIds, $shopFilterOptions) }}</strong>
                 </summary>
                 <div class="filter-panel">
                     @foreach ($shopFilterOptions as $shopId => $label)
@@ -82,7 +80,7 @@
             </details>
 
             <details
-                class="filter-menu"
+                @class(['filter-menu', 'is-active' => count((array) $fulfillmentStatusesFilter) > 0])
                 wire:ignore.self
                 x-bind:open="openFilter === 'fulfillment'"
                 x-on:click.outside="if (openFilter === 'fulfillment') openFilter = null"
@@ -91,8 +89,7 @@
                     x-on:click.prevent="openFilter = openFilter === 'fulfillment' ? null : 'fulfillment'"
                     x-bind:aria-expanded="openFilter === 'fulfillment'"
                 >
-                    <span>{{ __('sales_orders.field_fulfillment_status') }}</span>
-                    <strong>{{ $this->filterButtonLabel(__('sales_orders.all_fulfillment_status'), $fulfillmentStatusesFilter, $fulfillmentStatuses) }}</strong>
+                    <span>{{ __('sales_orders.filter_fulfillment') }}</span>
                 </summary>
                 <div class="filter-panel compact">
                     @foreach ($fulfillmentStatuses as $status => $label)
@@ -102,7 +99,7 @@
             </details>
 
             <details
-                class="filter-menu"
+                @class(['filter-menu', 'is-active' => count((array) $orderStatusesFilter) > 0])
                 wire:ignore.self
                 x-bind:open="openFilter === 'order-status'"
                 x-on:click.outside="if (openFilter === 'order-status') openFilter = null"
@@ -111,8 +108,7 @@
                     x-on:click.prevent="openFilter = openFilter === 'order-status' ? null : 'order-status'"
                     x-bind:aria-expanded="openFilter === 'order-status'"
                 >
-                    <span>{{ __('sales_orders.field_order_status') }}</span>
-                    <strong>{{ $this->filterButtonLabel(__('sales_orders.all_order_status'), $orderStatusesFilter, $orderStatuses) }}</strong>
+                    <span>{{ __('sales_orders.filter_order_status') }}</span>
                 </summary>
                 <div class="filter-panel compact">
                     @foreach ($orderStatuses as $status => $label)
@@ -122,7 +118,7 @@
             </details>
 
             <details
-                class="filter-menu"
+                @class(['filter-menu', 'is-active' => count((array) $shippingMethodsFilter) > 0])
                 wire:ignore.self
                 x-bind:open="openFilter === 'shipping'"
                 x-on:click.outside="if (openFilter === 'shipping') openFilter = null"
@@ -131,8 +127,7 @@
                     x-on:click.prevent="openFilter = openFilter === 'shipping' ? null : 'shipping'"
                     x-bind:aria-expanded="openFilter === 'shipping'"
                 >
-                    <span>{{ __('sales_orders.field_shipping_method') }}</span>
-                    <strong>{{ $this->filterButtonLabel(__('sales_orders.all_shipping_methods'), $shippingMethodsFilter, $shippingMethodFilterOptions) }}</strong>
+                    <span>{{ __('sales_orders.filter_shipping') }}</span>
                 </summary>
                 <div class="filter-panel compact">
                     @foreach ($shippingMethodFilterOptions as $method => $label)
@@ -140,39 +135,91 @@
                     @endforeach
                 </div>
             </details>
-        </div>
 
-        <div class="sales-order-search-row">
-            <flux:input
-                wire:model.live.debounce.300ms="search"
-                :label="__('common.search')"
-                :placeholder="__('sales_orders.search_placeholder')"
-            />
-        </div>
+            <details
+                @class(['filter-menu', 'is-active' => $dateRange !== \App\Support\SalesOrderFilters::DATE_ALL || $dateFrom !== '' || $dateTo !== ''])
+                wire:ignore.self
+                x-bind:open="openFilter === 'date'"
+                x-on:click.outside="if (openFilter === 'date') openFilter = null"
+            >
+                <summary
+                    x-on:click.prevent="openFilter = openFilter === 'date' ? null : 'date'"
+                    x-bind:aria-expanded="openFilter === 'date'"
+                >
+                    <span>{{ __('sales_orders.filter_order_date') }}</span>
+                </summary>
+                <div class="filter-panel date-filter-panel">
+                    @foreach ($dateRanges as $range => $label)
+                        <label>
+                            <input type="radio" wire:model.live="dateRange" value="{{ $range }}">
+                            {{ $label }}
+                        </label>
+                    @endforeach
 
-        <div class="sales-order-date-row">
-            <label class="print-waiting-toggle">
+                    @if ($dateRange === \App\Support\SalesOrderFilters::DATE_CUSTOM)
+                        <div class="date-custom-grid">
+                            <flux:input type="date" wire:model.live="dateFrom" :label="__('sales_orders.field_date_from')" />
+                            <flux:input type="date" wire:model.live="dateTo" :label="__('sales_orders.field_date_to')" />
+                        </div>
+                    @endif
+                </div>
+            </details>
+
+            <details
+                @class(['filter-menu', 'is-active' => count((array) $othersFilter) > 0])
+                wire:ignore.self
+                x-bind:open="openFilter === 'others'"
+                x-on:click.outside="if (openFilter === 'others') openFilter = null"
+            >
+                <summary
+                    x-on:click.prevent="openFilter = openFilter === 'others' ? null : 'others'"
+                    x-bind:aria-expanded="openFilter === 'others'"
+                >
+                    <span>{{ __('sales_orders.filter_others') }}</span>
+                </summary>
+                <div class="filter-panel compact">
+                    <label>
+                        <input type="checkbox" wire:click="toggleOtherFilter('{{ \App\Support\SalesOrderFilters::OTHER_MULTI_ITEM }}')" @checked(in_array(\App\Support\SalesOrderFilters::OTHER_MULTI_ITEM, (array) $othersFilter, true))>
+                        {{ __('sales_orders.other_multi_item') }}
+                    </label>
+                    <small class="filter-helper">{{ __('sales_orders.other_multi_item_hint') }}</small>
+                    <label @class(['is-disabled' => $printWaiting]) title="{{ $printWaiting ? __('sales_orders.print_waiting_printed_conflict') : '' }}">
+                        <input type="checkbox" wire:click="toggleOtherFilter('{{ \App\Support\SalesOrderFilters::OTHER_PRINTED }}')" @checked(in_array(\App\Support\SalesOrderFilters::OTHER_PRINTED, (array) $othersFilter, true)) @disabled($printWaiting)>
+                        {{ __('sales_orders.other_printed') }}
+                    </label>
+                    <label>
+                        <input type="checkbox" wire:click="toggleOtherFilter('{{ \App\Support\SalesOrderFilters::OTHER_NOT_PRINTED }}')" @checked(in_array(\App\Support\SalesOrderFilters::OTHER_NOT_PRINTED, (array) $othersFilter, true))>
+                        {{ __('sales_orders.other_not_printed') }}
+                    </label>
+                </div>
+            </details>
+
+            <label class="print-waiting-toggle compact-filter-toggle">
                 <input type="checkbox" wire:model.live="printWaiting">
                 <span>
                     <strong>{{ __('sales_orders.print_waiting') }}</strong>
-                    <small>{{ __('sales_orders.print_waiting_hint') }}</small>
                 </span>
             </label>
 
-            <div class="date-range-options">
-                @foreach ($dateRanges as $range => $label)
-                    <label>
-                        <input type="radio" wire:model.live="dateRange" value="{{ $range }}">
-                        {{ $label }}
-                    </label>
+            <div class="sales-order-search-row">
+                <flux:input
+                    wire:model.live.debounce.300ms="search"
+                    :label="__('common.search')"
+                    :placeholder="__('sales_orders.search_placeholder')"
+                />
+            </div>
+        </div>
+
+        @if ($activeFilterChips !== [])
+            <div class="filter-chip-row" data-testid="sales-order-filter-chips">
+                @foreach ($activeFilterChips as $chip)
+                    <button type="button" class="filter-chip" wire:click="removeFilterChip('{{ $chip['group'] }}', '{{ $chip['value'] }}')">
+                        <span>{{ $chip['text'] }}</span>
+                        <strong aria-hidden="true">x</strong>
+                    </button>
                 @endforeach
             </div>
-
-            @if ($dateRange === \App\Support\SalesOrderFilters::DATE_CUSTOM)
-                <flux:input type="date" wire:model.live="dateFrom" :label="__('sales_orders.field_date_from')" />
-                <flux:input type="date" wire:model.live="dateTo" :label="__('sales_orders.field_date_to')" />
-            @endif
-        </div>
+        @endif
 
         <div class="sales-order-page-actions" data-testid="sales-order-page-actions">
             <flux:button href="{{ route('sales.orders.import') }}" variant="outline" wire:navigate>

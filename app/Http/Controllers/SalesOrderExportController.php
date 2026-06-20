@@ -40,6 +40,7 @@ class SalesOrderExportController extends Controller
             'fulfillment' => $request->query('fulfillment', []),
             'order_status' => $request->query('order_status', []),
             'shipping' => $request->query('shipping', []),
+            'others' => $request->query('others', []),
             'date_range' => $request->query('date_range', SalesOrderFilters::DATE_ALL),
             'active_only' => $request->query('active_only', true),
             'date_from' => $request->query('date_from', ''),

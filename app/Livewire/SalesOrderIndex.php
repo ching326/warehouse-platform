@@ -37,6 +37,9 @@ class SalesOrderIndex extends Component
     #[Url(as: 'shipping', except: [])]
     public $shippingMethodsFilter = [];
 
+    #[Url(as: 'others', except: [])]
+    public $othersFilter = [];
+
     #[Url(as: 'date_range', except: SalesOrderFilters::DATE_ALL)]
     public string $dateRange = SalesOrderFilters::DATE_ALL;
 
@@ -107,6 +110,11 @@ class SalesOrderIndex extends Component
         $this->filterChanged();
     }
 
+    public function updatedOthersFilter(): void
+    {
+        $this->filterChanged();
+    }
+
     public function updatedDateRange(): void
     {
         $this->coerceHistoricalDateRange();
@@ -135,6 +143,51 @@ class SalesOrderIndex extends Component
 
     public function updatedSearch(): void
     {
+        $this->filterChanged();
+    }
+
+    public function toggleOtherFilter(string $filter): void
+    {
+        if (! array_key_exists($filter, $this->otherFilterOptions())) {
+            return;
+        }
+
+        $others = array_values(array_map('strval', (array) $this->othersFilter));
+
+        if (in_array($filter, $others, true)) {
+            $this->othersFilter = array_values(array_diff($others, [$filter]));
+            $this->filterChanged();
+
+            return;
+        }
+
+        if ($filter === SalesOrderFilters::OTHER_PRINTED) {
+            $others = array_values(array_diff($others, [SalesOrderFilters::OTHER_NOT_PRINTED]));
+        }
+
+        if ($filter === SalesOrderFilters::OTHER_NOT_PRINTED) {
+            $others = array_values(array_diff($others, [SalesOrderFilters::OTHER_PRINTED]));
+        }
+
+        $this->othersFilter = array_values(array_unique([...$others, $filter]));
+        $this->filterChanged();
+    }
+
+    public function removeFilterChip(string $group, string $value = ''): void
+    {
+        match ($group) {
+            'platform' => $this->platforms = $this->removeFilterValue($this->platforms, $value),
+            'shop' => $this->shopIds = $this->removeFilterValue($this->shopIds, $value),
+            'fulfillment' => $this->fulfillmentStatusesFilter = $this->removeFilterValue($this->fulfillmentStatusesFilter, $value),
+            'order_status' => $this->orderStatusesFilter = $this->removeFilterValue($this->orderStatusesFilter, $value),
+            'shipping' => $this->shippingMethodsFilter = $this->removeFilterValue($this->shippingMethodsFilter, $value),
+            'other' => $this->othersFilter = $this->removeFilterValue($this->othersFilter, $value),
+            'date' => $this->resetDateFilter(),
+            'search' => $this->search = '',
+            'print_waiting' => $this->printWaiting = false,
+            default => null,
+        };
+
         $this->filterChanged();
     }
 
@@ -483,7 +536,9 @@ class SalesOrderIndex extends Component
             'orderStatuses' => $this->orderStatuses(),
             'shippingMethodOptions' => $this->shippingMethodSelectOptions(),
             'shippingMethodFilterOptions' => $this->shippingMethodFilterOptions(),
+            'otherFilterOptions' => $this->otherFilterOptions(),
             'dateRanges' => $this->dateRanges(),
+            'activeFilterChips' => $this->activeFilterChips(),
             'exportFilters' => $this->exportFilterParams(),
             'visibleOrderIds' => $this->visibleOrderIds,
         ])->layout('inventory', [
@@ -580,7 +635,7 @@ class SalesOrderIndex extends Component
     private function dateRanges(): array
     {
         return [
-            SalesOrderFilters::DATE_ALL => __('sales_orders.date_all'),
+            SalesOrderFilters::DATE_TODAY => __('sales_orders.date_today'),
             SalesOrderFilters::DATE_LAST_3_DAYS => __('sales_orders.date_last_3_days'),
             SalesOrderFilters::DATE_LAST_7_DAYS => __('sales_orders.date_last_7_days'),
             SalesOrderFilters::DATE_LAST_30_DAYS => __('sales_orders.date_last_30_days'),
@@ -652,30 +707,33 @@ class SalesOrderIndex extends Component
             'fulfillment' => $this->fulfillmentStatusesFilter,
             'order_status' => $this->orderStatusesFilter,
             'shipping' => $this->shippingMethodsFilter,
-            'date_range' => $this->dateRange,
-            'active_only' => $this->activeOnly,
-            'date_from' => $this->dateFrom,
-            'date_to' => $this->dateTo,
-            'print_waiting' => $query['print_waiting'] ?? $this->printWaiting,
-            'search' => $this->search,
-        ]);
-    }
-
-    private function normalizeFilterState(): void
-    {
-        $query = request()->query();
-        $filters = SalesOrderFilters::normalize([
-            'allowed_tenant_ids' => $this->allowedTenantIds(),
-            'platforms' => $this->platforms ?: ($query['platforms'] ?? []),
-            'shops' => $this->shopIds ?: ($query['shops'] ?? $query['shop'] ?? []),
-            'fulfillment' => $this->fulfillmentStatusesFilter ?: ($query['fulfillment'] ?? []),
-            'order_status' => $this->orderStatusesFilter ?: ($query['order_status'] ?? []),
-            'shipping' => $this->shippingMethodsFilter ?: ($query['shipping'] ?? []),
+            'others' => $this->othersFilter,
             'date_range' => $this->dateRange,
             'active_only' => $this->activeOnly,
             'date_from' => $this->dateFrom,
             'date_to' => $this->dateTo,
             'print_waiting' => $this->printWaiting,
+            'search' => $this->search,
+        ]);
+    }
+
+    private function normalizeFilterState(bool $useRequestFallback = true): void
+    {
+        $query = request()->query();
+        $fallback = fn (string $key, mixed $default = []) => $useRequestFallback ? ($query[$key] ?? $default) : $default;
+        $filters = SalesOrderFilters::normalize([
+            'allowed_tenant_ids' => $this->allowedTenantIds(),
+            'platforms' => $this->platforms ?: $fallback('platforms'),
+            'shops' => $this->shopIds ?: ($useRequestFallback ? ($query['shops'] ?? $query['shop'] ?? []) : []),
+            'fulfillment' => $this->fulfillmentStatusesFilter ?: $fallback('fulfillment'),
+            'order_status' => $this->orderStatusesFilter ?: $fallback('order_status'),
+            'shipping' => $this->shippingMethodsFilter ?: $fallback('shipping'),
+            'others' => $this->othersFilter ?: $fallback('others'),
+            'date_range' => $this->dateRange,
+            'active_only' => $this->activeOnly,
+            'date_from' => $this->dateFrom,
+            'date_to' => $this->dateTo,
+            'print_waiting' => $useRequestFallback ? ($query['print_waiting'] ?? $this->printWaiting) : $this->printWaiting,
             'search' => $this->search,
         ]);
 
@@ -684,6 +742,7 @@ class SalesOrderIndex extends Component
         $this->fulfillmentStatusesFilter = $filters['fulfillment'];
         $this->orderStatusesFilter = $filters['order_status'];
         $this->shippingMethodsFilter = $filters['shipping'];
+        $this->othersFilter = $filters['others'];
         $this->dateRange = $filters['date_range'];
         $this->activeOnly = $filters['active_only'];
         $this->dateFrom = $filters['date_from'];
@@ -704,7 +763,7 @@ class SalesOrderIndex extends Component
 
     private function filterChanged(): void
     {
-        $this->normalizeFilterState();
+        $this->normalizeFilterState(false);
         $this->selectedIds = [];
         $this->resetPage();
     }
@@ -717,6 +776,7 @@ class SalesOrderIndex extends Component
             'fulfillment' => $this->fulfillmentStatusesFilter ?: null,
             'order_status' => $this->orderStatusesFilter ?: null,
             'shipping' => $this->shippingMethodsFilter ?: null,
+            'others' => $this->othersFilter ?: null,
             'date_range' => $this->dateRange !== SalesOrderFilters::DATE_ALL ? $this->dateRange : null,
             'active_only' => $this->activeOnly ? null : '0',
             'date_from' => $this->dateFrom ?: null,
@@ -773,5 +833,104 @@ class SalesOrderIndex extends Component
             'updated' => $updated,
             'skipped' => $selectedCount - $updated,
         ]));
+    }
+
+    private function otherFilterOptions(): array
+    {
+        return [
+            SalesOrderFilters::OTHER_MULTI_ITEM => __('sales_orders.other_multi_item'),
+            SalesOrderFilters::OTHER_PRINTED => __('sales_orders.other_printed'),
+            SalesOrderFilters::OTHER_NOT_PRINTED => __('sales_orders.other_not_printed'),
+        ];
+    }
+
+    private function activeFilterChips(): array
+    {
+        $chips = [];
+
+        foreach ((array) $this->platforms as $platform) {
+            $chips[] = $this->chip('platform', (string) $platform, __('sales_orders.chip_platform'), (string) $platform);
+        }
+
+        $shopLabels = $this->shopOptions()->mapWithKeys(fn (Shop $shop) => [
+            (string) $shop->id => $shop->tenant->code.' / '.$shop->name,
+        ])->all();
+        foreach ((array) $this->shopIds as $shopId) {
+            $chips[] = $this->chip('shop', (string) $shopId, __('sales_orders.chip_shop'), $shopLabels[(string) $shopId] ?? (string) $shopId);
+        }
+
+        foreach ((array) $this->fulfillmentStatusesFilter as $status) {
+            $chips[] = $this->chip('fulfillment', (string) $status, __('sales_orders.chip_fulfillment'), $this->fulfillmentStatusLabel((string) $status));
+        }
+
+        foreach ((array) $this->orderStatusesFilter as $status) {
+            $chips[] = $this->chip('order_status', (string) $status, __('sales_orders.chip_order_status'), $this->orderStatusLabel((string) $status));
+        }
+
+        $shippingLabels = $this->shippingMethodFilterOptions();
+        foreach ((array) $this->shippingMethodsFilter as $method) {
+            $chips[] = $this->chip('shipping', (string) $method, __('sales_orders.chip_shipping'), $shippingLabels[(string) $method] ?? (string) $method);
+        }
+
+        $otherLabels = $this->otherFilterOptions();
+        foreach ((array) $this->othersFilter as $other) {
+            $chips[] = $this->chip('other', (string) $other, __('sales_orders.chip_others'), $otherLabels[(string) $other] ?? (string) $other);
+        }
+
+        if ($this->dateRange !== SalesOrderFilters::DATE_ALL || $this->dateFrom !== '' || $this->dateTo !== '') {
+            $chips[] = $this->chip('date', '', __('sales_orders.chip_order_date'), $this->dateChipLabel());
+        }
+
+        if (trim($this->search) !== '') {
+            $chips[] = $this->chip('search', '', __('common.search'), $this->search);
+        }
+
+        if ($this->printWaiting) {
+            $chips[] = [
+                'group' => 'print_waiting',
+                'value' => '',
+                'text' => __('sales_orders.print_waiting'),
+            ];
+        }
+
+        return $chips;
+    }
+
+    private function chip(string $group, string $value, string $label, string $text): array
+    {
+        return [
+            'group' => $group,
+            'value' => $value,
+            'text' => $label.': '.$text,
+        ];
+    }
+
+    private function dateChipLabel(): string
+    {
+        if ($this->dateRange === SalesOrderFilters::DATE_CUSTOM) {
+            return match (true) {
+                $this->dateFrom !== '' && $this->dateTo !== '' => __('sales_orders.date_custom_between', [
+                    'from' => $this->dateFrom,
+                    'to' => $this->dateTo,
+                ]),
+                $this->dateFrom !== '' => __('sales_orders.date_custom_from', ['from' => $this->dateFrom]),
+                $this->dateTo !== '' => __('sales_orders.date_custom_to', ['to' => $this->dateTo]),
+                default => __('sales_orders.date_custom'),
+            };
+        }
+
+        return $this->dateRanges()[$this->dateRange] ?? $this->dateRange;
+    }
+
+    private function removeFilterValue(mixed $values, string $value): array
+    {
+        return array_values(array_filter((array) $values, fn ($item) => (string) $item !== $value));
+    }
+
+    private function resetDateFilter(): void
+    {
+        $this->dateRange = SalesOrderFilters::DATE_ALL;
+        $this->dateFrom = '';
+        $this->dateTo = '';
     }
 }

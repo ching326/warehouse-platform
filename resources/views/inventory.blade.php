@@ -848,9 +848,13 @@
 
             .sales-order-filter-grid {
                 display: grid;
-                grid-template-columns: repeat(5, minmax(150px, 1fr));
+                grid-template-columns: repeat(7, minmax(112px, 132px)) minmax(220px, 1fr);
                 gap: 10px;
                 margin-bottom: 12px;
+            }
+
+            .sales-order-filter-toolbar {
+                align-items: end;
             }
 
             .filter-menu,
@@ -894,9 +898,15 @@
             }
 
             .filter-menu[open] summary,
+            .filter-menu.is-active summary,
             .action-menu[open] summary {
                 border-color: var(--accent);
                 box-shadow: 0 0 0 3px var(--accent-soft);
+            }
+
+            .filter-menu.is-active summary {
+                background: var(--accent-soft);
+                color: var(--accent);
             }
 
             .filter-menu summary span {
@@ -969,6 +979,12 @@
                 padding: 7px 10px;
             }
 
+            .compact-filter-toggle {
+                justify-content: center;
+                min-height: 38px;
+                padding: 8px 10px;
+            }
+
             .print-waiting-toggle span {
                 display: grid;
                 gap: 1px;
@@ -978,6 +994,19 @@
                 color: var(--muted);
                 font-size: 11px;
                 font-weight: 700;
+            }
+
+            .filter-helper {
+                display: block;
+                color: var(--muted);
+                font-size: 11px;
+                line-height: 1.25;
+                padding: 0 6px 4px 28px;
+            }
+
+            .filter-panel label.is-disabled {
+                cursor: not-allowed;
+                opacity: 0.55;
             }
 
             .filter-panel label {
@@ -994,8 +1023,48 @@
             }
 
             .sales-order-search-row {
-                margin-bottom: 12px;
-                max-width: 720px;
+                min-width: 220px;
+            }
+
+            .date-custom-grid {
+                display: grid;
+                gap: 8px;
+                min-width: 230px;
+                padding-top: 4px;
+            }
+
+            .filter-chip-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                margin: 0 0 12px;
+            }
+
+            .filter-chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 7px;
+                border: 1px solid var(--line);
+                border-radius: 999px;
+                background: #fff;
+                color: var(--ink);
+                cursor: pointer;
+                font-size: 12px;
+                font-weight: 700;
+                line-height: 1;
+                padding: 6px 9px;
+            }
+
+            .filter-chip:hover {
+                border-color: var(--accent);
+                background: var(--accent-soft);
+                color: var(--accent);
+            }
+
+            .filter-chip strong {
+                color: var(--muted);
+                font-size: 13px;
+                line-height: 1;
             }
 
             .sales-order-date-row {

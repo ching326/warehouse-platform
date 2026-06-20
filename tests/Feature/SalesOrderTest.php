@@ -893,6 +893,70 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString(__('sales_orders.btn_create_order'), $html);
     }
 
+    public function test_sales_order_index_top_filters_use_category_labels_and_chip_row(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'FILTER-TOOLBAR']);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->html();
+
+        $this->assertStringContainsString(__('sales_orders.filter_order_date'), $html);
+        $this->assertStringContainsString(__('sales_orders.filter_others'), $html);
+        $this->assertStringContainsString(__('sales_orders.other_multi_item'), $html);
+        $this->assertStringContainsString(__('sales_orders.other_printed'), $html);
+        $this->assertStringContainsString(__('sales_orders.other_not_printed'), $html);
+        $this->assertStringNotContainsString('<strong>'.__('sales_orders.all_platforms').'</strong>', $html);
+        $this->assertStringNotContainsString('<strong>'.__('sales_orders.all_shops').'</strong>', $html);
+        $this->assertStringNotContainsString('<strong>'.__('sales_orders.all_fulfillment_status').'</strong>', $html);
+        $this->assertStringNotContainsString('<strong>'.__('sales_orders.all_order_status').'</strong>', $html);
+    }
+
+    public function test_sales_order_index_filter_chips_render_and_remove_individual_filters(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'FILTER-CHIPS',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+            'shipping_method' => 'yamato',
+        ]);
+
+        $component = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('platforms', ['amazon'])
+            ->set('shopIds', [(string) $shop->id])
+            ->set('fulfillmentStatusesFilter', [SalesOrder::FULFILLMENT_STATUS_READY])
+            ->set('orderStatusesFilter', [SalesOrder::ORDER_STATUS_PENDING])
+            ->set('shippingMethodsFilter', ['yamato'])
+            ->call('toggleOtherFilter', SalesOrderFilters::OTHER_NOT_PRINTED)
+            ->set('dateRange', SalesOrderFilters::DATE_LAST_30_DAYS)
+            ->set('search', 'Tanaka')
+            ->set('printWaiting', true)
+            ->assertSee('Platform: amazon')
+            ->assertSee('Shop: '.$shop->tenant->code.' / '.$shop->name)
+            ->assertSee('Fulfillment: Ship Ready')
+            ->assertSee('Order Status: Pending')
+            ->assertSee('Shipping: Yamato')
+            ->assertSee('Others: Not Printed')
+            ->assertSee('Order Date: Last 30 days')
+            ->assertSee('Search: Tanaka')
+            ->assertSee(__('sales_orders.print_waiting'));
+
+        $component
+            ->call('removeFilterChip', 'platform', 'amazon')
+            ->assertSet('platforms', [])
+            ->assertSet('shopIds', [(string) $shop->id])
+            ->call('removeFilterChip', 'date')
+            ->assertSet('dateRange', SalesOrderFilters::DATE_ALL)
+            ->assertSet('dateFrom', '')
+            ->assertSet('dateTo', '')
+            ->call('removeFilterChip', 'search')
+            ->assertSet('search', '')
+            ->call('removeFilterChip', 'print_waiting')
+            ->assertSet('printWaiting', false);
+    }
+
     public function test_sales_order_index_export_menus_present(): void
     {
         [, $shop, $sku] = $this->salesSku();
@@ -1131,6 +1195,88 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString('print_waiting=1', $html);
     }
 
+    public function test_sales_order_index_others_filters_multi_item_printed_and_not_printed(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku();
+        $extraSku = Sku::factory()->for($tenant)->for($shop)->for(StockItem::factory()->for($tenant)->create())->create(['sku_type' => 'single']);
+        $single = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'OTHER-SINGLE']);
+        $multiLine = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'OTHER-MULTI-LINE']);
+        $multiLine->lines()->create(['sku_id' => $extraSku->id, 'quantity' => 1, 'line_status' => SalesOrderLine::STATUS_READY]);
+        $multiQty = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'OTHER-MULTI-QTY']);
+        $multiQty->lines()->firstOrFail()->update(['quantity' => 2]);
+        $cancelledExtra = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'OTHER-CANCELLED-EXTRA']);
+        $cancelledExtra->lines()->create(['sku_id' => $extraSku->id, 'quantity' => 5, 'line_status' => SalesOrderLine::STATUS_CANCELLED]);
+        $printed = $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'OTHER-PRINTED',
+            'courier_csv_exported_at' => now(),
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('othersFilter', [SalesOrderFilters::OTHER_MULTI_ITEM])
+            ->assertDontSee($single->platform_order_id)
+            ->assertSee($multiLine->platform_order_id)
+            ->assertSee($multiQty->platform_order_id)
+            ->assertDontSee($cancelledExtra->platform_order_id);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('othersFilter', [SalesOrderFilters::OTHER_PRINTED])
+            ->assertSee($printed->platform_order_id)
+            ->assertDontSee($single->platform_order_id);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('othersFilter', [SalesOrderFilters::OTHER_NOT_PRINTED])
+            ->assertSee($single->platform_order_id)
+            ->assertDontSee($printed->platform_order_id);
+    }
+
+    public function test_sales_order_index_other_printed_toggle_is_mutually_exclusive_and_conflicts_with_print_waiting(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'PRINT-WAITING-CONFLICT',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->call('toggleOtherFilter', SalesOrderFilters::OTHER_PRINTED)
+            ->assertSet('othersFilter', [SalesOrderFilters::OTHER_PRINTED])
+            ->call('toggleOtherFilter', SalesOrderFilters::OTHER_NOT_PRINTED)
+            ->assertSet('othersFilter', [SalesOrderFilters::OTHER_NOT_PRINTED]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('printWaiting', true)
+            ->set('othersFilter', [SalesOrderFilters::OTHER_PRINTED])
+            ->assertDontSee('PRINT-WAITING-CONFLICT');
+    }
+
+    public function test_sales_order_index_today_date_filter(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20 10:00:00'));
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'TODAY-ORDER',
+            'order_date' => Carbon::parse('2026-06-20 09:00:00'),
+        ]);
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'YESTERDAY-ORDER',
+            'order_date' => Carbon::parse('2026-06-19 23:59:00'),
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('dateRange', SalesOrderFilters::DATE_TODAY)
+            ->assertSee('TODAY-ORDER')
+            ->assertDontSee('YESTERDAY-ORDER')
+            ->assertSee('Order Date: Today');
+
+        Carbon::setTestNow();
+    }
+
     public function test_sales_order_index_historical_status_defaults_to_last_30_days(): void
     {
         [, $shop, $sku] = $this->salesSku();
@@ -1325,6 +1471,7 @@ class SalesOrderTest extends TestCase
             ->set('fulfillmentStatusesFilter', [SalesOrder::FULFILLMENT_STATUS_READY])
             ->set('orderStatusesFilter', [SalesOrder::ORDER_STATUS_PENDING])
             ->set('shippingMethodsFilter', ['yamato'])
+            ->set('othersFilter', [SalesOrderFilters::OTHER_MULTI_ITEM])
             ->set('dateRange', SalesOrderFilters::DATE_LAST_7_DAYS)
             ->set('search', 'EXPORT')
             ->html();
@@ -1334,6 +1481,7 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString('fulfillment%5B0%5D=ready', $html);
         $this->assertStringContainsString('order_status%5B0%5D=pending', $html);
         $this->assertStringContainsString('shipping%5B0%5D=yamato', $html);
+        $this->assertStringContainsString('others%5B0%5D=multi_item', $html);
         $this->assertStringContainsString('date_range=last_7_days', $html);
         $this->assertStringContainsString('q=EXPORT', $html);
     }

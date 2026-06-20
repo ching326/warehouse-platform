@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\SalesOrder;
+use App\Models\SalesOrderLine;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -11,7 +12,12 @@ class SalesOrderFilters
 {
     public const EMPTY_SHIPPING = '__empty__';
 
+    public const OTHER_MULTI_ITEM = 'multi_item';
+    public const OTHER_PRINTED = 'printed';
+    public const OTHER_NOT_PRINTED = 'not_printed';
+
     public const DATE_ALL = 'all';
+    public const DATE_TODAY = 'today';
     public const DATE_LAST_3_DAYS = 'last_3_days';
     public const DATE_LAST_7_DAYS = 'last_7_days';
     public const DATE_LAST_30_DAYS = 'last_30_days';
@@ -36,6 +42,7 @@ class SalesOrderFilters
             'fulfillment' => self::onlyKnown(self::stringArray($input['fulfillment'] ?? $input['fulfillment_status'] ?? []), self::fulfillmentStatuses()),
             'order_status' => self::onlyKnown(self::stringArray($input['order_status'] ?? []), self::orderStatuses()),
             'shipping' => self::onlyKnown(self::stringArray($input['shipping'] ?? $input['shipping_methods'] ?? $input['shipping_method'] ?? []), self::shippingMethods()),
+            'others' => self::onlyKnown(self::stringArray($input['others'] ?? $input['other_filter'] ?? []), self::otherFilters()),
             'date_range' => $dateRange,
             'date_from' => trim((string) ($input['date_from'] ?? '')),
             'date_to' => trim((string) ($input['date_to'] ?? '')),
@@ -81,6 +88,20 @@ class SalesOrderFilters
                         : $query->orWhereNull('shipping_method');
                 }
             });
+        }
+
+        if (($filters['others'] ?? []) !== []) {
+            if (in_array(self::OTHER_MULTI_ITEM, $filters['others'], true)) {
+                self::applyMultiItem($query);
+            }
+
+            if (in_array(self::OTHER_PRINTED, $filters['others'], true)) {
+                $query->whereNotNull('courier_csv_exported_at');
+            }
+
+            if (in_array(self::OTHER_NOT_PRINTED, $filters['others'], true)) {
+                $query->whereNull('courier_csv_exported_at');
+            }
         }
 
         if (($filters['fulfillment'] ?? []) === [] && ($filters['order_status'] ?? []) === [] && ($filters['active_only'] ?? true)) {
@@ -195,6 +216,7 @@ class SalesOrderFilters
     {
         return [
             self::DATE_ALL,
+            self::DATE_TODAY,
             self::DATE_LAST_3_DAYS,
             self::DATE_LAST_7_DAYS,
             self::DATE_LAST_30_DAYS,
@@ -232,6 +254,11 @@ class SalesOrderFilters
         return ['yamato', 'sagawa', 'japan_post', 'other', self::EMPTY_SHIPPING];
     }
 
+    public static function otherFilters(): array
+    {
+        return [self::OTHER_MULTI_ITEM, self::OTHER_PRINTED, self::OTHER_NOT_PRINTED];
+    }
+
     private static function applyActiveOnly(Builder $query): void
     {
         $query
@@ -243,6 +270,21 @@ class SalesOrderFilters
                 SalesOrder::FULFILLMENT_STATUS_SHIPPED,
                 SalesOrder::FULFILLMENT_STATUS_CANCELLED,
             ]);
+    }
+
+    private static function applyMultiItem(Builder $query): void
+    {
+        $query->where(function (Builder $query): void {
+            $query
+                ->whereHas('lines', fn (Builder $lineQuery) => $lineQuery
+                    ->where('line_status', SalesOrderLine::STATUS_READY)
+                    ->where('quantity', '>', 1))
+                ->orWhere(function (Builder $query): void {
+                    $query
+                        ->whereHas('lines', fn (Builder $lineQuery) => $lineQuery
+                            ->where('line_status', SalesOrderLine::STATUS_READY), '>=', 2);
+                });
+        });
     }
 
     private static function applyDateRange(Builder $query, array $filters): void
@@ -261,6 +303,7 @@ class SalesOrderFilters
     private static function dateWindow(array $filters): array
     {
         return match ($filters['date_range'] ?? self::DATE_ALL) {
+            self::DATE_TODAY => [now()->startOfDay(), now()->addDay()->startOfDay()],
             self::DATE_LAST_3_DAYS => [now()->subDays(3)->startOfDay(), null],
             self::DATE_LAST_7_DAYS => [now()->subDays(7)->startOfDay(), null],
             self::DATE_LAST_30_DAYS => [now()->subDays(30)->startOfDay(), null],
