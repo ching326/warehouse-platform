@@ -3,16 +3,15 @@
 namespace App\Livewire;
 
 use App\Models\SalesOrder;
-use App\Models\SalesOrderLine;
 use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\Tenant;
+use App\Services\SalesOrders\SalesOrderImporter;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -96,104 +95,12 @@ class SalesOrderImport extends Component
             return;
         }
 
-        $groups = [];
-        foreach ($this->parsedRows as $row) {
-            if ($row['platform_order_id'] !== '') {
-                $groups[$row['platform_order_id']][] = $row;
-            }
-        }
-
-        $previewDuplicateCount = 0;
-        $groups = array_filter(
-            $groups,
-            function (array $rows) use (&$previewDuplicateCount): bool {
-                $isPreviewDuplicate = collect($rows)->contains(fn ($row) => $row['is_duplicate'] ?? false);
-
-                if ($isPreviewDuplicate) {
-                    $previewDuplicateCount++;
-                }
-
-                return ! $isPreviewDuplicate;
-            }
-        );
-
-        if ($groups === []) {
-            session()->flash('status', __('sales_orders.import_no_new_orders'));
-
-            return;
-        }
-
-        $platformOrderIds = array_keys($groups);
-        $duplicates = SalesOrder::query()
-            ->where('tenant_id', $shop->tenant_id)
-            ->where('shop_id', $shop->id)
-            ->whereIn('platform_order_id', $platformOrderIds)
-            ->pluck('platform_order_id')
-            ->all();
-
-        $duplicateLookup = array_flip($duplicates);
-        $groups = array_filter(
-            $groups,
-            fn (string $platformOrderId) => ! isset($duplicateLookup[$platformOrderId]),
-            ARRAY_FILTER_USE_KEY
-        );
-
-        $skippedDuplicateCount = $previewDuplicateCount + count($duplicates);
-
-        if ($groups === []) {
-            session()->flash('status', __('sales_orders.import_no_new_orders'));
-
-            return;
-        }
-
-        $orderCount = 0;
+        $importer = app(SalesOrderImporter::class);
 
         try {
-            DB::transaction(function () use ($shop, $groups, &$orderCount) {
-                foreach ($groups as $platformOrderId => $rows) {
-                    $first = $rows[0];
-
-                    $order = SalesOrder::create([
-                        'tenant_id' => $shop->tenant_id,
-                        'shop_id' => $shop->id,
-                        'source' => $first['source'] ?? SalesOrder::SOURCE_CSV,
-                        'platform_order_id' => $platformOrderId,
-                        'platform_ordered_at' => $this->nullableDate($first['platform_ordered_at'] ?? null),
-                        'latest_ship_at' => $this->nullableDate($first['latest_ship_at'] ?? null),
-                        'order_status' => $first['order_status'] ?? SalesOrder::ORDER_STATUS_PENDING,
-                        'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
-                        'shipping_method' => $first['shipping_method'] ?? null,
-                        'shipping_method_id' => $first['shipping_method_id'] ?? null,
-                        'recipient_name' => $this->nullableString($first['recipient_name']),
-                        'recipient_phone' => $this->nullableString($first['recipient_phone']),
-                        'recipient_country_code' => $this->nullableString($first['recipient_country_code']),
-                        'recipient_postal_code' => $this->nullableString($first['recipient_postal_code']),
-                        'recipient_state' => $this->nullableString($first['recipient_state']),
-                        'recipient_city' => $this->nullableString($first['recipient_city']),
-                        'recipient_address_line1' => $this->nullableString($first['recipient_address_line1']),
-                        'recipient_address_line2' => $this->nullableString($first['recipient_address_line2']),
-                        'note' => $this->nullableString($first['order_note']),
-                        'created_by_user_id' => Auth::id(),
-                    ]);
-
-                    foreach ($rows as $line) {
-                        $order->lines()->create([
-                            'platform_line_id' => $this->nullableString($line['platform_line_id'] ?? ''),
-                            'platform_product_name' => $this->nullableString($line['platform_product_name'] ?? ''),
-                            'sku_id' => $line['sku_id'],
-                            'quantity' => $line['quantity'],
-                            'unit_price' => $line['unit_price'] ?? null,
-                            'currency' => $line['currency'] ?? null,
-                            'line_status' => SalesOrderLine::STATUS_READY,
-                            'note' => $this->nullableString($line['line_note']),
-                        ]);
-                    }
-
-                    $orderCount++;
-                }
-            });
+            $result = $importer->import($shop, $this->parsedRows, Auth::id());
         } catch (QueryException $exception) {
-            if (! $this->isDuplicateOrderConstraintViolation($exception)) {
+            if (! $importer->isDuplicateOrderConstraintViolation($exception)) {
                 throw $exception;
             }
 
@@ -202,12 +109,18 @@ class SalesOrderImport extends Component
             return;
         }
 
+        if ($result->importedOrders === 0) {
+            session()->flash('status', __('sales_orders.import_no_new_orders'));
+
+            return;
+        }
+
         $this->resetPreview();
         $this->reset('file');
 
         session()->flash('status', __('sales_orders.import_succeeded', [
-            'orders' => $orderCount,
-            'skipped' => $skippedDuplicateCount,
+            'orders' => $result->importedOrders,
+            'skipped' => $result->skippedDuplicates,
         ]));
 
         return redirect()->route('sales.orders.index');
@@ -642,13 +555,6 @@ class SalesOrderImport extends Component
         } catch (\Throwable) {
             return null;
         }
-    }
-
-    private function nullableDate(?string $value): ?Carbon
-    {
-        $value = trim((string) $value);
-
-        return $value === '' ? null : Carbon::createFromFormat('Y-m-d H:i:s', $value, 'UTC');
     }
 
     private function amazonBoolean(?string $value): bool

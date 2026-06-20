@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -30,6 +31,11 @@ class AmazonSpapiConnection extends Model
         'last_tested_at',
         'last_test_successful_at',
         'last_error',
+        'last_orders_imported_at',
+        'last_orders_import_window_from',
+        'last_orders_import_window_to',
+        'last_orders_import_status',
+        'last_orders_import_error',
     ];
 
     protected function casts(): array
@@ -40,6 +46,9 @@ class AmazonSpapiConnection extends Model
             'sync_enabled' => 'boolean',
             'last_tested_at' => 'datetime',
             'last_test_successful_at' => 'datetime',
+            'last_orders_imported_at' => 'datetime',
+            'last_orders_import_window_from' => 'datetime',
+            'last_orders_import_window_to' => 'datetime',
         ];
     }
 
@@ -57,6 +66,11 @@ class AmazonSpapiConnection extends Model
                 'last_tested_at',
                 'last_test_successful_at',
                 'last_error',
+                'last_orders_imported_at',
+                'last_orders_import_window_from',
+                'last_orders_import_window_to',
+                'last_orders_import_status',
+                'last_orders_import_error',
             ])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
@@ -70,5 +84,10 @@ class AmazonSpapiConnection extends Model
     public function shop(): BelongsTo
     {
         return $this->belongsTo(Shop::class);
+    }
+
+    public function importRuns(): HasMany
+    {
+        return $this->hasMany(AmazonSpapiImportRun::class);
     }
 }

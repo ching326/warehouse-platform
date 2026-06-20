@@ -15,6 +15,7 @@ use App\Livewire\InboundOrderReceive;
 use App\Livewire\OutboundOrderCreate;
 use App\Livewire\OutboundOrderIndex;
 use App\Livewire\OutboundOrderShip;
+use App\Livewire\AmazonSpapiOrderImport;
 use App\Livewire\SalesOrderCreate;
 use App\Livewire\SalesOrderDetail;
 use App\Livewire\SalesOrderImport;
@@ -58,6 +59,7 @@ Route::get('/outbound/{order}/ship', OutboundOrderShip::class)->name('outbound.s
 Route::get('/sales-orders', SalesOrderIndex::class)->name('sales.orders.index');
 Route::get('/sales-orders/create', SalesOrderCreate::class)->name('sales.orders.create');
 Route::get('/sales-orders/import', SalesOrderImport::class)->name('sales.orders.import');
+Route::get('/sales-orders/import/amazon-api', AmazonSpapiOrderImport::class)->name('sales.orders.import.amazon-api');
 Route::get('/sales-orders/export', SalesOrderExportController::class)->name('sales.orders.export');
 Route::post('/sales-orders/courier-export/validate', CourierExportValidateController::class)->name('sales.orders.courier-export.validate');
 Route::post('/sales-orders/courier-export', CourierExportController::class)->name('sales.orders.courier-export');
