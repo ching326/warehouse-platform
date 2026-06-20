@@ -403,13 +403,8 @@ class SalesOrderExportTest extends TestCase
     public function test_export_blocks_active_only_off_with_no_status_and_all_dates(): void
     {
         Excel::fake();
-        [, $shop, $sku] = $this->salesSku('UNBOUNDED-BYPASS');
-        $this->orderWithLines($shop, [[$sku, 1]], [
-            'platform_order_id' => 'UNBOUNDED-BYPASS',
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_SHIPPED,
-            'order_status' => SalesOrder::ORDER_STATUS_COMPLETED,
-        ]);
 
+        // The guard rejects before any query runs, so no seed data is needed.
         $this->actingAs($this->internalUser())
             ->get(route('sales.orders.export', [
                 'active_only' => '0',
@@ -498,19 +493,6 @@ class SalesOrderExportTest extends TestCase
             'order_status' => [],
             'active_only' => true,
         ]));
-    }
-
-    public function test_sales_order_export_blocks_raw_all_dates_when_active_only_is_disabled(): void
-    {
-        Excel::fake();
-
-        $this->actingAs($this->internalUser())
-            ->get(route('sales.orders.export', [
-                'date_range' => SalesOrderFilters::DATE_ALL,
-                'active_only' => '0',
-            ]))
-            ->assertStatus(422)
-            ->assertSee(__('sales_orders.export_requires_date_range'));
     }
 
     public function test_sales_order_export_rejects_custom_range_over_365_days(): void
