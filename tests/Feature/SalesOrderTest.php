@@ -962,6 +962,7 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString('class="so-checkbox-hitbox"', $html);
         $this->assertStringContainsString('wire:model.live="selectedIds"', $html);
         $this->assertStringContainsString('wire:click="toggleVisibleSelection"', $html);
+        $this->assertStringContainsString('$el.indeterminate', $html);
         $this->assertStringNotContainsString('wire:click="toggleRowSelection"', $html);
     }
 

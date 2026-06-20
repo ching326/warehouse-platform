@@ -281,6 +281,8 @@
                                 type="checkbox"
                                 wire:click="toggleVisibleSelection"
                                 @checked($allVisibleSelected)
+                                x-init="$el.indeterminate = {{ $someVisibleSelected ? 'true' : 'false' }}"
+                                x-effect="$el.indeterminate = {{ $someVisibleSelected ? 'true' : 'false' }}"
                                 data-indeterminate="{{ $someVisibleSelected ? 'true' : 'false' }}"
                                 aria-label="{{ __('sales_orders.select_visible_orders') }}"
                             >
