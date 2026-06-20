@@ -308,9 +308,11 @@
             }"
         >
         <div class="sales-order-action-row" data-testid="sales-order-selection-actions">
-            <flux:badge color="blue" x-show="has()" x-cloak>
-                <span x-text="selectedList().length"></span>
-            </flux:badge>
+            <div class="selection-count-slot" aria-live="polite">
+                <flux:badge color="blue" x-show="has()" x-cloak>
+                    <span x-text="selectedList().length"></span>
+                </flux:badge>
+            </div>
             <div class="selection-action-group" data-testid="sales-order-status-actions">
                 <span>{{ __('sales_orders.bulk_status_group') }}</span>
                 <flux:button type="button" size="sm" variant="outline" wire:click="bulkMarkReady" x-bind:disabled="! has()">
