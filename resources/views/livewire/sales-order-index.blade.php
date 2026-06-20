@@ -257,7 +257,7 @@
                                 @forelse ($readyLines as $line)
                                     @php
                                         $skuCode = $line->sku?->sku ?? '-';
-                                        $skuLabel = trim((string) ($line->sku?->name ?: $line->sku?->stockItem?->short_name ?: $line->sku?->stockItem?->name ?: ''));
+                                        $skuLabel = trim((string) ($line->sku?->stockItem?->short_name ?: $line->sku?->name ?: $line->sku?->stockItem?->name ?: ''));
                                     @endphp
                                     <div class="so-item-line">
                                         <div class="so-sku-line">

@@ -129,7 +129,7 @@ class SalesOrderFilters
 
         [$from, $toExclusive] = self::customDateWindow($filters);
 
-        if ($from && $toExclusive && $from->diffInDays($toExclusive) > 366) {
+        if ($from && $toExclusive && $from->diffInDays($toExclusive) > 365) {
             return __('sales_orders.date_range_too_wide');
         }
 
@@ -146,6 +146,11 @@ class SalesOrderFilters
                 SalesOrder::ORDER_STATUS_COMPLETED,
                 SalesOrder::ORDER_STATUS_CANCELLED,
             ]) !== [];
+    }
+
+    public static function hasExplicitStatusFilter(array $filters): bool
+    {
+        return ($filters['fulfillment'] ?? []) !== [] || ($filters['order_status'] ?? []) !== [];
     }
 
     public static function dateRanges(): array

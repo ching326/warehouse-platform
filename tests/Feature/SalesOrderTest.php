@@ -811,7 +811,7 @@ class SalesOrderTest extends TestCase
         $this->assertStringNotContainsString('<strong>150-0001</strong>', $html);
     }
 
-    public function test_sales_order_index_sku_cell_shows_name_below_quantity_and_sku(): void
+    public function test_sales_order_index_sku_cell_prefers_stock_item_short_name_below_quantity_and_sku(): void
     {
         [$tenant, $shop, $skuA] = $this->salesSku();
         $skuA->stockItem->update(['short_name' => 'Short Cable']);
@@ -831,10 +831,10 @@ class SalesOrderTest extends TestCase
 
         $this->assertStringContainsString('class="so-sku-line"', $html);
         $this->assertStringContainsString('class="subtle so-sku-label"', $html);
-        $this->assertStringContainsString('title="Long Cable Name"', $html);
-        $this->assertStringContainsString('Long Cable Name', $html);
+        $this->assertStringContainsString('title="Short Cable"', $html);
+        $this->assertStringContainsString('Short Cable', $html);
         $this->assertStringContainsString('Fallback SKU Name', $html);
-        $this->assertStringNotContainsString('- Long Cable Name', $html);
+        $this->assertStringNotContainsString('Long Cable Name', $html);
     }
 
     public function test_sales_order_index_combines_fulfillment_and_order_status_columns(): void
@@ -924,6 +924,29 @@ class SalesOrderTest extends TestCase
             ->assertSet('dateRange', SalesOrderFilters::DATE_LAST_30_DAYS)
             ->assertSee('RECENT-SHIPPED')
             ->assertDontSee('OLD-SHIPPED');
+    }
+
+    public function test_sales_order_index_keeps_historical_status_bounded_when_date_range_is_reset_to_all(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'RECENT-SHIPPED-RESET',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_SHIPPED,
+            'order_date' => now()->subDays(5),
+        ]);
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'OLD-SHIPPED-RESET',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_SHIPPED,
+            'order_date' => now()->subDays(60),
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('fulfillmentStatusesFilter', [SalesOrder::FULFILLMENT_STATUS_SHIPPED])
+            ->set('dateRange', SalesOrderFilters::DATE_ALL)
+            ->assertSet('dateRange', SalesOrderFilters::DATE_LAST_30_DAYS)
+            ->assertSee('RECENT-SHIPPED-RESET')
+            ->assertDontSee('OLD-SHIPPED-RESET');
     }
 
     public function test_sales_order_index_custom_date_range_cannot_exceed_365_days(): void

@@ -104,6 +104,7 @@ class SalesOrderIndex extends Component
 
     public function updatedDateRange(): void
     {
+        $this->coerceHistoricalDateRange();
         $this->filterChanged();
     }
 

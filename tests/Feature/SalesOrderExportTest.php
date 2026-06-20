@@ -400,6 +400,19 @@ class SalesOrderExportTest extends TestCase
             ->assertSee(__('sales_orders.export_requires_date_range'));
     }
 
+    public function test_sales_order_export_blocks_raw_all_dates_when_active_only_is_disabled(): void
+    {
+        Excel::fake();
+
+        $this->actingAs($this->internalUser())
+            ->get(route('sales.orders.export', [
+                'date_range' => SalesOrderFilters::DATE_ALL,
+                'active_only' => '0',
+            ]))
+            ->assertStatus(422)
+            ->assertSee(__('sales_orders.export_requires_date_range'));
+    }
+
     public function test_sales_order_export_rejects_custom_range_over_365_days(): void
     {
         Excel::fake();
