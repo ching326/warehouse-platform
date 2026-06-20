@@ -100,7 +100,7 @@ class AmazonSpapiOrderImportTest extends TestCase
             ->assertSet('parsed', true);
     }
 
-    public function test_fetch_preview_requests_rdt_for_actionable_orders(): void
+    public function test_fetch_preview_uses_rdt_for_order_list_and_lwa_for_items(): void
     {
         $connection = $this->connection();
         $sku = $this->sku($connection->shop, 'API-SKU-RDT');
@@ -112,9 +112,17 @@ class AmazonSpapiOrderImportTest extends TestCase
             ->call('fetchPreview')
             ->assertHasNoErrors();
 
-        Http::assertSent(fn (Request $request) => str_contains($request->url(), '/tokens/2021-03-01/restrictedDataToken'));
-        Http::assertSent(fn (Request $request) => str_contains($request->url(), '/orderItems')
-            && $request->header('x-amz-access-token')[0] === 'restricted-token');
+        Http::assertSentInOrder([
+            fn (Request $request) => str_contains($request->url(), 'https://api.amazon.com/auth/o2/token'),
+            fn (Request $request) => str_contains($request->url(), '/tokens/2021-03-01/restrictedDataToken')
+                && ($request->data()['restrictedResources'][0]['path'] ?? null) === '/orders/v0/orders'
+                && ! str_contains(json_encode($request->data()), 'orderItems'),
+            fn (Request $request) => str_contains($request->url(), '/orders/v0/orders?')
+                && ! str_contains($request->url(), 'orderItems')
+                && $request->header('x-amz-access-token')[0] === 'RDT-TOKEN',
+            fn (Request $request) => str_contains($request->url(), '/orderItems')
+                && $request->header('x-amz-access-token')[0] === 'LWA-ACCESS',
+        ]);
     }
 
     public function test_rdt_failure_blocks_preview_and_imports_nothing(): void
@@ -131,7 +139,7 @@ class AmazonSpapiOrderImportTest extends TestCase
         $this->assertSame(0, SalesOrder::count());
     }
 
-    public function test_pending_order_is_skipped_without_rdt_failure(): void
+    public function test_pending_order_is_skipped_after_rdt_order_list_without_item_fetch(): void
     {
         $connection = $this->connection();
         $this->fakeAmazon([$this->amazonOrder('AMZ-PENDING', ['OrderStatus' => 'Pending'])], []);
@@ -143,7 +151,9 @@ class AmazonSpapiOrderImportTest extends TestCase
             ->assertHasNoErrors()
             ->assertSet('parsedRows.0.preview_status', 'not_actionable');
 
-        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), '/restrictedDataToken'));
+        Http::assertSent(fn (Request $request) => str_contains($request->url(), '/orders/v0/orders?')
+            && $request->header('x-amz-access-token')[0] === 'RDT-TOKEN');
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), '/orderItems'));
     }
 
     public function test_missing_pii_blocks_preview(): void
@@ -421,7 +431,8 @@ class AmazonSpapiOrderImportTest extends TestCase
     {
         $connection = $this->connection();
         Http::fake([
-            'https://api.amazon.com/auth/o2/token' => Http::response(['access_token' => 'access-token', 'expires_in' => 3600, 'token_type' => 'bearer']),
+            'https://api.amazon.com/auth/o2/token' => Http::response(['access_token' => 'LWA-ACCESS', 'expires_in' => 3600, 'token_type' => 'bearer']),
+            $connection->endpoint.'/tokens/2021-03-01/restrictedDataToken' => Http::response(['restrictedDataToken' => 'RDT-TOKEN']),
             $connection->endpoint.'/orders/v0/orders*' => Http::sequence()
                 ->pushStatus(429)
                 ->push(['payload' => ['Orders' => [$this->amazonOrder('AMZ-PAGE-1', ['OrderStatus' => 'Pending'])], 'NextToken' => 'NEXT']])
@@ -439,9 +450,9 @@ class AmazonSpapiOrderImportTest extends TestCase
     {
         $endpoint = 'https://sellingpartnerapi-fe.amazon.com';
         $fakes = [
-            'https://api.amazon.com/auth/o2/token' => Http::response(['access_token' => 'access-token', 'expires_in' => 3600, 'token_type' => 'bearer']),
+            'https://api.amazon.com/auth/o2/token' => Http::response(['access_token' => 'LWA-ACCESS', 'expires_in' => 3600, 'token_type' => 'bearer']),
             $endpoint.'/tokens/2021-03-01/restrictedDataToken' => Http::response(
-                $rdtStatus === 200 ? ['restrictedDataToken' => 'restricted-token'] : ['message' => __('amazon_spapi_import.pii_missing')],
+                $rdtStatus === 200 ? ['restrictedDataToken' => 'RDT-TOKEN'] : ['message' => __('amazon_spapi_import.pii_missing')],
                 $rdtStatus
             ),
         ];

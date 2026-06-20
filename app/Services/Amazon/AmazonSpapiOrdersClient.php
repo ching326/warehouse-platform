@@ -27,7 +27,8 @@ class AmazonSpapiOrdersClient
         }
 
         $accessToken = $this->tokenService->exchangeRefreshToken($connection)->accessToken;
-        $orders = $this->fetchOrders($connection, $accessToken, $windowType, $from, $to);
+        $rdt = $this->restrictedToken($connection, $accessToken);
+        $orders = $this->fetchOrders($connection, $rdt, $windowType, $from, $to);
         $actionableOrders = array_values(array_filter(
             $orders['orders'],
             fn (array $order): bool => in_array((string) ($order['OrderStatus'] ?? ''), ['Unshipped', 'PartiallyShipped', 'Canceled', 'Cancelled'], true)
@@ -41,7 +42,6 @@ class AmazonSpapiOrdersClient
             ];
         }
 
-        $rdt = $this->restrictedToken($connection, $accessToken, $actionableOrders);
         $items = [];
 
         foreach ($actionableOrders as $order) {
@@ -50,7 +50,7 @@ class AmazonSpapiOrdersClient
                 continue;
             }
 
-            $items[$amazonOrderId] = $this->fetchItems($connection, $rdt, $amazonOrderId);
+            $items[$amazonOrderId] = $this->fetchItems($connection, $accessToken, $amazonOrderId);
         }
 
         return [
@@ -101,7 +101,7 @@ class AmazonSpapiOrdersClient
     /**
      * @return array<int,array<string,mixed>>
      */
-    private function fetchItems(AmazonSpapiConnection $connection, string $rdt, string $amazonOrderId): array
+    private function fetchItems(AmazonSpapiConnection $connection, string $accessToken, string $amazonOrderId): array
     {
         $items = [];
         $nextToken = null;
@@ -110,7 +110,7 @@ class AmazonSpapiOrdersClient
             $params = $nextToken ? ['NextToken' => $nextToken] : [];
             $response = $this->getWithRetry(
                 rtrim($connection->endpoint, '/').'/orders/v0/orders/'.rawurlencode($amazonOrderId).'/orderItems',
-                $rdt,
+                $accessToken,
                 $params,
             );
 
@@ -129,27 +129,13 @@ class AmazonSpapiOrdersClient
         return $items;
     }
 
-    /**
-     * @param array<int,array<string,mixed>> $orders
-     */
-    private function restrictedToken(AmazonSpapiConnection $connection, string $accessToken, array $orders): string
+    private function restrictedToken(AmazonSpapiConnection $connection, string $accessToken): string
     {
         $resources = [[
             'method' => 'GET',
             'path' => '/orders/v0/orders',
             'dataElements' => ['buyerInfo', 'shippingAddress'],
         ]];
-
-        foreach ($orders as $order) {
-            $amazonOrderId = (string) ($order['AmazonOrderId'] ?? '');
-            if ($amazonOrderId !== '') {
-                $resources[] = [
-                    'method' => 'GET',
-                    'path' => '/orders/v0/orders/'.$amazonOrderId.'/orderItems',
-                    'dataElements' => ['buyerInfo', 'shippingAddress'],
-                ];
-            }
-        }
 
         return $this->rdtService->create($connection, $accessToken, $resources);
     }
