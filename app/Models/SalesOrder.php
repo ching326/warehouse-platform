@@ -139,9 +139,9 @@ class SalesOrder extends Model
         return $this->hasMany(MarketplaceShippingNoticeBatchOrder::class);
     }
 
-    public function exceptionCases(): HasMany
+    public function issues(): HasMany
     {
-        return $this->hasMany(ExceptionCase::class);
+        return $this->hasMany(Issue::class);
     }
 
     public function recalculateShipTogetherKey(): void

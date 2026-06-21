@@ -2,28 +2,28 @@
 
 namespace Database\Factories;
 
-use App\Models\ExceptionCase;
-use App\Models\ExceptionCaseLine;
+use App\Models\Issue;
+use App\Models\IssueLine;
 use App\Models\Sku;
 use App\Models\StockItem;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<ExceptionCaseLine>
+ * @extends Factory<IssueLine>
  */
-class ExceptionCaseLineFactory extends Factory
+class IssueLineFactory extends Factory
 {
     public function definition(): array
     {
         return [
-            'exception_case_id' => ExceptionCase::factory(),
+            'issue_id' => Issue::factory(),
             'tenant_id' => Tenant::factory(),
             'sku_id' => Sku::factory(),
             'stock_item_id' => StockItem::factory(),
             'qty' => 1,
-            'condition' => ExceptionCaseLine::CONDITION_UNKNOWN,
-            'action' => ExceptionCaseLine::ACTION_INVESTIGATE,
+            'condition' => IssueLine::CONDITION_UNKNOWN,
+            'action' => IssueLine::ACTION_INVESTIGATE,
             'note' => fake()->optional()->sentence(),
         ];
     }

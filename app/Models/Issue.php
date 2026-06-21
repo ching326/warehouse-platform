@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Carbon\CarbonInterface;
-use Database\Factories\ExceptionCaseFactory;
+use Database\Factories\IssueFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,9 +11,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
-class ExceptionCase extends Model
+class Issue extends Model
 {
-    /** @use HasFactory<ExceptionCaseFactory> */
+    /** @use HasFactory<IssueFactory> */
     use HasFactory, LogsActivity;
 
     public const TYPE_MISSING = 'missing';
@@ -36,8 +36,8 @@ class ExceptionCase extends Model
         'sales_order_id',
         'fulfillment_group_id',
         'outbound_order_id',
-        'case_no',
-        'case_type',
+        'issue_no',
+        'issue_type',
         'status',
         'reported_at',
         'reported_by',
@@ -58,7 +58,7 @@ class ExceptionCase extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->useLogName('exception_case')
+            ->useLogName('issue')
             ->logFillable()
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
@@ -86,9 +86,13 @@ class ExceptionCase extends Model
 
     public function lines(): HasMany
     {
-        return $this->hasMany(ExceptionCaseLine::class)->orderBy('id');
+        return $this->hasMany(IssueLine::class)->orderBy('id');
     }
 
+    public function returnOrders(): HasMany
+    {
+        return $this->hasMany(ReturnOrder::class)->orderBy('id');
+    }
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
@@ -101,23 +105,20 @@ class ExceptionCase extends Model
 
     public function typeLabel(): string
     {
-        return __('exception_cases.types.'.$this->case_type);
+        return __('issues.types.'.$this->issue_type);
     }
 
     public function statusLabel(): string
     {
-        return __('exception_cases.statuses.'.$this->status);
+        return __('issues.statuses.'.$this->status);
     }
 
     public function statusColor(): string
     {
         return match ($this->status) {
-            self::STATUS_INVESTIGATING => 'blue',
-            self::STATUS_WAITING_RETURN => 'amber',
-            self::STATUS_RECEIVED_RETURN => 'purple',
-            self::STATUS_RESOLVED => 'green',
-            self::STATUS_CLOSED => 'zinc',
-            default => 'red',
+            self::STATUS_OPEN => 'red',
+            self::STATUS_RESOLVED, self::STATUS_CLOSED => 'green',
+            default => 'blue',
         };
     }
 
@@ -126,35 +127,37 @@ class ExceptionCase extends Model
         return in_array($this->status, [self::STATUS_RESOLVED, self::STATUS_CLOSED], true);
     }
 
-    public static function buildCaseNo(int $id, ?CarbonInterface $date = null): string
+    public static function buildIssueNo(int $id, ?CarbonInterface $date = null): string
     {
         $date ??= now('Asia/Tokyo');
 
-        return 'EC-'.$date->format('Ymd').'-'.str_pad((string) $id, 4, '0', STR_PAD_LEFT);
+        return 'ISS-'.$date->format('Ymd').'-'.str_pad((string) $id, 4, '0', STR_PAD_LEFT);
     }
 
     public static function typeOptions(): array
     {
         return [
-            self::TYPE_MISSING => __('exception_cases.types.missing'),
-            self::TYPE_DAMAGED => __('exception_cases.types.damaged'),
-            self::TYPE_RETURNED => __('exception_cases.types.returned'),
-            self::TYPE_WRONG_ITEM => __('exception_cases.types.wrong_item'),
-            self::TYPE_LOST_IN_TRANSIT => __('exception_cases.types.lost_in_transit'),
-            self::TYPE_CUSTOMER_REFUSED => __('exception_cases.types.customer_refused'),
-            self::TYPE_OTHER => __('exception_cases.types.other'),
+            self::TYPE_MISSING => __('issues.types.missing'),
+            self::TYPE_DAMAGED => __('issues.types.damaged'),
+            self::TYPE_RETURNED => __('issues.types.returned'),
+            self::TYPE_WRONG_ITEM => __('issues.types.wrong_item'),
+            self::TYPE_LOST_IN_TRANSIT => __('issues.types.lost_in_transit'),
+            self::TYPE_CUSTOMER_REFUSED => __('issues.types.customer_refused'),
+            self::TYPE_OTHER => __('issues.types.other'),
         ];
     }
 
     public static function statusOptions(): array
     {
         return [
-            self::STATUS_OPEN => __('exception_cases.statuses.open'),
-            self::STATUS_INVESTIGATING => __('exception_cases.statuses.investigating'),
-            self::STATUS_WAITING_RETURN => __('exception_cases.statuses.waiting_return'),
-            self::STATUS_RECEIVED_RETURN => __('exception_cases.statuses.received_return'),
-            self::STATUS_RESOLVED => __('exception_cases.statuses.resolved'),
-            self::STATUS_CLOSED => __('exception_cases.statuses.closed'),
+            self::STATUS_OPEN => __('issues.statuses.open'),
+            self::STATUS_INVESTIGATING => __('issues.statuses.investigating'),
+            self::STATUS_WAITING_RETURN => __('issues.statuses.waiting_return'),
+            self::STATUS_RECEIVED_RETURN => __('issues.statuses.received_return'),
+            self::STATUS_RESOLVED => __('issues.statuses.resolved'),
+            self::STATUS_CLOSED => __('issues.statuses.closed'),
         ];
     }
 }
+
+

@@ -2,8 +2,8 @@
 
 namespace App\Livewire;
 
-use App\Models\ExceptionCase;
-use App\Models\ExceptionCaseLine;
+use App\Models\Issue;
+use App\Models\IssueLine;
 use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
@@ -16,7 +16,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
-class ExceptionCaseCreate extends Component
+class IssueCreate extends Component
 {
     public string $tenantId = '';
 
@@ -24,9 +24,9 @@ class ExceptionCaseCreate extends Component
 
     public string $outboundOrderId = '';
 
-    public string $caseType = ExceptionCase::TYPE_MISSING;
+    public string $issueType = Issue::TYPE_MISSING;
 
-    public string $status = ExceptionCase::STATUS_OPEN;
+    public string $status = Issue::STATUS_OPEN;
 
     public string $reportedAt = '';
 
@@ -37,7 +37,7 @@ class ExceptionCaseCreate extends Component
     public array $salesOrderLines = [];
 
     public array $manualLines = [
-        ['sku_id' => '', 'qty' => 1, 'condition' => ExceptionCaseLine::CONDITION_UNKNOWN, 'action' => ExceptionCaseLine::ACTION_INVESTIGATE, 'note' => ''],
+        ['sku_id' => '', 'qty' => 1, 'condition' => IssueLine::CONDITION_UNKNOWN, 'action' => IssueLine::ACTION_INVESTIGATE, 'note' => ''],
     ];
 
     private bool $allowedTenantIdsResolved = false;
@@ -81,7 +81,7 @@ class ExceptionCaseCreate extends Component
 
     public function addManualLine(): void
     {
-        $this->manualLines[] = ['sku_id' => '', 'qty' => 1, 'condition' => ExceptionCaseLine::CONDITION_UNKNOWN, 'action' => ExceptionCaseLine::ACTION_INVESTIGATE, 'note' => ''];
+        $this->manualLines[] = ['sku_id' => '', 'qty' => 1, 'condition' => IssueLine::CONDITION_UNKNOWN, 'action' => IssueLine::ACTION_INVESTIGATE, 'note' => ''];
     }
 
     public function removeManualLine(int $index): void
@@ -97,36 +97,36 @@ class ExceptionCaseCreate extends Component
         $outboundOrder = $this->validatedOutboundOrder($tenantId);
 
         validator([
-            'case_type' => $this->caseType,
+            'issue_type' => $this->issueType,
             'status' => $this->status,
             'reported_at' => $this->reportedAt,
             'reported_by' => $this->reportedBy,
             'note' => $this->note,
         ], [
-            'case_type' => ['required', Rule::in(array_keys(ExceptionCase::typeOptions()))],
-            'status' => ['required', Rule::in(array_keys(ExceptionCase::statusOptions()))],
+            'issue_type' => ['required', Rule::in(array_keys(Issue::typeOptions()))],
+            'status' => ['required', Rule::in(array_keys(Issue::statusOptions()))],
             'reported_at' => ['nullable', 'date'],
             'reported_by' => ['nullable', 'string', 'max:100'],
             'note' => ['nullable', 'string', 'max:2000'],
         ])->validate();
 
         if (! $salesOrder && ! $outboundOrder) {
-            throw ValidationException::withMessages(['salesOrderId' => __('exception_cases.validation_related_required')]);
+            throw ValidationException::withMessages(['salesOrderId' => __('issues.validation_related_required')]);
         }
 
         $linePayloads = $this->validatedLinePayloads($tenantId, $salesOrder);
 
         if ($linePayloads === []) {
-            throw ValidationException::withMessages(['lines' => __('exception_cases.validation_lines_required')]);
+            throw ValidationException::withMessages(['lines' => __('issues.validation_lines_required')]);
         }
 
-        $case = DB::transaction(function () use ($tenantId, $salesOrder, $outboundOrder, $linePayloads): ExceptionCase {
-            $case = ExceptionCase::create([
+        $case = DB::transaction(function () use ($tenantId, $salesOrder, $outboundOrder, $linePayloads): Issue {
+            $case = Issue::create([
                 'tenant_id' => $tenantId,
                 'sales_order_id' => $salesOrder?->id,
                 'outbound_order_id' => $outboundOrder?->id,
-                'case_no' => 'EC-PENDING-'.Str::uuid(),
-                'case_type' => $this->caseType,
+                'issue_no' => 'ISS-PENDING-'.Str::uuid(),
+                'issue_type' => $this->issueType,
                 'status' => $this->status,
                 'reported_at' => $this->reportedAt !== '' ? $this->reportedAt : null,
                 'reported_by' => $this->nullableString($this->reportedBy),
@@ -139,21 +139,21 @@ class ExceptionCaseCreate extends Component
                 $case->lines()->create($linePayload);
             }
 
-            $case->update(['case_no' => ExceptionCase::buildCaseNo($case->id)]);
+            $case->update(['issue_no' => Issue::buildIssueNo($case->id)]);
 
             return $case;
         });
 
-        session()->flash('status', __('exception_cases.case_created'));
+        session()->flash('status', __('issues.issue_created'));
 
-        return redirect()->route('exception-cases.show', $case);
+        return redirect()->route('issues.show', $case);
     }
 
     public function render()
     {
         $tenantId = $this->tenantId !== '' ? (int) $this->tenantId : null;
 
-        return view('livewire.exception-case-create', [
+        return view('livewire.issue-create', [
             'tenants' => Tenant::query()
                 ->whereIn('id', $this->allowedTenantIds())
                 ->orderBy('name')
@@ -161,14 +161,14 @@ class ExceptionCaseCreate extends Component
             'salesOrders' => $this->salesOrderOptions($tenantId),
             'outboundOrders' => $this->outboundOrderOptions($tenantId),
             'skuOptions' => $this->skuOptions($tenantId),
-            'types' => ExceptionCase::typeOptions(),
-            'statuses' => ExceptionCase::statusOptions(),
-            'conditions' => ExceptionCaseLine::conditionOptions(),
-            'actions' => ExceptionCaseLine::actionOptions(),
+            'types' => Issue::typeOptions(),
+            'statuses' => Issue::statusOptions(),
+            'conditions' => IssueLine::conditionOptions(),
+            'actions' => IssueLine::actionOptions(),
             'showTenantSelect' => $this->isInternalUser(),
         ])->layout('inventory', [
-            'title' => __('exception_cases.create_page_title'),
-            'subtitle' => __('exception_cases.create_page_subtitle'),
+            'title' => __('issues.create_page_title'),
+            'subtitle' => __('issues.create_page_subtitle'),
         ]);
     }
 
@@ -195,8 +195,8 @@ class ExceptionCaseCreate extends Component
                 'stock_item' => $line->sku?->stockItem?->code,
                 'max_qty' => $line->quantity,
                 'qty' => 1,
-                'condition' => ExceptionCaseLine::CONDITION_UNKNOWN,
-                'action' => ExceptionCaseLine::ACTION_INVESTIGATE,
+                'condition' => IssueLine::CONDITION_UNKNOWN,
+                'action' => IssueLine::ACTION_INVESTIGATE,
                 'note' => '',
             ])
             ->all();
@@ -207,7 +207,7 @@ class ExceptionCaseCreate extends Component
         $tenantId = (int) $this->tenantId;
 
         if ($tenantId <= 0 || ! in_array($tenantId, $this->allowedTenantIds(), true)) {
-            throw ValidationException::withMessages(['tenantId' => __('exception_cases.validation_invalid_tenant')]);
+            throw ValidationException::withMessages(['tenantId' => __('issues.validation_invalid_tenant')]);
         }
 
         return $tenantId;
@@ -238,8 +238,8 @@ class ExceptionCaseCreate extends Component
     private function validatedLinePayloads(int $tenantId, ?SalesOrder $salesOrder): array
     {
         $payloads = [];
-        $conditionValues = array_keys(ExceptionCaseLine::conditionOptions());
-        $actionValues = array_keys(ExceptionCaseLine::actionOptions());
+        $conditionValues = array_keys(IssueLine::conditionOptions());
+        $actionValues = array_keys(IssueLine::actionOptions());
 
         foreach ($this->salesOrderLines as $line) {
             if (! ($line['selected'] ?? false)) {
@@ -253,15 +253,15 @@ class ExceptionCaseCreate extends Component
             $qty = (int) ($line['qty'] ?? 0);
 
             if ($qty < 1 || $qty > $sourceLine->quantity) {
-                throw ValidationException::withMessages(['lines' => __('exception_cases.validation_qty_exceeds_source')]);
+                throw ValidationException::withMessages(['lines' => __('issues.validation_qty_exceeds_source')]);
             }
 
             if ($salesOrder && $sourceLine->sales_order_id !== $salesOrder->id) {
-                throw ValidationException::withMessages(['lines' => __('exception_cases.validation_invalid_source_line')]);
+                throw ValidationException::withMessages(['lines' => __('issues.validation_invalid_source_line')]);
             }
 
             if (! in_array($line['condition'] ?? '', $conditionValues, true) || ! in_array($line['action'] ?? '', $actionValues, true)) {
-                throw ValidationException::withMessages(['lines' => __('exception_cases.validation_invalid_line_values')]);
+                throw ValidationException::withMessages(['lines' => __('issues.validation_invalid_line_values')]);
             }
 
             $payloads[] = [
@@ -270,8 +270,8 @@ class ExceptionCaseCreate extends Component
                 'sku_id' => $sourceLine->sku_id,
                 'stock_item_id' => $sourceLine->sku?->stock_item_id,
                 'qty' => $qty,
-                'condition' => $line['condition'] ?? ExceptionCaseLine::CONDITION_UNKNOWN,
-                'action' => $line['action'] ?? ExceptionCaseLine::ACTION_INVESTIGATE,
+                'condition' => $line['condition'] ?? IssueLine::CONDITION_UNKNOWN,
+                'action' => $line['action'] ?? IssueLine::ACTION_INVESTIGATE,
                 'note' => $this->nullableString($line['note'] ?? ''),
             ];
         }
@@ -287,11 +287,11 @@ class ExceptionCaseCreate extends Component
             $qty = (int) ($line['qty'] ?? 0);
 
             if ($qty < 1) {
-                throw ValidationException::withMessages(['manualLines' => __('exception_cases.validation_qty_min')]);
+                throw ValidationException::withMessages(['manualLines' => __('issues.validation_qty_min')]);
             }
 
             if (! in_array($line['condition'] ?? '', $conditionValues, true) || ! in_array($line['action'] ?? '', $actionValues, true)) {
-                throw ValidationException::withMessages(['manualLines' => __('exception_cases.validation_invalid_line_values')]);
+                throw ValidationException::withMessages(['manualLines' => __('issues.validation_invalid_line_values')]);
             }
 
             $payloads[] = [
@@ -299,8 +299,8 @@ class ExceptionCaseCreate extends Component
                 'sku_id' => $sku->id,
                 'stock_item_id' => $sku->stock_item_id,
                 'qty' => $qty,
-                'condition' => $line['condition'] ?? ExceptionCaseLine::CONDITION_UNKNOWN,
-                'action' => $line['action'] ?? ExceptionCaseLine::ACTION_INVESTIGATE,
+                'condition' => $line['condition'] ?? IssueLine::CONDITION_UNKNOWN,
+                'action' => $line['action'] ?? IssueLine::ACTION_INVESTIGATE,
                 'note' => $this->nullableString($line['note'] ?? ''),
             ];
         }

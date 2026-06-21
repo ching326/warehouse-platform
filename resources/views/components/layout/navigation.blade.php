@@ -2,10 +2,11 @@
     $inventoryActive = request()->routeIs('inventory.*', 'stock-adjustments.*');
     $skusActive      = request()->routeIs('skus.*');
     $inboundActive   = request()->routeIs('inbound.*');
+    $returnOrdersActive = request()->routeIs('return-orders.*');
     $outboundActive  = request()->routeIs('outbound.*');
     $salesActive     = request()->routeIs('sales.*');
     $fulfillmentActive = request()->routeIs('fulfillment-groups.*');
-    $exceptionCasesActive = request()->routeIs('exception-cases.*');
+    $issuesActive = request()->routeIs('issues.*');
     $setupActive     = request()->routeIs('setup.*');
 @endphp
 
@@ -88,6 +89,14 @@
                 {{ __('common.nav_inbound') }}
             </a>
 
+            {{-- Return Orders --}}
+            <a
+                href="{{ route('return-orders.index') }}"
+                class="top-nav-btn {{ $returnOrdersActive ? 'is-active' : '' }}"
+                wire:navigate
+            >
+                {{ __('common.nav_return_orders') }}
+            </a>
             {{-- Outbound --}}
             <a
                 href="{{ route('outbound.index') }}"
@@ -115,13 +124,13 @@
                 {{ __('common.nav_fulfillment_groups') }}
             </a>
 
-            {{-- Exception Cases --}}
+            {{-- Issues --}}
             <a
-                href="{{ route('exception-cases.index') }}"
-                class="top-nav-btn {{ $exceptionCasesActive ? 'is-active' : '' }}"
+                href="{{ route('issues.index') }}"
+                class="top-nav-btn {{ $issuesActive ? 'is-active' : '' }}"
                 wire:navigate
             >
-                {{ __('common.nav_exception_cases') }}
+                {{ __('common.nav_issues') }}
             </a>
 
             {{-- Setup --}}
@@ -227,3 +236,5 @@
         </div>
     </div>
 </nav>
+
+

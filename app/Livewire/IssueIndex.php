@@ -2,14 +2,14 @@
 
 namespace App\Livewire;
 
-use App\Models\ExceptionCase;
+use App\Models\Issue;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 
-class ExceptionCaseIndex extends Component
+class IssueIndex extends Component
 {
     use WithPagination;
 
@@ -51,7 +51,7 @@ class ExceptionCaseIndex extends Component
 
     public function render()
     {
-        $cases = ExceptionCase::query()
+        $cases = Issue::query()
             ->with([
                 'tenant:id,code,name',
                 'salesOrder:id,platform_order_id',
@@ -61,15 +61,19 @@ class ExceptionCaseIndex extends Component
             ])
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->when($this->tenantId !== '', fn ($query) => $query->where('tenant_id', (int) $this->tenantId))
-            ->when($this->statusFilter !== '', fn ($query) => $query->where('status', $this->statusFilter))
-            ->when($this->typeFilter !== '', fn ($query) => $query->where('case_type', $this->typeFilter))
+            ->when(
+                $this->statusFilter !== '',
+                fn ($query) => $query->where('status', $this->statusFilter),
+                fn ($query) => $query->whereNotIn('status', [Issue::STATUS_RESOLVED, Issue::STATUS_CLOSED])
+            )
+            ->when($this->typeFilter !== '', fn ($query) => $query->where('issue_type', $this->typeFilter))
             ->when($this->salesOrderId !== '', fn ($query) => $query->where('sales_order_id', (int) $this->salesOrderId))
             ->when($this->outboundOrderId !== '', fn ($query) => $query->where('outbound_order_id', (int) $this->outboundOrderId))
             ->when($this->search !== '', function ($query) {
                 $like = '%'.$this->search.'%';
 
                 $query->where(fn ($query) => $query
-                    ->where('case_no', 'like', $like)
+                    ->where('issue_no', 'like', $like)
                     ->orWhere('note', 'like', $like)
                     ->orWhereHas('salesOrder', fn ($query) => $query->where('platform_order_id', 'like', $like))
                     ->orWhereHas('outboundOrder', fn ($query) => $query->where('ref', 'like', $like))
@@ -81,18 +85,18 @@ class ExceptionCaseIndex extends Component
             ->orderByDesc('created_at')
             ->paginate(30);
 
-        return view('livewire.exception-case-index', [
+        return view('livewire.issue-index', [
             'cases' => $cases,
             'tenants' => Tenant::query()
                 ->whereIn('id', $this->allowedTenantIds())
                 ->orderBy('name')
                 ->get(['id', 'code', 'name']),
-            'types' => ExceptionCase::typeOptions(),
-            'statuses' => ExceptionCase::statusOptions(),
+            'types' => Issue::typeOptions(),
+            'statuses' => Issue::statusOptions(),
             'showTenantFilter' => $this->isInternalUser(),
         ])->layout('inventory', [
-            'title' => __('exception_cases.page_title'),
-            'subtitle' => __('exception_cases.page_subtitle'),
+            'title' => __('issues.page_title'),
+            'subtitle' => __('issues.page_subtitle'),
             'pageWide' => true,
         ]);
     }

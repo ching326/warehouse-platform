@@ -8,14 +8,20 @@ use App\Http\Controllers\MarketplaceShippingNoticeDownloadController;
 use App\Livewire\FulfillmentGroupCreate;
 use App\Livewire\FulfillmentGroupDetail;
 use App\Livewire\FulfillmentGroupIndex;
-use App\Livewire\ExceptionCaseCreate;
-use App\Livewire\ExceptionCaseIndex;
-use App\Livewire\ExceptionCaseShow;
+use App\Livewire\IssueCreate;
+use App\Livewire\IssueIndex;
+use App\Livewire\IssueShow;
 use App\Livewire\InventoryIndex;
 use App\Livewire\InventoryMovementsIndex;
 use App\Livewire\InboundOrderCreate;
 use App\Livewire\InboundOrderIndex;
 use App\Livewire\InboundOrderReceive;
+use App\Livewire\ReturnOrderCreate;
+use App\Livewire\ReturnOrderDisposition;
+use App\Livewire\ReturnOrderIndex;
+use App\Livewire\ReturnOrderInspect;
+use App\Livewire\ReturnOrderReceive;
+use App\Livewire\ReturnOrderShow;
 use App\Livewire\OutboundOrderCreate;
 use App\Livewire\OutboundOrderDetail;
 use App\Livewire\OutboundOrderIndex;
@@ -52,6 +58,38 @@ use Illuminate\Support\Facades\Route;
 Route::post('/locale/{locale}', \App\Http\Controllers\LocaleController::class)
     ->name('locale.switch');
 
+if (app()->environment('local')) {
+    Route::get('/dev-login', function () {
+        $user = \App\Models\User::query()
+            ->where('user_type', 'internal')
+            ->where('is_active', true)
+            ->first();
+
+        if (! $user) {
+            $user = \App\Models\User::create([
+                'name' => 'Warehouse Admin',
+                'email' => 'admin@warehouse.test',
+                'password' => 'password',
+                'user_type' => 'internal',
+                'is_active' => true,
+            ]);
+        }
+
+        \Illuminate\Support\Facades\Auth::login($user);
+        request()->session()->regenerate();
+
+        return redirect()->intended(route('inventory.index'));
+    })->name('dev.login');
+
+    Route::get('/dev-logout', function () {
+        \Illuminate\Support\Facades\Auth::logout();
+        request()->session()->invalidate();
+        request()->session()->regenerateToken();
+
+        return redirect()->route('dev.login');
+    })->name('dev.logout');
+}
+
 Route::middleware('authenticated')->group(function (): void {
     Route::get('/', InventoryIndex::class);
     Route::get('/inventory', InventoryIndex::class)->name('inventory.index');
@@ -59,6 +97,12 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/inbound', InboundOrderIndex::class)->name('inbound.index');
     Route::get('/inbound/create', InboundOrderCreate::class)->name('inbound.create');
     Route::get('/inbound/{order}/receive', InboundOrderReceive::class)->name('inbound.receive');
+    Route::get('/return-orders', ReturnOrderIndex::class)->name('return-orders.index');
+    Route::get('/return-orders/create', ReturnOrderCreate::class)->name('return-orders.create');
+    Route::get('/return-orders/{returnOrder}/receive', ReturnOrderReceive::class)->name('return-orders.receive');
+    Route::get('/return-orders/{returnOrder}/inspect', ReturnOrderInspect::class)->name('return-orders.inspect');
+    Route::get('/return-orders/{returnOrder}/disposition', ReturnOrderDisposition::class)->name('return-orders.disposition');
+    Route::get('/return-orders/{returnOrder}', ReturnOrderShow::class)->name('return-orders.show');
     Route::get('/outbound', OutboundOrderIndex::class)->name('outbound.index');
     Route::get('/outbound/create', OutboundOrderCreate::class)->name('outbound.create');
     Route::get('/outbound/{order}/ship', OutboundOrderShip::class)->name('outbound.ship');
@@ -70,7 +114,7 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/sales-orders/export', SalesOrderExportController::class)->name('sales.orders.export');
     Route::post('/sales-orders/courier-export/validate', CourierExportValidateController::class)->name('sales.orders.courier-export.validate');
     Route::post('/sales-orders/courier-export', CourierExportController::class)->name('sales.orders.courier-export');
-    Route::get('/sales-orders/{order}/exception-cases/create', ExceptionCaseCreate::class)->name('sales.orders.exception-cases.create');
+    Route::get('/sales-orders/{order}/issues/create', IssueCreate::class)->name('sales.orders.issues.create');
     Route::get('/sales-orders/{order}', SalesOrderDetail::class)->name('sales.orders.show');
     Route::get('/courier-export-batches/{batch}/download', CourierExportDownloadController::class)->name('courier-export-batches.download');
     Route::get('/marketplace-shipping-notice-batches/{batch}/download', MarketplaceShippingNoticeDownloadController::class)
@@ -78,9 +122,9 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/fulfillment-groups', FulfillmentGroupIndex::class)->name('fulfillment-groups.index');
     Route::get('/fulfillment-groups/create', FulfillmentGroupCreate::class)->name('fulfillment-groups.create');
     Route::get('/fulfillment-groups/{group}', FulfillmentGroupDetail::class)->name('fulfillment-groups.show');
-    Route::get('/exception-cases', ExceptionCaseIndex::class)->name('exception-cases.index');
-    Route::get('/exception-cases/create', ExceptionCaseCreate::class)->name('exception-cases.create');
-    Route::get('/exception-cases/{exceptionCase}', ExceptionCaseShow::class)->name('exception-cases.show');
+    Route::get('/issues', IssueIndex::class)->name('issues.index');
+    Route::get('/issues/create', IssueCreate::class)->name('issues.create');
+    Route::get('/issues/{issue}', IssueShow::class)->name('issues.show');
     Route::get('/skus', SkusIndex::class)->name('skus.index');
     Route::get('/skus/create', SkuCreate::class)->name('skus.create');
     Route::get('/setup/tenants', TenantIndex::class)->name('setup.tenants.index');
@@ -104,3 +148,5 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/setup/other-settings', OtherSettings::class)->name('setup.other-settings');
     Route::get('/stock-adjustments/create', StockAdjustmentCreate::class)->name('stock-adjustments.create');
 });
+
+

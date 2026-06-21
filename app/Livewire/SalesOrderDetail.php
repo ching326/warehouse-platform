@@ -468,7 +468,7 @@ class SalesOrderDetail extends Component
     {
         $order = SalesOrder::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->with(['shop.tenant', 'shippingMethod.carrier', 'lines.sku.stockItem', 'createdBy', 'exceptionCases.lines'])
+            ->with(['shop.tenant', 'shippingMethod.carrier', 'lines.sku.stockItem', 'createdBy', 'issues.lines'])
             ->findOrFail($this->orderId);
 
         $relatedOrders = collect();

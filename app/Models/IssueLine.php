@@ -2,16 +2,16 @@
 
 namespace App\Models;
 
-use Database\Factories\ExceptionCaseLineFactory;
+use Database\Factories\IssueLineFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
-class ExceptionCaseLine extends Model
+class IssueLine extends Model
 {
-    /** @use HasFactory<ExceptionCaseLineFactory> */
+    /** @use HasFactory<IssueLineFactory> */
     use HasFactory, LogsActivity;
 
     public const CONDITION_MISSING = 'missing';
@@ -28,7 +28,7 @@ class ExceptionCaseLine extends Model
     public const ACTION_INVESTIGATE = 'investigate';
 
     protected $fillable = [
-        'exception_case_id',
+        'issue_id',
         'tenant_id',
         'sales_order_line_id',
         'outbound_order_line_id',
@@ -48,15 +48,15 @@ class ExceptionCaseLine extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->useLogName('exception_case_line')
+            ->useLogName('issue_line')
             ->logOnly(['condition', 'action', 'note'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }
 
-    public function exceptionCase(): BelongsTo
+    public function issue(): BelongsTo
     {
-        return $this->belongsTo(ExceptionCase::class);
+        return $this->belongsTo(Issue::class);
     }
 
     public function tenant(): BelongsTo
@@ -87,23 +87,23 @@ class ExceptionCaseLine extends Model
     public static function conditionOptions(): array
     {
         return [
-            self::CONDITION_MISSING => __('exception_cases.conditions.missing'),
-            self::CONDITION_DAMAGED => __('exception_cases.conditions.damaged'),
-            self::CONDITION_GOOD => __('exception_cases.conditions.good'),
-            self::CONDITION_UNKNOWN => __('exception_cases.conditions.unknown'),
+            self::CONDITION_MISSING => __('issues.conditions.missing'),
+            self::CONDITION_DAMAGED => __('issues.conditions.damaged'),
+            self::CONDITION_GOOD => __('issues.conditions.good'),
+            self::CONDITION_UNKNOWN => __('issues.conditions.unknown'),
         ];
     }
 
     public static function actionOptions(): array
     {
         return [
-            self::ACTION_NONE => __('exception_cases.actions.none'),
-            self::ACTION_RESEND => __('exception_cases.actions.resend'),
-            self::ACTION_REFUND => __('exception_cases.actions.refund'),
-            self::ACTION_RETURN_TO_STOCK => __('exception_cases.actions.return_to_stock'),
-            self::ACTION_MARK_DAMAGED => __('exception_cases.actions.mark_damaged'),
-            self::ACTION_WRITE_OFF => __('exception_cases.actions.write_off'),
-            self::ACTION_INVESTIGATE => __('exception_cases.actions.investigate'),
+            self::ACTION_NONE => __('issues.actions.none'),
+            self::ACTION_RESEND => __('issues.actions.resend'),
+            self::ACTION_REFUND => __('issues.actions.refund'),
+            self::ACTION_RETURN_TO_STOCK => __('issues.actions.return_to_stock'),
+            self::ACTION_MARK_DAMAGED => __('issues.actions.mark_damaged'),
+            self::ACTION_WRITE_OFF => __('issues.actions.write_off'),
+            self::ACTION_INVESTIGATE => __('issues.actions.investigate'),
         ];
     }
 }

@@ -9,10 +9,11 @@ return [
     'nav_stock_adjustment' => 'Stock Adjustment',
     'nav_skus' => 'SKUs',
     'nav_inbound' => 'Inbound',
+    'nav_return_orders' => 'Return Orders',
     'nav_outbound' => 'Outbound',
     'nav_sales_orders' => 'Sales Orders',
     'nav_fulfillment_groups' => 'Fulfillment',
-    'nav_exception_cases' => 'Exception Cases',
+    'nav_issues' => 'Issues',
     'nav_setup' => 'Setup',
     'nav_locations' => 'Locations',
     'nav_tenants' => 'Tenants',
@@ -35,6 +36,7 @@ return [
     'shop' => 'Shop',
     'status' => 'Status',
     'actions' => 'Actions',
+    'view' => 'View',
     'search' => 'Search',
     'clear' => 'Clear',
     'remove' => 'Remove',
@@ -72,3 +74,4 @@ return [
         'upc' => 'UPC',
     ],
 ];
+
