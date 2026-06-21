@@ -1,4 +1,10 @@
 <div class="shipping-method-edit-page">
+    @if (session('status'))
+        <div class="active-filter-row">
+            <flux:badge color="green">{{ session('status') }}</flux:badge>
+        </div>
+    @endif
+
     <form wire:submit="save" class="sku-form">
         <section class="table-shell flux-panel form-panel">
             <div class="form-panel-header">

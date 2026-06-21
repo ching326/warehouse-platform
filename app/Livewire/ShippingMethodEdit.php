@@ -60,12 +60,36 @@ class ShippingMethodEdit extends ShippingMethodCreate
         return redirect()->route('setup.shipping-methods.index');
     }
 
+    public function saveMarketplaceMapping(): void
+    {
+        $this->normalize();
+
+        validator($this->validationData(), [
+            'mapping_platform' => ['required', \Illuminate\Validation\Rule::in(array_keys($this->mappingPlatforms()))],
+            'mapping_marketplace' => ['nullable', \Illuminate\Validation\Rule::in(array_keys($this->mappingMarketplaces()))],
+            'mapping_carrier_code' => ['nullable', 'string', 'max:100'],
+            'mapping_carrier_name' => ['nullable', 'string', 'max:255'],
+            'mapping_service_code' => ['nullable', 'string', 'max:100'],
+            'mapping_service_name' => ['nullable', 'string', 'max:255'],
+        ])->validate();
+
+        $this->saveMapping($this->method);
+        $this->method->load('marketplaceMappings');
+        $this->resetMappingForm();
+
+        session()->flash('status', __('shipping.mapping_saved'));
+    }
+
     public function render()
     {
         return view('livewire.shipping-method-edit', [
             'carriers' => Carrier::ordered()->get(['id', 'code', 'name']),
             'statuses' => $this->statuses(),
             'method' => $this->method,
+            'marketplaceMappings' => $this->method->marketplaceMappings()
+                ->orderBy('platform')
+                ->orderBy('marketplace')
+                ->get(),
         ])->layout('inventory', [
             'title' => __('shipping.edit_page_title'),
             'subtitle' => $this->method->code,

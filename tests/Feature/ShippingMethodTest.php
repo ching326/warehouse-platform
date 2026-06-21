@@ -103,6 +103,46 @@ class ShippingMethodTest extends TestCase
         ]);
     }
 
+    public function test_shipping_method_edit_can_add_multiple_marketplace_mappings(): void
+    {
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ShippingMethodEdit::class, ['method' => $method])
+            ->assertSee('Amazon')
+            ->assertSee('Rakuten')
+            ->assertSee('JP')
+            ->assertSee('US')
+            ->assertSee('CA')
+            ->set('mappingPlatform', 'amazon')
+            ->set('mappingMarketplace', 'JP')
+            ->set('mappingCarrierCode', 'YAMATO')
+            ->set('mappingCarrierName', 'Yamato Transport')
+            ->call('saveMarketplaceMapping')
+            ->assertSet('mappingPlatform', '')
+            ->assertSee(__('shipping.mapping_saved'))
+            ->set('mappingPlatform', 'rakuten')
+            ->set('mappingMarketplace', 'JP')
+            ->set('mappingCarrierCode', '1001')
+            ->set('mappingCarrierName', 'Yamato')
+            ->call('saveMarketplaceMapping')
+            ->assertSee('YAMATO')
+            ->assertSee('1001');
+
+        $this->assertDatabaseHas('shipping_method_marketplace_mappings', [
+            'shipping_method_id' => $method->id,
+            'platform' => 'amazon',
+            'marketplace' => 'JP',
+            'carrier_code' => 'YAMATO',
+        ]);
+        $this->assertDatabaseHas('shipping_method_marketplace_mappings', [
+            'shipping_method_id' => $method->id,
+            'platform' => 'rakuten',
+            'marketplace' => 'JP',
+            'carrier_code' => '1001',
+        ]);
+    }
+
     public function test_sales_order_index_uses_active_shipping_methods(): void
     {
         [, $shop, $sku] = $this->salesSku();
@@ -277,35 +317,25 @@ class ShippingMethodTest extends TestCase
 
     public function test_shipping_method_index_can_create_and_update_carrier(): void
     {
-        Livewire::actingAs($this->internalUser())
-            ->test(ShippingMethodIndex::class)
-            ->set('carrierCode', 'SF Express')
-            ->set('carrierName', 'SF Express')
-            ->set('carrierCountryCode', 'cn')
-            ->call('saveCarrier')
-            ->assertSet('carrierCode', '')
-            ->assertSee('SF Express');
-
-        $carrier = Carrier::where('code', 'sf_express')->firstOrFail();
-
-        $this->assertSame('SF Express', $carrier->name);
-        $this->assertSame('CN', $carrier->country_code);
-        $this->assertSame('active', $carrier->status);
+        $yamato = Carrier::where('code', 'yamato')->firstOrFail();
 
         Livewire::actingAs($this->internalUser())
             ->test(ShippingMethodIndex::class)
-            ->call('editCarrier', $carrier->id)
-            ->assertSet('carrierCode', 'sf_express')
-            ->set('carrierName', 'SF International')
-            ->set('carrierCountryCode', 'hk')
+            ->assertSee('Yamato (yamato)')
+            ->assertSee('Sagawa (sagawa)')
+            ->assertSee('Japan Post (japan_post)')
+            ->call('editCarrier', $yamato->id)
+            ->assertSet('carrierCode', 'yamato')
+            ->set('carrierName', 'Yamato Transport')
+            ->set('carrierCountryCode', 'jp')
             ->set('carrierStatus', 'inactive')
             ->call('saveCarrier')
             ->assertSet('editingCarrierId', null);
 
-        $carrier->refresh();
-        $this->assertSame('SF International', $carrier->name);
-        $this->assertSame('HK', $carrier->country_code);
-        $this->assertSame('inactive', $carrier->status);
+        $yamato->refresh();
+        $this->assertSame('Yamato Transport', $yamato->name);
+        $this->assertSame('JP', $yamato->country_code);
+        $this->assertSame('inactive', $yamato->status);
     }
 
     public function test_shipping_method_index_rejects_duplicate_carrier_code(): void
@@ -318,6 +348,21 @@ class ShippingMethodTest extends TestCase
             ->assertHasErrors(['carrier_code']);
 
         $this->assertSame(1, Carrier::where('code', 'yamato')->count());
+    }
+
+    public function test_shipping_method_index_normalizes_legacy_carrier_code_aliases(): void
+    {
+        $yamato = Carrier::where('code', 'yamato')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ShippingMethodIndex::class)
+            ->call('editCarrier', $yamato->id)
+            ->set('carrierCode', 'ymt')
+            ->set('carrierName', 'Yamato')
+            ->call('saveCarrier')
+            ->assertSet('editingCarrierId', null);
+
+        $this->assertSame('yamato', $yamato->refresh()->code);
     }
 
     public function test_shipping_method_index_can_deactivate_carrier_without_deleting_it(): void
@@ -348,6 +393,23 @@ class ShippingMethodTest extends TestCase
         $this->assertTrue($yamato->ok);
         $this->assertFalse($sagawa->ok);
         $this->assertSame([$order->id], $sagawa->wrongCarrierOrderIds);
+    }
+
+    public function test_courier_export_accepts_legacy_short_carrier_aliases(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku();
+        $carrier = Carrier::where('code', 'yamato')->firstOrFail();
+        $carrier->update(['code' => 'ymt']);
+
+        $method = ShippingMethod::where('code', 'yamato_compact')->firstOrFail();
+        $order = $this->order($shop, $sku, [
+            'shipping_method_id' => $method->id,
+            'shipping_method' => 'ymt',
+        ]);
+
+        $result = app(CourierExportService::class)->validateExport([$order->id], CourierCarrier::YAMATO, [$tenant->id]);
+
+        $this->assertTrue($result->ok);
     }
 
     public function test_courier_export_hard_blocks_method_without_courier_csv_support(): void

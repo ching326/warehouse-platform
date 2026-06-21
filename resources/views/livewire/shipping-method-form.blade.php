@@ -73,8 +73,18 @@
         </div>
     </div>
     <div class="form-grid three">
-        <flux:input wire:model="mappingPlatform" :label="__('shipping.field_mapping_platform')" />
-        <flux:input wire:model="mappingMarketplace" :label="__('shipping.field_mapping_marketplace')" />
+        <flux:select wire:model="mappingPlatform" :label="__('shipping.field_mapping_platform')">
+            <flux:select.option value="">{{ __('shipping.field_mapping_platform') }}</flux:select.option>
+            @foreach ($this->mappingPlatforms() as $value => $label)
+                <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+            @endforeach
+        </flux:select>
+        <flux:select wire:model="mappingMarketplace" :label="__('shipping.field_mapping_marketplace')">
+            <flux:select.option value="">{{ __('shipping.mapping_marketplace_default') }}</flux:select.option>
+            @foreach ($this->mappingMarketplaces() as $value => $label)
+                <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+            @endforeach
+        </flux:select>
         <flux:input wire:model="mappingCarrierCode" :label="__('shipping.field_mapping_carrier_code')" />
         <flux:input wire:model="mappingCarrierName" :label="__('shipping.field_mapping_carrier_name')" />
         <flux:input wire:model="mappingServiceCode" :label="__('shipping.field_mapping_service_code')" />
@@ -83,6 +93,43 @@
     @foreach (['mapping_platform', 'mapping_marketplace', 'mapping_carrier_code', 'mapping_carrier_name', 'mapping_service_code', 'mapping_service_name'] as $field)
         @error($field) <p class="form-error">{{ $message }}</p> @enderror
     @endforeach
+
+    @isset($marketplaceMappings)
+        <div class="form-actions compact">
+            <flux:button type="button" variant="primary" wire:click="saveMarketplaceMapping">
+                {{ __('shipping.btn_save_mapping') }}
+            </flux:button>
+        </div>
+
+        <div class="table-shell nested-table-shell">
+            <flux:table>
+                <flux:table.columns>
+                    <flux:table.column>{{ __('shipping.field_mapping_platform') }}</flux:table.column>
+                    <flux:table.column>{{ __('shipping.field_mapping_marketplace') }}</flux:table.column>
+                    <flux:table.column>{{ __('shipping.field_mapping_carrier_code') }}</flux:table.column>
+                    <flux:table.column>{{ __('shipping.field_mapping_carrier_name') }}</flux:table.column>
+                    <flux:table.column>{{ __('shipping.field_mapping_service_code') }}</flux:table.column>
+                    <flux:table.column>{{ __('shipping.field_mapping_service_name') }}</flux:table.column>
+                </flux:table.columns>
+                <flux:table.rows>
+                    @forelse ($marketplaceMappings as $mapping)
+                        <flux:table.row :key="$mapping->id">
+                            <flux:table.cell>{{ $this->mappingPlatforms()[$mapping->platform] ?? ucfirst($mapping->platform) }}</flux:table.cell>
+                            <flux:table.cell>{{ $mapping->marketplace !== '' ? $mapping->marketplace : '-' }}</flux:table.cell>
+                            <flux:table.cell>{{ $mapping->carrier_code ?: '-' }}</flux:table.cell>
+                            <flux:table.cell>{{ $mapping->carrier_name ?: '-' }}</flux:table.cell>
+                            <flux:table.cell>{{ $mapping->service_code ?: '-' }}</flux:table.cell>
+                            <flux:table.cell>{{ $mapping->service_name ?: '-' }}</flux:table.cell>
+                        </flux:table.row>
+                    @empty
+                        <flux:table.row>
+                            <flux:table.cell colspan="6">{{ __('shipping.no_marketplace_mappings') }}</flux:table.cell>
+                        </flux:table.row>
+                    @endforelse
+                </flux:table.rows>
+            </flux:table>
+        </div>
+    @endisset
 </div>
 
 <label>

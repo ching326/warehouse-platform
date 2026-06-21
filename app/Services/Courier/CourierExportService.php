@@ -207,12 +207,14 @@ class CourierExportService
 
     private function carrierMatches(SalesOrder $order, string $carrier): bool
     {
-        return $order->shippingMethod?->carrier?->code === $carrier
-            || $order->shipping_method === $carrier;
+        return CourierCarrier::normalize($order->shippingMethod?->carrier?->code) === $carrier
+            || CourierCarrier::normalize($order->shipping_method) === $carrier;
     }
 
     private function normalizeCarrier(string $carrier): string
     {
+        $carrier = CourierCarrier::normalize($carrier);
+
         if (! in_array($carrier, CourierCarrier::values(), true)) {
             throw new InvalidArgumentException('Unsupported courier carrier.');
         }

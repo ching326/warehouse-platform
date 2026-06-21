@@ -4,16 +4,15 @@
             <flux:badge color="green">{{ session('status') }}</flux:badge>
         </div>
     @endif
-    @if (session('warning'))
+    @if ($pendingExportWarning)
         <div class="active-filter-row">
-            <flux:badge color="amber">{{ session('warning') }}</flux:badge>
+            <div class="export-warning-message">{{ $pendingExportWarning }}</div>
             @if ($pendingCourierExportCarrier)
                 <flux:button
                     type="button"
                     size="sm"
                     variant="primary"
                     wire:click="confirmCourierExport"
-                    wire:confirm="{{ __('sales_orders.courier_export_confirm_reexport') }}"
                 >
                     {{ __('sales_orders.courier_export_confirm_btn') }}
                 </flux:button>
@@ -24,16 +23,25 @@
                     size="sm"
                     variant="primary"
                     wire:click="confirmMarketplaceShippingNoticeExport"
-                    wire:confirm="{{ __('sales_orders.marketplace_notice_export_confirm_reexport') }}"
                 >
                     {{ __('sales_orders.marketplace_notice_export_confirm_btn') }}
+                </flux:button>
+            @endif
+            @if ($pendingCourierExportCarrier || $pendingMarketplaceNoticePlatform)
+                <flux:button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    wire:click="cancelPendingExport"
+                >
+                    {{ __('sales_orders.btn_cancel_pending_export') }}
                 </flux:button>
             @endif
         </div>
     @endif
     @if (session('error'))
         <div class="active-filter-row">
-            <flux:badge color="red">{{ session('error') }}</flux:badge>
+            <div class="flash-message flash-message-error">{{ session('error') }}</div>
         </div>
     @endif
 

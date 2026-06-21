@@ -75,6 +75,8 @@ class SalesOrderIndex extends Component
 
     public array $pendingMarketplaceNoticeOrderIds = [];
 
+    public ?string $pendingExportWarning = null;
+
     public ?string $filterWarning = null;
 
     private bool $allowedTenantIdsResolved = false;
@@ -483,6 +485,7 @@ class SalesOrderIndex extends Component
     {
         $this->pendingCourierExportCarrier = null;
         $this->pendingCourierExportOrderIds = [];
+        $this->pendingExportWarning = null;
 
         if ($this->selectedIds === []) {
             session()->flash('error', __('sales_orders.courier_export_no_selection'));
@@ -505,8 +508,8 @@ class SalesOrderIndex extends Component
 
         if ($result->requiresConfirmation) {
             $this->pendingCourierExportCarrier = $carrier;
-            $this->pendingCourierExportOrderIds = $this->normalizedSelectedIds();
-            session()->flash('warning', $result->message);
+            $this->pendingCourierExportOrderIds = $result->alreadyExportedOrderIds;
+            $this->pendingExportWarning = $this->reExportWarning($result->alreadyExportedOrderIds);
 
             return null;
         }
@@ -520,13 +523,18 @@ class SalesOrderIndex extends Component
             return null;
         }
 
-        return $this->performCourierExport($this->pendingCourierExportCarrier, confirmedReExport: true, orderIds: $this->pendingCourierExportOrderIds);
+        $carrier = $this->pendingCourierExportCarrier;
+        $orderIds = $this->pendingCourierExportOrderIds;
+        $this->clearPendingExport();
+
+        return $this->performCourierExport($carrier, confirmedReExport: true, orderIds: $orderIds);
     }
 
     public function validateMarketplaceShippingNoticeExport(string $platform): mixed
     {
         $this->pendingMarketplaceNoticePlatform = null;
         $this->pendingMarketplaceNoticeOrderIds = [];
+        $this->pendingExportWarning = null;
 
         if ($this->selectedIds === []) {
             session()->flash('error', __('sales_orders.marketplace_notice_export_no_selection'));
@@ -554,8 +562,8 @@ class SalesOrderIndex extends Component
 
         if ($result->requiresConfirmation) {
             $this->pendingMarketplaceNoticePlatform = strtolower($platform);
-            $this->pendingMarketplaceNoticeOrderIds = $this->normalizedSelectedIds();
-            session()->flash('warning', $result->message);
+            $this->pendingMarketplaceNoticeOrderIds = $result->alreadyExportedOrderIds;
+            $this->pendingExportWarning = $this->reExportWarning($result->alreadyExportedOrderIds);
 
             return null;
         }
@@ -569,11 +577,31 @@ class SalesOrderIndex extends Component
             return null;
         }
 
+        $platform = $this->pendingMarketplaceNoticePlatform;
+        $orderIds = $this->pendingMarketplaceNoticeOrderIds;
+        $this->clearPendingExport();
+
         return $this->performMarketplaceShippingNoticeExport(
-            $this->pendingMarketplaceNoticePlatform,
+            $platform,
             confirmedReExport: true,
-            orderIds: $this->pendingMarketplaceNoticeOrderIds,
+            orderIds: $orderIds,
         );
+    }
+
+    public function cancelPendingExport(): void
+    {
+        $this->clearPendingExport();
+    }
+
+    private function clearPendingExport(): void
+    {
+        $this->pendingCourierExportCarrier = null;
+        $this->pendingCourierExportOrderIds = [];
+        $this->pendingMarketplaceNoticePlatform = null;
+        $this->pendingMarketplaceNoticeOrderIds = [];
+        $this->pendingExportWarning = null;
+
+        session()->forget('warning');
     }
 
     public function render()
@@ -725,7 +753,7 @@ class SalesOrderIndex extends Component
 
     private function courierExportMessage(array $result): string
     {
-        $parts = [$result['message']];
+        $parts = [];
 
         foreach ([
             'wrong_carrier_order_ids' => 'courier_export_wrong_carrier_ids',
@@ -743,7 +771,7 @@ class SalesOrderIndex extends Component
             }
         }
 
-        return implode(' ', $parts);
+        return implode("\n", $parts ?: [$result['message']]);
     }
 
     private function performMarketplaceShippingNoticeExport(string $platform, bool $confirmedReExport, ?array $orderIds = null): mixed
@@ -771,7 +799,7 @@ class SalesOrderIndex extends Component
 
     private function marketplaceNoticeExportMessage(array $result): string
     {
-        $parts = [$result['message']];
+        $parts = [];
 
         foreach ([
             'missing_order_ids' => 'marketplace_notice_export_missing_ids',
@@ -794,7 +822,27 @@ class SalesOrderIndex extends Component
             }
         }
 
-        return implode(' ', $parts);
+        return implode("\n", $parts ?: [$result['message']]);
+    }
+
+    private function reExportWarning(array $orderIds): string
+    {
+        $orderNumbers = SalesOrder::query()
+            ->whereIn('id', $orderIds)
+            ->get(['id', 'platform_order_id'])
+            ->sortBy(fn (SalesOrder $order): int => array_search($order->id, $orderIds, true))
+            ->pluck('platform_order_id')
+            ->filter()
+            ->values()
+            ->all();
+
+        if ($orderNumbers === []) {
+            return __('sales_orders.export_reexport_warning');
+        }
+
+        return __('sales_orders.export_reexport_warning_with_orders', [
+            'orders' => implode(', ', $orderNumbers),
+        ]);
     }
 
     private function normalizeCourierCarrier(string $carrier): string

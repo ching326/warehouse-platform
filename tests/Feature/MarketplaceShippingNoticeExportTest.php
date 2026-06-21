@@ -139,7 +139,10 @@ class MarketplaceShippingNoticeExportTest extends TestCase
     public function test_marketplace_notice_requires_reexport_confirmation(): void
     {
         [$tenant, $shop, $sku] = $this->salesSku('amazon');
-        $order = $this->order($shop, $sku, ['marketplace_shipping_notice_exported_at' => now()]);
+        $order = $this->order($shop, $sku, [
+            'platform_order_id' => 'AMZ-EXPORTED-1',
+            'marketplace_shipping_notice_exported_at' => now(),
+        ]);
         $this->mapping($order->shippingMethod, 'amazon');
 
         $result = app(MarketplaceShippingNoticeExportService::class)->validateExport([$order->id], 'amazon', [$tenant->id]);
@@ -261,11 +264,35 @@ class MarketplaceShippingNoticeExportTest extends TestCase
             ->call('validateMarketplaceShippingNoticeExport', 'amazon')
             ->assertSet('pendingMarketplaceNoticePlatform', 'amazon')
             ->assertSet('pendingMarketplaceNoticeOrderIds', [$order->id])
+            ->assertSet('pendingExportWarning', "Below orders were already exported. Export again?\n{$order->platform_order_id}")
             ->call('confirmMarketplaceShippingNoticeExport')
+            ->assertSet('pendingExportWarning', null)
             ->assertRedirect(route('marketplace-shipping-notice-batches.download', MarketplaceShippingNoticeBatch::firstOrFail()));
 
         $this->assertNotNull($order->fresh()->marketplace_shipping_notice_exported_at);
         $this->assertSame($tenant->id, MarketplaceShippingNoticeBatch::firstOrFail()->tenant_id);
+    }
+
+    public function test_sales_order_index_can_cancel_marketplace_notice_reexport_confirmation(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('amazon');
+        $order = $this->order($shop, $sku, ['marketplace_shipping_notice_exported_at' => now()]);
+        $this->mapping($order->shippingMethod, 'amazon');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [$order->id])
+            ->call('validateMarketplaceShippingNoticeExport', 'amazon')
+            ->assertSet('pendingMarketplaceNoticePlatform', 'amazon')
+            ->assertSet('pendingMarketplaceNoticeOrderIds', [$order->id])
+            ->assertSee('Below orders were already exported')
+            ->assertSee(__('sales_orders.btn_cancel_pending_export'))
+            ->call('cancelPendingExport')
+            ->assertSet('pendingMarketplaceNoticePlatform', null)
+            ->assertSet('pendingMarketplaceNoticeOrderIds', [])
+            ->assertSet('pendingExportWarning', null);
+
+        $this->assertDatabaseCount('marketplace_shipping_notice_batches', 0);
     }
 
     public function test_marketplace_notice_export_cleans_up_file_when_database_write_fails(): void

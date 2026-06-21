@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\Carrier;
 use App\Models\ShippingMethod;
+use App\Support\CourierCarrier;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Url;
@@ -26,7 +27,7 @@ class ShippingMethodIndex extends Component
     public ?int $editingCarrierId = null;
     public string $carrierCode = '';
     public string $carrierName = '';
-    public string $carrierCountryCode = '';
+    public string $carrierCountryCode = 'JP';
     public string $carrierSortOrder = '';
     public string $carrierStatus = 'active';
     public array $carrierSortOrders = [];
@@ -103,6 +104,7 @@ class ShippingMethodIndex extends Component
     public function resetCarrierForm(): void
     {
         $this->reset('editingCarrierId', 'carrierCode', 'carrierName', 'carrierCountryCode', 'carrierSortOrder');
+        $this->carrierCountryCode = 'JP';
         $this->carrierStatus = 'active';
         $this->resetValidation();
     }
@@ -182,6 +184,7 @@ class ShippingMethodIndex extends Component
             'methods' => $methods,
             'carriers' => Carrier::ordered()->get(['id', 'code', 'name']),
             'carrierRows' => $carrierRows,
+            'carrierCodeOptions' => $this->carrierCodeOptions(),
             'statuses' => $this->statuses(),
         ])->layout('inventory', [
             'title' => __('shipping.index_page_title'),
@@ -217,7 +220,7 @@ class ShippingMethodIndex extends Component
             'carrier_sort_order' => $this->carrierSortOrder,
             'carrier_status' => $this->carrierStatus,
         ], [
-            'carrier_code' => ['required', 'string', 'max:100', Rule::unique('carriers', 'code')->ignore($this->editingCarrierId)],
+            'carrier_code' => ['required', Rule::in(array_keys($this->carrierCodeOptions())), Rule::unique('carriers', 'code')->ignore($this->editingCarrierId)],
             'carrier_name' => ['required', 'string', 'max:255'],
             'carrier_country_code' => ['nullable', 'string', 'size:2'],
             'carrier_sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],
@@ -227,8 +230,18 @@ class ShippingMethodIndex extends Component
 
     private function normalizeCarrierForm(): void
     {
-        $this->carrierCode = str($this->carrierCode)->trim()->lower()->replaceMatches('/[^a-z0-9_]+/', '_')->replaceMatches('/_+/', '_')->trim('_')->toString();
+        $this->carrierCode = CourierCarrier::normalize(str($this->carrierCode)->trim()->lower()->toString()) ?? '';
         $this->carrierCountryCode = strtoupper(trim($this->carrierCountryCode));
+    }
+
+    private function carrierCodeOptions(): array
+    {
+        return [
+            CourierCarrier::YAMATO => 'Yamato',
+            CourierCarrier::SAGAWA => 'Sagawa',
+            'japan_post' => 'Japan Post',
+            'other' => 'Other',
+        ];
     }
 
     private function nullableString(?string $value): ?string

@@ -13,9 +13,14 @@
             </div>
         </div>
 
-        <form wire:submit="saveCarrier" class="form-grid four">
+        <form wire:submit="saveCarrier" class="shipping-carrier-form">
             <div>
-                <flux:input wire:model="carrierCode" :label="__('shipping.field_carrier_code')" />
+                <flux:select wire:model="carrierCode" :label="__('shipping.field_carrier_code')">
+                    <flux:select.option value="">{{ __('shipping.select_carrier_code') }}</flux:select.option>
+                    @foreach ($carrierCodeOptions as $value => $label)
+                        <flux:select.option value="{{ $value }}">{{ $label }} ({{ $value }})</flux:select.option>
+                    @endforeach
+                </flux:select>
                 @error('carrier_code') <p class="form-error">{{ $message }}</p> @enderror
             </div>
             <div>
@@ -23,12 +28,10 @@
                 @error('carrier_name') <p class="form-error">{{ $message }}</p> @enderror
             </div>
             <div>
-                <flux:input wire:model="carrierCountryCode" maxlength="2" :label="__('shipping.field_country_code')" />
+                <flux:select wire:model="carrierCountryCode" :label="__('shipping.field_country_code')">
+                    <flux:select.option value="JP">JP</flux:select.option>
+                </flux:select>
                 @error('carrier_country_code') <p class="form-error">{{ $message }}</p> @enderror
-            </div>
-            <div>
-                <flux:input wire:model="carrierSortOrder" type="number" min="0" step="1" :label="__('shipping.field_sort_order')" />
-                @error('carrier_sort_order') <p class="form-error">{{ $message }}</p> @enderror
             </div>
             <div>
                 <flux:select wire:model="carrierStatus" :label="__('shipping.field_status')">
@@ -39,7 +42,7 @@
                 @error('carrier_status') <p class="form-error">{{ $message }}</p> @enderror
             </div>
 
-            <div class="active-filter-row">
+            <div class="active-filter-row shipping-carrier-actions">
                 <flux:button type="submit" variant="primary">
                     {{ $editingCarrierId ? __('shipping.btn_update_carrier') : __('shipping.btn_create_carrier') }}
                 </flux:button>
@@ -53,7 +56,7 @@
 
         <flux:table class="data-table">
             <flux:table.columns>
-                <flux:table.column>{{ __('shipping.field_sort_order') }}</flux:table.column>
+                <flux:table.column class="shipping-sort-column">{{ __('shipping.field_sort_order') }}</flux:table.column>
                 <flux:table.column>{{ __('shipping.field_carrier') }}</flux:table.column>
                 <flux:table.column>{{ __('shipping.field_country_code') }}</flux:table.column>
                 <flux:table.column>{{ __('shipping.method_count') }}</flux:table.column>
@@ -63,7 +66,7 @@
             <flux:table.rows>
                 @foreach ($carrierRows as $carrier)
                     <flux:table.row :key="'carrier-'.$carrier->id">
-                        <flux:table.cell>
+                        <flux:table.cell class="shipping-sort-cell">
                             <flux:input
                                 wire:model="carrierSortOrders.{{ $carrier->id }}"
                                 type="number"
@@ -113,7 +116,7 @@
             </div>
         </div>
 
-        <div class="movement-toolbar">
+        <div class="movement-toolbar shipping-method-toolbar">
             <flux:select wire:model.live="carrierId" :label="__('shipping.field_carrier')">
                 <flux:select.option value="">{{ __('shipping.all_carriers') }}</flux:select.option>
                 @foreach ($carriers as $carrier)
@@ -130,14 +133,16 @@
 
             <flux:input wire:model.live.debounce.300ms="search" :label="__('setup.search_label')" :placeholder="__('shipping.search_placeholder')" />
 
-            <flux:button href="{{ route('setup.shipping-methods.create') }}" variant="primary">
-                {{ __('shipping.btn_create_method') }}
-            </flux:button>
+            <div class="shipping-method-create-action">
+                <flux:button href="{{ route('setup.shipping-methods.create') }}" variant="primary">
+                    {{ __('shipping.btn_create_method') }}
+                </flux:button>
+            </div>
         </div>
 
         <flux:table :paginate="$methods" class="data-table">
             <flux:table.columns>
-                <flux:table.column>{{ __('shipping.field_sort_order') }}</flux:table.column>
+                <flux:table.column class="shipping-sort-column">{{ __('shipping.field_sort_order') }}</flux:table.column>
                 <flux:table.column>{{ __('shipping.field_carrier') }}</flux:table.column>
                 <flux:table.column>{{ __('shipping.field_code') }}</flux:table.column>
                 <flux:table.column>{{ __('shipping.field_name') }}</flux:table.column>
@@ -149,7 +154,7 @@
             <flux:table.rows>
                 @forelse ($methods as $method)
                     <flux:table.row :key="$method->id">
-                        <flux:table.cell>
+                        <flux:table.cell class="shipping-sort-cell">
                             <flux:input
                                 wire:model="methodSortOrders.{{ $method->id }}"
                                 type="number"
@@ -206,4 +211,52 @@
             </flux:button>
         </div>
     </section>
+
+    <style>
+        .shipping-carrier-form {
+            display: grid;
+            grid-template-columns: 220px 220px 118px 132px minmax(16px, 1fr) auto;
+            gap: 12px;
+            align-items: end;
+        }
+
+        .shipping-carrier-actions {
+            grid-column: 6;
+            justify-content: flex-end;
+            margin-bottom: 0;
+            white-space: nowrap;
+        }
+
+        .shipping-method-toolbar {
+            grid-template-columns: 168px 132px minmax(260px, 1fr) auto;
+        }
+
+        .shipping-method-create-action {
+            justify-self: end;
+            align-self: end;
+        }
+
+        .shipping-sort-column,
+        .shipping-sort-cell {
+            width: 88px;
+            max-width: 88px;
+        }
+
+        .shipping-sort-cell input {
+            max-width: 72px;
+        }
+
+        @media (max-width: 980px) {
+            .shipping-carrier-form,
+            .shipping-method-toolbar {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .shipping-carrier-actions,
+            .shipping-method-create-action {
+                grid-column: 1 / -1;
+                justify-self: start;
+            }
+        }
+    </style>
 </div>

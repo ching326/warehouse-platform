@@ -31,6 +31,26 @@ class ShippingMethodCreate extends Component
     public string $mappingServiceCode = '';
     public string $mappingServiceName = '';
 
+    public function mappingPlatforms(): array
+    {
+        return [
+            'amazon' => 'Amazon',
+            'rakuten' => 'Rakuten',
+            'shopify' => 'Shopify',
+            'tiktok' => 'TikTok',
+            'yahoo' => 'Yahoo',
+        ];
+    }
+
+    public function mappingMarketplaces(): array
+    {
+        return [
+            'JP' => 'JP',
+            'US' => 'US',
+            'CA' => 'CA',
+        ];
+    }
+
     public function mount(?ShippingMethod $method = null): void
     {
         if (! $this->isInternalUser()) {
@@ -77,8 +97,8 @@ class ShippingMethodCreate extends Component
             'note' => ['nullable', 'string', 'max:2000'],
             'flat_fee' => ['nullable', 'numeric', 'min:0'],
             'currency' => ['required', 'string', 'size:3'],
-            'mapping_platform' => ['nullable', 'string', 'max:100'],
-            'mapping_marketplace' => ['nullable', 'string', 'max:100'],
+            'mapping_platform' => ['nullable', Rule::in(array_keys($this->mappingPlatforms()))],
+            'mapping_marketplace' => ['nullable', Rule::in(array_keys($this->mappingMarketplaces()))],
             'mapping_carrier_code' => ['nullable', 'string', 'max:100'],
             'mapping_carrier_name' => ['nullable', 'string', 'max:255'],
             'mapping_service_code' => ['nullable', 'string', 'max:100'],
@@ -140,6 +160,16 @@ class ShippingMethodCreate extends Component
                 'service_name' => $this->nullableString($this->mappingServiceName),
             ],
         );
+    }
+
+    protected function resetMappingForm(): void
+    {
+        $this->mappingPlatform = '';
+        $this->mappingMarketplace = '';
+        $this->mappingCarrierCode = '';
+        $this->mappingCarrierName = '';
+        $this->mappingServiceCode = '';
+        $this->mappingServiceName = '';
     }
 
     protected function validationData(): array

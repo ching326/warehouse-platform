@@ -107,6 +107,7 @@ class CourierExportTest extends TestCase
         [$tenant, $shop, $sku] = $this->salesSku();
         $order = $this->order($shop, $sku, [
             'shipping_method' => CourierCarrier::YAMATO,
+            'platform_order_id' => 'YMT-EXPORTED-1',
             'courier_csv_exported_at' => now(),
         ]);
 
@@ -119,6 +120,28 @@ class CourierExportTest extends TestCase
 
         $this->expectException(RuntimeException::class);
         app(CourierExportService::class)->export([$order->id], CourierCarrier::YAMATO, [$tenant->id], $this->internalUser());
+    }
+
+    public function test_sales_order_index_courier_reexport_warning_lists_order_number_and_clears_on_confirm(): void
+    {
+        Storage::fake('local');
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->order($shop, $sku, [
+            'shipping_method' => CourierCarrier::YAMATO,
+            'platform_order_id' => 'YMT-EXPORTED-1',
+            'courier_csv_exported_at' => now(),
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [$order->id])
+            ->call('validateCourierExport', CourierCarrier::YAMATO)
+            ->assertSet('pendingCourierExportCarrier', CourierCarrier::YAMATO)
+            ->assertSet('pendingCourierExportOrderIds', [$order->id])
+            ->assertSet('pendingExportWarning', "Below orders were already exported. Export again?\nYMT-EXPORTED-1")
+            ->call('confirmCourierExport')
+            ->assertSet('pendingExportWarning', null)
+            ->assertRedirect(route('courier-export-batches.download', CourierExportBatch::firstOrFail()));
     }
 
     public function test_confirmed_re_export_creates_new_batch(): void
@@ -251,6 +274,25 @@ class CourierExportTest extends TestCase
             ->assertRedirect(route('courier-export-batches.download', CourierExportBatch::firstOrFail()));
 
         $this->assertNotNull($order->fresh()->courier_csv_exported_at);
+    }
+
+    public function test_sales_order_index_courier_export_wrong_carrier_message_is_clear(): void
+    {
+        $method = new \ReflectionMethod(SalesOrderIndex::class, 'courierExportMessage');
+        $message = $method->invoke(new SalesOrderIndex(), [
+            'message' => __('sales_orders.courier_export_blocked'),
+            'wrong_carrier_order_ids' => [2],
+            'unsupported_courier_order_ids' => [],
+            'blocked_status_order_ids' => [],
+            'no_ready_lines_order_ids' => [],
+            'mixed_tenant_order_ids' => [],
+            'missing_order_ids' => [],
+        ]);
+
+        $this->assertStringContainsString('Orders cannot be exported to this courier', $message);
+        $this->assertStringNotContainsString('Courier export is blocked', $message);
+        $this->assertStringNotContainsString('Wrong carrier order IDs', $message);
+        $this->assertStringNotContainsString('2', $message);
     }
 
     public function test_export_updates_activity_or_batch_history(): void
