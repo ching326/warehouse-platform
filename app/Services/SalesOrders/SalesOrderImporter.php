@@ -13,6 +13,10 @@ use Illuminate\Validation\ValidationException;
 
 class SalesOrderImporter
 {
+    public function __construct(
+        private readonly SkuDefaultShippingMethodResolver $shippingMethodResolver,
+    ) {}
+
     /**
      * @param array<int,array<string,mixed>> $rows
      */
@@ -50,6 +54,7 @@ class SalesOrderImporter
         DB::transaction(function () use ($shop, $groups, $userId, &$importedOrders, &$importedLines): void {
             foreach ($groups as $platformOrderId => $rows) {
                 $first = $rows[0];
+                $shippingMethod = $this->resolvedShippingMethod($shop->tenant_id, $rows, $first);
 
                 $order = SalesOrder::create([
                     'tenant_id' => $shop->tenant_id,
@@ -60,8 +65,8 @@ class SalesOrderImporter
                     'latest_ship_at' => $this->nullableDate($first['latest_ship_at'] ?? null),
                     'order_status' => $first['order_status'] ?? SalesOrder::ORDER_STATUS_PENDING,
                     'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
-                    'shipping_method' => $first['shipping_method'] ?? null,
-                    'shipping_method_id' => $first['shipping_method_id'] ?? null,
+                    'shipping_method' => $shippingMethod['shipping_method'],
+                    'shipping_method_id' => $shippingMethod['shipping_method_id'],
                     'recipient_name' => $this->nullableString($first['recipient_name'] ?? ''),
                     'recipient_phone' => $this->nullableString($first['recipient_phone'] ?? ''),
                     'recipient_country_code' => $this->nullableString($first['recipient_country_code'] ?? ''),
@@ -158,6 +163,34 @@ class SalesOrderImporter
             ->filter(fn ($rows) => $rows->contains(fn ($row) => ($row['is_duplicate'] ?? false)
                 || ($row['preview_status'] ?? '') === 'duplicate'))
             ->count();
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $rows
+     * @param array<string,mixed> $first
+     * @return array{shipping_method_id: ?int, shipping_method: ?string}
+     */
+    private function resolvedShippingMethod(int $tenantId, array $rows, array $first): array
+    {
+        $skuIds = collect($rows)
+            ->pluck('sku_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $resolved = $this->shippingMethodResolver->resolve($tenantId, $skuIds);
+
+        return match ($resolved['status']) {
+            'winner', 'tie' => [
+                'shipping_method_id' => $resolved['shipping_method_id'],
+                'shipping_method' => $resolved['shipping_method'],
+            ],
+            default => [
+                'shipping_method_id' => $first['shipping_method_id'] ?? null,
+                'shipping_method' => $first['shipping_method'] ?? null,
+            ],
+        };
     }
 
     private function nullableDate(mixed $value): ?Carbon

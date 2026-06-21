@@ -30,6 +30,12 @@
     </div>
 
     <div>
+        <flux:input wire:model="selectionPriority" type="number" min="0" max="65535" step="1" :label="__('shipping.field_selection_priority')" />
+        <p class="subtle">{{ __('shipping.selection_priority_hint') }}</p>
+        @error('selection_priority') <p class="form-error">{{ $message }}</p> @enderror
+    </div>
+
+    <div>
         <flux:select wire:model="status" :label="__('shipping.field_status')">
             @foreach ($statuses as $value => $label)
                 <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>

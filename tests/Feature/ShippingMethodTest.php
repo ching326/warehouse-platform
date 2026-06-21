@@ -42,6 +42,7 @@ class ShippingMethodTest extends TestCase
             ->set('code', 'Yamato Test Method')
             ->set('name', 'Yamato Test Method')
             ->set('serviceType', 'parcel')
+            ->set('selectionPriority', '25')
             ->set('flatFee', '350')
             ->set('currency', 'jpy')
             ->call('save')
@@ -50,6 +51,7 @@ class ShippingMethodTest extends TestCase
         $method = ShippingMethod::where('code', 'yamato_test_method')->firstOrFail();
 
         $this->assertSame($carrier->id, $method->carrier_id);
+        $this->assertSame(25, $method->selection_priority);
         $this->assertDatabaseHas('shipping_method_rates', [
             'shipping_method_id' => $method->id,
             'tenant_id' => null,
@@ -141,6 +143,31 @@ class ShippingMethodTest extends TestCase
             'marketplace' => 'JP',
             'carrier_code' => '1001',
         ]);
+    }
+
+    public function test_shipping_method_selection_priority_is_editable_and_validated(): void
+    {
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ShippingMethodEdit::class, ['method' => $method])
+            ->assertSet('selectionPriority', (string) $method->selection_priority)
+            ->set('selectionPriority', '65536')
+            ->call('save')
+            ->assertHasErrors(['selection_priority'])
+            ->set('selectionPriority', '')
+            ->call('save')
+            ->assertRedirect(route('setup.shipping-methods.index'));
+
+        $this->assertSame(0, $method->refresh()->selection_priority);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ShippingMethodEdit::class, ['method' => $method])
+            ->set('selectionPriority', '35')
+            ->call('save')
+            ->assertRedirect(route('setup.shipping-methods.index'));
+
+        $this->assertSame(35, $method->refresh()->selection_priority);
     }
 
     public function test_sales_order_index_uses_active_shipping_methods(): void

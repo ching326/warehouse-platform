@@ -384,6 +384,31 @@ class AmazonSpapiOrderImportTest extends TestCase
         $this->assertNull($unknown->shipping_method_id);
     }
 
+    public function test_sku_default_shipping_method_overrides_amazon_api_platform_mapping(): void
+    {
+        $connection = $this->connection();
+        $sku = $this->sku($connection->shop, 'API-SKU-DEFAULT');
+        $default = ShippingMethod::where('code', 'sagawa_thb')->firstOrFail();
+        $default->update(['selection_priority' => 50]);
+        $sku->update(['default_shipping_method_id' => $default->id]);
+
+        $this->fakeAmazon([
+            $this->amazonOrder('AMZ-API-DEFAULT', ['ShipServiceLevel' => 'Yamato Nekopos']),
+        ], [
+            'AMZ-API-DEFAULT' => [$this->amazonItem($sku->sku)],
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(AmazonSpapiOrderImport::class)
+            ->set('shopId', (string) $connection->shop_id)
+            ->call('fetchPreview')
+            ->call('confirmImport');
+
+        $order = SalesOrder::where('platform_order_id', 'AMZ-API-DEFAULT')->firstOrFail();
+        $this->assertSame($default->id, $order->shipping_method_id);
+        $this->assertSame('sagawa', $order->shipping_method);
+    }
+
     public function test_window_rules_and_utc_request_format(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-20 12:00:00', 'UTC'));

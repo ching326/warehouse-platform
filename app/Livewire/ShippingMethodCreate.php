@@ -16,6 +16,7 @@ class ShippingMethodCreate extends Component
     public string $name = '';
     public string $serviceType = '';
     public string $sortOrder = '';
+    public string $selectionPriority = '0';
     public bool $isTrackable = true;
     public bool $requiresSize = false;
     public bool $requiresZone = false;
@@ -93,6 +94,7 @@ class ShippingMethodCreate extends Component
             'name' => ['required', 'string', 'max:255'],
             'service_type' => ['nullable', 'string', 'max:100'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],
+            'selection_priority' => ['nullable', 'integer', 'min:0', 'max:65535'],
             'status' => ['required', Rule::in(['active', 'inactive'])],
             'note' => ['nullable', 'string', 'max:2000'],
             'flat_fee' => ['nullable', 'numeric', 'min:0'],
@@ -124,6 +126,7 @@ class ShippingMethodCreate extends Component
             'sort_order' => $this->sortOrder === ''
                 ? $this->nextSortOrder((int) $this->carrierId)
                 : (int) $this->sortOrder,
+            'selection_priority' => $this->selectionPriority === '' ? 0 : (int) $this->selectionPriority,
             'is_trackable' => $this->isTrackable,
             'requires_size' => $this->requiresSize,
             'requires_zone' => $this->requiresZone,
@@ -180,6 +183,7 @@ class ShippingMethodCreate extends Component
             'name' => $this->name,
             'service_type' => $this->serviceType,
             'sort_order' => $this->sortOrder,
+            'selection_priority' => $this->selectionPriority,
             'status' => $this->status,
             'note' => $this->note,
             'flat_fee' => $this->flatFee,

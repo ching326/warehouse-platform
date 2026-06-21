@@ -16,6 +16,7 @@ class ShippingMethod extends Model
         'name',
         'service_type',
         'sort_order',
+        'selection_priority',
         'is_trackable',
         'requires_size',
         'requires_zone',
@@ -28,6 +29,7 @@ class ShippingMethod extends Model
     {
         return [
             'sort_order' => 'integer',
+            'selection_priority' => 'integer',
             'is_trackable' => 'boolean',
             'requires_size' => 'boolean',
             'requires_zone' => 'boolean',

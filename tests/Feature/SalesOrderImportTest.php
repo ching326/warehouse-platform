@@ -181,6 +181,81 @@ class SalesOrderImportTest extends TestCase
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->fulfillment_status);
     }
 
+    public function test_import_uses_highest_priority_sku_default_shipping_method(): void
+    {
+        [$tenant, $shop, $skuA] = $this->salesSku('SHIP-DEFAULT-A');
+        $skuB = $this->skuForShop($tenant, $shop, 'SHIP-DEFAULT-B');
+        $low = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+        $high = ShippingMethod::where('code', 'yamato_tqb')->firstOrFail();
+        $low->update(['selection_priority' => 20]);
+        $high->update(['selection_priority' => 50]);
+        $skuA->update(['default_shipping_method_id' => $low->id]);
+        $skuB->update(['default_shipping_method_id' => $high->id]);
+
+        $this->parseAndImport($shop, $this->csv([
+            ['SO-SKU-DEFAULT', $skuA->sku, '1'],
+            ['SO-SKU-DEFAULT', $skuB->sku, '1'],
+        ]));
+
+        $order = SalesOrder::where('platform_order_id', 'SO-SKU-DEFAULT')->firstOrFail();
+        $this->assertSame($high->id, $order->shipping_method_id);
+        $this->assertSame('yamato', $order->shipping_method);
+    }
+
+    public function test_import_tie_between_sku_defaults_leaves_shipping_blank(): void
+    {
+        [$tenant, $shop, $skuA] = $this->salesSku('SHIP-TIE-A');
+        $skuB = $this->skuForShop($tenant, $shop, 'SHIP-TIE-B');
+        $yamato = ShippingMethod::where('code', 'yamato_tqb')->firstOrFail();
+        $sagawa = ShippingMethod::where('code', 'sagawa_thb')->firstOrFail();
+        $yamato->update(['selection_priority' => 40]);
+        $sagawa->update(['selection_priority' => 40]);
+        $skuA->update(['default_shipping_method_id' => $yamato->id]);
+        $skuB->update(['default_shipping_method_id' => $sagawa->id]);
+
+        $this->parseAndImport($shop, $this->csv([
+            ['SO-SKU-TIE', $skuA->sku, '1'],
+            ['SO-SKU-TIE', $skuB->sku, '1'],
+        ]));
+
+        $order = SalesOrder::where('platform_order_id', 'SO-SKU-TIE')->firstOrFail();
+        $this->assertNull($order->shipping_method_id);
+        $this->assertNull($order->shipping_method);
+    }
+
+    public function test_generic_import_without_sku_defaults_leaves_shipping_blank(): void
+    {
+        [, $shop, $sku] = $this->salesSku('SHIP-NONE-GENERIC');
+
+        $this->parseAndImport($shop, $this->csv([['SO-SHIP-NONE', $sku->sku, '1']]));
+
+        $order = SalesOrder::where('platform_order_id', 'SO-SHIP-NONE')->firstOrFail();
+        $this->assertNull($order->shipping_method_id);
+        $this->assertNull($order->shipping_method);
+    }
+
+    public function test_manual_sales_order_create_does_not_auto_apply_sku_default_shipping_method(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('MANUAL-NO-DEFAULT');
+        $method = ShippingMethod::where('code', 'yamato_tqb')->firstOrFail();
+        $sku->update(['default_shipping_method_id' => $method->id]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(\App\Livewire\SalesOrderCreate::class)
+            ->set('shopId', (string) $shop->id)
+            ->set('platformOrderId', 'SO-MANUAL-NO-AUTO')
+            ->set('recipientCountryCode', 'JP')
+            ->set('lines.0.sku_id', (string) $sku->id)
+            ->set('lines.0.quantity', '1')
+            ->call('save')
+            ->assertRedirect();
+
+        $order = SalesOrder::where('platform_order_id', 'SO-MANUAL-NO-AUTO')->firstOrFail();
+        $this->assertSame($tenant->id, $order->tenant_id);
+        $this->assertNull($order->shipping_method_id);
+        $this->assertNull($order->shipping_method);
+    }
+
     public function test_import_recomputes_ship_together_key(): void
     {
         [, $shop, $sku] = $this->salesSku('KEY-SKU');
@@ -698,6 +773,23 @@ class SalesOrderImportTest extends TestCase
             $order->shipping_method_id,
         );
         $this->assertSame('yamato', $order->shipping_method);
+    }
+
+    public function test_amazon_report_sku_default_overrides_platform_mapped_shipping_method(): void
+    {
+        [, $shop, $sku] = $this->amazonSku('AMZ-SKU-DEFAULT');
+        $default = ShippingMethod::where('code', 'sagawa_thb')->firstOrFail();
+        $default->update(['selection_priority' => 50]);
+        $sku->update(['default_shipping_method_id' => $default->id]);
+
+        $this->parseAndImportAmazon($shop, [$this->amazonRow([
+            'sku' => $sku->sku,
+            'ship-service-level' => 'Yamato Nekopos',
+        ])]);
+
+        $order = SalesOrder::firstOrFail();
+        $this->assertSame($default->id, $order->shipping_method_id);
+        $this->assertSame('sagawa', $order->shipping_method);
     }
 
     public function test_amazon_report_requires_amazon_shop(): void

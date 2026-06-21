@@ -24,6 +24,7 @@ class ShippingMethodEdit extends ShippingMethodCreate
         $this->name = $method->name;
         $this->serviceType = $method->service_type ?? '';
         $this->sortOrder = (string) $method->sort_order;
+        $this->selectionPriority = (string) $method->selection_priority;
         $this->isTrackable = $method->is_trackable;
         $this->requiresSize = $method->requires_size;
         $this->requiresZone = $method->requires_zone;
