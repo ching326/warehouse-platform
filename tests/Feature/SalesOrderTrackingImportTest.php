@@ -54,6 +54,20 @@ class SalesOrderTrackingImportTest extends TestCase
         $this->assertSame('456789012345', $order->refresh()->tracking_no);
     }
 
+    public function test_sagawa_tracking_import_detects_japanese_header_file(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createOrder($shop, $sku, ['platform_order_id' => '0613-0659033902']);
+        $csv = "\"お問い合せ送り状No.\",\"お客様管理番号\",\"お届け先名称１\",\"お届け先電話番号\"\n"
+            ."\"440069713300\",\"0613-0659033902\",\"喜納　幸人\",\"090-2398-8761\"\n";
+
+        $this->importTracking($this->internalUser(), 'shukka_rireki.csv', $csv)
+            ->assertRedirect(route('sales.orders.index'))
+            ->assertSessionHas('status', __('sales_orders.tracking_import_succeeded'));
+
+        $this->assertSame('440069713300', $order->refresh()->tracking_no);
+    }
+
     public function test_tracking_import_respects_tenant_scope(): void
     {
         [$tenant, $user] = $this->tenantUser();
@@ -137,11 +151,11 @@ class SalesOrderTrackingImportTest extends TestCase
         $this->assertSame('123456789012', $order->refresh()->tracking_no);
     }
 
-    public function test_tracking_import_handles_missing_values_and_unknown_courier(): void
+    public function test_tracking_import_accepts_unmatched_and_missing_value_rows_without_error(): void
     {
         $this->importTracking($this->internalUser(), 'bad.csv', "foo,bar\nnot,a,courier\n")
             ->assertRedirect(route('sales.orders.index'))
-            ->assertSessionHas('error', __('sales_orders.tracking_import_unknown_courier'));
+            ->assertSessionHas('status', __('sales_orders.tracking_import_succeeded'));
 
         $this->importTracking($this->internalUser(), 'missing.csv', "NO-MATCH,,,999999999999\n,,,123456789012\nORDER-1,,,\n")
             ->assertRedirect(route('sales.orders.index'))

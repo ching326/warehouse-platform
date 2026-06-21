@@ -31,18 +31,12 @@ class SalesOrderTrackingImportController extends Controller
 
         $file = $request->file('tracking_file');
         $contents = file_get_contents($file->getRealPath());
-        $result = $service->import(
+        $service->import(
             contents: $contents === false ? '' : $contents,
             sourceFileName: $file->getClientOriginalName(),
             user: Auth::user(),
             allowedTenantIds: $allowedTenantIds,
         );
-
-        if ($result['error'] === 'unknown_courier') {
-            return redirect()
-                ->route('sales.orders.index')
-                ->with('error', __('sales_orders.tracking_import_unknown_courier'));
-        }
 
         return redirect()
             ->route('sales.orders.index')

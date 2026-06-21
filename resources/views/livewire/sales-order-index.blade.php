@@ -620,14 +620,6 @@
                         <span class="tracking-import-file-name" x-show="fileName" x-text="fileName"></span>
                     </label>
 
-                    <div class="tracking-import-actions">
-                        <div class="tracking-import-courier">
-                            <span>{{ __('sales_orders.tracking_import_courier') }}</span>
-                            <flux:badge color="zinc">{{ __('sales_orders.tracking_import_auto_detect') }}</flux:badge>
-                        </div>
-                        <p class="subtle">{{ __('sales_orders.tracking_import_direct_hint') }}</p>
-                    </div>
-
                     <footer class="tracking-import-footer">
                         <flux:button type="button" variant="ghost" wire:click="closeTrackingImportModal">
                             {{ __('common.cancel') }}

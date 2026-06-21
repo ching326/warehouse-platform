@@ -13,33 +13,33 @@ class TrackingImportService
 
     /**
      * @param  list<int>  $allowedTenantIds
-     * @return array{courier: string, updated: int, error: ?string}
+     * @return array{updated: int}
      */
     public function import(string $contents, ?string $sourceFileName, User $user, array $allowedTenantIds): array
     {
         $parsed = $this->parser->parse($contents);
 
-        if ($parsed['error'] === 'unknown_courier') {
-            return [
-                'courier' => 'unknown',
-                'updated' => 0,
-                'error' => 'unknown_courier',
-            ];
-        }
-
         $updated = DB::transaction(function () use ($parsed, $sourceFileName, $user, $allowedTenantIds): int {
             $updated = 0;
 
-            foreach ($parsed['rows'] as $row) {
-                if ($row['status'] !== TrackingImportParser::STATUS_READY) {
+            foreach (collect($parsed['rows'])->groupBy('row_no') as $rowCandidates) {
+                $match = $rowCandidates
+                    ->filter(fn (array $row): bool => $row['status'] === TrackingImportParser::STATUS_READY)
+                    ->map(function (array $row) use ($allowedTenantIds): array {
+                        return [
+                            'row' => $row,
+                            'orders' => $this->findOrders((array) $row['order_tokens'], $allowedTenantIds),
+                        ];
+                    })
+                    ->filter(fn (array $candidate): bool => $candidate['orders']->count() === 1)
+                    ->values();
+
+                if ($match->count() !== 1) {
                     continue;
                 }
 
-                $orders = $this->findOrders((array) $row['order_tokens'], $allowedTenantIds);
-
-                if ($orders->count() !== 1) {
-                    continue;
-                }
+                $row = $match->first()['row'];
+                $orders = $match->first()['orders'];
 
                 $order = SalesOrder::query()
                     ->whereIn('tenant_id', $allowedTenantIds)
@@ -65,7 +65,6 @@ class TrackingImportService
                     ->causedBy($user)
                     ->event('tracking_imported')
                     ->withProperties([
-                        'courier' => $parsed['courier'],
                         'old_tracking_no' => $oldTrackingNo,
                         'new_tracking_no' => $newTrackingNo,
                         'source_file_name' => $sourceFileName,
@@ -80,9 +79,7 @@ class TrackingImportService
         });
 
         return [
-            'courier' => $parsed['courier'],
             'updated' => $updated,
-            'error' => null,
         ];
     }
 

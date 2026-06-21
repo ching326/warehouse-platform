@@ -2,7 +2,6 @@
 
 namespace App\Services\Courier\TrackingImport;
 
-use App\Support\CourierCarrier;
 use SplTempFileObject;
 
 class TrackingImportParser
@@ -13,7 +12,7 @@ class TrackingImportParser
     public const STATUS_SKIPPED = 'skipped';
 
     /**
-     * @return array{courier: string, delimiter: string, rows: array<int, array<string, mixed>>, error: ?string}
+     * @return array{delimiter: string, rows: array<int, array<string, mixed>>}
      */
     public function parse(string $contents): array
     {
@@ -26,22 +25,9 @@ class TrackingImportParser
             $delimiter = "\t";
         }
 
-        $courier = $this->detectCourier($rows);
-
-        if (! in_array($courier, [CourierCarrier::YAMATO, CourierCarrier::SAGAWA], true)) {
-            return [
-                'courier' => 'unknown',
-                'delimiter' => $delimiter,
-                'rows' => [],
-                'error' => 'unknown_courier',
-            ];
-        }
-
         return [
-            'courier' => $courier,
             'delimiter' => $delimiter,
-            'rows' => $this->normalizeRows($rows, $courier),
-            'error' => null,
+            'rows' => $this->normalizeRows($rows, $this->formatsForRows($rows)),
         ];
     }
 
@@ -55,8 +41,14 @@ class TrackingImportParser
             return $this->stripBom((string) mb_convert_encoding($contents, 'UTF-8', 'UTF-16BE'));
         }
 
-        foreach (['UTF-8', 'SJIS-win', 'CP932', 'Shift-JIS'] as $encoding) {
-            $converted = @mb_convert_encoding($contents, 'UTF-8', $encoding);
+        $encoding = mb_detect_encoding($contents, ['UTF-8', 'SJIS-win', 'CP932', 'Shift-JIS'], true);
+
+        if ($encoding) {
+            return $this->stripBom((string) mb_convert_encoding($contents, 'UTF-8', $encoding));
+        }
+
+        foreach (['SJIS-win', 'CP932', 'Shift-JIS', 'UTF-8'] as $fallbackEncoding) {
+            $converted = @mb_convert_encoding($contents, 'UTF-8', $fallbackEncoding);
 
             if (is_string($converted) && mb_check_encoding($converted, 'UTF-8')) {
                 return $this->stripBom($converted);
@@ -117,88 +109,63 @@ class TrackingImportParser
 
     /**
      * @param  array<int, array<int, string|null>>  $rows
+     * @return list<string>
      */
-    private function detectCourier(array $rows): string
+    private function formatsForRows(array $rows): array
     {
-        $sampleRows = array_slice($rows, 0, 20);
-        $text = collect($sampleRows)
+        $text = collect(array_slice($rows, 0, 10))
             ->flatten()
             ->filter()
+            ->map(fn (mixed $value): string => $this->normalizeValue($value))
             ->implode(' ');
 
-        if ($this->containsAny($text, [
-            '注文番号',
-            '伝票番号',
-            '豕ｨ譁・分蜿ｷ',
-            '莨晉･ｨ逡ｪ蜿ｷ',
-        ])) {
-            return CourierCarrier::YAMATO;
+        if ($this->containsAny($text, ['注文番号', '伝票番号'])) {
+            return ['yamato'];
         }
 
-        if ($this->containsAny($text, [
-            'お問い合わせ送り状No',
-            'お問い合せ送り状No',
-            'お客様管理番号',
-            '縺雁撫縺・粋縺幃√ｊ迥ｶNo',
-        ])) {
-            return CourierCarrier::SAGAWA;
+        if ($this->containsAny($text, ['お問い合せ送り状No', 'お問い合わせ送り状No', 'お客様管理番号'])) {
+            return ['sagawa'];
         }
 
-        $yamatoScore = 0;
-        $sagawaScore = 0;
-
-        foreach ($sampleRows as $row) {
-            if ($this->looksLikeOrder($this->normalizeValue($row[0] ?? '')) && $this->looksLikeTracking($this->normalizeValue($row[3] ?? ''))) {
-                $yamatoScore++;
-            }
-
-            if ($this->looksLikeTracking($this->normalizeValue($row[0] ?? '')) && $this->looksLikeOrder($this->normalizeValue($row[1] ?? ''))) {
-                $sagawaScore++;
-            }
-        }
-
-        return match (true) {
-            $yamatoScore > 0 && $sagawaScore === 0 => CourierCarrier::YAMATO,
-            $sagawaScore > 0 && $yamatoScore === 0 => CourierCarrier::SAGAWA,
-            default => 'unknown',
-        };
+        return ['yamato', 'sagawa'];
     }
 
     /**
      * @param  array<int, array<int, string|null>>  $rows
+     * @param  list<string>  $formats
      * @return array<int, array<string, mixed>>
      */
-    private function normalizeRows(array $rows, string $courier): array
+    private function normalizeRows(array $rows, array $formats): array
     {
         $normalized = [];
-        $orderIndex = $courier === CourierCarrier::YAMATO ? 0 : 1;
-        $trackingIndex = $courier === CourierCarrier::YAMATO ? 3 : 0;
 
         foreach ($rows as $index => $row) {
             if ($this->isHeaderRow($row)) {
                 continue;
             }
 
-            $orderValue = $this->normalizeValue($row[$orderIndex] ?? '');
-            $trackingNo = $this->normalizeValue($row[$trackingIndex] ?? '');
+            foreach ($this->formatCandidates($row, $formats) as $candidate) {
+                $orderValue = $this->normalizeValue($candidate['order_value']);
+                $trackingNo = $this->normalizeValue($candidate['tracking_no']);
 
-            if ($orderValue === '' && $trackingNo === '') {
-                $status = self::STATUS_SKIPPED;
-            } elseif ($orderValue === '') {
-                $status = self::STATUS_MISSING_ORDER;
-            } elseif ($trackingNo === '') {
-                $status = self::STATUS_MISSING_TRACKING;
-            } else {
-                $status = self::STATUS_READY;
+                if ($orderValue === '' && $trackingNo === '') {
+                    $status = self::STATUS_SKIPPED;
+                } elseif ($orderValue === '') {
+                    $status = self::STATUS_MISSING_ORDER;
+                } elseif ($trackingNo === '') {
+                    $status = self::STATUS_MISSING_TRACKING;
+                } else {
+                    $status = self::STATUS_READY;
+                }
+
+                $normalized[] = [
+                    'row_no' => $index + 1,
+                    'status' => $status,
+                    'order_value' => $orderValue,
+                    'order_tokens' => $this->splitOrderTokens($orderValue),
+                    'tracking_no' => $trackingNo,
+                ];
             }
-
-            $normalized[] = [
-                'row_no' => $index + 1,
-                'status' => $status,
-                'order_value' => $orderValue,
-                'order_tokens' => $this->splitOrderTokens($orderValue),
-                'tracking_no' => $trackingNo,
-            ];
         }
 
         return $normalized;
@@ -206,20 +173,42 @@ class TrackingImportParser
 
     /**
      * @param  array<int, string|null>  $row
+     * @param  list<string>  $formats
+     * @return array<int, array{order_value: mixed, tracking_no: mixed}>
+     */
+    private function formatCandidates(array $row, array $formats): array
+    {
+        $candidates = [];
+
+        if (in_array('yamato', $formats, true)) {
+            $candidates[] = ['order_value' => $row[0] ?? '', 'tracking_no' => $row[3] ?? ''];
+        }
+
+        if (in_array('sagawa', $formats, true)) {
+            $candidates[] = ['order_value' => $row[1] ?? '', 'tracking_no' => $row[0] ?? ''];
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * @param  array<int, string|null>  $row
      */
     private function isHeaderRow(array $row): bool
     {
-        $text = collect($row)->filter()->implode(' ');
+        $text = collect($row)
+            ->filter()
+            ->map(fn (mixed $value): string => $this->normalizeValue($value))
+            ->implode(' ');
 
         return $this->containsAny($text, [
             'order-id',
             'platform_order_id',
             '注文番号',
             '伝票番号',
+            'お問い合せ送り状No',
             'お問い合わせ送り状No',
             'お客様管理番号',
-            '豕ｨ譁・分蜿ｷ',
-            '縺雁撫縺・粋縺幃√ｊ迥ｶNo',
         ]);
     }
 
@@ -242,7 +231,7 @@ class TrackingImportParser
      */
     private function splitOrderTokens(string $orderValue): array
     {
-        $tokens = preg_split('/[\s,|\/、，。；;]+/u', $orderValue, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $tokens = preg_split('/[\s,|\/、，]+/u', $orderValue, -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $tokens[] = $orderValue;
 
         return collect($tokens)
@@ -251,18 +240,6 @@ class TrackingImportParser
             ->unique()
             ->values()
             ->all();
-    }
-
-    private function looksLikeTracking(string $value): bool
-    {
-        return (bool) preg_match('/^[0-9\-]{8,}$/', str_replace(' ', '', $value));
-    }
-
-    private function looksLikeOrder(string $value): bool
-    {
-        return $value !== ''
-            && mb_strlen($value) >= 3
-            && (bool) preg_match('/[A-Za-z0-9]/', $value);
     }
 
     /**
