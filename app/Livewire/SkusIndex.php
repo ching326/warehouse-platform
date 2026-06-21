@@ -397,6 +397,10 @@ class SkusIndex extends Component
             return;
         }
 
+        if ((int) $sku->stockItem->tenant_id !== (int) $sku->tenant_id || ! $this->tenantIsVisible((int) $sku->stockItem->tenant_id)) {
+            abort(404);
+        }
+
         $rules = [
             'short_name' => ['nullable', 'string', 'max:255'],
             'weight_value' => ['nullable', 'numeric', 'min:0'],
@@ -415,7 +419,36 @@ class SkusIndex extends Component
             $field => $field === 'short_name' ? $this->nullableString((string) $value) : $this->nullableDecimal((string) $value),
         ]);
 
+        $sku->stockItem->refresh();
+        $this->refreshSharedStockItemDrafts($sku, $field, $sku->stockItem->{$field});
+
         session()->flash('status', __('skus.inline_saved'));
+    }
+
+    private function refreshSharedStockItemDrafts(Sku $sku, string $field, mixed $value): void
+    {
+        if (! $sku->stock_item_id) {
+            return;
+        }
+
+        $draftValue = $this->draftValue($value);
+        $visibleSkuIds = $this->scopedSkuQuery()
+            ->where('stock_item_id', $sku->stock_item_id)
+            ->pluck('id');
+
+        foreach ($visibleSkuIds as $visibleSkuId) {
+            if (array_key_exists($visibleSkuId, $this->logisticsDrafts)) {
+                $this->logisticsDrafts[$visibleSkuId][$field] = $draftValue;
+
+                continue;
+            }
+
+            $stringKey = (string) $visibleSkuId;
+
+            if (array_key_exists($stringKey, $this->logisticsDrafts)) {
+                $this->logisticsDrafts[$stringKey][$field] = $draftValue;
+            }
+        }
     }
 
     private function saveDefaultShippingMethod(Sku $sku, string $value): void
@@ -492,6 +525,13 @@ class SkusIndex extends Component
         return $user?->user_type === 'internal';
     }
 
+    private function tenantIsVisible(int $tenantId): bool
+    {
+        $visibleTenantIds = $this->visibleTenantIds();
+
+        return $visibleTenantIds === null || in_array($tenantId, array_map('intval', $visibleTenantIds), true);
+    }
+
     private function visibleTenantIds(): ?array
     {
         if ($this->isInternalUser()) {
@@ -524,5 +564,10 @@ class SkusIndex extends Component
     private function nullableId(string $value): ?int
     {
         return trim($value) === '' ? null : (int) $value;
+    }
+
+    private function draftValue(mixed $value): string
+    {
+        return $value === null ? '' : (string) $value;
     }
 }

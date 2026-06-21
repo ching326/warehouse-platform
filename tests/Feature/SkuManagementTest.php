@@ -408,6 +408,23 @@ class SkuManagementTest extends TestCase
             ->assertHasErrors(['default_shipping_method_id']);
     }
 
+    public function test_logistics_view_only_shows_inactive_shipping_method_for_its_current_row(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $inactive = $this->shippingMethod('legacy_row_only_method', 'Legacy Row Only Method', 'inactive');
+        $active = $this->shippingMethod('active_row_method', 'Active Row Method');
+
+        Sku::factory()->for($tenant)->create(['sku' => 'SKU-LEGACY-ROW', 'default_shipping_method_id' => $inactive->id]);
+        Sku::factory()->for($tenant)->create(['sku' => 'SKU-ACTIVE-ROW', 'default_shipping_method_id' => $active->id]);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->withQueryParams(['view' => 'logistics'])
+            ->test(SkusIndex::class)
+            ->html();
+
+        $this->assertSame(1, substr_count($html, 'Legacy Row Only Method'));
+    }
+
     public function test_sku_index_catalog_marketplace_and_unknown_views_render_correctly(): void
     {
         $tenant = Tenant::factory()->create();
@@ -507,6 +524,27 @@ class SkuManagementTest extends TestCase
         $this->assertSame($method->id, $sku->default_shipping_method_id);
     }
 
+    public function test_logistics_shared_stock_item_drafts_refresh_after_save(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create(['short_name' => 'Old shared']);
+        $first = Sku::factory()->for($tenant)->for($stockItem)->create(['sku' => 'SKU-SHARED-A']);
+        $second = Sku::factory()->for($tenant)->for($stockItem)->create(['sku' => 'SKU-SHARED-B']);
+
+        Livewire::actingAs($this->internalUser())
+            ->withQueryParams(['view' => 'logistics'])
+            ->test(SkusIndex::class)
+            ->assertSet("logisticsDrafts.{$first->id}.short_name", 'Old shared')
+            ->assertSet("logisticsDrafts.{$second->id}.short_name", 'Old shared')
+            ->set("logisticsDrafts.{$first->id}.short_name", 'Fresh shared')
+            ->call('saveLogisticsField', $first->id, 'short_name')
+            ->assertSet("logisticsDrafts.{$second->id}.short_name", 'Fresh shared')
+            ->call('saveLogisticsField', $second->id, 'short_name')
+            ->assertHasNoErrors();
+
+        $this->assertSame('Fresh shared', $stockItem->refresh()->short_name);
+    }
+
     public function test_virtual_bundle_logistics_disables_physical_fields_but_allows_sku_defaults(): void
     {
         $tenant = Tenant::factory()->create();
@@ -566,6 +604,26 @@ class SkuManagementTest extends TestCase
             ->assertNotFound();
 
         $this->assertSame('Original', $stockItem->refresh()->short_name);
+    }
+
+    public function test_tenant_user_cannot_inline_edit_corrupt_cross_tenant_stock_item(): void
+    {
+        [$tenant, $user] = $this->tenantUser();
+        $otherTenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($otherTenant)->create(['short_name' => 'Protected']);
+        $sku = Sku::factory()->for($tenant)->create([
+            'sku' => 'SKU-CORRUPT-STOCK',
+            'stock_item_id' => $stockItem->id,
+        ]);
+
+        Livewire::actingAs($user)
+            ->withQueryParams(['view' => 'logistics'])
+            ->test(SkusIndex::class)
+            ->set("logisticsDrafts.{$sku->id}.short_name", 'Hacked')
+            ->call('saveLogisticsField', $sku->id, 'short_name')
+            ->assertNotFound();
+
+        $this->assertSame('Protected', $stockItem->refresh()->short_name);
     }
 
     public function test_sku_view_default_preference_is_saved_and_query_parameter_wins(): void

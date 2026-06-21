@@ -196,8 +196,13 @@
                             <flux:table.cell>
                                 <select wire:model="logisticsDrafts.{{ $sku->id }}.default_shipping_method_id" wire:change="saveLogisticsField({{ $sku->id }}, 'default_shipping_method_id')">
                                     <option value="">{{ __('skus.no_shipping_method') }}</option>
+                                    @php($currentShippingMethodId = (string) ($sku->default_shipping_method_id ?? ''))
                                     @foreach ($shippingMethods as $method)
-                                        <option value="{{ $method->id }}">
+                                        @php($isInactiveShippingMethod = $method->status !== 'active')
+                                        @php($isCurrentShippingMethod = (string) $method->id === $currentShippingMethodId)
+                                        @continue($isInactiveShippingMethod && ! $isCurrentShippingMethod)
+
+                                        <option value="{{ $method->id }}" @disabled($isInactiveShippingMethod && ! $isCurrentShippingMethod)>
                                             {{ $method->name }} / {{ $method->carrier?->name }}
                                             @if ($method->status !== 'active')
                                                 ({{ __('skus.inactive_shipping_method') }})
