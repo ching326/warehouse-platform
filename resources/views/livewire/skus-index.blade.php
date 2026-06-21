@@ -148,8 +148,9 @@
         @elseif ($view === 'logistics')
             <flux:table :paginate="$skus" class="sku-table sku-logistics-table">
                 <flux:table.columns>
-                    <flux:table.column>{{ __('skus.col_sku') }}</flux:table.column>
                     <flux:table.column>{{ __('skus.col_stock_item') }}</flux:table.column>
+                    <flux:table.column>{{ __('skus.col_sku') }}</flux:table.column>
+                    <flux:table.column>{{ __('skus.col_name') }}</flux:table.column>
                     <flux:table.column>{{ __('skus.col_short_name') }}</flux:table.column>
                     <flux:table.column class="sku-number-column">{{ __('skus.col_weight_g') }}</flux:table.column>
                     <flux:table.column class="sku-number-column">{{ __('skus.col_length_cm') }}</flux:table.column>
@@ -162,13 +163,9 @@
                 <flux:table.rows>
                     @forelse ($skus as $sku)
                         <flux:table.row :key="$sku->id">
-                            <flux:table.cell class="sku-primary-cell">
-                                <strong>{{ $sku->sku }}</strong>
-                            </flux:table.cell>
                             <flux:table.cell class="sku-stock-cell">
                                 @if ($sku->stockItem)
                                     <strong>{{ $sku->stockItem->code }}</strong>
-                                    <span>{{ $sku->stockItem->name }}</span>
                                 @elseif ($sku->sku_type === 'virtual_bundle')
                                     <strong>{{ __('skus.virtual_bundle') }}</strong>
                                     <span title="{{ $this->bundleComposition($sku, 999) }}">{{ $this->bundleComposition($sku) }}</span>
@@ -176,12 +173,18 @@
                                     <flux:badge color="amber">{{ __('skus.missing_stock_item') }}</flux:badge>
                                 @endif
                             </flux:table.cell>
+                            <flux:table.cell class="sku-primary-cell">
+                                <strong>{{ $sku->sku }}</strong>
+                            </flux:table.cell>
+                            <flux:table.cell class="sku-primary-cell">
+                                <span title="{{ $sku->name }}">{{ $sku->name }}</span>
+                            </flux:table.cell>
                             @foreach (['short_name', 'weight_value', 'length_value', 'width_value', 'height_value'] as $field)
                                 <flux:table.cell class="{{ $field === 'short_name' ? 'sku-short-name-cell' : 'sku-number-cell' }}">
                                     @if ($sku->stockItem)
                                         <input
                                             type="{{ $field === 'short_name' ? 'text' : 'number' }}"
-                                            step="{{ $field === 'weight_value' ? '0.001' : '0.01' }}"
+                                            step="{{ $field === 'weight_value' ? '1' : '0.1' }}"
                                             min="0"
                                             wire:model="logisticsDrafts.{{ $sku->id }}.{{ $field }}"
                                             wire:blur="saveLogisticsField({{ $sku->id }}, '{{ $field }}')"
@@ -191,17 +194,17 @@
                                     @endif
                                 </flux:table.cell>
                             @endforeach
-                            <flux:table.cell>
+                            <flux:table.cell class="sku-select-cell">
                                 <select wire:model="logisticsDrafts.{{ $sku->id }}.default_packaging_material_id" wire:change="saveLogisticsField({{ $sku->id }}, 'default_packaging_material_id')">
-                                    <option value="">{{ __('skus.no_packaging') }}</option>
+                                    <option value=""></option>
                                     @foreach ($packagingMaterials as $material)
                                         <option value="{{ $material->id }}">{{ $material->code }} - {{ $material->name }}</option>
                                     @endforeach
                                 </select>
                             </flux:table.cell>
-                            <flux:table.cell>
+                            <flux:table.cell class="sku-select-cell">
                                 <select wire:model="logisticsDrafts.{{ $sku->id }}.default_shipping_method_id" wire:change="saveLogisticsField({{ $sku->id }}, 'default_shipping_method_id')">
-                                    <option value="">{{ __('skus.no_shipping_method') }}</option>
+                                    <option value=""></option>
                                     @php($currentShippingMethodId = (string) ($sku->default_shipping_method_id ?? ''))
                                     @foreach ($shippingMethods as $method)
                                         @php($isInactiveShippingMethod = $method->status !== 'active')
@@ -228,7 +231,7 @@
                 </flux:table.rows>
             </flux:table>
         @else
-            <flux:table :paginate="$skus" class="sku-table">
+            <flux:table :paginate="$skus" class="sku-table sku-flat-table sku-{{ $view }}-table">
                 <flux:table.columns>
                     @foreach ($flatColumns as $label)
                         <flux:table.column>{{ $label }}</flux:table.column>
@@ -239,7 +242,31 @@
                     @forelse ($skus as $sku)
                         <flux:table.row :key="$sku->id">
                             @foreach ($flatColumns as $key => $label)
-                                <flux:table.cell>{{ $this->flatCellValue($sku, $key) }}</flux:table.cell>
+                                <flux:table.cell @class([
+                                    'sku-flat-cell',
+                                    'sku-name-cell' => $key === 'name',
+                                    'sku-narrow-cell' => in_array($key, ['variation_code', 'type'], true),
+                                    'sku-product-type-cell' => $key === 'product_type',
+                                ])>
+                                    @if ($view === 'catalog' && $key === 'product_type')
+                                        @if ($sku->stockItem)
+                                            <select
+                                                wire:model="catalogDrafts.{{ $sku->id }}.product_type"
+                                                wire:change="saveCatalogField({{ $sku->id }}, 'product_type')"
+                                                aria-label="{{ __('skus.col_product_type') }} {{ $sku->sku }}"
+                                            >
+                                                @foreach ($productTypes as $type)
+                                                    <option value="{{ $type->slug }}">{{ $type->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        @else
+                                            <span class="muted-dash">-</span>
+                                        @endif
+                                    @else
+                                        @php($cellValue = $this->flatCellValue($sku, $key))
+                                        <span title="{{ $cellValue }}">{{ $cellValue }}</span>
+                                    @endif
+                                </flux:table.cell>
                             @endforeach
                         </flux:table.row>
                     @empty

@@ -40,6 +40,8 @@ class SkusIndex extends Component
 
     public int $perPage = 15;
 
+    public array $catalogDrafts = [];
+
     public array $logisticsDrafts = [];
 
     public bool $currentViewIsDefault = false;
@@ -168,6 +170,38 @@ class SkusIndex extends Component
         }
     }
 
+    public function saveCatalogField(int $skuId, string $field): void
+    {
+        if ($field !== 'product_type') {
+            return;
+        }
+
+        $sku = $this->scopedSkuQuery()
+            ->with('stockItem')
+            ->find($skuId);
+
+        if (! $sku) {
+            abort(404);
+        }
+
+        if (! array_key_exists($field, $this->catalogDrafts[$skuId] ?? [])) {
+            return;
+        }
+
+        if (! $sku->stockItem || (int) $sku->stockItem->tenant_id !== (int) $sku->tenant_id || ! $this->tenantIsVisible((int) $sku->stockItem->tenant_id)) {
+            abort(404);
+        }
+
+        $value = (string) $this->catalogDrafts[$skuId][$field];
+
+        validator([$field => $value], [
+            $field => ['required', 'string', Rule::exists('product_types', 'slug')],
+        ])->validate();
+
+        $sku->stockItem->update([$field => $value]);
+        session()->flash('status', __('skus.inline_saved'));
+    }
+
     public function render()
     {
         if (! $this->isAllowedView($this->view)) {
@@ -175,6 +209,7 @@ class SkusIndex extends Component
         }
 
         $skus = $this->skus();
+        $this->prepareCatalogDrafts($skus->getCollection());
         $this->prepareLogisticsDrafts($skus->getCollection());
 
         return view('livewire.skus-index', [
@@ -205,7 +240,7 @@ class SkusIndex extends Component
             ->with([
                 'tenant:id,code,name',
                 'shop:id,tenant_id,code,name,platform,marketplace',
-                'stockItem:id,tenant_id,code,name,short_name,brand,variation_code,barcode,product_type,weight_value,weight_unit,length_value,width_value,height_value,dimension_unit',
+                'stockItem:id,tenant_id,code,name,short_name,brand,model_number,variation_code,color,size,barcode,product_type,weight_value,weight_unit,length_value,width_value,height_value,dimension_unit',
                 'bundleComponents' => fn ($query) => $query->with('componentStockItem:id,tenant_id,code,name')->orderBy('id'),
                 'defaultPackagingMaterial:id,code,name,type',
                 'defaultShippingMethod:id,carrier_id,code,name,status',
@@ -264,6 +299,8 @@ class SkusIndex extends Component
             'brand' => $sku->stockItem?->brand,
             'variation_code' => $sku->stockItem?->variation_code,
             'barcode' => $sku->stockItem?->barcode,
+            'size' => $sku->stockItem?->size,
+            'color' => $sku->stockItem?->color,
             'shop_code' => $sku->shop?->code,
             'type' => $this->skuTypeLabel($sku->sku_type),
             'status' => $this->statusLabel($sku->status),
@@ -393,12 +430,21 @@ class SkusIndex extends Component
         foreach ($skus as $sku) {
             $this->logisticsDrafts[$sku->id] ??= [
                 'short_name' => (string) ($sku->stockItem?->short_name ?? ''),
-                'weight_value' => $sku->stockItem?->weight_value !== null ? (string) $sku->stockItem->weight_value : '',
-                'length_value' => $sku->stockItem?->length_value !== null ? (string) $sku->stockItem->length_value : '',
-                'width_value' => $sku->stockItem?->width_value !== null ? (string) $sku->stockItem->width_value : '',
-                'height_value' => $sku->stockItem?->height_value !== null ? (string) $sku->stockItem->height_value : '',
+                'weight_value' => $this->logisticsDraftValue('weight_value', $sku->stockItem?->weight_value),
+                'length_value' => $this->logisticsDraftValue('length_value', $sku->stockItem?->length_value),
+                'width_value' => $this->logisticsDraftValue('width_value', $sku->stockItem?->width_value),
+                'height_value' => $this->logisticsDraftValue('height_value', $sku->stockItem?->height_value),
                 'default_packaging_material_id' => $sku->default_packaging_material_id ? (string) $sku->default_packaging_material_id : '',
                 'default_shipping_method_id' => $sku->default_shipping_method_id ? (string) $sku->default_shipping_method_id : '',
+            ];
+        }
+    }
+
+    private function prepareCatalogDrafts(Collection $skus): void
+    {
+        foreach ($skus as $sku) {
+            $this->catalogDrafts[$sku->id] ??= [
+                'product_type' => (string) ($sku->stockItem?->product_type ?? 'normal'),
             ];
         }
     }
@@ -443,7 +489,7 @@ class SkusIndex extends Component
             return;
         }
 
-        $draftValue = $this->draftValue($value);
+        $draftValue = $this->logisticsDraftValue($field, $value);
         $visibleSkuIds = $this->scopedSkuQuery()
             ->where('stock_item_id', $sku->stock_item_id)
             ->pluck('id');
@@ -498,13 +544,16 @@ class SkusIndex extends Component
                 'sku' => __('skus.col_sku'),
                 'name' => __('skus.col_name'),
                 'brand' => __('skus.col_brand'),
-                'variation_code' => __('skus.col_variation_code'),
                 'barcode' => __('skus.col_barcode'),
+                'variation_code' => __('skus.col_variation_code'),
+                'size' => __('skus.col_size'),
+                'color' => __('skus.col_color'),
                 'type' => __('skus.col_type'),
-                'status' => __('skus.col_status'),
+                'product_type' => __('skus.col_product_type'),
             ],
             self::VIEW_MARKETPLACE => [
                 'sku' => __('skus.col_sku'),
+                'name' => __('skus.col_name'),
                 'platform_product_id' => __('skus.col_asin'),
                 'platform_label_code' => __('skus.col_fnsku'),
                 'shop_code' => __('skus.col_shop'),
@@ -516,9 +565,9 @@ class SkusIndex extends Component
     private function currentColumnCount(): int
     {
         return match ($this->view) {
-            self::VIEW_CATALOG => 7,
-            self::VIEW_MARKETPLACE => 4,
-            self::VIEW_LOGISTICS => 9,
+            self::VIEW_CATALOG => 9,
+            self::VIEW_MARKETPLACE => 5,
+            self::VIEW_LOGISTICS => 10,
             default => 6,
         };
     }
@@ -584,5 +633,22 @@ class SkusIndex extends Component
     private function draftValue(mixed $value): string
     {
         return $value === null ? '' : (string) $value;
+    }
+
+    private function logisticsDraftValue(string $field, mixed $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        if ($field === 'weight_value') {
+            return number_format((float) $value, 0, '.', '');
+        }
+
+        if (in_array($field, ['length_value', 'width_value', 'height_value'], true)) {
+            return number_format((float) $value, 1, '.', '');
+        }
+
+        return $this->draftValue($value);
     }
 }

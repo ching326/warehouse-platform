@@ -1394,15 +1394,63 @@
                 padding-right: 10px;
             }
 
-            .sku-logistics-table th:nth-child(4),
+            .sku-catalog-table th:nth-child(2),
+            .sku-catalog-table td:nth-child(2) {
+                width: 24%;
+            }
+
+            .sku-catalog-table th:nth-child(5),
+            .sku-catalog-table td:nth-child(5) {
+                width: 92px;
+            }
+
+            .sku-catalog-table th:nth-child(8),
+            .sku-catalog-table td:nth-child(8) {
+                width: 86px;
+            }
+
+            .sku-catalog-table th:nth-child(9),
+            .sku-catalog-table td:nth-child(9) {
+                width: 150px;
+            }
+
+            .sku-marketplace-table th:nth-child(2),
+            .sku-marketplace-table td:nth-child(2) {
+                width: 26%;
+            }
+
             .sku-logistics-table th:nth-child(5),
             .sku-logistics-table th:nth-child(6),
             .sku-logistics-table th:nth-child(7),
-            .sku-logistics-table td:nth-child(4),
+            .sku-logistics-table th:nth-child(8),
             .sku-logistics-table td:nth-child(5),
             .sku-logistics-table td:nth-child(6),
-            .sku-logistics-table td:nth-child(7) {
+            .sku-logistics-table td:nth-child(7),
+            .sku-logistics-table td:nth-child(8) {
                 width: 92px;
+            }
+
+            .sku-logistics-table th:nth-child(9),
+            .sku-logistics-table td:nth-child(9) {
+                width: 150px;
+            }
+
+            .sku-logistics-table th:nth-child(10),
+            .sku-logistics-table td:nth-child(10) {
+                width: 170px;
+            }
+
+            .sku-flat-cell span {
+                display: block;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .sku-product-type-cell select,
+            .sku-select-cell select {
+                width: 100%;
+                min-width: 0;
             }
 
             .sku-number-cell input {

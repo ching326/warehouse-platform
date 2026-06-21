@@ -6,6 +6,7 @@ use App\Livewire\SkuCreate;
 use App\Livewire\SkusIndex;
 use App\Models\Carrier;
 use App\Models\PackagingMaterial;
+use App\Models\ProductType;
 use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
@@ -427,6 +428,9 @@ class SkuManagementTest extends TestCase
 
     public function test_sku_index_catalog_marketplace_and_unknown_views_render_correctly(): void
     {
+        ProductType::create(['slug' => 'normal', 'name' => 'Normal', 'sort_order' => 0]);
+        ProductType::create(['slug' => 'apparel', 'name' => 'Apparel', 'sort_order' => 10]);
+
         $tenant = Tenant::factory()->create();
         $shop = Shop::factory()->for($tenant)->create(['code' => 'SHOP1']);
         $stockItem = StockItem::factory()->for($tenant)->create([
@@ -434,9 +438,12 @@ class SkuManagementTest extends TestCase
             'short_name' => 'Shorty',
             'brand' => 'Acme',
             'variation_code' => 'BLUE-M',
+            'size' => 'M',
+            'color' => 'Blue',
             'barcode' => '4900000000001',
+            'product_type' => 'normal',
         ]);
-        Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create([
+        $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create([
             'sku' => 'SKU-FLAT-VIEWS',
             'name' => 'Flat view SKU',
             'platform_sku' => 'SELLER-SKU',
@@ -452,17 +459,28 @@ class SkuManagementTest extends TestCase
             ->assertSee(__('skus.col_brand'))
             ->assertSee(__('skus.col_variation_code'))
             ->assertSee(__('skus.col_barcode'))
+            ->assertSee(__('skus.col_size'))
+            ->assertSee(__('skus.col_color'))
+            ->assertSee(__('skus.col_product_type'))
             ->assertSee('Acme')
             ->assertSee('BLUE-M')
+            ->assertSee('M')
+            ->assertSee('Blue')
             ->assertSee('4900000000001')
             ->assertDontSee('Shorty')
             ->assertDontSee('STOCK1')
-            ->assertDontSee(__('skus.col_platform_ids'));
+            ->assertDontSee(__('skus.col_platform_ids'))
+            ->set("catalogDrafts.{$sku->id}.product_type", 'apparel')
+            ->call('saveCatalogField', $sku->id, 'product_type')
+            ->assertHasNoErrors();
+
+        $this->assertSame('apparel', $stockItem->refresh()->product_type);
 
         Livewire::actingAs($this->internalUser())
             ->withQueryParams(['view' => 'marketplace'])
             ->test(SkusIndex::class)
             ->assertSet('view', 'marketplace')
+            ->assertSee(__('skus.col_name'))
             ->assertSee(__('skus.col_asin'))
             ->assertSee(__('skus.col_fnsku'))
             ->assertDontSee(__('skus.col_seller_sku'))
@@ -484,23 +502,30 @@ class SkuManagementTest extends TestCase
         $this->actingAs($this->internalUser())
             ->get('/skus?view=catalog')
             ->assertOk()
-            ->assertSee('colspan="7"', false);
+            ->assertSee('colspan="9"', false);
 
         $this->actingAs($this->internalUser())
             ->get('/skus?view=marketplace')
             ->assertOk()
-            ->assertSee('colspan="4"', false);
+            ->assertSee('colspan="5"', false);
 
         $this->actingAs($this->internalUser())
             ->get('/skus?view=logistics')
             ->assertOk()
-            ->assertSee('colspan="9"', false);
+            ->assertSee('colspan="10"', false);
     }
 
     public function test_logistics_view_renders_editable_fields_and_saves_stock_item_and_sku_defaults(): void
     {
         $tenant = Tenant::factory()->create();
-        $stockItem = StockItem::factory()->for($tenant)->create(['code' => 'LOG-STOCK', 'name' => 'Logistics Stock Item']);
+        $stockItem = StockItem::factory()->for($tenant)->create([
+            'code' => 'LOG-STOCK',
+            'name' => 'Logistics Stock Item',
+            'weight_value' => '12.345',
+            'length_value' => '10.50',
+            'width_value' => '8.50',
+            'height_value' => '3.50',
+        ]);
         $packaging = PackagingMaterial::factory()->create();
         $method = $this->shippingMethod('logistics_ship_method', 'Logistics Ship Method');
         $sku = Sku::factory()->for($tenant)->for($stockItem)->create(['sku' => 'SKU-LOGISTICS', 'name' => 'Hidden logistics SKU name']);
@@ -509,6 +534,7 @@ class SkuManagementTest extends TestCase
             ->withQueryParams(['view' => 'logistics'])
             ->test(SkusIndex::class)
             ->assertSee(__('skus.col_stock_item'))
+            ->assertSee(__('skus.col_name'))
             ->assertSee(__('skus.col_weight_g'))
             ->assertSee(__('skus.col_length_cm'))
             ->assertSee(__('skus.col_width_cm'))
@@ -516,12 +542,16 @@ class SkuManagementTest extends TestCase
             ->assertSee(__('skus.col_packaging'))
             ->assertSee(__('skus.col_shipping_method'))
             ->assertSee('LOG-STOCK')
-            ->assertSee('Logistics Stock Item')
-            ->assertDontSee('Hidden logistics SKU name')
+            ->assertDontSee('Logistics Stock Item')
+            ->assertSee('Hidden logistics SKU name')
             ->assertDontSee('<span class="subtle">g</span>', false)
             ->assertDontSee('<span class="subtle">cm</span>', false)
             ->assertDontSee(__('skus.col_default_packaging'))
             ->assertDontSee(__('skus.col_default_shipping_method'))
+            ->assertSet("logisticsDrafts.{$sku->id}.weight_value", '12')
+            ->assertSet("logisticsDrafts.{$sku->id}.length_value", '10.5')
+            ->assertSet("logisticsDrafts.{$sku->id}.width_value", '8.5')
+            ->assertSet("logisticsDrafts.{$sku->id}.height_value", '3.5')
             ->set("logisticsDrafts.{$sku->id}.short_name", 'Tiny name')
             ->call('saveLogisticsField', $sku->id, 'short_name')
             ->set("logisticsDrafts.{$sku->id}.weight_value", '12.345')
@@ -562,7 +592,9 @@ class SkuManagementTest extends TestCase
             ->withQueryParams(['view' => 'logistics'])
             ->test(SkusIndex::class)
             ->assertSet("logisticsDrafts.{$sku->id}.default_packaging_material_id", '')
-            ->assertSet("logisticsDrafts.{$sku->id}.default_shipping_method_id", '');
+            ->assertSet("logisticsDrafts.{$sku->id}.default_shipping_method_id", '')
+            ->assertDontSee(__('skus.no_packaging'))
+            ->assertDontSee(__('skus.no_shipping_method'));
     }
 
     public function test_logistics_shared_stock_item_drafts_refresh_after_save(): void
