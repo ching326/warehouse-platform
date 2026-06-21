@@ -10,6 +10,7 @@ use App\Models\InventoryBalance;
 use App\Models\InventoryMovement;
 use App\Models\Issue;
 use App\Models\ReturnOrder;
+use App\Models\ReturnOrderCost;
 use App\Models\ReturnOrderLine;
 use App\Models\Shop;
 use App\Models\Sku;
@@ -32,6 +33,25 @@ class ReturnOrderTest extends TestCase
             ->get(route('return-orders.index'))
             ->assertOk()
             ->assertSee(__('return_orders.page_title'));
+    }
+
+    public function test_return_order_index_hides_quantity_summary_and_rounds_costs(): void
+    {
+        [$order] = $this->returnOrderWithLine(expectedQty: 2, receivedQty: 1);
+        $order->costs()->create([
+            'tenant_id' => $order->tenant_id,
+            'cost_type' => ReturnOrderCost::COST_OTHER,
+            'amount' => '123.45',
+            'currency' => 'JPY',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ReturnOrderIndex::class)
+            ->assertSee($order->return_no)
+            ->assertDontSee(__('return_orders.col_summary'))
+            ->assertDontSee('2 / 1')
+            ->assertSee('JPY 123')
+            ->assertDontSee('JPY 123.45');
     }
 
     public function test_receive_return_does_not_create_inventory_movement(): void
