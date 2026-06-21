@@ -324,7 +324,9 @@
 
                     <div class="action-menu-section" data-testid="sales-order-courier-import-menu">
                         <span>{{ __('sales_orders.import_courier_menu') }}</span>
-                        <span class="action-menu-option-disabled">{{ __('sales_orders.import_tracking_numbers') }}</span>
+                        <button type="button" wire:click="openTrackingImportModal">
+                            {{ __('sales_orders.import_tracking_numbers') }}
+                        </button>
                     </div>
                 </div>
             </details>
@@ -570,4 +572,155 @@
         </div>
         </div>
     </section>
+    @if ($showTrackingImportModal)
+        <div class="modal-backdrop tracking-import-backdrop" wire:key="tracking-import-modal">
+            <section class="tracking-import-modal flux-panel">
+                <header class="tracking-import-header">
+                    <div>
+                        <h2>{{ __('sales_orders.tracking_import_title') }}</h2>
+                        <p>{{ __('sales_orders.tracking_import_subtitle') }}</p>
+                    </div>
+                    <flux:button type="button" variant="ghost" size="sm" wire:click="closeTrackingImportModal">
+                        {{ __('sales_orders.tracking_import_close_btn') }}
+                    </flux:button>
+                </header>
+
+                @if ($trackingImportError)
+                    <div class="flash-message flash-message-error">{{ $trackingImportError }}</div>
+                @endif
+
+                <div
+                    class="tracking-import-dropzone"
+                    x-data="{ dragging: false }"
+                    x-bind:class="{ 'is-dragging': dragging }"
+                    x-on:dragover.prevent="dragging = true"
+                    x-on:dragleave.prevent="dragging = false"
+                    x-on:drop.prevent="
+                        dragging = false;
+                        const input = $refs.trackingFile;
+                        input.files = $event.dataTransfer.files;
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    "
+                >
+                    <input
+                        x-ref="trackingFile"
+                        type="file"
+                        wire:model="trackingImportFile"
+                        accept=".csv,.txt,text/csv,text/plain"
+                    >
+                    <strong>{{ __('sales_orders.tracking_import_drop_title') }}</strong>
+                    <span>{{ __('sales_orders.tracking_import_drop_hint') }}</span>
+                    @if ($trackingImportSourceFileName)
+                        <span class="tracking-import-file-name">{{ $trackingImportSourceFileName }}</span>
+                    @endif
+                    @error('trackingImportFile')
+                        <span class="danger-text">{{ $message }}</span>
+                    @enderror
+                    <span class="subtle" wire:loading wire:target="trackingImportFile,previewTrackingImport,confirmTrackingImport">
+                        {{ __('sales_orders.tracking_import_loading') }}
+                    </span>
+                </div>
+
+                <div class="tracking-import-actions">
+                    <div class="tracking-import-courier">
+                        <span>{{ __('sales_orders.tracking_import_courier') }}</span>
+                        <flux:badge color="{{ $trackingImportCourier === 'unknown' ? 'zinc' : 'teal' }}">
+                            {{ $trackingImportCourier === 'unknown' ? __('sales_orders.tracking_import_auto_detect') : strtoupper($trackingImportCourier) }}
+                        </flux:badge>
+                    </div>
+                    <flux:button type="button" variant="outline" wire:click="previewTrackingImport" wire:loading.attr="disabled">
+                        {{ __('sales_orders.tracking_import_preview_btn') }}
+                    </flux:button>
+                </div>
+
+                @if ($trackingImportParsed)
+                    <div class="tracking-import-summary">
+                        <div>
+                            <span>{{ __('sales_orders.tracking_import_summary_total') }}</span>
+                            <strong>{{ $trackingImportSummary['total_rows'] ?? 0 }}</strong>
+                        </div>
+                        <div>
+                            <span>{{ __('sales_orders.tracking_import_summary_will_update') }}</span>
+                            <strong>{{ $trackingImportSummary['will_update'] ?? 0 }}</strong>
+                        </div>
+                        <div>
+                            <span>{{ __('sales_orders.tracking_import_summary_already_same') }}</span>
+                            <strong>{{ $trackingImportSummary['already_same'] ?? 0 }}</strong>
+                        </div>
+                        <div>
+                            <span>{{ __('sales_orders.tracking_import_summary_attention') }}</span>
+                            <strong>{{ ($trackingImportSummary['unmatched'] ?? 0) + ($trackingImportSummary['ambiguous'] ?? 0) + ($trackingImportSummary['skipped'] ?? 0) }}</strong>
+                        </div>
+                    </div>
+
+                    <div class="tracking-import-table-wrap">
+                        <table class="tracking-import-table">
+                            <thead>
+                                <tr>
+                                    <th>{{ __('sales_orders.import_col_row') }}</th>
+                                    <th>{{ __('sales_orders.tracking_import_col_order') }}</th>
+                                    <th>{{ __('sales_orders.tracking_import_col_tracking_no') }}</th>
+                                    <th>{{ __('sales_orders.import_col_status') }}</th>
+                                    <th>{{ __('sales_orders.tracking_import_col_current') }}</th>
+                                    <th>{{ __('sales_orders.tracking_import_col_note') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse ($trackingImportRows as $row)
+                                    <tr>
+                                        <td>{{ $row['row_no'] }}</td>
+                                        <td>
+                                            <strong>{{ $row['platform_order_id'] ?? $row['order_value'] ?? '-' }}</strong>
+                                            @if (($row['platform_order_id'] ?? null) && ($row['platform_order_id'] !== ($row['order_value'] ?? null)))
+                                                <span class="subtle">{{ $row['order_value'] }}</span>
+                                            @endif
+                                        </td>
+                                        <td>{{ $row['tracking_no'] ?: '-' }}</td>
+                                        <td>
+                                            <flux:badge color="{{ in_array($row['result'], ['will_update', 'already_same'], true) ? 'green' : ($row['result'] === 'ambiguous' ? 'amber' : 'zinc') }}">
+                                                {{ $row['result_label'] }}
+                                            </flux:badge>
+                                        </td>
+                                        <td>{{ $row['current_tracking_no'] ?: '-' }}</td>
+                                        <td>{{ $row['note'] ?: '-' }}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="6">
+                                            <div class="empty-state">{{ __('sales_orders.tracking_import_no_rows') }}</div>
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+
+                <footer class="tracking-import-footer">
+                    <flux:button type="button" variant="ghost" wire:click="closeTrackingImportModal">
+                        {{ __('common.cancel') }}
+                    </flux:button>
+                    @php
+                        $canConfirmTrackingImport = $trackingImportParsed
+                            && (($trackingImportSummary['will_update'] ?? 0) + ($trackingImportSummary['already_same'] ?? 0)) >= 1
+                            && ! $trackingImportError;
+                    @endphp
+                    @if ($canConfirmTrackingImport)
+                        <flux:button
+                            type="button"
+                            variant="primary"
+                            wire:click="confirmTrackingImport"
+                            wire:loading.attr="disabled"
+                        >
+                            {{ __('sales_orders.tracking_import_confirm_btn') }}
+                        </flux:button>
+                    @else
+                        <flux:button type="button" variant="primary" disabled>
+                            {{ __('sales_orders.tracking_import_confirm_btn') }}
+                        </flux:button>
+                    @endif
+                </footer>
+            </section>
+        </div>
+    @endif
 </div>

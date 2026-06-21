@@ -1383,6 +1383,166 @@
                 color: var(--muted);
             }
 
+            .tracking-import-backdrop {
+                position: fixed;
+                inset: 0;
+                z-index: 80;
+                display: flex;
+                align-items: flex-start;
+                justify-content: center;
+                overflow: auto;
+                background: rgba(15, 23, 42, 0.34);
+                padding: 32px 18px;
+            }
+
+            .tracking-import-modal {
+                width: min(980px, 100%);
+                background: #fff;
+                box-shadow: 0 20px 45px rgba(15, 23, 42, 0.22);
+            }
+
+            .tracking-import-header,
+            .tracking-import-actions,
+            .tracking-import-footer {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+            }
+
+            .tracking-import-header {
+                border-bottom: 1px solid var(--line);
+                margin-bottom: 14px;
+                padding-bottom: 12px;
+            }
+
+            .tracking-import-header h2 {
+                margin: 0;
+                font-size: 18px;
+            }
+
+            .tracking-import-header p {
+                margin: 4px 0 0;
+                color: var(--muted);
+                font-size: 13px;
+            }
+
+            .tracking-import-dropzone {
+                display: grid;
+                gap: 7px;
+                place-items: center;
+                border: 1px dashed var(--line);
+                border-radius: 8px;
+                background: #f8fafc;
+                margin-bottom: 14px;
+                min-height: 126px;
+                padding: 18px;
+                text-align: center;
+            }
+
+            .tracking-import-dropzone.is-dragging {
+                border-color: var(--accent);
+                background: var(--accent-soft);
+            }
+
+            .tracking-import-dropzone input[type="file"] {
+                max-width: min(100%, 360px);
+            }
+
+            .tracking-import-file-name {
+                color: var(--accent);
+                font-size: 12px;
+                font-weight: 800;
+            }
+
+            .tracking-import-actions {
+                margin-bottom: 14px;
+            }
+
+            .tracking-import-courier {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: var(--muted);
+                font-size: 12px;
+                font-weight: 800;
+                text-transform: uppercase;
+            }
+
+            .tracking-import-summary {
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 10px;
+                margin-bottom: 14px;
+            }
+
+            .tracking-import-summary div {
+                border: 1px solid var(--line);
+                border-radius: 8px;
+                background: #fff;
+                padding: 10px 12px;
+            }
+
+            .tracking-import-summary span {
+                display: block;
+                color: var(--muted);
+                font-size: 11px;
+                font-weight: 800;
+                text-transform: uppercase;
+            }
+
+            .tracking-import-summary strong {
+                display: block;
+                margin-top: 3px;
+                font-size: 18px;
+            }
+
+            .tracking-import-table-wrap {
+                max-height: 360px;
+                overflow: auto;
+                border: 1px solid var(--line);
+                border-radius: 8px;
+                margin-bottom: 14px;
+            }
+
+            .tracking-import-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 12px;
+            }
+
+            .tracking-import-table th,
+            .tracking-import-table td {
+                border-bottom: 1px solid var(--line);
+                padding: 9px 10px;
+                text-align: left;
+                vertical-align: top;
+            }
+
+            .tracking-import-table th {
+                position: sticky;
+                top: 0;
+                z-index: 1;
+                background: #f8fafc;
+                color: var(--muted);
+                font-size: 11px;
+                font-weight: 800;
+                text-transform: uppercase;
+            }
+
+            .tracking-import-table td:nth-child(1) {
+                width: 54px;
+            }
+
+            .tracking-import-table td:nth-child(4) {
+                width: 120px;
+            }
+
+            .tracking-import-footer {
+                border-top: 1px solid var(--line);
+                padding-top: 12px;
+            }
+
             .sku-table {
                 min-width: 0;
                 table-layout: fixed;
