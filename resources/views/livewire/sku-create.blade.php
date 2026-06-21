@@ -64,6 +64,12 @@
                         <flux:select.option value="{{ $material->id }}">{{ $material->code }} - {{ $material->name }}</flux:select.option>
                     @endforeach
                 </flux:select>
+                <flux:select wire:model="defaultShippingMethodId" :label="__('skus.field_default_shipping_method')">
+                    <flux:select.option value="">{{ __('skus.no_shipping_method') }}</flux:select.option>
+                    @foreach ($shippingMethods as $method)
+                        <flux:select.option value="{{ $method->id }}">{{ $method->name }} / {{ $method->carrier?->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
                 <flux:select wire:model="status" :label="__('skus.field_status')">
                     <flux:select.option value="active">{{ __('common.statuses.active') }}</flux:select.option>
                     <flux:select.option value="inactive">{{ __('common.statuses.inactive') }}</flux:select.option>
@@ -76,7 +82,7 @@
                 </label>
             </div>
 
-            @foreach (['sku', 'name', 'sku_type', 'default_packaging_material_id', 'status'] as $field)
+            @foreach (['sku', 'name', 'sku_type', 'default_packaging_material_id', 'default_shipping_method_id', 'status'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
         </section>

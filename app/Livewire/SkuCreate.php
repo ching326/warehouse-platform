@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\PackagingMaterial;
 use App\Models\ProductType;
+use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\StockItem;
@@ -44,6 +45,8 @@ class SkuCreate extends Component
     public string $skuType = 'single';
 
     public string $defaultPackagingMaterialId = '';
+
+    public string $defaultShippingMethodId = '';
 
     public string $status = 'active';
 
@@ -137,6 +140,7 @@ class SkuCreate extends Component
                 'platform_label_code' => $this->nullableString($this->platformLabelCode),
                 'sku_type' => $this->skuType,
                 'default_packaging_material_id' => $this->nullableId($this->defaultPackagingMaterialId),
+                'default_shipping_method_id' => $this->nullableId($this->defaultShippingMethodId),
                 'status' => $this->status,
                 'note' => $this->nullableString($this->note),
             ]);
@@ -153,6 +157,7 @@ class SkuCreate extends Component
             'tenants' => $this->tenantOptions(),
             'shops' => $this->shopOptions(),
             'packagingMaterials' => $this->packagingMaterialOptions(),
+            'shippingMethods' => $this->shippingMethodOptions(),
             'stockItems' => $this->stockItemOptions(),
             'productTypes' => ProductType::orderBy('sort_order')->orderBy('name')->get(['slug', 'name']),
             'showTenantSelect' => $this->isInternalUser(),
@@ -181,6 +186,7 @@ class SkuCreate extends Component
             'name' => ['required', 'string', 'max:255'],
             'sku_type' => ['required', Rule::in(['single', 'virtual_bundle', 'physical_bundle'])],
             'default_packaging_material_id' => ['nullable', Rule::exists('packaging_materials', 'id')],
+            'default_shipping_method_id' => ['nullable', Rule::exists('shipping_methods', 'id')->where('status', 'active')],
             'status' => ['required', Rule::in(['active', 'inactive', 'draft', 'archived'])],
             'stock_item_mode' => ['required', Rule::in(['create', 'link'])],
             'existing_stock_item_id' => [
@@ -205,6 +211,7 @@ class SkuCreate extends Component
             'name' => trim($this->name),
             'sku_type' => $this->skuType,
             'default_packaging_material_id' => $this->defaultPackagingMaterialId === '' ? null : $this->defaultPackagingMaterialId,
+            'default_shipping_method_id' => $this->defaultShippingMethodId === '' ? null : $this->defaultShippingMethodId,
             'status' => $this->status,
             'stock_item_mode' => $this->stockItemMode,
             'existing_stock_item_id' => $this->existingStockItemId === '' ? null : $this->existingStockItemId,
@@ -314,6 +321,15 @@ class SkuCreate extends Component
         return PackagingMaterial::query()
             ->orderBy('name')
             ->get(['id', 'code', 'name', 'type']);
+    }
+
+    private function shippingMethodOptions(): Collection
+    {
+        return ShippingMethod::query()
+            ->where('shipping_methods.status', 'active')
+            ->with('carrier:id,code,name')
+            ->ordered()
+            ->get(['shipping_methods.id', 'shipping_methods.carrier_id', 'shipping_methods.code', 'shipping_methods.name']);
     }
 
     private function stockItemOptions(): Collection

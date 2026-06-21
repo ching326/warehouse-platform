@@ -28,6 +28,7 @@ class Sku extends Model
         'platform_label_code',
         'sku_type',
         'default_packaging_material_id',
+        'default_shipping_method_id',
         'status',
         'note',
     ];
@@ -59,6 +60,11 @@ class Sku extends Model
     public function defaultPackagingMaterial(): BelongsTo
     {
         return $this->belongsTo(PackagingMaterial::class, 'default_packaging_material_id');
+    }
+
+    public function defaultShippingMethod(): BelongsTo
+    {
+        return $this->belongsTo(ShippingMethod::class, 'default_shipping_method_id');
     }
 
     public function bundleComponents(): HasMany

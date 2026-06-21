@@ -4,6 +4,9 @@ namespace Tests\Feature;
 
 use App\Livewire\SkuCreate;
 use App\Livewire\SkusIndex;
+use App\Models\Carrier;
+use App\Models\PackagingMaterial;
+use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\SkuBundleComponent;
@@ -12,6 +15,7 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -331,6 +335,283 @@ class SkuManagementTest extends TestCase
             ->assertDontSee('No stock item');
     }
 
+    public function test_sku_can_store_and_read_default_shipping_method_relation(): void
+    {
+        $method = $this->shippingMethod('default_ship_method');
+        $sku = Sku::factory()->create(['default_shipping_method_id' => $method->id]);
+
+        $this->assertTrue(Schema::hasColumn('skus', 'default_shipping_method_id'));
+        $this->assertSame($method->id, $sku->fresh()->defaultShippingMethod->id);
+    }
+
+    public function test_sku_create_form_renders_and_saves_default_shipping_method(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $method = $this->shippingMethod('create_ship_method', 'Create Ship Method');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->assertSee(__('skus.field_default_shipping_method'))
+            ->assertSee('Create Ship Method')
+            ->set('sku', 'SKU-DEFAULT-SHIP')
+            ->set('name', 'Default ship SKU')
+            ->set('defaultShippingMethodId', (string) $method->id)
+            ->call('save')
+            ->assertRedirect(route('skus.index'));
+
+        $this->assertSame($method->id, Sku::where('sku', 'SKU-DEFAULT-SHIP')->firstOrFail()->default_shipping_method_id);
+    }
+
+    public function test_sku_create_rejects_invalid_or_inactive_default_shipping_method(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $inactive = $this->shippingMethod('inactive_ship_method', 'Inactive Ship Method', 'inactive');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('sku', 'SKU-BAD-SHIP')
+            ->set('name', 'Bad ship SKU')
+            ->set('defaultShippingMethodId', '999999')
+            ->call('save')
+            ->assertHasErrors(['default_shipping_method_id']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('sku', 'SKU-INACTIVE-SHIP')
+            ->set('name', 'Inactive ship SKU')
+            ->set('defaultShippingMethodId', (string) $inactive->id)
+            ->call('save')
+            ->assertHasErrors(['default_shipping_method_id']);
+    }
+
+    public function test_logistics_view_shows_saved_inactive_shipping_method_but_rejects_switching_to_it(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $inactive = $this->shippingMethod('legacy_ship_method', 'Legacy Ship Method', 'inactive');
+        $active = $this->shippingMethod('active_ship_method', 'Active Ship Method');
+        $first = Sku::factory()->for($tenant)->create(['sku' => 'SKU-LEGACY-SHIP', 'default_shipping_method_id' => $inactive->id]);
+        $second = Sku::factory()->for($tenant)->create(['sku' => 'SKU-ACTIVE-SHIP', 'default_shipping_method_id' => $active->id]);
+
+        Livewire::actingAs($this->internalUser())
+            ->withQueryParams(['view' => 'logistics'])
+            ->test(SkusIndex::class)
+            ->assertSee('Legacy Ship Method')
+            ->assertSee(__('skus.inactive_shipping_method'))
+            ->set("logisticsDrafts.{$first->id}.default_shipping_method_id", (string) $inactive->id)
+            ->call('saveLogisticsField', $first->id, 'default_shipping_method_id')
+            ->assertHasNoErrors()
+            ->set("logisticsDrafts.{$second->id}.default_shipping_method_id", (string) $inactive->id)
+            ->call('saveLogisticsField', $second->id, 'default_shipping_method_id')
+            ->assertHasErrors(['default_shipping_method_id']);
+    }
+
+    public function test_sku_index_catalog_marketplace_and_unknown_views_render_correctly(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create(['code' => 'SHOP1']);
+        $stockItem = StockItem::factory()->for($tenant)->create(['code' => 'STOCK1', 'short_name' => 'Shorty']);
+        Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create([
+            'sku' => 'SKU-FLAT-VIEWS',
+            'name' => 'Flat view SKU',
+            'platform_sku' => 'SELLER-SKU',
+            'platform_product_id' => 'B000ASIN',
+            'platform_label_code' => 'FNSKU123',
+            'platform_variant_name' => 'Blue / M',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->withQueryParams(['view' => 'catalog'])
+            ->test(SkusIndex::class)
+            ->assertSet('view', 'catalog')
+            ->assertSee(__('skus.col_short_name'))
+            ->assertSee('Shorty')
+            ->assertDontSee(__('skus.col_platform_ids'));
+
+        Livewire::actingAs($this->internalUser())
+            ->withQueryParams(['view' => 'marketplace'])
+            ->test(SkusIndex::class)
+            ->assertSet('view', 'marketplace')
+            ->assertSee(__('skus.col_seller_sku'))
+            ->assertSee(__('skus.col_asin'))
+            ->assertSee(__('skus.col_fnsku'))
+            ->assertSee('SELLER-SKU')
+            ->assertSee('B000ASIN')
+            ->assertSee('FNSKU123')
+            ->assertSee('Blue / M');
+
+        Livewire::actingAs($this->internalUser())
+            ->withQueryParams(['view' => 'unknown'])
+            ->test(SkusIndex::class)
+            ->assertSet('view', 'detailed')
+            ->assertSee(__('skus.col_platform_ids'));
+    }
+
+    public function test_empty_state_colspan_matches_current_view(): void
+    {
+        $this->actingAs($this->internalUser())
+            ->get('/skus?view=catalog')
+            ->assertOk()
+            ->assertSee('colspan="7"', false);
+
+        $this->actingAs($this->internalUser())
+            ->get('/skus?view=marketplace')
+            ->assertOk()
+            ->assertSee('colspan="6"', false);
+
+        $this->actingAs($this->internalUser())
+            ->get('/skus?view=logistics')
+            ->assertOk()
+            ->assertSee('colspan="8"', false);
+    }
+
+    public function test_logistics_view_renders_editable_fields_and_saves_stock_item_and_sku_defaults(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $packaging = PackagingMaterial::factory()->create();
+        $method = $this->shippingMethod('logistics_ship_method', 'Logistics Ship Method');
+        $sku = Sku::factory()->for($tenant)->for($stockItem)->create(['sku' => 'SKU-LOGISTICS']);
+
+        Livewire::actingAs($this->internalUser())
+            ->withQueryParams(['view' => 'logistics'])
+            ->test(SkusIndex::class)
+            ->assertSee(__('skus.col_weight'))
+            ->assertSee(__('skus.col_default_shipping_method'))
+            ->set("logisticsDrafts.{$sku->id}.short_name", 'Tiny name')
+            ->call('saveLogisticsField', $sku->id, 'short_name')
+            ->set("logisticsDrafts.{$sku->id}.weight_value", '12.345')
+            ->call('saveLogisticsField', $sku->id, 'weight_value')
+            ->set("logisticsDrafts.{$sku->id}.length_value", '10.5')
+            ->call('saveLogisticsField', $sku->id, 'length_value')
+            ->set("logisticsDrafts.{$sku->id}.width_value", '8.5')
+            ->call('saveLogisticsField', $sku->id, 'width_value')
+            ->set("logisticsDrafts.{$sku->id}.height_value", '3.5')
+            ->call('saveLogisticsField', $sku->id, 'height_value')
+            ->set("logisticsDrafts.{$sku->id}.default_packaging_material_id", (string) $packaging->id)
+            ->call('saveLogisticsField', $sku->id, 'default_packaging_material_id')
+            ->set("logisticsDrafts.{$sku->id}.default_shipping_method_id", (string) $method->id)
+            ->call('saveLogisticsField', $sku->id, 'default_shipping_method_id')
+            ->assertHasNoErrors();
+
+        $stockItem->refresh();
+        $sku->refresh();
+        $this->assertSame('Tiny name', $stockItem->short_name);
+        $this->assertSame('12.345', (string) $stockItem->weight_value);
+        $this->assertSame('10.50', (string) $stockItem->length_value);
+        $this->assertSame('8.50', (string) $stockItem->width_value);
+        $this->assertSame('3.50', (string) $stockItem->height_value);
+        $this->assertSame($packaging->id, $sku->default_packaging_material_id);
+        $this->assertSame($method->id, $sku->default_shipping_method_id);
+    }
+
+    public function test_virtual_bundle_logistics_disables_physical_fields_but_allows_sku_defaults(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $packaging = PackagingMaterial::factory()->create();
+        $method = $this->shippingMethod('bundle_ship_method', 'Bundle Ship Method');
+        $sku = Sku::factory()->virtualBundle()->for($tenant)->create(['sku' => 'SKU-BUNDLE-LOGISTICS']);
+
+        Livewire::actingAs($this->internalUser())
+            ->withQueryParams(['view' => 'logistics'])
+            ->test(SkusIndex::class)
+            ->assertSee('SKU-BUNDLE-LOGISTICS')
+            ->set("logisticsDrafts.{$sku->id}.default_packaging_material_id", (string) $packaging->id)
+            ->call('saveLogisticsField', $sku->id, 'default_packaging_material_id')
+            ->set("logisticsDrafts.{$sku->id}.default_shipping_method_id", (string) $method->id)
+            ->call('saveLogisticsField', $sku->id, 'default_shipping_method_id')
+            ->set("logisticsDrafts.{$sku->id}.weight_value", '5')
+            ->call('saveLogisticsField', $sku->id, 'weight_value')
+            ->assertHasNoErrors();
+
+        $sku->refresh();
+        $this->assertNull($sku->stock_item_id);
+        $this->assertSame($packaging->id, $sku->default_packaging_material_id);
+        $this->assertSame($method->id, $sku->default_shipping_method_id);
+    }
+
+    public function test_logistics_rejects_negative_values_and_empty_input_clears_to_null(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create(['weight_value' => 10]);
+        $sku = Sku::factory()->for($tenant)->for($stockItem)->create();
+
+        Livewire::actingAs($this->internalUser())
+            ->withQueryParams(['view' => 'logistics'])
+            ->test(SkusIndex::class)
+            ->set("logisticsDrafts.{$sku->id}.weight_value", '-1')
+            ->call('saveLogisticsField', $sku->id, 'weight_value')
+            ->assertHasErrors(['weight_value'])
+            ->set("logisticsDrafts.{$sku->id}.weight_value", '')
+            ->call('saveLogisticsField', $sku->id, 'weight_value')
+            ->assertHasNoErrors();
+
+        $this->assertNull($stockItem->refresh()->weight_value);
+    }
+
+    public function test_tenant_user_cannot_inline_edit_another_tenants_sku(): void
+    {
+        [, $user] = $this->tenantUser();
+        $otherTenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($otherTenant)->create(['short_name' => 'Original']);
+        $sku = Sku::factory()->for($otherTenant)->for($stockItem)->create();
+
+        Livewire::actingAs($user)
+            ->withQueryParams(['view' => 'logistics'])
+            ->test(SkusIndex::class)
+            ->set("logisticsDrafts.{$sku->id}.short_name", 'Hacked')
+            ->call('saveLogisticsField', $sku->id, 'short_name')
+            ->assertNotFound();
+
+        $this->assertSame('Original', $stockItem->refresh()->short_name);
+    }
+
+    public function test_sku_view_default_preference_is_saved_and_query_parameter_wins(): void
+    {
+        $user = $this->internalUser();
+
+        Livewire::actingAs($user)
+            ->withQueryParams(['view' => 'logistics'])
+            ->test(SkusIndex::class)
+            ->call('saveDefaultView')
+            ->assertSee(__('skus.default_view_saved'));
+
+        $this->assertSame('logistics', $user->refresh()->preference('skus_view'));
+
+        Livewire::actingAs($user)
+            ->test(SkusIndex::class)
+            ->assertSet('view', 'logistics');
+
+        Livewire::actingAs($user)
+            ->withQueryParams(['view' => 'catalog'])
+            ->test(SkusIndex::class)
+            ->assertSet('view', 'catalog');
+    }
+
+    public function test_saved_sku_view_preference_applies_on_plain_skus_request(): void
+    {
+        $user = $this->internalUser();
+        $user->setPreference('skus_view', 'marketplace');
+
+        $this->actingAs($user)
+            ->get('/skus')
+            ->assertOk()
+            ->assertSee(__('skus.col_seller_sku'))
+            ->assertDontSee(__('skus.col_platform_ids'));
+    }
+
+    public function test_guest_user_is_not_treated_as_internal_on_sku_index(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        Sku::factory()->for($tenant)->for($stockItem)->create(['sku' => 'SKU-GUEST-HIDDEN']);
+
+        Livewire::test(SkusIndex::class)
+            ->assertDontSee('SKU-GUEST-HIDDEN');
+    }
+
     private function internalUser(): User
     {
         return User::factory()->create([
@@ -357,5 +638,21 @@ class SkuManagementTest extends TestCase
         ]);
 
         return [$tenant, $user];
+    }
+
+    private function shippingMethod(string $code, ?string $name = null, string $status = 'active'): ShippingMethod
+    {
+        $carrier = Carrier::query()->firstOrCreate(
+            ['code' => 'test_carrier'],
+            ['name' => 'Test Carrier', 'country_code' => 'JP', 'status' => 'active'],
+        );
+
+        return ShippingMethod::query()->create([
+            'carrier_id' => $carrier->id,
+            'code' => $code,
+            'name' => $name ?? str($code)->replace('_', ' ')->title()->toString(),
+            'service_type' => 'parcel',
+            'status' => $status,
+        ]);
     }
 }

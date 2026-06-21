@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'user_type', 'is_active'])]
+#[Fillable(['name', 'email', 'password', 'user_type', 'is_active', 'preferences'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -30,6 +30,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'preferences' => 'array',
         ];
     }
 
@@ -60,5 +61,18 @@ class User extends Authenticatable
         return $this->belongsToMany(Tenant::class, 'tenant_users')
             ->withPivot(['role', 'status', 'invited_at', 'joined_at'])
             ->withTimestamps();
+    }
+
+    public function preference(string $key, mixed $default = null): mixed
+    {
+        return data_get($this->preferences, $key, $default);
+    }
+
+    public function setPreference(string $key, mixed $value): void
+    {
+        $preferences = $this->preferences ?? [];
+        data_set($preferences, $key, $value);
+
+        $this->update(['preferences' => $preferences]);
     }
 }
