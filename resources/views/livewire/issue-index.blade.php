@@ -6,42 +6,56 @@
     @endif
 
     <section class="table-shell flux-panel">
-        <div class="movement-toolbar">
-            @if ($showTenantFilter)
-                <flux:select wire:model.live="tenantId" :label="__('issues.field_tenant')">
-                    <flux:select.option value="">{{ __('common.all_tenants') }}</flux:select.option>
-                    @foreach ($tenants as $tenant)
-                        <flux:select.option value="{{ $tenant->id }}">{{ $tenant->code }} - {{ $tenant->name }}</flux:select.option>
+        <div class="issue-filter-stack">
+            <div class="issue-filter-row issue-filter-row-primary">
+                @if ($showTenantFilter)
+                    <flux:select wire:model.live="tenantId" :label="__('issues.field_tenant')">
+                        <flux:select.option value="">{{ __('common.all_tenants') }}</flux:select.option>
+                        @foreach ($tenants as $tenant)
+                            <flux:select.option value="{{ $tenant->id }}">{{ $tenant->code }} - {{ $tenant->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                @endif
+
+                <flux:select wire:model.live="typeFilter" :label="__('issues.field_issue_type')">
+                    <flux:select.option value="">{{ __('issues.all_types') }}</flux:select.option>
+                    @foreach ($types as $value => $label)
+                        <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
                     @endforeach
                 </flux:select>
-            @endif
 
-            <flux:select wire:model.live="typeFilter" :label="__('issues.field_issue_type')">
-                <flux:select.option value="">{{ __('issues.all_types') }}</flux:select.option>
-                @foreach ($types as $value => $label)
-                    <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
-                @endforeach
-            </flux:select>
+                <flux:select wire:model.live="statusFilter" :label="__('issues.field_status')">
+                    <flux:select.option value="">{{ __('issues.all_statuses') }}</flux:select.option>
+                    @foreach ($statuses as $value => $label)
+                        <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                    @endforeach
+                </flux:select>
 
-            <flux:select wire:model.live="statusFilter" :label="__('issues.field_status')">
-                <flux:select.option value="">{{ __('issues.all_statuses') }}</flux:select.option>
-                @foreach ($statuses as $value => $label)
-                    <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
-                @endforeach
-            </flux:select>
+                <flux:input
+                    class="issue-global-search"
+                    wire:model.live.debounce.300ms="search"
+                    :label="__('common.search')"
+                    :placeholder="__('issues.search_placeholder')"
+                />
+            </div>
 
-            <flux:input
-                wire:model.live.debounce.300ms="search"
-                :label="__('common.search')"
-                :placeholder="__('issues.search_placeholder')"
-            />
+            <div class="issue-filter-row issue-filter-row-orders">
+                <flux:input
+                    wire:model.live.debounce.300ms="salesOrderSearch"
+                    :label="__('issues.field_sales_order')"
+                    :placeholder="__('issues.sales_order_search_placeholder')"
+                />
 
-            <flux:input wire:model.live.debounce.300ms="salesOrderId" type="number" min="1" :label="__('issues.field_sales_order')" />
-            <flux:input wire:model.live.debounce.300ms="outboundOrderId" type="number" min="1" :label="__('issues.field_outbound_order')" />
+                <flux:input
+                    wire:model.live.debounce.300ms="outboundOrderSearch"
+                    :label="__('issues.field_outbound_order')"
+                    :placeholder="__('issues.outbound_order_search_placeholder')"
+                />
 
-            <flux:button href="{{ route('issues.create') }}" variant="primary" wire:navigate>
-                {{ __('issues.btn_create') }}
-            </flux:button>
+                <flux:button href="{{ route('issues.create') }}" variant="primary" wire:navigate>
+                    {{ __('issues.btn_create') }}
+                </flux:button>
+            </div>
         </div>
 
         <flux:table :paginate="$cases" class="data-table">
@@ -107,4 +121,43 @@
             </flux:table.rows>
         </flux:table>
     </section>
+
+    <style>
+        .issue-filter-stack {
+            display: grid;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .issue-filter-row {
+            display: grid;
+            gap: 12px;
+            align-items: end;
+        }
+
+        .issue-filter-row-primary {
+            grid-template-columns: repeat(3, minmax(150px, 190px)) minmax(280px, 1fr);
+        }
+
+        .issue-filter-row-orders {
+            grid-template-columns: minmax(240px, 1fr) minmax(220px, 1fr) max-content;
+        }
+
+        .issue-global-search {
+            justify-self: end;
+            width: min(100%, 460px);
+        }
+
+        @media (max-width: 900px) {
+            .issue-filter-row-primary,
+            .issue-filter-row-orders {
+                grid-template-columns: 1fr;
+            }
+
+            .issue-global-search {
+                justify-self: stretch;
+                width: 100%;
+            }
+        }
+    </style>
 </div>

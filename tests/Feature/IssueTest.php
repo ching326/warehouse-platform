@@ -18,6 +18,7 @@ use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Models\OutboundOrder;
 use App\Models\Warehouse;
 use App\Services\InventoryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -72,7 +73,7 @@ class IssueTest extends TestCase
             ->assertSee((string) $line->quantity);
     }
 
-    public function test_create_issue_requires_at_least_one_related_order_reference(): void
+    public function test_issue_can_be_created_with_unknown_order_if_manual_line_is_provided(): void
     {
         [$tenant, , , $sku] = $this->salesOrderWithLine(null, 'NO-REF-SKU', 'NO-REF-ORDER');
 
@@ -82,7 +83,12 @@ class IssueTest extends TestCase
             ->set('manualLines.0.sku_id', (string) $sku->id)
             ->set('manualLines.0.qty', 1)
             ->call('save')
-            ->assertHasErrors(['salesOrderId']);
+            ->assertRedirect();
+
+        $case = Issue::firstOrFail();
+        $this->assertNull($case->sales_order_id);
+        $this->assertNull($case->outbound_order_id);
+        $this->assertSame(1, $case->lines()->count());
     }
 
     public function test_create_issue_requires_at_least_one_line(): void
@@ -266,6 +272,195 @@ class IssueTest extends TestCase
             ->assertSee($case->issue_no);
     }
 
+    public function test_index_sales_order_filter_searches_by_platform_order_id_not_internal_id(): void
+    {
+        [, $matchedOrder] = $this->salesOrderWithLine(null, 'SO-FILTER-SKU', 'VISIBLE-ORDER-900');
+        [, $otherOrder] = $this->salesOrderWithLine(null, 'SO-HIDDEN-SKU', 'HIDDEN-ORDER-901');
+        $matched = $this->issueForOrder($matchedOrder);
+        $other = $this->issueForOrder($otherOrder);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(IssueIndex::class)
+            ->set('salesOrderSearch', 'VISIBLE-ORDER')
+            ->assertSee($matched->issue_no)
+            ->assertDontSee($other->issue_no);
+    }
+
+    public function test_index_sales_order_filter_searches_by_tracking_and_recipient(): void
+    {
+        [, $trackingOrder] = $this->salesOrderWithLine(null, 'TRACK-FILTER-SKU', 'TRACK-ORDER', orderAttributes: ['tracking_no' => 'TRK-ISS-123']);
+        [, $recipientOrder] = $this->salesOrderWithLine(null, 'RECIP-FILTER-SKU', 'RECIP-ORDER', orderAttributes: ['recipient_name' => 'Alice Issue', 'recipient_phone' => '080-0000-9999']);
+        $trackingCase = $this->issueForOrder($trackingOrder);
+        $recipientCase = $this->issueForOrder($recipientOrder);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(IssueIndex::class)
+            ->set('salesOrderSearch', 'TRK-ISS')
+            ->assertSee($trackingCase->issue_no)
+            ->assertDontSee($recipientCase->issue_no);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(IssueIndex::class)
+            ->set('salesOrderSearch', '080-0000-9999')
+            ->assertSee($recipientCase->issue_no)
+            ->assertDontSee($trackingCase->issue_no);
+    }
+
+    public function test_index_outbound_order_filter_searches_by_ref_not_internal_id(): void
+    {
+        $matchedOutbound = $this->outboundOrder(ref: 'OB-REAL-123');
+        $otherOutbound = $this->outboundOrder(ref: 'OB-HIDDEN-456');
+        $matched = $this->issueForOutboundOrder($matchedOutbound);
+        $other = $this->issueForOutboundOrder($otherOutbound);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(IssueIndex::class)
+            ->set('outboundOrderSearch', 'OB-REAL')
+            ->assertSee($matched->issue_no)
+            ->assertDontSee($other->issue_no);
+    }
+
+    public function test_issue_index_order_filters_are_on_second_row_and_global_search_is_wide(): void
+    {
+        Livewire::actingAs($this->internalUser())
+            ->test(IssueIndex::class)
+            ->assertSee('issue-filter-row-orders', false)
+            ->assertSee('issue-global-search', false)
+            ->assertSee(__('issues.sales_order_search_placeholder'))
+            ->assertSee(__('issues.outbound_order_search_placeholder'));
+    }
+
+    public function test_create_issue_does_not_preload_all_sales_orders(): void
+    {
+        [$tenant] = $this->salesOrderWithLine(null, 'NO-PRELOAD-SKU', 'NO-PRELOAD-ORDER');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(IssueCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->assertDontSee('NO-PRELOAD-ORDER');
+    }
+
+    public function test_sales_order_picker_returns_limited_results_and_respects_tenant_scope(): void
+    {
+        [$tenant, $user] = $this->tenantUser();
+        $ownOrder = null;
+
+        for ($i = 1; $i <= 22; $i++) {
+            [, $order] = $this->salesOrderWithLine($tenant, 'PICK-SKU-'.$i, sprintf('PICK-ORDER-%02d', $i));
+            $ownOrder ??= $order;
+        }
+
+        $otherTenant = Tenant::factory()->create();
+        $this->salesOrderWithLine($otherTenant, 'PICK-OTHER-SKU', 'PICK-ORDER-HIDDEN');
+
+        Livewire::actingAs($user)
+            ->test(IssueCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('salesOrderSearch', 'PICK-ORDER')
+            ->assertSee($ownOrder->platform_order_id)
+            ->assertDontSee('PICK-ORDER-HIDDEN');
+    }
+
+    public function test_selecting_sales_order_loads_sales_order_lines(): void
+    {
+        [$tenant, $order] = $this->salesOrderWithLine(null, 'SELECT-LINE-SKU', 'SELECT-LINE-ORDER');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(IssueCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->call('selectSalesOrder', $order->id)
+            ->assertSet('salesOrderId', (string) $order->id)
+            ->assertSee('SELECT-LINE-SKU');
+    }
+
+    public function test_outbound_order_picker_returns_limited_results_and_respects_tenant_scope(): void
+    {
+        [$tenant, $user] = $this->tenantUser();
+        $ownOutbound = $this->outboundOrder($tenant, 'OB-PICK-001');
+        $this->outboundOrder(Tenant::factory()->create(), 'OB-PICK-HIDDEN');
+
+        Livewire::actingAs($user)
+            ->test(IssueCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('outboundOrderSearch', 'OB-PICK')
+            ->assertSee($ownOutbound->ref)
+            ->assertDontSee('OB-PICK-HIDDEN');
+    }
+
+    public function test_selecting_outbound_order_stores_outbound_order_id(): void
+    {
+        $outbound = $this->outboundOrder(ref: 'OB-SELECT-123');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(IssueCreate::class)
+            ->call('selectOutboundOrder', $outbound->id)
+            ->assertSet('outboundOrderId', (string) $outbound->id);
+    }
+
+    public function test_issue_can_be_created_with_outbound_order_only_and_manual_line(): void
+    {
+        $outbound = $this->outboundOrder(ref: 'OB-ONLY-123');
+        $sku = $this->skuForTenant($outbound->tenant);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(IssueCreate::class)
+            ->set('tenantId', (string) $outbound->tenant_id)
+            ->call('selectOutboundOrder', $outbound->id)
+            ->set('manualLines.0.sku_id', (string) $sku->id)
+            ->set('manualLines.0.qty', 1)
+            ->call('save')
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('issues', [
+            'outbound_order_id' => $outbound->id,
+            'sales_order_id' => null,
+        ]);
+    }
+
+    public function test_issue_can_be_created_with_unknown_order_if_note_is_provided(): void
+    {
+        $tenant = Tenant::factory()->create();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(IssueCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('note', 'Unknown parcel from customer service')
+            ->call('save')
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('issues', [
+            'tenant_id' => $tenant->id,
+            'sales_order_id' => null,
+            'outbound_order_id' => null,
+            'note' => 'Unknown parcel from customer service',
+        ]);
+    }
+
+    public function test_issue_without_order_note_or_manual_line_is_rejected(): void
+    {
+        $tenant = Tenant::factory()->create();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(IssueCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('manualLines.0.sku_id', '')
+            ->call('save')
+            ->assertHasErrors(['unknownIssue']);
+    }
+
+    public function test_linked_order_still_requires_at_least_one_line(): void
+    {
+        [$tenant, $order] = $this->salesOrderWithLine(null, 'LINKED-LINE-SKU', 'LINKED-LINE-ORDER');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(IssueCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->call('selectSalesOrder', $order->id)
+            ->set('manualLines.0.sku_id', '')
+            ->call('save')
+            ->assertHasErrors(['lines']);
+    }
+
     public function test_issue_no_is_finalized_after_create(): void
     {
         [, $order] = $this->salesOrderWithLine(null, 'ISSUE-NO-SKU', 'ISSUE-NO-ORDER');
@@ -291,7 +486,7 @@ class IssueTest extends TestCase
     /**
      * @return array{0: Tenant, 1: SalesOrder, 2: SalesOrderLine, 3: Sku}
      */
-    private function salesOrderWithLine(?Tenant $tenant = null, string $skuCode = 'ISSUE-SKU', string $orderId = 'ISSUE-ORDER', int $quantity = 2): array
+    private function salesOrderWithLine(?Tenant $tenant = null, string $skuCode = 'ISSUE-SKU', string $orderId = 'ISSUE-ORDER', int $quantity = 2, array $orderAttributes = []): array
     {
         $tenant ??= Tenant::factory()->create();
         $shop = Shop::factory()->for($tenant)->create();
@@ -300,7 +495,7 @@ class IssueTest extends TestCase
             'sku' => $skuCode,
             'name' => $skuCode.' Name',
         ]);
-        $order = SalesOrder::factory()->for($tenant)->for($shop)->create(['platform_order_id' => $orderId]);
+        $order = SalesOrder::factory()->for($tenant)->for($shop)->create(array_merge(['platform_order_id' => $orderId], $orderAttributes));
         $line = SalesOrderLine::factory()->for($order)->for($sku)->create(['quantity' => $quantity]);
 
         return [$tenant, $order, $line, $sku];
@@ -334,6 +529,40 @@ class IssueTest extends TestCase
         ]);
 
         return $case;
+    }
+
+    private function issueForOutboundOrder(OutboundOrder $outboundOrder): Issue
+    {
+        $case = Issue::create([
+            'tenant_id' => $outboundOrder->tenant_id,
+            'outbound_order_id' => $outboundOrder->id,
+            'issue_no' => 'ISS-PENDING-test',
+            'issue_type' => Issue::TYPE_OTHER,
+            'status' => Issue::STATUS_OPEN,
+            'created_by_user_id' => $this->internalUser()->id,
+        ]);
+        $case->update(['issue_no' => Issue::buildIssueNo($case->id)]);
+
+        return $case;
+    }
+
+    private function outboundOrder(?Tenant $tenant = null, string $ref = 'OB-ISSUE-REF'): OutboundOrder
+    {
+        $tenant ??= Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create();
+
+        return OutboundOrder::factory()
+            ->for($tenant)
+            ->for($warehouse)
+            ->create(['ref' => $ref]);
+    }
+
+    private function skuForTenant(Tenant $tenant): Sku
+    {
+        $shop = Shop::factory()->for($tenant)->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+
+        return Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create();
     }
 
     private function internalUser(): User

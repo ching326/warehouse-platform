@@ -28,6 +28,12 @@ class IssueIndex extends Component
     #[Url(as: 'outbound_order_id', except: '')]
     public string $outboundOrderId = '';
 
+    #[Url(as: 'sales_order', except: '')]
+    public string $salesOrderSearch = '';
+
+    #[Url(as: 'outbound_order', except: '')]
+    public string $outboundOrderSearch = '';
+
     #[Url(as: 'q', except: '')]
     public string $search = '';
 
@@ -44,7 +50,7 @@ class IssueIndex extends Component
 
     public function updated($property): void
     {
-        if (in_array($property, ['tenantId', 'statusFilter', 'typeFilter', 'salesOrderId', 'outboundOrderId', 'search'], true)) {
+        if (in_array($property, ['tenantId', 'statusFilter', 'typeFilter', 'salesOrderId', 'outboundOrderId', 'salesOrderSearch', 'outboundOrderSearch', 'search'], true)) {
             $this->resetPage();
         }
     }
@@ -69,6 +75,24 @@ class IssueIndex extends Component
             ->when($this->typeFilter !== '', fn ($query) => $query->where('issue_type', $this->typeFilter))
             ->when($this->salesOrderId !== '', fn ($query) => $query->where('sales_order_id', (int) $this->salesOrderId))
             ->when($this->outboundOrderId !== '', fn ($query) => $query->where('outbound_order_id', (int) $this->outboundOrderId))
+            ->when($this->salesOrderSearch !== '', function ($query) {
+                $like = '%'.$this->salesOrderSearch.'%';
+
+                $query->whereHas('salesOrder', fn ($query) => $query
+                    ->where('platform_order_id', 'like', $like)
+                    ->orWhere('tracking_no', 'like', $like)
+                    ->orWhere('recipient_name', 'like', $like)
+                    ->orWhere('recipient_phone', 'like', $like));
+            })
+            ->when($this->outboundOrderSearch !== '', function ($query) {
+                $like = '%'.$this->outboundOrderSearch.'%';
+
+                $query->whereHas('outboundOrder', fn ($query) => $query
+                    ->where('ref', 'like', $like)
+                    ->orWhere('tracking_no', 'like', $like)
+                    ->orWhere('recipient_name', 'like', $like)
+                    ->orWhere('recipient_phone', 'like', $like));
+            })
             ->when($this->search !== '', function ($query) {
                 $like = '%'.$this->search.'%';
 

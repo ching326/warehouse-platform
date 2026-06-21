@@ -29,22 +29,77 @@
                 @endforeach
             </flux:select>
 
-            <flux:select wire:model.live="salesOrderId" :label="__('issues.field_sales_order')">
-                <flux:select.option value="">{{ __('issues.select_sales_order') }}</flux:select.option>
-                @foreach ($salesOrders as $order)
-                    <flux:select.option value="{{ $order->id }}">{{ $order->platform_order_id ?: '#'.$order->id }}</flux:select.option>
-                @endforeach
-            </flux:select>
-
-            <flux:select wire:model.live="outboundOrderId" :label="__('issues.field_outbound_order')">
-                <flux:select.option value="">{{ __('issues.select_outbound_order') }}</flux:select.option>
-                @foreach ($outboundOrders as $order)
-                    <flux:select.option value="{{ $order->id }}">{{ $order->ref ?: '#'.$order->id }}</flux:select.option>
-                @endforeach
-            </flux:select>
-
             <flux:input wire:model="reportedAt" type="datetime-local" :label="__('issues.field_reported_at')" />
             <flux:input wire:model="reportedBy" :label="__('issues.field_reported_by')" />
+        </div>
+
+        <div class="issue-picker-grid">
+            <div class="issue-picker">
+                <flux:input
+                    wire:model.live.debounce.300ms="salesOrderSearch"
+                    :label="__('issues.field_sales_order')"
+                    :placeholder="__('issues.sales_order_search_placeholder')"
+                />
+
+                @if ($selectedSalesOrder)
+                    <div class="issue-selected-order">
+                        <div>
+                            <strong>{{ $selectedSalesOrder->platform_order_id ?: '#'.$selectedSalesOrder->id }}</strong>
+                            <span>{{ $selectedSalesOrder->recipient_name ?: '-' }} / {{ $selectedSalesOrder->tracking_no ?: '-' }}</span>
+                        </div>
+                        <flux:button type="button" size="xs" variant="outline" wire:click="clearSalesOrder">{{ __('common.clear') }}</flux:button>
+                    </div>
+                @endif
+
+                @if (strlen(trim($salesOrderSearch)) >= 2)
+                    <div class="issue-picker-results">
+                        @forelse ($salesOrderResults as $order)
+                            <button type="button" class="issue-picker-result" wire:click="selectSalesOrder({{ $order->id }})">
+                                <strong>{{ $order->platform_order_id ?: '#'.$order->id }}</strong>
+                                <span>{{ $order->recipient_name ?: '-' }} / {{ $order->tracking_no ?: '-' }}</span>
+                            </button>
+                        @empty
+                            <div class="issue-picker-empty">{{ __('issues.no_order_results') }}</div>
+                        @endforelse
+                    </div>
+                @endif
+            </div>
+
+            <div class="issue-picker">
+                <flux:input
+                    wire:model.live.debounce.300ms="outboundOrderSearch"
+                    :label="__('issues.field_outbound_order')"
+                    :placeholder="__('issues.outbound_order_search_placeholder')"
+                />
+
+                @if ($selectedOutboundOrder)
+                    <div class="issue-selected-order">
+                        <div>
+                            <strong>{{ $selectedOutboundOrder->ref ?: '#'.$selectedOutboundOrder->id }}</strong>
+                            <span>{{ $selectedOutboundOrder->warehouse?->code ?: '-' }} / {{ $selectedOutboundOrder->status }}</span>
+                        </div>
+                        <flux:button type="button" size="xs" variant="outline" wire:click="clearOutboundOrder">{{ __('common.clear') }}</flux:button>
+                    </div>
+                @endif
+
+                @if (strlen(trim($outboundOrderSearch)) >= 2)
+                    <div class="issue-picker-results">
+                        @forelse ($outboundOrderResults as $order)
+                            <button type="button" class="issue-picker-result" wire:click="selectOutboundOrder({{ $order->id }})">
+                                <strong>{{ $order->ref ?: '#'.$order->id }}</strong>
+                                <span>
+                                    {{ $order->warehouse?->code ?: '-' }} / {{ $order->status }}
+                                    @if ($order->fulfillmentGroup?->orders?->isNotEmpty())
+                                        / {{ $order->fulfillmentGroup->orders->pluck('platform_order_id')->filter()->take(2)->join(', ') }}
+                                    @endif
+                                </span>
+                            </button>
+                        @empty
+                            <div class="issue-picker-empty">{{ __('issues.no_order_results') }}</div>
+                        @endforelse
+                    </div>
+                @endif
+            </div>
         </div>
 
         <label class="form-grid-wide">
@@ -52,7 +107,7 @@
             <textarea wire:model="note" rows="3"></textarea>
         </label>
 
-        @foreach (['tenantId', 'salesOrderId', 'issue_type', 'status', 'lines', 'manualLines'] as $field)
+        @foreach (['tenantId', 'salesOrderId', 'outboundOrderId', 'issue_type', 'status', 'lines', 'manualLines', 'unknownIssue'] as $field)
             @error($field) <p class="form-error">{{ $message }}</p> @enderror
         @endforeach
     </section>
@@ -150,4 +205,70 @@
         <flux:button href="{{ route('issues.index') }}" variant="outline" wire:navigate>{{ __('common.cancel') }}</flux:button>
         <flux:button type="button" variant="primary" wire:click="save">{{ __('issues.btn_save') }}</flux:button>
     </div>
+
+    <style>
+        .issue-picker-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+            margin-top: 16px;
+        }
+
+        .issue-picker {
+            display: grid;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .issue-selected-order,
+        .issue-picker-result,
+        .issue-picker-empty {
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 9px 10px;
+            background: var(--surface);
+        }
+
+        .issue-selected-order {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .issue-selected-order strong,
+        .issue-selected-order span,
+        .issue-picker-result strong,
+        .issue-picker-result span {
+            display: block;
+        }
+
+        .issue-selected-order span,
+        .issue-picker-result span,
+        .issue-picker-empty {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .issue-picker-results {
+            display: grid;
+            gap: 6px;
+        }
+
+        .issue-picker-result {
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .issue-picker-result:hover {
+            border-color: var(--accent);
+        }
+
+        @media (max-width: 760px) {
+            .issue-picker-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </div>

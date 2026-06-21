@@ -22,7 +22,11 @@ class IssueCreate extends Component
 
     public string $salesOrderId = '';
 
+    public string $salesOrderSearch = '';
+
     public string $outboundOrderId = '';
+
+    public string $outboundOrderSearch = '';
 
     public string $issueType = Issue::TYPE_MISSING;
 
@@ -70,13 +74,51 @@ class IssueCreate extends Component
     public function updatedTenantId(): void
     {
         $this->salesOrderId = '';
+        $this->salesOrderSearch = '';
         $this->outboundOrderId = '';
+        $this->outboundOrderSearch = '';
         $this->salesOrderLines = [];
     }
 
     public function updatedSalesOrderId(): void
     {
         $this->loadSalesOrderLines();
+    }
+
+    public function selectSalesOrder(int $orderId): void
+    {
+        $order = SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->findOrFail($orderId);
+
+        $this->tenantId = (string) $order->tenant_id;
+        $this->salesOrderId = (string) $order->id;
+        $this->salesOrderSearch = '';
+        $this->loadSalesOrderLines();
+    }
+
+    public function clearSalesOrder(): void
+    {
+        $this->salesOrderId = '';
+        $this->salesOrderSearch = '';
+        $this->salesOrderLines = [];
+    }
+
+    public function selectOutboundOrder(int $orderId): void
+    {
+        $order = OutboundOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->findOrFail($orderId);
+
+        $this->tenantId = (string) $order->tenant_id;
+        $this->outboundOrderId = (string) $order->id;
+        $this->outboundOrderSearch = '';
+    }
+
+    public function clearOutboundOrder(): void
+    {
+        $this->outboundOrderId = '';
+        $this->outboundOrderSearch = '';
     }
 
     public function addManualLine(): void
@@ -110,14 +152,14 @@ class IssueCreate extends Component
             'note' => ['nullable', 'string', 'max:2000'],
         ])->validate();
 
-        if (! $salesOrder && ! $outboundOrder) {
-            throw ValidationException::withMessages(['salesOrderId' => __('issues.validation_related_required')]);
-        }
-
         $linePayloads = $this->validatedLinePayloads($tenantId, $salesOrder);
 
-        if ($linePayloads === []) {
+        if (($salesOrder || $outboundOrder) && $linePayloads === []) {
             throw ValidationException::withMessages(['lines' => __('issues.validation_lines_required')]);
+        }
+
+        if (! $salesOrder && ! $outboundOrder && $linePayloads === [] && $this->nullableString($this->note) === null) {
+            throw ValidationException::withMessages(['unknownIssue' => __('issues.validation_unknown_issue_requires_note_or_line')]);
         }
 
         $case = DB::transaction(function () use ($tenantId, $salesOrder, $outboundOrder, $linePayloads): Issue {
@@ -158,8 +200,10 @@ class IssueCreate extends Component
                 ->whereIn('id', $this->allowedTenantIds())
                 ->orderBy('name')
                 ->get(['id', 'code', 'name']),
-            'salesOrders' => $this->salesOrderOptions($tenantId),
-            'outboundOrders' => $this->outboundOrderOptions($tenantId),
+            'selectedSalesOrder' => $this->selectedSalesOrder(),
+            'selectedOutboundOrder' => $this->selectedOutboundOrder(),
+            'salesOrderResults' => $this->salesOrderResults($tenantId),
+            'outboundOrderResults' => $this->outboundOrderResults($tenantId),
             'skuOptions' => $this->skuOptions($tenantId),
             'types' => Issue::typeOptions(),
             'statuses' => Issue::statusOptions(),
@@ -308,24 +352,84 @@ class IssueCreate extends Component
         return $payloads;
     }
 
-    private function salesOrderOptions(?int $tenantId)
+    private function selectedSalesOrder(): ?SalesOrder
     {
+        if ($this->salesOrderId === '') {
+            return null;
+        }
+
+        return SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->find((int) $this->salesOrderId);
+    }
+
+    private function selectedOutboundOrder(): ?OutboundOrder
+    {
+        if ($this->outboundOrderId === '') {
+            return null;
+        }
+
+        return OutboundOrder::query()
+            ->with(['warehouse:id,code,name', 'fulfillmentGroup.orders:id,platform_order_id'])
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->find((int) $this->outboundOrderId);
+    }
+
+    private function salesOrderResults(?int $tenantId)
+    {
+        $term = trim($this->salesOrderSearch);
+
+        if (mb_strlen($term) < 2) {
+            return collect();
+        }
+
+        $like = '%'.$term.'%';
+
         return SalesOrder::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->when($tenantId, fn ($query) => $query->where('tenant_id', $tenantId))
+            ->where(fn ($query) => $query
+                ->where('platform_order_id', 'like', $like)
+                ->orWhere('tracking_no', 'like', $like)
+                ->orWhere('recipient_name', 'like', $like)
+                ->orWhere('recipient_phone', 'like', $like))
             ->latest()
-            ->limit(100)
-            ->get(['id', 'tenant_id', 'platform_order_id']);
+            ->limit(20)
+            ->get(['id', 'tenant_id', 'platform_order_id', 'tracking_no', 'recipient_name', 'recipient_phone']);
     }
 
-    private function outboundOrderOptions(?int $tenantId)
+    private function outboundOrderResults(?int $tenantId)
     {
+        $term = trim($this->outboundOrderSearch);
+
+        if (mb_strlen($term) < 2) {
+            return collect();
+        }
+
+        $like = '%'.$term.'%';
+
         return OutboundOrder::query()
+            ->with(['warehouse:id,code,name', 'fulfillmentGroup.orders:id,platform_order_id'])
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->when($tenantId, fn ($query) => $query->where('tenant_id', $tenantId))
+            ->where(fn ($query) => $query
+                ->where('ref', 'like', $like)
+                ->orWhere('tracking_no', 'like', $like)
+                ->orWhere('recipient_name', 'like', $like)
+                ->orWhere('recipient_phone', 'like', $like)
+                ->orWhereHas('fulfillmentGroup', fn ($query) => $query
+                    ->where('reference_no', 'like', $like)
+                    ->orWhere('tracking_no', 'like', $like)
+                    ->orWhere('recipient_name', 'like', $like)
+                    ->orWhere('recipient_phone', 'like', $like))
+                ->orWhereHas('fulfillmentGroup.orders', fn ($query) => $query
+                    ->where('platform_order_id', 'like', $like)
+                    ->orWhere('tracking_no', 'like', $like)
+                    ->orWhere('recipient_name', 'like', $like)
+                    ->orWhere('recipient_phone', 'like', $like)))
             ->latest()
-            ->limit(100)
-            ->get(['id', 'tenant_id', 'ref']);
+            ->limit(20)
+            ->get(['id', 'tenant_id', 'warehouse_id', 'fulfillment_group_id', 'ref', 'status', 'tracking_no', 'recipient_name']);
     }
 
     private function skuOptions(?int $tenantId)
