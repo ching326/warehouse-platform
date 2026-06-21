@@ -14,6 +14,7 @@ use App\Livewire\IssueShow;
 use App\Livewire\InventoryIndex;
 use App\Livewire\InventoryMovementsIndex;
 use App\Livewire\InboundOrderCreate;
+use App\Livewire\InboundOrderDetail;
 use App\Livewire\InboundOrderIndex;
 use App\Livewire\InboundOrderReceive;
 use App\Livewire\ReturnOrderCreate;
@@ -97,6 +98,7 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/inbound', InboundOrderIndex::class)->name('inbound.index');
     Route::get('/inbound/create', InboundOrderCreate::class)->name('inbound.create');
     Route::get('/inbound/{order}/receive', InboundOrderReceive::class)->name('inbound.receive');
+    Route::get('/inbound/{order}', InboundOrderDetail::class)->name('inbound.show');
     Route::get('/return-orders', ReturnOrderIndex::class)->name('return-orders.index');
     Route::get('/return-orders/create', ReturnOrderCreate::class)->name('return-orders.create');
     Route::get('/return-orders/{returnOrder}/receive', ReturnOrderReceive::class)->name('return-orders.receive');

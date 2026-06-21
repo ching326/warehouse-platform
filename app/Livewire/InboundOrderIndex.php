@@ -57,22 +57,6 @@ class InboundOrderIndex extends Component
         session()->flash('status', __('inbound.order_arrived'));
     }
 
-    public function cancel(int $orderId): void
-    {
-        $order = InboundOrder::query()
-            ->when($this->visibleTenantIds() !== null, fn ($query) => $query->whereIn('tenant_id', $this->visibleTenantIds()))
-            ->whereIn('status', [InboundOrder::STATUS_PENDING, InboundOrder::STATUS_ARRIVED])
-            ->findOrFail($orderId);
-
-        if ($order->lines()->where('received_qty', '>', 0)->exists()) {
-            return;
-        }
-
-        $order->update(['status' => InboundOrder::STATUS_CANCELLED]);
-
-        session()->flash('status', __('inbound.order_cancelled'));
-    }
-
     public function render()
     {
         return view('livewire.inbound-order-index', [
@@ -114,7 +98,13 @@ class InboundOrderIndex extends Component
     private function orders()
     {
         return InboundOrder::query()
-            ->with(['tenant:id,code,name', 'warehouse:id,code,name'])
+            ->with([
+                'tenant:id,code,name',
+                'warehouse:id,code,name',
+                'lines:id,inbound_order_id,sku_id',
+                'lines.sku:id,shop_id',
+                'lines.sku.shop:id,code,name',
+            ])
             ->withCount('lines')
             ->when($this->visibleTenantIds() !== null, fn ($query) => $query->whereIn('tenant_id', $this->visibleTenantIds()))
             ->when($this->tenantId !== '', fn ($query) => $query->where('tenant_id', $this->tenantId))

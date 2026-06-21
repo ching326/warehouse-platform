@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\InboundOrderCreate;
+use App\Livewire\InboundOrderDetail;
 use App\Livewire\InboundOrderIndex;
 use App\Livewire\InboundOrderReceive;
 use App\Models\InboundOrder;
@@ -131,6 +132,27 @@ class InboundOrderTest extends TestCase
         $this->assertSame(0, InventoryBalance::count());
     }
 
+    public function test_inbound_index_actions_link_to_detail_without_row_cancel(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->receivableSku();
+        $pending = $this->inboundOrder($tenant, $warehouse, $sku, status: InboundOrder::STATUS_PENDING, ref: 'IB-PENDING-LINK');
+        $arrived = $this->inboundOrder($tenant, $warehouse, $sku, status: InboundOrder::STATUS_ARRIVED, ref: 'IB-ARRIVED-LINK');
+        $partial = $this->inboundOrder($tenant, $warehouse, $sku, status: InboundOrder::STATUS_PARTIALLY_RECEIVED, ref: 'IB-PARTIAL-LINK');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(InboundOrderIndex::class)
+            ->assertSee('IB-PENDING-LINK')
+            ->assertSee(route('inbound.show', $pending), false)
+            ->assertSee(__('inbound.btn_mark_arrived'))
+            ->assertSee('IB-ARRIVED-LINK')
+            ->assertSee('IB-PARTIAL-LINK')
+            ->assertSee(__('inbound.btn_receive'))
+            ->assertDontSee(__('inbound.btn_cancel_order'));
+
+        $this->assertSame(InboundOrder::STATUS_ARRIVED, $arrived->refresh()->status);
+        $this->assertSame(InboundOrder::STATUS_PARTIALLY_RECEIVED, $partial->refresh()->status);
+    }
+
     public function test_cancel_is_blocked_after_any_received_quantity(): void
     {
         [$tenant, $warehouse, $sku] = $this->receivableSku();
@@ -138,10 +160,133 @@ class InboundOrderTest extends TestCase
         $order->lines()->firstOrFail()->update(['received_qty' => 1]);
 
         Livewire::actingAs($this->internalUser())
-            ->test(InboundOrderIndex::class)
-            ->call('cancel', $order->id);
+            ->test(InboundOrderDetail::class, ['order' => $order])
+            ->call('cancel')
+            ->assertSee(__('inbound.cannot_cancel_after_receiving'));
 
         $this->assertSame(InboundOrder::STATUS_ARRIVED, $order->refresh()->status);
+        $this->assertSame(0, InventoryMovement::count());
+    }
+
+    public function test_inbound_detail_route_renders_and_is_tenant_scoped(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->receivableSku();
+        [$otherTenant, $user] = $this->tenantUser();
+        $ownStock = StockItem::factory()->for($otherTenant)->create();
+        $ownSku = Sku::factory()->for($otherTenant)->for($ownStock)->create(['shop_id' => null]);
+        $internalOrder = $this->inboundOrder($tenant, $warehouse, $sku, ref: 'IB-INTERNAL-DETAIL');
+        $ownOrder = $this->inboundOrder($otherTenant, $warehouse, $ownSku, ref: 'IB-OWN-DETAIL');
+
+        $this->actingAs($this->internalUser())
+            ->get(route('inbound.show', $internalOrder))
+            ->assertOk()
+            ->assertSee('IB-INTERNAL-DETAIL');
+
+        $this->actingAs($user)
+            ->get(route('inbound.show', $ownOrder))
+            ->assertOk()
+            ->assertSee('IB-OWN-DETAIL');
+
+        $this->actingAs($user)
+            ->get(route('inbound.show', $internalOrder))
+            ->assertNotFound();
+    }
+
+    public function test_inbound_detail_buttons_follow_status_and_received_progress(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->receivableSku();
+        $pending = $this->inboundOrder($tenant, $warehouse, $sku, status: InboundOrder::STATUS_PENDING, ref: 'IB-PENDING-ACTIONS');
+        $arrived = $this->inboundOrder($tenant, $warehouse, $sku, status: InboundOrder::STATUS_ARRIVED, ref: 'IB-ARRIVED-ACTIONS');
+        $partial = $this->inboundOrder($tenant, $warehouse, $sku, status: InboundOrder::STATUS_PARTIALLY_RECEIVED, ref: 'IB-PARTIAL-ACTIONS');
+        $partial->lines()->firstOrFail()->update(['received_qty' => 1]);
+        $received = $this->inboundOrder($tenant, $warehouse, $sku, status: InboundOrder::STATUS_RECEIVED, ref: 'IB-RECEIVED-ACTIONS');
+        $received->lines()->firstOrFail()->update(['received_qty' => 5]);
+        $cancelled = $this->inboundOrder($tenant, $warehouse, $sku, status: InboundOrder::STATUS_CANCELLED, ref: 'IB-CANCELLED-ACTIONS');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(InboundOrderDetail::class, ['order' => $pending])
+            ->assertSee(__('inbound.btn_mark_arrived'))
+            ->assertSee(__('inbound.btn_cancel_order'));
+
+        Livewire::actingAs($this->internalUser())
+            ->test(InboundOrderDetail::class, ['order' => $arrived])
+            ->assertSee(__('inbound.btn_receive'))
+            ->assertSee(__('inbound.btn_cancel_order'));
+
+        Livewire::actingAs($this->internalUser())
+            ->test(InboundOrderDetail::class, ['order' => $partial])
+            ->assertSee(__('inbound.btn_receive'))
+            ->assertDontSee(__('inbound.btn_cancel_order'));
+
+        Livewire::actingAs($this->internalUser())
+            ->test(InboundOrderDetail::class, ['order' => $received])
+            ->assertDontSee(__('inbound.btn_cancel_order'));
+
+        Livewire::actingAs($this->internalUser())
+            ->test(InboundOrderDetail::class, ['order' => $cancelled])
+            ->assertDontSee(__('inbound.btn_cancel_order'));
+    }
+
+    public function test_mark_arrived_from_detail_sets_metadata(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->receivableSku();
+        $order = $this->inboundOrder($tenant, $warehouse, $sku, expectedQty: 5);
+        $user = $this->internalUser();
+
+        Livewire::actingAs($user)
+            ->test(InboundOrderDetail::class, ['order' => $order])
+            ->call('markArrived')
+            ->assertSee(__('inbound.order_arrived'));
+
+        $order->refresh();
+
+        $this->assertSame(InboundOrder::STATUS_ARRIVED, $order->status);
+        $this->assertNotNull($order->arrived_at);
+        $this->assertSame($user->id, $order->arrived_by_user_id);
+    }
+
+    public function test_cancel_from_detail_sets_status_and_does_not_change_inventory(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->receivableSku();
+        $order = $this->inboundOrder($tenant, $warehouse, $sku, status: InboundOrder::STATUS_ARRIVED, expectedQty: 5);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(InboundOrderDetail::class, ['order' => $order])
+            ->call('cancel')
+            ->assertSee(__('inbound.order_cancelled_detail'));
+
+        $this->assertSame(InboundOrder::STATUS_CANCELLED, $order->refresh()->status);
+        $this->assertSame(0, InventoryMovement::count());
+        $this->assertSame(0, InventoryBalance::count());
+    }
+
+    public function test_tenant_user_cannot_cancel_another_tenants_inbound_order(): void
+    {
+        [, $user] = $this->tenantUser();
+        [$otherTenant, $warehouse, $sku] = $this->receivableSku();
+        $order = $this->inboundOrder($otherTenant, $warehouse, $sku, status: InboundOrder::STATUS_PENDING);
+
+        $this->actingAs($user)
+            ->get(route('inbound.show', $order))
+            ->assertNotFound();
+
+        $this->assertSame(InboundOrder::STATUS_PENDING, $order->refresh()->status);
+    }
+
+    public function test_inbound_detail_shows_expected_lines_and_remaining_quantities(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->receivableSku();
+        $order = $this->inboundOrder($tenant, $warehouse, $sku, status: InboundOrder::STATUS_PARTIALLY_RECEIVED, expectedQty: 5);
+        $order->lines()->firstOrFail()->update(['received_qty' => 2, 'note' => 'Fragile cartons']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(InboundOrderDetail::class, ['order' => $order])
+            ->assertSee($sku->sku)
+            ->assertSee($sku->stockItem->code)
+            ->assertSee('5')
+            ->assertSee('2')
+            ->assertSee('3')
+            ->assertSee('Fragile cartons');
     }
 
     public function test_receive_creates_receipt_inventory_movement_and_completed_status(): void
@@ -236,6 +381,7 @@ class InboundOrderTest extends TestCase
 
         $this->actingAs($this->internalUser())->get('/inbound')->assertOk()->assertSee('Inbound Orders');
         $this->actingAs($this->internalUser())->get('/inbound/create')->assertOk()->assertSee('Create Inbound Order');
+        $this->actingAs($this->internalUser())->get(route('inbound.show', $order))->assertOk()->assertSee('Inbound Order');
         $this->actingAs($this->internalUser())->get(route('inbound.receive', $order))->assertOk()->assertSee('Receive Inbound Order');
     }
 

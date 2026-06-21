@@ -48,13 +48,28 @@
             <flux:table.rows>
                 @forelse ($orders as $order)
                     <flux:table.row :key="$order->id">
+                        @php
+                            $shops = $order->lines
+                                ->map(fn ($line) => $line->sku?->shop)
+                                ->filter()
+                                ->unique('id')
+                                ->values();
+                            $shopLabel = match (true) {
+                                $shops->isEmpty() => '-',
+                                $shops->count() === 1 => $shops->first()->code.' - '.$shops->first()->name,
+                                default => $shops->first()->code.' +'.($shops->count() - 1),
+                            };
+                        @endphp
                         <flux:table.cell>
-                            <strong>{{ $order->ref ?: '-' }}</strong>
-                            <span class="subtle">#{{ $order->id }}</span>
+                            <a class="inbound-order-number-text" href="{{ route('inbound.show', $order) }}" wire:navigate>
+                                #{{ $order->id }} {{ $order->ref ?: '-' }}
+                            </a>
                         </flux:table.cell>
                         <flux:table.cell>
-                            <strong>{{ $order->tenant->code }}</strong>
-                            <span class="subtle">{{ $order->warehouse->code }}</span>
+                            <span class="inbound-inline-pair">
+                                <strong>{{ $order->tenant->code }}</strong>
+                                <span class="inbound-inline-muted">{{ $shopLabel }}</span>
+                            </span>
                         </flux:table.cell>
                         <flux:table.cell>{{ $order->expected_at ? $order->expected_at->format('Y-m-d') : '-' }}</flux:table.cell>
                         <flux:table.cell align="end">{{ number_format($order->lines_count) }}</flux:table.cell>
@@ -73,14 +88,6 @@
                                         wire:confirm="{{ __('inbound.confirm_arrive') }}"
                                     >
                                         {{ __('inbound.btn_mark_arrived') }}
-                                    </flux:button>
-                                    <flux:button
-                                        type="button"
-                                        variant="danger"
-                                        wire:click="cancel({{ $order->id }})"
-                                        wire:confirm="{{ __('inbound.confirm_cancel') }}"
-                                    >
-                                        {{ __('inbound.btn_cancel_order') }}
                                     </flux:button>
                                 </div>
                             @elseif (in_array($order->status, ['arrived', 'partially_received'], true))
@@ -113,13 +120,55 @@
         }
 
         .inbound-row-actions > * {
-            min-width: 110px;
+            min-width: 92px;
         }
 
         .inbound-row-actions button,
         .inbound-row-actions a {
-            min-height: 34px;
+            height: 26px !important;
+            min-height: 26px !important;
+            padding-top: 2px !important;
+            padding-bottom: 2px !important;
+            font-size: 12px;
+            line-height: 1;
             justify-content: center;
+        }
+
+        .inbound-inline-pair {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            max-width: 100%;
+            min-width: 0;
+            white-space: nowrap;
+        }
+
+        .inbound-order-number-text {
+            display: inline-flex;
+            align-items: center;
+            max-width: 100%;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #2563eb;
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.2;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+        .inbound-inline-muted {
+            display: inline-flex;
+            align-items: center;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.2;
         }
 
         @media (max-width: 760px) {
