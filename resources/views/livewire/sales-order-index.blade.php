@@ -587,66 +587,56 @@
                     </flux:button>
                 </header>
 
-                @if ($trackingImportError)
-                    <div class="flash-message flash-message-error">{{ $trackingImportError }}</div>
-                @endif
-
-                <label
-                    class="tracking-import-dropzone"
-                    x-data="{ dragging: false }"
-                    x-bind:class="{ 'is-dragging': dragging }"
-                    x-on:dragover.prevent="dragging = true"
-                    x-on:dragleave.prevent="dragging = false"
-                    x-on:drop.prevent="
-                        dragging = false;
-                        const input = $refs.trackingFile;
-                        input.files = $event.dataTransfer.files;
-                        input.dispatchEvent(new Event('change', { bubbles: true }));
-                    "
+                <form
+                    method="POST"
+                    action="{{ route('sales.orders.tracking-import') }}"
+                    enctype="multipart/form-data"
+                    x-data="{ dragging: false, fileName: '' }"
                 >
-                    <input
-                        x-ref="trackingFile"
-                        class="tracking-import-file-input"
-                        type="file"
-                        wire:model="trackingImportFile"
-                        accept=".csv,.txt,text/csv,text/plain"
-                    >
-                    <strong>{{ __('sales_orders.tracking_import_drop_title') }}</strong>
-                    <span>{{ __('sales_orders.tracking_import_drop_hint') }}</span>
-                    @if ($trackingImportSourceFileName)
-                        <span class="tracking-import-file-name">{{ $trackingImportSourceFileName }}</span>
-                    @endif
-                    @error('trackingImportFile')
-                        <span class="danger-text">{{ $message }}</span>
-                    @enderror
-                    <span class="subtle" wire:loading wire:target="trackingImportFile,confirmTrackingImport">
-                        {{ __('sales_orders.tracking_import_loading') }}
-                    </span>
-                </label>
+                    @csrf
 
-                <div class="tracking-import-actions">
-                    <div class="tracking-import-courier">
-                        <span>{{ __('sales_orders.tracking_import_courier') }}</span>
-                        <flux:badge color="{{ $trackingImportCourier === 'unknown' ? 'zinc' : 'teal' }}">
-                            {{ $trackingImportCourier === 'unknown' ? __('sales_orders.tracking_import_auto_detect') : strtoupper($trackingImportCourier) }}
-                        </flux:badge>
+                    <label
+                        class="tracking-import-dropzone"
+                        x-bind:class="{ 'is-dragging': dragging }"
+                        x-on:dragover.prevent="dragging = true"
+                        x-on:dragleave.prevent="dragging = false"
+                        x-on:drop.prevent="
+                            dragging = false;
+                            const input = $refs.trackingFile;
+                            input.files = $event.dataTransfer.files;
+                            fileName = input.files.length ? input.files[0].name : '';
+                        "
+                    >
+                        <input
+                            x-ref="trackingFile"
+                            class="tracking-import-file-input"
+                            type="file"
+                            name="tracking_file"
+                            accept=".csv,.txt,text/csv,text/plain"
+                            x-on:change="fileName = $event.target.files.length ? $event.target.files[0].name : ''"
+                        >
+                        <strong>{{ __('sales_orders.tracking_import_drop_title') }}</strong>
+                        <span>{{ __('sales_orders.tracking_import_drop_hint') }}</span>
+                        <span class="tracking-import-file-name" x-show="fileName" x-text="fileName"></span>
+                    </label>
+
+                    <div class="tracking-import-actions">
+                        <div class="tracking-import-courier">
+                            <span>{{ __('sales_orders.tracking_import_courier') }}</span>
+                            <flux:badge color="zinc">{{ __('sales_orders.tracking_import_auto_detect') }}</flux:badge>
+                        </div>
+                        <p class="subtle">{{ __('sales_orders.tracking_import_direct_hint') }}</p>
                     </div>
-                    <p class="subtle">{{ __('sales_orders.tracking_import_direct_hint') }}</p>
-                </div>
 
-                <footer class="tracking-import-footer">
-                    <flux:button type="button" variant="ghost" wire:click="closeTrackingImportModal">
-                        {{ __('common.cancel') }}
-                    </flux:button>
-                    <flux:button
-                        type="button"
-                        variant="primary"
-                        wire:click="confirmTrackingImport"
-                        wire:loading.attr="disabled"
-                    >
-                        {{ __('sales_orders.tracking_import_confirm_btn') }}
-                    </flux:button>
-                </footer>
+                    <footer class="tracking-import-footer">
+                        <flux:button type="button" variant="ghost" wire:click="closeTrackingImportModal">
+                            {{ __('common.cancel') }}
+                        </flux:button>
+                        <flux:button type="submit" variant="primary">
+                            {{ __('sales_orders.tracking_import_confirm_btn') }}
+                        </flux:button>
+                    </footer>
+                </form>
             </section>
         </div>
     @endif

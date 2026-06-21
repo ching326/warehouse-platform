@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\SalesOrderIndex;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\Shop;
@@ -13,7 +12,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Testing\File;
-use Livewire\Livewire;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 class SalesOrderTrackingImportTest extends TestCase
@@ -22,18 +21,15 @@ class SalesOrderTrackingImportTest extends TestCase
 
     public function test_yamato_tracking_import_updates_by_exact_and_suffix_platform_order_id(): void
     {
-        [$tenant, $shop, $sku] = $this->salesSku();
+        [, $shop, $sku] = $this->salesSku();
         $exact = $this->createOrder($shop, $sku, ['platform_order_id' => 'A000-20260619-1000']);
         $suffix = $this->createOrder($shop, $sku, ['platform_order_id' => 'B000-0613-0659033902']);
-        $csv = "注文番号,Name,Postal,伝票番号\n"
-            ."A000-20260619-1000,,,123456789012\n"
+        $csv = "A000-20260619-1000,,,123456789012\n"
             ."0613-0659033902,,,987654321098\n";
 
-        Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderIndex::class)
-            ->set('trackingImportFile', $this->upload('yamato.csv', $csv))
-            ->call('confirmTrackingImport')
-            ->assertSet('showTrackingImportModal', false);
+        $this->importTracking($this->internalUser(), 'yamato.csv', $csv)
+            ->assertRedirect(route('sales.orders.index'))
+            ->assertSessionHas('status', __('sales_orders.tracking_import_succeeded'));
 
         $this->assertSame('123456789012', $exact->refresh()->tracking_no);
         $this->assertSame('987654321098', $suffix->refresh()->tracking_no);
@@ -49,14 +45,11 @@ class SalesOrderTrackingImportTest extends TestCase
     {
         [, $shop, $sku] = $this->salesSku();
         $order = $this->createOrder($shop, $sku, ['platform_order_id' => 'SG-ORDER-1']);
-        $csv = "お問い合わせ送り状No,お客様管理番号\n"
-            ."456789012345,SG-ORDER-1\n";
+        $csv = "456789012345,SG-ORDER-1\n";
 
-        Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderIndex::class)
-            ->set('trackingImportFile', $this->upload('sagawa.csv', $csv))
-            ->call('confirmTrackingImport')
-            ->assertSet('showTrackingImportModal', false);
+        $this->importTracking($this->internalUser(), 'sagawa.csv', $csv)
+            ->assertRedirect(route('sales.orders.index'))
+            ->assertSessionHas('status', __('sales_orders.tracking_import_succeeded'));
 
         $this->assertSame('456789012345', $order->refresh()->tracking_no);
     }
@@ -70,15 +63,12 @@ class SalesOrderTrackingImportTest extends TestCase
 
         [$otherTenant, $otherShop, $otherSku] = $this->salesSku();
         $otherOrder = $this->createOrder($otherShop, $otherSku, ['platform_order_id' => 'OTHER-ORDER']);
-        $csv = "注文番号,Name,Postal,伝票番号\n"
-            ."OWN-ORDER,,,111111111111\n"
+        $csv = "OWN-ORDER,,,111111111111\n"
             ."OTHER-ORDER,,,222222222222\n";
 
-        Livewire::actingAs($user)
-            ->test(SalesOrderIndex::class)
-            ->set('trackingImportFile', $this->upload('tenant-yamato.csv', $csv))
-            ->call('confirmTrackingImport')
-            ->assertSet('showTrackingImportModal', false);
+        $this->importTracking($user, 'tenant-yamato.csv', $csv)
+            ->assertRedirect(route('sales.orders.index'))
+            ->assertSessionHas('status', __('sales_orders.tracking_import_succeeded'));
 
         $this->assertSame('111111111111', $ownOrder->refresh()->tracking_no);
         $this->assertNull($otherOrder->refresh()->tracking_no);
@@ -89,32 +79,28 @@ class SalesOrderTrackingImportTest extends TestCase
     {
         [, $shop, $sku] = $this->salesSku();
         $order = $this->createOrder($shop, $sku, ['platform_order_id' => 'PLATFORM-ONLY']);
-        $csv = "注文番号,Name,Postal,伝票番号\n"
+        $csv = "NO-MATCH,,,999999999999\n"
             .$order->id.",,,123123123123\n";
 
-        Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderIndex::class)
-            ->set('trackingImportFile', $this->upload('internal-id.csv', $csv))
-            ->call('confirmTrackingImport')
-            ->assertSet('showTrackingImportModal', false);
+        $this->importTracking($this->internalUser(), 'internal-id.csv', $csv)
+            ->assertRedirect(route('sales.orders.index'))
+            ->assertSessionHas('status', __('sales_orders.tracking_import_succeeded'));
 
         $this->assertNull($order->refresh()->tracking_no);
     }
 
-    public function test_tracking_import_marks_duplicate_platform_order_id_as_ambiguous(): void
+    public function test_tracking_import_skips_duplicate_platform_order_id_matches(): void
     {
         [$tenant, $shopA, $skuA] = $this->salesSku();
         $shopB = Shop::factory()->for($tenant)->create(['status' => 'active']);
         $skuB = $this->skuFor($tenant, $shopB);
         $first = $this->createOrder($shopA, $skuA, ['platform_order_id' => 'DUP-ORDER']);
         $second = $this->createOrder($shopB, $skuB, ['platform_order_id' => 'DUP-ORDER']);
-        $csv = "注文番号,Name,Postal,伝票番号\nDUP-ORDER,,,123456789012\n";
+        $csv = "DUP-ORDER,,,123456789012\n";
 
-        Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderIndex::class)
-            ->set('trackingImportFile', $this->upload('ambiguous.csv', $csv))
-            ->call('confirmTrackingImport')
-            ->assertSet('showTrackingImportModal', false);
+        $this->importTracking($this->internalUser(), 'ambiguous.csv', $csv)
+            ->assertRedirect(route('sales.orders.index'))
+            ->assertSessionHas('status', __('sales_orders.tracking_import_succeeded'));
 
         $this->assertNull($first->refresh()->tracking_no);
         $this->assertNull($second->refresh()->tracking_no);
@@ -125,14 +111,11 @@ class SalesOrderTrackingImportTest extends TestCase
         [, $shop, $sku] = $this->salesSku();
         $first = $this->createOrder($shop, $sku, ['platform_order_id' => 'ORDER-100']);
         $second = $this->createOrder($shop, $sku, ['platform_order_id' => 'ORDER-200']);
-        $csv = "縺雁撫縺・粋繧上○騾√ｊ迥ｶNo,縺雁ｮ｢讒倡ｮ｡逅・分蜿ｷ\n"
-            ."440069713300,00-TEST\n";
+        $csv = "440069713300,00-TEST\n";
 
-        Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderIndex::class)
-            ->set('trackingImportFile', $this->upload('short-sagawa.csv', $csv))
-            ->call('confirmTrackingImport')
-            ->assertSet('showTrackingImportModal', false);
+        $this->importTracking($this->internalUser(), 'short-sagawa.csv', $csv)
+            ->assertRedirect(route('sales.orders.index'))
+            ->assertSessionHas('status', __('sales_orders.tracking_import_succeeded'));
 
         $this->assertNull($first->refresh()->tracking_no);
         $this->assertNull($second->refresh()->tracking_no);
@@ -145,45 +128,36 @@ class SalesOrderTrackingImportTest extends TestCase
             'platform_order_id' => 'SAME-ORDER',
             'tracking_no' => '123456789012',
         ]);
-        $csv = "注文番号,Name,Postal,伝票番号\nSAME-ORDER,,,123456789012\n";
+        $csv = "SAME-ORDER,,,123456789012\n";
 
-        Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderIndex::class)
-            ->set('trackingImportFile', $this->upload('same.csv', $csv))
-            ->call('confirmTrackingImport')
-            ->assertSet('showTrackingImportModal', false);
+        $this->importTracking($this->internalUser(), 'same.csv', $csv)
+            ->assertRedirect(route('sales.orders.index'))
+            ->assertSessionHas('status', __('sales_orders.tracking_import_succeeded'));
 
         $this->assertSame('123456789012', $order->refresh()->tracking_no);
     }
 
     public function test_tracking_import_handles_missing_values_and_unknown_courier(): void
     {
-        Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderIndex::class)
-            ->set('trackingImportFile', $this->upload('bad.csv', "foo,bar\nnot,a,courier\n"))
-            ->call('confirmTrackingImport')
-            ->assertSet('trackingImportCourier', 'unknown')
-            ->assertSet('trackingImportError', __('sales_orders.tracking_import_unknown_courier'));
+        $this->importTracking($this->internalUser(), 'bad.csv', "foo,bar\nnot,a,courier\n")
+            ->assertRedirect(route('sales.orders.index'))
+            ->assertSessionHas('error', __('sales_orders.tracking_import_unknown_courier'));
 
-        Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderIndex::class)
-            ->set('trackingImportFile', $this->upload('missing.csv', "注文番号,Name,Postal,伝票番号\n,,,123456789012\nORDER-1,,,\n"))
-            ->call('confirmTrackingImport')
-            ->assertSet('showTrackingImportModal', false);
+        $this->importTracking($this->internalUser(), 'missing.csv', "NO-MATCH,,,999999999999\n,,,123456789012\nORDER-1,,,\n")
+            ->assertRedirect(route('sales.orders.index'))
+            ->assertSessionHas('status', __('sales_orders.tracking_import_succeeded'));
     }
 
     public function test_tracking_import_reads_sjis_yamato_file(): void
     {
         [, $shop, $sku] = $this->salesSku();
         $order = $this->createOrder($shop, $sku, ['platform_order_id' => 'SJIS-ORDER']);
-        $csv = "注文番号,Name,Postal,伝票番号\nSJIS-ORDER,,,123456789012\n";
+        $csv = "SJIS-ORDER,,,123456789012\n";
         $sjis = mb_convert_encoding($csv, 'SJIS-win', 'UTF-8');
 
-        Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderIndex::class)
-            ->set('trackingImportFile', $this->upload('sjis.csv', $sjis))
-            ->call('confirmTrackingImport')
-            ->assertSet('showTrackingImportModal', false);
+        $this->importTracking($this->internalUser(), 'sjis.csv', $sjis)
+            ->assertRedirect(route('sales.orders.index'))
+            ->assertSessionHas('status', __('sales_orders.tracking_import_succeeded'));
 
         $this->assertSame('123456789012', $order->refresh()->tracking_no);
     }
@@ -191,6 +165,13 @@ class SalesOrderTrackingImportTest extends TestCase
     private function upload(string $name, string $contents): File
     {
         return File::createWithContent($name, $contents);
+    }
+
+    private function importTracking(User $user, string $name, string $contents): TestResponse
+    {
+        return $this->actingAs($user)->post(route('sales.orders.tracking-import'), [
+            'tracking_file' => $this->upload($name, $contents),
+        ]);
     }
 
     /**

@@ -8,7 +8,6 @@ use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Tenant;
 use App\Services\Courier\CourierExportService;
-use App\Services\Courier\TrackingImport\TrackingImportParser;
 use App\Services\MarketplaceShippingNotice\MarketplaceShippingNoticeExportService;
 use App\Support\CourierCarrier;
 use App\Support\SalesOrderFilters;
@@ -18,12 +17,10 @@ use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 
 class SalesOrderIndex extends Component
 {
-    use WithFileUploads;
     use WithPagination;
 
     #[Url(as: 'platforms', except: [])]
@@ -83,14 +80,6 @@ class SalesOrderIndex extends Component
     public ?string $filterWarning = null;
 
     public bool $showTrackingImportModal = false;
-
-    public $trackingImportFile = null;
-
-    public string $trackingImportCourier = 'unknown';
-
-    public ?string $trackingImportError = null;
-
-    public ?string $trackingImportSourceFileName = null;
 
     private bool $allowedTenantIdsResolved = false;
 
@@ -608,90 +597,12 @@ class SalesOrderIndex extends Component
 
     public function openTrackingImportModal(): void
     {
-        $this->resetTrackingImportState();
         $this->showTrackingImportModal = true;
     }
 
     public function closeTrackingImportModal(): void
     {
-        $this->resetTrackingImportState();
         $this->showTrackingImportModal = false;
-        $this->resetValidation('trackingImportFile');
-    }
-
-    public function confirmTrackingImport(): void
-    {
-        $this->validate([
-            'trackingImportFile' => ['required', 'file', 'max:5120'],
-        ]);
-
-        $parsed = $this->parseTrackingImportFile();
-        $this->trackingImportCourier = $parsed['courier'];
-
-        if ($parsed['error'] === 'unknown_courier') {
-            $this->trackingImportError = __('sales_orders.tracking_import_unknown_courier');
-
-            return;
-        }
-
-        DB::transaction(function () use ($parsed): void {
-            $updated = 0;
-            $user = Auth::user();
-
-            foreach ($parsed['rows'] as $row) {
-                if ($row['status'] !== TrackingImportParser::STATUS_READY) {
-                    continue;
-                }
-
-                $orders = $this->findTrackingImportOrders((array) $row['order_tokens']);
-
-                if ($orders->count() !== 1) {
-                    continue;
-                }
-
-                $order = SalesOrder::query()
-                    ->whereIn('tenant_id', $this->allowedTenantIds())
-                    ->whereKey($orders->first()->id)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (! $order) {
-                    continue;
-                }
-
-                $oldTrackingNo = $order->tracking_no;
-                $newTrackingNo = mb_substr((string) $row['tracking_no'], 0, 255);
-
-                if ($oldTrackingNo === $newTrackingNo) {
-                    continue;
-                }
-
-                $order->update(['tracking_no' => $newTrackingNo]);
-
-                activity('sales_order')
-                    ->performedOn($order)
-                    ->causedBy($user)
-                    ->event('tracking_imported')
-                    ->withProperties([
-                        'courier' => $this->trackingImportCourier,
-                        'old_tracking_no' => $oldTrackingNo,
-                        'new_tracking_no' => $newTrackingNo,
-                        'source_file_name' => $this->trackingImportSourceFileName,
-                        'row_no' => $row['row_no'],
-                    ])
-                    ->log('tracking_imported');
-
-                $updated++;
-            }
-        });
-
-        $this->trackingImportError = null;
-        $this->trackingDrafts = [];
-        $this->trackingSavedDrafts = [];
-
-        session()->flash('status', __('sales_orders.tracking_import_succeeded'));
-
-        $this->closeTrackingImportModal();
     }
 
     private function clearPendingExport(): void
@@ -703,71 +614,6 @@ class SalesOrderIndex extends Component
         $this->pendingExportWarning = null;
 
         session()->forget('warning');
-    }
-
-    private function resetTrackingImportState(): void
-    {
-        $this->trackingImportFile = null;
-        $this->trackingImportCourier = 'unknown';
-        $this->trackingImportError = null;
-        $this->trackingImportSourceFileName = null;
-    }
-
-    /**
-     * @return array{courier: string, delimiter: string, rows: array<int, array<string, mixed>>, error: ?string}
-     */
-    private function parseTrackingImportFile(): array
-    {
-        $this->trackingImportSourceFileName = method_exists($this->trackingImportFile, 'getClientOriginalName')
-            ? $this->trackingImportFile->getClientOriginalName()
-            : null;
-
-        $contents = file_get_contents($this->trackingImportFile->getRealPath());
-
-        return app(TrackingImportParser::class)->parse($contents === false ? '' : $contents);
-    }
-
-    /**
-     * @param  array<int, string>  $tokens
-     * @return Collection<int, SalesOrder>
-     */
-    private function findTrackingImportOrders(array $tokens): Collection
-    {
-        $tokens = collect($tokens)
-            ->map(fn (string $token): string => trim($token))
-            ->filter()
-            ->unique()
-            ->values();
-
-        if ($tokens->isEmpty()) {
-            return collect();
-        }
-
-        $exactMatches = SalesOrder::query()
-            ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->whereIn('platform_order_id', $tokens->all())
-            ->get(['id', 'tenant_id', 'platform_order_id', 'tracking_no']);
-
-        if ($exactMatches->isNotEmpty()) {
-            return $exactMatches;
-        }
-
-        $suffixTokens = $tokens
-            ->filter(fn (string $token): bool => mb_strlen($token) === 15)
-            ->values();
-
-        if ($suffixTokens->isEmpty()) {
-            return collect();
-        }
-
-        return SalesOrder::query()
-            ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->where(function ($query) use ($suffixTokens): void {
-                foreach ($suffixTokens as $token) {
-                    $query->orWhereRaw('substr(platform_order_id, ?) = ?', [-15, $token]);
-                }
-            })
-            ->get(['id', 'tenant_id', 'platform_order_id', 'tracking_no']);
     }
 
     public function render()
