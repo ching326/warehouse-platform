@@ -305,9 +305,14 @@
                 },
             }"
         >
-        <div class="sales-order-page-actions" data-testid="sales-order-page-actions">
-            <details class="action-menu primary" data-testid="sales-order-page-import-menu">
-                <summary><span class="action-menu-label"><flux:icon.arrow-up-tray />{{ __('sales_orders.import_btn') }}</span></summary>
+        <div class="sales-order-page-actions" data-testid="sales-order-page-actions" x-data="{ openActionMenu: null }">
+            <details
+                class="action-menu primary action-menu-align-left"
+                data-testid="sales-order-page-import-menu"
+                x-bind:open="openActionMenu === 'import'"
+                x-on:click.outside="if (openActionMenu === 'import') openActionMenu = null"
+            >
+                <summary x-on:click.prevent="openActionMenu = openActionMenu === 'import' ? null : 'import'"><span class="action-menu-label"><flux:icon.arrow-up-tray />{{ __('sales_orders.import_btn') }}</span></summary>
                 <div class="action-menu-panel action-menu-panel-sectioned">
                     <div class="action-menu-section" data-testid="sales-order-orders-import-menu">
                         <span>{{ __('sales_orders.import_orders_menu') }}</span>
@@ -330,8 +335,13 @@
                     </div>
                 </div>
             </details>
-            <details class="action-menu primary" data-testid="sales-order-page-export-menu">
-                <summary><span class="action-menu-label"><flux:icon.arrow-down-tray />{{ __('sales_orders.export_menu') }}</span></summary>
+            <details
+                class="action-menu primary action-menu-align-right"
+                data-testid="sales-order-page-export-menu"
+                x-bind:open="openActionMenu === 'export'"
+                x-on:click.outside="if (openActionMenu === 'export') openActionMenu = null"
+            >
+                <summary x-on:click.prevent="openActionMenu = openActionMenu === 'export' ? null : 'export'"><span class="action-menu-label"><flux:icon.arrow-down-tray />{{ __('sales_orders.export_menu') }}</span></summary>
                 <div class="action-menu-panel action-menu-panel-sectioned">
                     <div class="action-menu-section" data-testid="sales-order-courier-export-menu">
                         <span>{{ __('sales_orders.courier_export_menu') }}</span>
@@ -572,6 +582,7 @@
         </div>
         </div>
     </section>
+
     @if ($showTrackingImportModal)
         <div class="modal-backdrop tracking-import-backdrop" wire:key="tracking-import-modal">
             <section class="tracking-import-modal flux-panel">

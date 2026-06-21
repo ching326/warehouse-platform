@@ -40,7 +40,7 @@
                 <flux:table.column>{{ __('inbound.col_ref') }}</flux:table.column>
                 <flux:table.column>{{ __('inbound.col_tenant_warehouse') }}</flux:table.column>
                 <flux:table.column>{{ __('inbound.col_expected_at') }}</flux:table.column>
-                <flux:table.column align="end">{{ __('inbound.col_lines') }}</flux:table.column>
+                <flux:table.column align="center">{{ __('inbound.col_lines') }}</flux:table.column>
                 <flux:table.column>{{ __('inbound.col_status') }}</flux:table.column>
                 <flux:table.column>{{ __('inbound.col_actions') }}</flux:table.column>
             </flux:table.columns>
@@ -72,7 +72,7 @@
                             </span>
                         </flux:table.cell>
                         <flux:table.cell>{{ $order->expected_at ? $order->expected_at->format('Y-m-d') : '-' }}</flux:table.cell>
-                        <flux:table.cell align="end">{{ number_format($order->lines_count) }}</flux:table.cell>
+                        <flux:table.cell align="center">{{ number_format($order->lines_count) }}</flux:table.cell>
                         <flux:table.cell>
                             <flux:badge color="{{ $this->statusColor($order->status) }}">
                                 {{ $this->statusLabel($order->status) }}
@@ -120,7 +120,7 @@
         }
 
         .inbound-row-actions > * {
-            min-width: 92px;
+            width: 92px;
         }
 
         .inbound-row-actions button,
@@ -155,8 +155,12 @@
             font-size: 13px;
             font-weight: 700;
             line-height: 1.2;
-            text-decoration: underline;
-            text-underline-offset: 2px;
+            text-decoration: none;
+        }
+
+        .inbound-order-number-text:hover {
+            color: #1d4ed8;
+            text-decoration: none;
         }
 
         .inbound-inline-muted {

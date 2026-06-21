@@ -89,14 +89,6 @@
                 {{ __('common.nav_inbound') }}
             </a>
 
-            {{-- Return Orders --}}
-            <a
-                href="{{ route('return-orders.index') }}"
-                class="top-nav-btn {{ $returnOrdersActive ? 'is-active' : '' }}"
-                wire:navigate
-            >
-                {{ __('common.nav_return_orders') }}
-            </a>
             {{-- Outbound --}}
             <a
                 href="{{ route('outbound.index') }}"
@@ -122,6 +114,15 @@
                 wire:navigate
             >
                 {{ __('common.nav_fulfillment_groups') }}
+            </a>
+
+            {{-- Returns --}}
+            <a
+                href="{{ route('return-orders.index') }}"
+                class="top-nav-btn {{ $returnOrdersActive ? 'is-active' : '' }}"
+                wire:navigate
+            >
+                {{ __('common.nav_return_orders') }}
             </a>
 
             {{-- Issues --}}

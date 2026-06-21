@@ -61,7 +61,7 @@ return [
     'col_ref' => 'Ref',
     'col_tenant_warehouse' => 'Tenant / Shop',
     'col_expected_at' => 'Expected',
-    'col_lines' => 'Lines',
+    'col_lines' => 'SKUS',
     'col_status' => 'Status',
     'col_actions' => 'Actions',
     'created_at' => 'Created at',

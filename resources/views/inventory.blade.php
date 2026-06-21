@@ -1298,6 +1298,16 @@
                 margin-bottom: 12px;
             }
 
+            .sales-order-page-actions .action-menu-align-left .action-menu-panel {
+                left: 0;
+                right: auto;
+            }
+
+            .sales-order-page-actions .action-menu-align-right .action-menu-panel {
+                left: auto;
+                right: 0;
+            }
+
             .sales-order-action-row {
                 display: flex;
                 align-items: center;
@@ -1779,24 +1789,67 @@
                 accent-color: var(--accent);
             }
 
+            .view-switcher {
+                display: inline-flex;
+                gap: 2px;
+                padding: 3px;
+                background: #edeff3;
+                border-radius: 8px;
+            }
+
+            .view-switcher-btn {
+                border: none;
+                background: transparent;
+                color: var(--muted);
+                cursor: pointer;
+                font-size: 13px;
+                font-weight: 500;
+                line-height: 1;
+                padding: 7px 14px;
+                border-radius: 6px;
+                white-space: nowrap;
+                transition: background 0.12s, color 0.12s;
+            }
+
+            .view-switcher-btn:hover {
+                color: var(--ink);
+            }
+
+            .view-switcher-btn.is-active {
+                background: #fff;
+                color: var(--accent);
+                font-weight: 600;
+                box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+            }
+
             .default-view-toggle {
                 display: inline-flex;
                 align-items: center;
                 gap: 8px;
-                min-height: 34px;
                 border: 1px solid var(--line);
                 border-radius: 6px;
                 background: #fff;
                 color: var(--ink);
-                padding: 7px 10px;
+                padding: 9px 12px;
                 font-size: 12px;
                 font-weight: 700;
             }
 
             .default-view-toggle input {
+                flex: 0 0 auto;
                 width: 15px;
                 height: 15px;
+                margin: 0;
                 accent-color: var(--accent);
+            }
+
+            .default-view-toggle span {
+                display: inline-flex;
+                align-items: center;
+                margin: 0;
+                color: inherit;
+                font-size: inherit;
+                line-height: 1;
             }
 
             .checkbox-stack {

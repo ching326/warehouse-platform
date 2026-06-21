@@ -13,16 +13,16 @@
         @endif
 
         <div class="active-filter-row">
-            <div class="segmented-row">
+            <div class="view-switcher" role="group" aria-label="{{ __('skus.view_switcher_label') }}">
                 @foreach ($views as $viewKey => $viewLabel)
-                    <flux:button
+                    <button
                         type="button"
-                        size="sm"
-                        variant="{{ $view === $viewKey ? 'primary' : 'outline' }}"
+                        @class(['view-switcher-btn', 'is-active' => $view === $viewKey])
+                        aria-pressed="{{ $view === $viewKey ? 'true' : 'false' }}"
                         wire:click="switchView('{{ $viewKey }}')"
                     >
                         {{ $viewLabel }}
-                    </flux:button>
+                    </button>
                 @endforeach
             </div>
             @if ($canSaveDefaultView)
