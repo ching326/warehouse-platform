@@ -273,6 +273,39 @@ class MarketplaceShippingNoticeExportTest extends TestCase
         $this->assertSame($tenant->id, MarketplaceShippingNoticeBatch::firstOrFail()->tenant_id);
     }
 
+    public function test_sales_order_index_marketplace_notice_reexport_confirmation_exports_full_mixed_selection(): void
+    {
+        Storage::fake('local');
+        [, $shop, $sku] = $this->salesSku('amazon');
+        $alreadyExported = $this->order($shop, $sku, [
+            'platform_order_id' => 'AMZ-EXPORTED-1',
+            'marketplace_shipping_notice_exported_at' => now(),
+        ]);
+        $newOrder = $this->order($shop, $sku, [
+            'platform_order_id' => 'AMZ-NEW-1',
+        ]);
+        $this->mapping($alreadyExported->shippingMethod, 'amazon');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [$alreadyExported->id, $newOrder->id])
+            ->call('validateMarketplaceShippingNoticeExport', 'amazon')
+            ->assertSet('pendingMarketplaceNoticePlatform', 'amazon')
+            ->assertSet('pendingMarketplaceNoticeOrderIds', [$alreadyExported->id, $newOrder->id])
+            ->assertSet('pendingExportWarning', "Below orders were already exported. Export again?\nAMZ-EXPORTED-1")
+            ->call('confirmMarketplaceShippingNoticeExport')
+            ->assertRedirect(route('marketplace-shipping-notice-batches.download', MarketplaceShippingNoticeBatch::firstOrFail()));
+
+        $batch = MarketplaceShippingNoticeBatch::firstOrFail();
+        $this->assertSame(2, $batch->order_count);
+        $this->assertEqualsCanonicalizing(
+            [$alreadyExported->id, $newOrder->id],
+            $batch->orders()->pluck('sales_order_id')->all(),
+        );
+        $this->assertNotNull($alreadyExported->fresh()->marketplace_shipping_notice_exported_at);
+        $this->assertNotNull($newOrder->fresh()->marketplace_shipping_notice_exported_at);
+    }
+
     public function test_sales_order_index_can_cancel_marketplace_notice_reexport_confirmation(): void
     {
         [$tenant, $shop, $sku] = $this->salesSku('amazon');

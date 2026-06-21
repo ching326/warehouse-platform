@@ -144,6 +144,39 @@ class CourierExportTest extends TestCase
             ->assertRedirect(route('courier-export-batches.download', CourierExportBatch::firstOrFail()));
     }
 
+    public function test_sales_order_index_courier_reexport_confirmation_exports_full_mixed_selection(): void
+    {
+        Storage::fake('local');
+        [, $shop, $sku] = $this->salesSku();
+        $alreadyExported = $this->order($shop, $sku, [
+            'shipping_method' => CourierCarrier::YAMATO,
+            'platform_order_id' => 'YMT-EXPORTED-1',
+            'courier_csv_exported_at' => now(),
+        ]);
+        $newOrder = $this->order($shop, $sku, [
+            'shipping_method' => CourierCarrier::YAMATO,
+            'platform_order_id' => 'YMT-NEW-1',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [$alreadyExported->id, $newOrder->id])
+            ->call('validateCourierExport', CourierCarrier::YAMATO)
+            ->assertSet('pendingCourierExportOrderIds', [$alreadyExported->id, $newOrder->id])
+            ->assertSet('pendingExportWarning', "Below orders were already exported. Export again?\nYMT-EXPORTED-1")
+            ->call('confirmCourierExport')
+            ->assertRedirect(route('courier-export-batches.download', CourierExportBatch::firstOrFail()));
+
+        $batch = CourierExportBatch::firstOrFail();
+        $this->assertSame(2, $batch->order_count);
+        $this->assertEqualsCanonicalizing(
+            [$alreadyExported->id, $newOrder->id],
+            $batch->orders()->pluck('sales_order_id')->all(),
+        );
+        $this->assertNotNull($alreadyExported->fresh()->courier_csv_exported_at);
+        $this->assertNotNull($newOrder->fresh()->courier_csv_exported_at);
+    }
+
     public function test_confirmed_re_export_creates_new_batch(): void
     {
         Storage::fake('local');

@@ -508,7 +508,7 @@ class SalesOrderIndex extends Component
 
         if ($result->requiresConfirmation) {
             $this->pendingCourierExportCarrier = $carrier;
-            $this->pendingCourierExportOrderIds = $result->alreadyExportedOrderIds;
+            $this->pendingCourierExportOrderIds = $this->normalizedSelectedIds();
             $this->pendingExportWarning = $this->reExportWarning($result->alreadyExportedOrderIds);
 
             return null;
@@ -562,7 +562,7 @@ class SalesOrderIndex extends Component
 
         if ($result->requiresConfirmation) {
             $this->pendingMarketplaceNoticePlatform = strtolower($platform);
-            $this->pendingMarketplaceNoticeOrderIds = $result->alreadyExportedOrderIds;
+            $this->pendingMarketplaceNoticeOrderIds = $this->normalizedSelectedIds();
             $this->pendingExportWarning = $this->reExportWarning($result->alreadyExportedOrderIds);
 
             return null;
