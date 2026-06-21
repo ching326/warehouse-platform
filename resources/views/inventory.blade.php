@@ -1394,6 +1394,26 @@
                 padding-right: 10px;
             }
 
+            .sku-logistics-table th:nth-child(4),
+            .sku-logistics-table th:nth-child(5),
+            .sku-logistics-table th:nth-child(6),
+            .sku-logistics-table th:nth-child(7),
+            .sku-logistics-table td:nth-child(4),
+            .sku-logistics-table td:nth-child(5),
+            .sku-logistics-table td:nth-child(6),
+            .sku-logistics-table td:nth-child(7) {
+                width: 92px;
+            }
+
+            .sku-number-cell input {
+                width: 100%;
+                min-width: 0;
+            }
+
+            .sku-short-name-cell input {
+                width: 100%;
+            }
+
             .sku-primary-cell strong,
             .sku-primary-cell span,
             .sku-primary-cell small,
@@ -1548,6 +1568,26 @@
                 min-width: 16px;
                 min-height: 16px;
                 flex: 0 0 16px;
+                accent-color: var(--accent);
+            }
+
+            .default-view-toggle {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                min-height: 34px;
+                border: 1px solid var(--line);
+                border-radius: 6px;
+                background: #fff;
+                color: var(--ink);
+                padding: 7px 10px;
+                font-size: 12px;
+                font-weight: 700;
+            }
+
+            .default-view-toggle input {
+                width: 15px;
+                height: 15px;
                 accent-color: var(--accent);
             }
 

@@ -42,6 +42,8 @@ class SkusIndex extends Component
 
     public array $logisticsDrafts = [];
 
+    public bool $currentViewIsDefault = false;
+
     private const VIEW_DETAILED = 'detailed';
     private const VIEW_CATALOG = 'catalog';
     private const VIEW_MARKETPLACE = 'marketplace';
@@ -57,6 +59,8 @@ class SkusIndex extends Component
             is_string($savedView) && $this->isAllowedView($savedView) => $savedView,
             default => self::VIEW_DETAILED,
         };
+
+        $this->syncCurrentViewIsDefault();
     }
 
     public function updatedView(): void
@@ -65,6 +69,7 @@ class SkusIndex extends Component
             $this->view = self::VIEW_DETAILED;
         }
 
+        $this->syncCurrentViewIsDefault();
         $this->resetPage();
     }
 
@@ -102,10 +107,11 @@ class SkusIndex extends Component
     public function switchView(string $view): void
     {
         $this->view = $this->isAllowedView($view) ? $view : self::VIEW_DETAILED;
+        $this->syncCurrentViewIsDefault();
         $this->resetPage();
     }
 
-    public function saveDefaultView(): void
+    public function updatedCurrentViewIsDefault(bool $checked): void
     {
         $user = Auth::user();
 
@@ -113,8 +119,15 @@ class SkusIndex extends Component
             return;
         }
 
-        $user->setPreference('skus_view', $this->view);
-        session()->flash('status', __('skus.default_view_saved'));
+        if ($checked) {
+            $user->setPreference('skus_view', $this->view);
+            session()->flash('status', __('skus.default_view_saved'));
+
+            return;
+        }
+
+        $user->forgetPreference('skus_view');
+        session()->flash('status', __('skus.default_view_cleared'));
     }
 
     public function saveLogisticsField(int $skuId, string $field): void
@@ -192,7 +205,7 @@ class SkusIndex extends Component
             ->with([
                 'tenant:id,code,name',
                 'shop:id,tenant_id,code,name,platform,marketplace',
-                'stockItem:id,tenant_id,code,name,short_name,barcode,product_type,weight_value,weight_unit,length_value,width_value,height_value,dimension_unit',
+                'stockItem:id,tenant_id,code,name,short_name,brand,variation_code,barcode,product_type,weight_value,weight_unit,length_value,width_value,height_value,dimension_unit',
                 'bundleComponents' => fn ($query) => $query->with('componentStockItem:id,tenant_id,code,name')->orderBy('id'),
                 'defaultPackagingMaterial:id,code,name,type',
                 'defaultShippingMethod:id,carrier_id,code,name,status',
@@ -248,15 +261,14 @@ class SkusIndex extends Component
         $value = match ($key) {
             'sku' => $sku->sku,
             'name' => $sku->name,
-            'stock_code' => $sku->stockItem?->code,
-            'stock_short_name' => $sku->stockItem?->short_name,
+            'brand' => $sku->stockItem?->brand,
+            'variation_code' => $sku->stockItem?->variation_code,
+            'barcode' => $sku->stockItem?->barcode,
             'shop_code' => $sku->shop?->code,
             'type' => $this->skuTypeLabel($sku->sku_type),
             'status' => $this->statusLabel($sku->status),
-            'platform_sku' => $sku->platform_sku,
             'platform_product_id' => $sku->platform_product_id,
             'platform_label_code' => $sku->platform_label_code,
-            'platform_variant_name' => $sku->platform_variant_name,
             default => null,
         };
 
@@ -485,18 +497,16 @@ class SkusIndex extends Component
             self::VIEW_CATALOG => [
                 'sku' => __('skus.col_sku'),
                 'name' => __('skus.col_name'),
-                'stock_code' => __('skus.col_stock_item'),
-                'stock_short_name' => __('skus.col_short_name'),
-                'shop_code' => __('skus.col_shop'),
+                'brand' => __('skus.col_brand'),
+                'variation_code' => __('skus.col_variation_code'),
+                'barcode' => __('skus.col_barcode'),
                 'type' => __('skus.col_type'),
                 'status' => __('skus.col_status'),
             ],
             self::VIEW_MARKETPLACE => [
                 'sku' => __('skus.col_sku'),
-                'platform_sku' => __('skus.col_seller_sku'),
                 'platform_product_id' => __('skus.col_asin'),
                 'platform_label_code' => __('skus.col_fnsku'),
-                'platform_variant_name' => __('skus.col_variant'),
                 'shop_code' => __('skus.col_shop'),
             ],
             default => [],
@@ -507,10 +517,15 @@ class SkusIndex extends Component
     {
         return match ($this->view) {
             self::VIEW_CATALOG => 7,
-            self::VIEW_MARKETPLACE => 6,
-            self::VIEW_LOGISTICS => 8,
+            self::VIEW_MARKETPLACE => 4,
+            self::VIEW_LOGISTICS => 9,
             default => 6,
         };
+    }
+
+    private function syncCurrentViewIsDefault(): void
+    {
+        $this->currentViewIsDefault = Auth::user()?->preference('skus_view') === $this->view;
     }
 
     private function isAllowedView(string $view): bool

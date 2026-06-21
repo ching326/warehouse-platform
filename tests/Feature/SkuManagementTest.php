@@ -429,7 +429,13 @@ class SkuManagementTest extends TestCase
     {
         $tenant = Tenant::factory()->create();
         $shop = Shop::factory()->for($tenant)->create(['code' => 'SHOP1']);
-        $stockItem = StockItem::factory()->for($tenant)->create(['code' => 'STOCK1', 'short_name' => 'Shorty']);
+        $stockItem = StockItem::factory()->for($tenant)->create([
+            'code' => 'STOCK1',
+            'short_name' => 'Shorty',
+            'brand' => 'Acme',
+            'variation_code' => 'BLUE-M',
+            'barcode' => '4900000000001',
+        ]);
         Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create([
             'sku' => 'SKU-FLAT-VIEWS',
             'name' => 'Flat view SKU',
@@ -443,21 +449,28 @@ class SkuManagementTest extends TestCase
             ->withQueryParams(['view' => 'catalog'])
             ->test(SkusIndex::class)
             ->assertSet('view', 'catalog')
-            ->assertSee(__('skus.col_short_name'))
-            ->assertSee('Shorty')
+            ->assertSee(__('skus.col_brand'))
+            ->assertSee(__('skus.col_variation_code'))
+            ->assertSee(__('skus.col_barcode'))
+            ->assertSee('Acme')
+            ->assertSee('BLUE-M')
+            ->assertSee('4900000000001')
+            ->assertDontSee('Shorty')
+            ->assertDontSee('STOCK1')
             ->assertDontSee(__('skus.col_platform_ids'));
 
         Livewire::actingAs($this->internalUser())
             ->withQueryParams(['view' => 'marketplace'])
             ->test(SkusIndex::class)
             ->assertSet('view', 'marketplace')
-            ->assertSee(__('skus.col_seller_sku'))
             ->assertSee(__('skus.col_asin'))
             ->assertSee(__('skus.col_fnsku'))
-            ->assertSee('SELLER-SKU')
+            ->assertDontSee(__('skus.col_seller_sku'))
+            ->assertDontSee(__('skus.col_variant'))
+            ->assertDontSee('SELLER-SKU')
             ->assertSee('B000ASIN')
             ->assertSee('FNSKU123')
-            ->assertSee('Blue / M');
+            ->assertDontSee('Blue / M');
 
         Livewire::actingAs($this->internalUser())
             ->withQueryParams(['view' => 'unknown'])
@@ -476,27 +489,39 @@ class SkuManagementTest extends TestCase
         $this->actingAs($this->internalUser())
             ->get('/skus?view=marketplace')
             ->assertOk()
-            ->assertSee('colspan="6"', false);
+            ->assertSee('colspan="4"', false);
 
         $this->actingAs($this->internalUser())
             ->get('/skus?view=logistics')
             ->assertOk()
-            ->assertSee('colspan="8"', false);
+            ->assertSee('colspan="9"', false);
     }
 
     public function test_logistics_view_renders_editable_fields_and_saves_stock_item_and_sku_defaults(): void
     {
         $tenant = Tenant::factory()->create();
-        $stockItem = StockItem::factory()->for($tenant)->create();
+        $stockItem = StockItem::factory()->for($tenant)->create(['code' => 'LOG-STOCK', 'name' => 'Logistics Stock Item']);
         $packaging = PackagingMaterial::factory()->create();
         $method = $this->shippingMethod('logistics_ship_method', 'Logistics Ship Method');
-        $sku = Sku::factory()->for($tenant)->for($stockItem)->create(['sku' => 'SKU-LOGISTICS']);
+        $sku = Sku::factory()->for($tenant)->for($stockItem)->create(['sku' => 'SKU-LOGISTICS', 'name' => 'Hidden logistics SKU name']);
 
         Livewire::actingAs($this->internalUser())
             ->withQueryParams(['view' => 'logistics'])
             ->test(SkusIndex::class)
-            ->assertSee(__('skus.col_weight'))
-            ->assertSee(__('skus.col_default_shipping_method'))
+            ->assertSee(__('skus.col_stock_item'))
+            ->assertSee(__('skus.col_weight_g'))
+            ->assertSee(__('skus.col_length_cm'))
+            ->assertSee(__('skus.col_width_cm'))
+            ->assertSee(__('skus.col_height_cm'))
+            ->assertSee(__('skus.col_packaging'))
+            ->assertSee(__('skus.col_shipping_method'))
+            ->assertSee('LOG-STOCK')
+            ->assertSee('Logistics Stock Item')
+            ->assertDontSee('Hidden logistics SKU name')
+            ->assertDontSee('<span class="subtle">g</span>', false)
+            ->assertDontSee('<span class="subtle">cm</span>', false)
+            ->assertDontSee(__('skus.col_default_packaging'))
+            ->assertDontSee(__('skus.col_default_shipping_method'))
             ->set("logisticsDrafts.{$sku->id}.short_name", 'Tiny name')
             ->call('saveLogisticsField', $sku->id, 'short_name')
             ->set("logisticsDrafts.{$sku->id}.weight_value", '12.345')
@@ -522,6 +547,22 @@ class SkuManagementTest extends TestCase
         $this->assertSame('3.50', (string) $stockItem->height_value);
         $this->assertSame($packaging->id, $sku->default_packaging_material_id);
         $this->assertSame($method->id, $sku->default_shipping_method_id);
+    }
+
+    public function test_logistics_view_keeps_null_dropdown_defaults_blank(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($stockItem)->create([
+            'default_packaging_material_id' => null,
+            'default_shipping_method_id' => null,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->withQueryParams(['view' => 'logistics'])
+            ->test(SkusIndex::class)
+            ->assertSet("logisticsDrafts.{$sku->id}.default_packaging_material_id", '')
+            ->assertSet("logisticsDrafts.{$sku->id}.default_shipping_method_id", '');
     }
 
     public function test_logistics_shared_stock_item_drafts_refresh_after_save(): void
@@ -633,7 +674,8 @@ class SkuManagementTest extends TestCase
         Livewire::actingAs($user)
             ->withQueryParams(['view' => 'logistics'])
             ->test(SkusIndex::class)
-            ->call('saveDefaultView')
+            ->assertSet('currentViewIsDefault', false)
+            ->set('currentViewIsDefault', true)
             ->assertSee(__('skus.default_view_saved'));
 
         $this->assertSame('logistics', $user->refresh()->preference('skus_view'));
@@ -645,7 +687,23 @@ class SkuManagementTest extends TestCase
         Livewire::actingAs($user)
             ->withQueryParams(['view' => 'catalog'])
             ->test(SkusIndex::class)
-            ->assertSet('view', 'catalog');
+            ->assertSet('view', 'catalog')
+            ->assertSet('currentViewIsDefault', false);
+    }
+
+    public function test_default_view_checkbox_can_clear_saved_preference(): void
+    {
+        $user = $this->internalUser();
+        $user->setPreference('skus_view', 'catalog');
+
+        Livewire::actingAs($user)
+            ->withQueryParams(['view' => 'catalog'])
+            ->test(SkusIndex::class)
+            ->assertSet('currentViewIsDefault', true)
+            ->set('currentViewIsDefault', false)
+            ->assertSee(__('skus.default_view_cleared'));
+
+        $this->assertNull($user->refresh()->preference('skus_view'));
     }
 
     public function test_saved_sku_view_preference_applies_on_plain_skus_request(): void
@@ -656,7 +714,7 @@ class SkuManagementTest extends TestCase
         $this->actingAs($user)
             ->get('/skus')
             ->assertOk()
-            ->assertSee(__('skus.col_seller_sku'))
+            ->assertSee(__('skus.col_asin'))
             ->assertDontSee(__('skus.col_platform_ids'));
     }
 

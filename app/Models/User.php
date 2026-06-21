@@ -75,4 +75,12 @@ class User extends Authenticatable
 
         $this->update(['preferences' => $preferences]);
     }
+
+    public function forgetPreference(string $key): void
+    {
+        $preferences = $this->preferences ?? [];
+        data_forget($preferences, $key);
+
+        $this->update(['preferences' => $preferences === [] ? null : $preferences]);
+    }
 }

@@ -26,9 +26,10 @@
                 @endforeach
             </div>
             @if ($canSaveDefaultView)
-                <flux:button type="button" size="sm" variant="outline" wire:click="saveDefaultView">
-                    {{ __('skus.btn_set_default_view') }}
-                </flux:button>
+                <label class="default-view-toggle">
+                    <input type="checkbox" wire:model.live="currentViewIsDefault">
+                    <span>{{ __('skus.default_view_checkbox') }}</span>
+                </label>
             @endif
         </div>
 
@@ -145,16 +146,17 @@
                 </flux:table.rows>
             </flux:table>
         @elseif ($view === 'logistics')
-            <flux:table :paginate="$skus" class="sku-table">
+            <flux:table :paginate="$skus" class="sku-table sku-logistics-table">
                 <flux:table.columns>
                     <flux:table.column>{{ __('skus.col_sku') }}</flux:table.column>
+                    <flux:table.column>{{ __('skus.col_stock_item') }}</flux:table.column>
                     <flux:table.column>{{ __('skus.col_short_name') }}</flux:table.column>
-                    <flux:table.column>{{ __('skus.col_weight') }}</flux:table.column>
-                    <flux:table.column>{{ __('skus.col_length') }}</flux:table.column>
-                    <flux:table.column>{{ __('skus.col_width') }}</flux:table.column>
-                    <flux:table.column>{{ __('skus.col_height') }}</flux:table.column>
-                    <flux:table.column>{{ __('skus.col_default_packaging') }}</flux:table.column>
-                    <flux:table.column>{{ __('skus.col_default_shipping_method') }}</flux:table.column>
+                    <flux:table.column class="sku-number-column">{{ __('skus.col_weight_g') }}</flux:table.column>
+                    <flux:table.column class="sku-number-column">{{ __('skus.col_length_cm') }}</flux:table.column>
+                    <flux:table.column class="sku-number-column">{{ __('skus.col_width_cm') }}</flux:table.column>
+                    <flux:table.column class="sku-number-column">{{ __('skus.col_height_cm') }}</flux:table.column>
+                    <flux:table.column>{{ __('skus.col_packaging') }}</flux:table.column>
+                    <flux:table.column>{{ __('skus.col_shipping_method') }}</flux:table.column>
                 </flux:table.columns>
 
                 <flux:table.rows>
@@ -162,11 +164,20 @@
                         <flux:table.row :key="$sku->id">
                             <flux:table.cell class="sku-primary-cell">
                                 <strong>{{ $sku->sku }}</strong>
-                                <span>{{ $sku->name }}</span>
-                                <small>{{ $sku->stockItem?->code ?? __('common.sku_types.virtual_bundle') }}</small>
+                            </flux:table.cell>
+                            <flux:table.cell class="sku-stock-cell">
+                                @if ($sku->stockItem)
+                                    <strong>{{ $sku->stockItem->code }}</strong>
+                                    <span>{{ $sku->stockItem->name }}</span>
+                                @elseif ($sku->sku_type === 'virtual_bundle')
+                                    <strong>{{ __('skus.virtual_bundle') }}</strong>
+                                    <span title="{{ $this->bundleComposition($sku, 999) }}">{{ $this->bundleComposition($sku) }}</span>
+                                @else
+                                    <flux:badge color="amber">{{ __('skus.missing_stock_item') }}</flux:badge>
+                                @endif
                             </flux:table.cell>
                             @foreach (['short_name', 'weight_value', 'length_value', 'width_value', 'height_value'] as $field)
-                                <flux:table.cell>
+                                <flux:table.cell class="{{ $field === 'short_name' ? 'sku-short-name-cell' : 'sku-number-cell' }}">
                                     @if ($sku->stockItem)
                                         <input
                                             type="{{ $field === 'short_name' ? 'text' : 'number' }}"
@@ -175,11 +186,6 @@
                                             wire:model="logisticsDrafts.{{ $sku->id }}.{{ $field }}"
                                             wire:blur="saveLogisticsField({{ $sku->id }}, '{{ $field }}')"
                                         >
-                                        @if ($field === 'weight_value')
-                                            <span class="subtle">{{ $sku->stockItem->weight_unit ?: 'g' }}</span>
-                                        @elseif ($field !== 'short_name')
-                                            <span class="subtle">{{ $sku->stockItem->dimension_unit ?: 'cm' }}</span>
-                                        @endif
                                     @else
                                         <span class="muted-dash">-</span>
                                     @endif
