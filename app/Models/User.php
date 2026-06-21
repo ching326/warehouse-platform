@@ -38,6 +38,18 @@ class User extends Authenticatable
         return $this->hasMany(TenantUser::class);
     }
 
+    /**
+     * @return list<int>
+     */
+    public function activeTenantIds(): array
+    {
+        return $this->tenantUsers()
+            ->where('status', 'active')
+            ->whereHas('tenant', fn ($query) => $query->where('status', 'active'))
+            ->pluck('tenant_id')
+            ->all();
+    }
+
     public function inventoryMovements(): HasMany
     {
         return $this->hasMany(InventoryMovement::class);

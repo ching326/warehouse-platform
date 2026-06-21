@@ -76,7 +76,7 @@ class ReturnOrderCreate extends Component
     }
     private function payload(int $tenantId): array { return ['tenant_id'=>$tenantId,'warehouse_id'=>$this->warehouseId,'return_type'=>$this->return_type,'return_reason'=>$this->return_reason,'payment_type'=>$this->payment_type,'expected_arrival_date'=>$this->expected_arrival_date,'issue_id'=>$this->issueId,'sales_order_id'=>$this->salesOrderId,'tracking_no'=>$this->tracking_no,'original_order_no'=>$this->original_order_no,'external_return_id'=>$this->external_return_id,'customer_name'=>$this->customer_name,'lines'=>$this->lines]; }
     private function isInternalUser(): bool { return Auth::user()?->user_type === 'internal'; }
-    private function allowedTenantIds(): array { return $this->isInternalUser() ? Tenant::query()->pluck('id')->all() : (Auth::user()?->tenantUsers()->where('status','active')->pluck('tenant_id')->all() ?? []); }
+    private function allowedTenantIds(): array { return $this->isInternalUser() ? Tenant::query()->pluck('id')->all() : (Auth::user()?->activeTenantIds() ?? []); }
     private function validatedTenantId(): int { $id=(int)$this->tenantId; if($id<=0 || ! in_array($id,$this->allowedTenantIds(),true)){ throw ValidationException::withMessages(['tenantId'=>__('return_orders.invalid_tenant')]); } return $id; }
     private function nullable(?string $value): ?string { $value=trim((string)$value); return $value===''?null:$value; }
     private function intOrNull(?string $value): ?int { $value=trim((string)$value); return $value===''?null:(int)$value; }

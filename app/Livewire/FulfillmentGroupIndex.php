@@ -126,11 +126,7 @@ class FulfillmentGroupIndex extends Component
             return $this->allowedTenantIdsCache = [];
         }
 
-        return $this->allowedTenantIdsCache = $user
-            ->tenantUsers()
-            ->where('status', 'active')
-            ->pluck('tenant_id')
-            ->all();
+        return $this->allowedTenantIdsCache = $user->activeTenantIds();
     }
 
     private function authorizeTenantAccess(): void

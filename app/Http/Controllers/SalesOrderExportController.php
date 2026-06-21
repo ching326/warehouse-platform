@@ -86,11 +86,7 @@ class SalesOrderExportController extends Controller
             return [];
         }
 
-        return $user
-            ->tenantUsers()
-            ->where('status', 'active')
-            ->pluck('tenant_id')
-            ->all();
+        return $user->activeTenantIds();
     }
 
     private function shopFilterAllowed(array $shopIds, array $allowedTenantIds): bool

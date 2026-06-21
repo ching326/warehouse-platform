@@ -224,11 +224,7 @@ class InboundOrderCreate extends Component
             return [];
         }
 
-        return $user
-            ->tenantUsers()
-            ->where('status', 'active')
-            ->pluck('tenant_id')
-            ->all();
+        return $user->activeTenantIds();
     }
 
     private function nullableString(?string $value): ?string

@@ -50,6 +50,20 @@ class ReturnOrderTest extends TestCase
         $this->assertSame(ReturnOrder::STATUS_RECEIVED, $order->refresh()->status);
     }
 
+    public function test_receive_rejects_negative_received_quantity(): void
+    {
+        [$order, $line] = $this->returnOrderWithLine(expectedQty: 2);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ReturnOrderReceive::class, ['returnOrder' => $order])
+            ->set("lineDrafts.{$line->id}.received_qty", '-1')
+            ->call('saveReceive')
+            ->assertHasErrors(["lineDrafts.{$line->id}.received_qty"]);
+
+        $this->assertSame(0, $line->refresh()->received_qty);
+        $this->assertSame(0, InventoryMovement::count());
+    }
+
     public function test_disposition_return_to_inventory_creates_receive_movement_with_return_context(): void
     {
         [$order, $line, $tenant, $warehouse, $location] = $this->returnOrderWithLine(expectedQty: 2, receivedQty: 2);
@@ -77,6 +91,43 @@ class ReturnOrderTest extends TestCase
         $this->assertSame(2, $balance->on_hand_qty);
         $this->assertSame(2, $balance->available_qty);
         $this->assertSame(ReturnOrder::STATUS_DISPOSITIONED, $order->refresh()->status);
+    }
+
+    public function test_disposition_is_idempotent_after_return_is_dispositioned(): void
+    {
+        [$order, $line, , , $location] = $this->returnOrderWithLine(expectedQty: 2, receivedQty: 2);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ReturnOrderDisposition::class, ['returnOrder' => $order])
+            ->set("lineDrafts.{$line->id}.disposition", ReturnOrderLine::DISPOSITION_RETURN_TO_INVENTORY)
+            ->set("lineDrafts.{$line->id}.disposition_location_id", (string) $location->id)
+            ->call('confirmDisposition')
+            ->assertRedirect(route('return-orders.show', $order));
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ReturnOrderDisposition::class, ['returnOrder' => $order->refresh()])
+            ->call('confirmDisposition')
+            ->assertRedirect(route('return-orders.show', $order));
+
+        $this->assertSame(1, InventoryMovement::count());
+        $this->assertSame(2, InventoryBalance::firstOrFail()->on_hand_qty);
+        $this->assertSame(2, InventoryBalance::firstOrFail()->available_qty);
+    }
+
+    public function test_disposition_rejects_unknown_disposition_value(): void
+    {
+        [$order, $line] = $this->returnOrderWithLine(expectedQty: 1, receivedQty: 1);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ReturnOrderDisposition::class, ['returnOrder' => $order])
+            ->set("lineDrafts.{$line->id}.disposition", 'not_a_real_disposition')
+            ->call('confirmDisposition')
+            ->assertHasErrors(["lineDrafts.{$line->id}.disposition"]);
+
+        $this->assertSame(ReturnOrderLine::DISPOSITION_UNDECIDED, $line->refresh()->disposition);
+        $this->assertNull($line->dispositioned_at);
+        $this->assertSame(ReturnOrder::STATUS_RECEIVED, $order->refresh()->status);
+        $this->assertSame(0, InventoryMovement::count());
     }
 
     public function test_damaged_disposition_receives_then_marks_damaged(): void

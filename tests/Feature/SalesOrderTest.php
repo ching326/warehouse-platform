@@ -358,6 +358,32 @@ class SalesOrderTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_tenant_user_linked_to_inactive_tenant_cannot_access_sales_order_pages(): void
+    {
+        $tenant = Tenant::factory()->create(['status' => 'inactive']);
+        $user = User::factory()->create([
+            'user_type' => 'tenant',
+            'is_active' => true,
+        ]);
+
+        TenantUser::factory()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($user)->get('/sales-orders')->assertForbidden();
+        $this->actingAs($user)->get('/sales-orders/create')->assertForbidden();
+
+        Livewire::actingAs($user)
+            ->test(SalesOrderIndex::class)
+            ->assertForbidden();
+
+        Livewire::actingAs($user)
+            ->test(SalesOrderCreate::class)
+            ->assertForbidden();
+    }
+
     public function test_sales_order_routes_render(): void
     {
         [, $shop, $sku] = $this->salesSku();

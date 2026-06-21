@@ -65,6 +65,6 @@ class ReturnOrderShow extends Component
     private function query() { return ReturnOrder::query()->whereIn('tenant_id', $this->allowedTenantIds()); }
     private function isInternalUser(): bool { return Auth::user()?->user_type === 'internal'; }
     private function staffOnly(): void { if (! $this->isInternalUser()) { abort(403); } }
-    private function allowedTenantIds(): array { return $this->isInternalUser() ? Tenant::query()->pluck('id')->all() : (Auth::user()?->tenantUsers()->where('status','active')->pluck('tenant_id')->all() ?? []); }
+    private function allowedTenantIds(): array { return $this->isInternalUser() ? Tenant::query()->pluck('id')->all() : (Auth::user()?->activeTenantIds() ?? []); }
 }
 

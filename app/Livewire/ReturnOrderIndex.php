@@ -57,6 +57,6 @@ class ReturnOrderIndex extends Component
     }
 
     private function isInternalUser(): bool { return Auth::user()?->user_type === 'internal'; }
-    private function allowedTenantIds(): array { return $this->isInternalUser() ? Tenant::query()->pluck('id')->all() : (Auth::user()?->tenantUsers()->where('status','active')->pluck('tenant_id')->all() ?? []); }
+    private function allowedTenantIds(): array { return $this->isInternalUser() ? Tenant::query()->pluck('id')->all() : (Auth::user()?->activeTenantIds() ?? []); }
 }
 

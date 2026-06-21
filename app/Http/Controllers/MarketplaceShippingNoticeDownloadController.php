@@ -50,10 +50,6 @@ class MarketplaceShippingNoticeDownloadController extends Controller
             return [];
         }
 
-        return $user
-            ->tenantUsers()
-            ->where('status', 'active')
-            ->pluck('tenant_id')
-            ->all();
+        return $user->activeTenantIds();
     }
 }

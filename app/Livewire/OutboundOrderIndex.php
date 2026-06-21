@@ -120,10 +120,6 @@ class OutboundOrderIndex extends Component
             return $this->visibleTenantIdsCache = [];
         }
 
-        return $this->visibleTenantIdsCache = $user
-            ->tenantUsers()
-            ->where('status', 'active')
-            ->pluck('tenant_id')
-            ->all();
+        return $this->visibleTenantIdsCache = $user->activeTenantIds();
     }
 }
