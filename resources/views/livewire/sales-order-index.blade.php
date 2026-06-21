@@ -306,9 +306,28 @@
             }"
         >
         <div class="sales-order-page-actions" data-testid="sales-order-page-actions">
-            <flux:button href="{{ route('sales.orders.import') }}" variant="primary" icon="arrow-up-tray" wire:navigate>
-                {{ __('sales_orders.import_btn') }}
-            </flux:button>
+            <details class="action-menu primary" data-testid="sales-order-page-import-menu">
+                <summary><span class="action-menu-label"><flux:icon.arrow-up-tray />{{ __('sales_orders.import_btn') }}</span></summary>
+                <div class="action-menu-panel action-menu-panel-sectioned">
+                    <div class="action-menu-section" data-testid="sales-order-orders-import-menu">
+                        <span>{{ __('sales_orders.import_orders_menu') }}</span>
+                        <a href="{{ route('sales.orders.import') }}" wire:navigate>
+                            {{ __('sales_orders.import_file_upload') }}
+                        </a>
+                        <a href="{{ route('sales.orders.import.amazon-api') }}" wire:navigate>
+                            {{ __('sales_orders.import_amazon_api') }}
+                        </a>
+                        <a href="{{ route('sales.orders.create') }}" wire:navigate>
+                            {{ __('sales_orders.import_manual_input') }}
+                        </a>
+                    </div>
+
+                    <div class="action-menu-section" data-testid="sales-order-courier-import-menu">
+                        <span>{{ __('sales_orders.import_courier_menu') }}</span>
+                        <span class="action-menu-option-disabled">{{ __('sales_orders.import_tracking_numbers') }}</span>
+                    </div>
+                </div>
+            </details>
             <details class="action-menu primary" data-testid="sales-order-page-export-menu">
                 <summary><span class="action-menu-label"><flux:icon.arrow-down-tray />{{ __('sales_orders.export_menu') }}</span></summary>
                 <div class="action-menu-panel action-menu-panel-sectioned">
@@ -333,9 +352,6 @@
                     </div>
                 </div>
             </details>
-            <flux:button href="{{ route('sales.orders.create') }}" variant="primary" wire:navigate>
-                {{ __('sales_orders.btn_create_order') }}
-            </flux:button>
         </div>
 
         <div class="sales-order-action-row" data-testid="sales-order-selection-actions">

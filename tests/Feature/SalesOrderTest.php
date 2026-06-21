@@ -919,9 +919,18 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString('data-testid="sales-order-filter-row"', $html);
         $this->assertStringContainsString('data-testid="sales-order-page-actions"', $html);
         $this->assertStringContainsString('data-testid="sales-order-selection-actions"', $html);
+        $this->assertStringContainsString('data-testid="sales-order-page-import-menu"', $html);
+        $this->assertStringContainsString('data-testid="sales-order-orders-import-menu"', $html);
+        $this->assertStringContainsString('data-testid="sales-order-courier-import-menu"', $html);
         $this->assertStringContainsString(__('sales_orders.import_btn'), $html);
+        $this->assertStringContainsString(__('sales_orders.import_orders_menu'), $html);
+        $this->assertStringContainsString(__('sales_orders.import_file_upload'), $html);
+        $this->assertStringContainsString(__('sales_orders.import_amazon_api'), $html);
+        $this->assertStringContainsString(__('sales_orders.import_manual_input'), $html);
+        $this->assertStringContainsString(__('sales_orders.import_courier_menu'), $html);
+        $this->assertStringContainsString(__('sales_orders.import_tracking_numbers'), $html);
         $this->assertStringContainsString(__('sales_orders.export_menu'), $html);
-        $this->assertStringContainsString(__('sales_orders.btn_create_order'), $html);
+        $this->assertStringNotContainsString(__('sales_orders.btn_create_order'), $html);
     }
 
     public function test_sales_order_index_top_filters_use_category_labels_and_chip_row(): void
