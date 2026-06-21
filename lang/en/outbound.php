@@ -22,7 +22,7 @@ return [
     'section_metadata' => 'Order Details',
     'field_tenant' => 'Tenant',
     'field_warehouse' => 'Warehouse',
-    'field_ref' => 'Reference',
+    'field_ref' => 'Reference no.',
     'field_ref_hint' => 'Optional order or customer reference number.',
     'field_expected_ship_at' => 'Expected ship date',
     'field_note' => 'Note',

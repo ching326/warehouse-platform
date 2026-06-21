@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\OutboundOrder;
+use App\Models\ShippingMethod;
 use App\Models\Sku;
 use App\Models\StockItem;
 use App\Models\Tenant;
@@ -11,6 +12,7 @@ use App\Services\InventoryService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
@@ -151,6 +153,7 @@ class OutboundOrderCreate extends Component
         return view('livewire.outbound-order-create', [
             'tenants' => $this->tenantOptions(),
             'warehouses' => $this->warehouseOptions(),
+            'shippingMethods' => $this->shippingMethodOptions(),
             'skus' => $this->skuOptions(),
             'showTenantSelect' => $this->isInternalUser(),
             'currentTenant' => $this->currentTenant(),
@@ -158,6 +161,28 @@ class OutboundOrderCreate extends Component
             'title' => __('outbound.create_page_title'),
             'subtitle' => __('outbound.create_page_subtitle'),
         ]);
+    }
+
+    public function updatedRecipientPostalCode(): void
+    {
+        $postcode = $this->normalizeJapanesePostalCode($this->recipientPostalCode);
+
+        if ($postcode === '') {
+            return;
+        }
+
+        $this->recipientPostalCode = $postcode;
+
+        $address = $this->japanesePostalAddress($postcode) ?? $this->lookupJapanesePostalAddress($postcode);
+
+        if (! $address) {
+            return;
+        }
+
+        $this->recipientCountryCode = 'JP';
+        $this->recipientState = $address['state'];
+        $this->recipientCity = $address['city'];
+        $this->recipientAddressLine1 = $address['address_line1'];
     }
 
     private function createVirtualBundleLines(OutboundOrder $order, Sku $sku, int $tenantId, int $userQty, ?string $lineNote, int $index): void
@@ -305,9 +330,19 @@ class OutboundOrderCreate extends Component
             ->get(['id', 'code', 'name']);
     }
 
+    private function shippingMethodOptions(): Collection
+    {
+        return ShippingMethod::query()
+            ->where('shipping_methods.status', 'active')
+            ->with('carrier:id,code,name')
+            ->ordered()
+            ->get(['shipping_methods.id', 'shipping_methods.carrier_id', 'shipping_methods.code', 'shipping_methods.name']);
+    }
+
     private function skuOptions(): Collection
     {
-        $search = '%'.$this->skuSearch.'%';
+        $searchTerm = trim($this->skuSearch);
+        $search = '%'.$searchTerm.'%';
 
         return Sku::query()
             ->where('tenant_id', $this->tenantId)
@@ -315,7 +350,7 @@ class OutboundOrderCreate extends Component
                 ->where('sku_type', 'virtual_bundle')
                 ->orWhereNotNull('stock_item_id'))
             ->with(['shop:id,code', 'stockItem:id,code,name'])
-            ->when($this->skuSearch !== '', function ($query) use ($search) {
+            ->when($searchTerm !== '', function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
                     $query
                         ->where('sku', 'like', $search)
@@ -333,6 +368,58 @@ class OutboundOrderCreate extends Component
             ->orderBy('sku')
             ->limit(50)
             ->get(['id', 'tenant_id', 'shop_id', 'stock_item_id', 'sku', 'name', 'platform_sku', 'platform_label_code', 'sku_type']);
+    }
+
+    private function normalizeJapanesePostalCode(string $value): string
+    {
+        $digits = preg_replace('/\D+/', '', $value) ?? '';
+
+        if (strlen($digits) !== 7) {
+            return trim($value);
+        }
+
+        return substr($digits, 0, 3).'-'.substr($digits, 3);
+    }
+
+    private function japanesePostalAddress(string $postalCode): ?array
+    {
+        return [
+            '100-0001' => ['state' => 'Tokyo', 'city' => 'Chiyoda-ku', 'address_line1' => 'Chiyoda'],
+            '103-0025' => ['state' => 'Tokyo', 'city' => 'Chuo-ku', 'address_line1' => 'Nihonbashi Kayabacho'],
+            '150-0001' => ['state' => 'Tokyo', 'city' => 'Shibuya-ku', 'address_line1' => 'Jingumae'],
+            '150-0002' => ['state' => 'Tokyo', 'city' => 'Shibuya-ku', 'address_line1' => 'Shibuya'],
+            '542-0076' => ['state' => 'Osaka', 'city' => 'Osaka-shi Chuo-ku', 'address_line1' => 'Namba'],
+            '550-0001' => ['state' => 'Osaka', 'city' => 'Osaka-shi Nishi-ku', 'address_line1' => 'Tosabori'],
+        ][$postalCode] ?? null;
+    }
+
+    private function lookupJapanesePostalAddress(string $postalCode): ?array
+    {
+        try {
+            $response = Http::timeout(3)
+                ->acceptJson()
+                ->get('https://zipcloud.ibsnet.co.jp/api/search', [
+                    'zipcode' => str_replace('-', '', $postalCode),
+                ]);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if (! $response->ok()) {
+            return null;
+        }
+
+        $result = $response->json('results.0');
+
+        if (! is_array($result)) {
+            return null;
+        }
+
+        return [
+            'state' => (string) ($result['address1'] ?? ''),
+            'city' => (string) ($result['address2'] ?? ''),
+            'address_line1' => (string) ($result['address3'] ?? ''),
+        ];
     }
 
     private function currentTenant(): ?Tenant

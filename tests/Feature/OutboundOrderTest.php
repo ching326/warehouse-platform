@@ -10,6 +10,7 @@ use App\Models\InventoryBalance;
 use App\Models\InventoryMovement;
 use App\Models\OutboundOrder;
 use App\Models\OutboundOrderLine;
+use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\SkuBundleComponent;
@@ -20,6 +21,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\InventoryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -47,6 +49,88 @@ class OutboundOrderTest extends TestCase
         $this->assertSame(15, $balance->available_qty);
         $this->assertSame(-5, $reserveMovement->available_delta);
         $this->assertSame(5, $reserveMovement->reserved_delta);
+    }
+
+    public function test_create_uses_shipping_method_dropdown_value(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(20);
+        $method = ShippingMethod::query()->where('code', 'yamato_nekopos')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('shippingMethod', $method->code)
+            ->set('lines.0.sku_id', (string) $sku->id)
+            ->set('lines.0.qty', '1')
+            ->call('save')
+            ->assertRedirect(route('outbound.index'));
+
+        $this->assertSame($method->code, OutboundOrder::firstOrFail()->shipping_method);
+    }
+
+    public function test_create_autofills_japanese_address_from_postal_code(): void
+    {
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('recipientPostalCode', '1030025')
+            ->assertSet('recipientPostalCode', '103-0025')
+            ->assertSet('recipientCountryCode', 'JP')
+            ->assertSet('recipientState', 'Tokyo')
+            ->assertSet('recipientCity', 'Chuo-ku')
+            ->assertSet('recipientAddressLine1', 'Nihonbashi Kayabacho');
+    }
+
+    public function test_create_autofills_japanese_address_from_postal_api(): void
+    {
+        Http::fake([
+            'zipcloud.ibsnet.co.jp/*' => Http::response([
+                'status' => 200,
+                'results' => [[
+                    'zipcode' => '1600022',
+                    'address1' => 'Tokyo',
+                    'address2' => 'Shinjuku-ku',
+                    'address3' => 'Shinjuku',
+                ]],
+            ]),
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('recipientPostalCode', '1600022')
+            ->assertSet('recipientPostalCode', '160-0022')
+            ->assertSet('recipientCountryCode', 'JP')
+            ->assertSet('recipientState', 'Tokyo')
+            ->assertSet('recipientCity', 'Shinjuku-ku')
+            ->assertSet('recipientAddressLine1', 'Shinjuku');
+    }
+
+    public function test_create_sku_search_filters_dropdown_options(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create();
+        $matchingItem = StockItem::factory()->for($tenant)->create(['code' => 'MATCH-STOCK']);
+        $hiddenItem = StockItem::factory()->for($tenant)->create(['code' => 'HIDDEN-STOCK']);
+
+        Sku::factory()->for($tenant)->for($shop)->for($matchingItem)->create([
+            'sku_type' => 'single',
+            'sku' => 'MATCH-SKU',
+            'name' => 'Matching cable',
+        ]);
+        Sku::factory()->for($tenant)->for($shop)->for($hiddenItem)->create([
+            'sku_type' => 'single',
+            'sku' => 'HIDDEN-SKU',
+            'name' => 'Hidden charger',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('skuSearch', 'MATCH')
+            ->assertSee('MATCH-SKU')
+            ->assertDontSee('HIDDEN-SKU');
     }
 
     public function test_create_virtual_bundle_order_reserves_components(): void

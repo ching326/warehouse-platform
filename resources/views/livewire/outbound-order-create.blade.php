@@ -37,17 +37,24 @@
                     @endforeach
                 </flux:select>
 
-                <div>
-                    <flux:input wire:model="ref" :label="__('outbound.field_ref')" />
-                    <span class="subtle">{{ __('outbound.field_ref_hint') }}</span>
-                </div>
+                <flux:select wire:model="shippingMethod" :label="__('outbound.field_shipping_method')">
+                    <flux:select.option value="">{{ __('sales_orders.shipping_method_unset') }}</flux:select.option>
+                    @foreach ($shippingMethods as $method)
+                        <flux:select.option value="{{ $method->code }}">
+                            {{ $method->name }} / {{ $method->carrier->name }}
+                        </flux:select.option>
+                    @endforeach
+                </flux:select>
 
                 <flux:input wire:model="expectedShipAt" type="date" :label="__('outbound.field_expected_ship_at')" />
             </div>
 
             <div class="form-grid form-grid-spaced">
-                <flux:input wire:model="shippingMethod" :label="__('outbound.field_shipping_method')" />
-                <label>
+                <div>
+                    <flux:input wire:model="ref" :label="__('outbound.field_ref')" />
+                    <span class="subtle">{{ __('outbound.field_ref_hint') }}</span>
+                </div>
+                <label class="form-grid-wide">
                     <span>{{ __('outbound.field_note') }}</span>
                     <textarea wire:model="note" rows="3"></textarea>
                 </label>
@@ -70,7 +77,7 @@
                 <flux:input wire:model="recipientName" :label="__('outbound.field_recipient_name')" />
                 <flux:input wire:model="recipientPhone" :label="__('outbound.field_recipient_phone')" />
                 <flux:input wire:model="recipientCountryCode" maxlength="2" :label="__('outbound.field_country_code')" />
-                <flux:input wire:model="recipientPostalCode" :label="__('outbound.field_postal_code')" />
+                <flux:input wire:model.blur="recipientPostalCode" :label="__('outbound.field_postal_code')" />
                 <flux:input wire:model="recipientState" :label="__('outbound.field_state')" />
                 <flux:input wire:model="recipientCity" :label="__('outbound.field_city')" />
                 <flux:input wire:model="recipientAddressLine1" :label="__('outbound.field_address_line1')" />
@@ -98,7 +105,12 @@
 
             @foreach ($lines as $index => $line)
                 <div class="line-row">
-                    <flux:select wire:model="lines.{{ $index }}.sku_id" required :label="__('outbound.field_sku')">
+                    <flux:select
+                        wire:key="outbound-sku-select-{{ $index }}-{{ md5($tenantId.'|'.$skuSearch) }}"
+                        wire:model="lines.{{ $index }}.sku_id"
+                        required
+                        :label="__('outbound.field_sku')"
+                    >
                         <flux:select.option value="">{{ __('outbound.select_sku') }}</flux:select.option>
                         @foreach ($skus as $sku)
                             <flux:select.option value="{{ $sku->id }}">
