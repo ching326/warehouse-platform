@@ -1,11 +1,7 @@
 <div class="shipping-method-index-page">
-    @if (session('status'))
-        <div class="active-filter-row">
-            <flux:badge color="green">{{ session('status') }}</flux:badge>
-        </div>
-    @endif
+    <x-flash-toast />
 
-    <section class="table-shell flux-panel">
+<section class="table-shell flux-panel">
         <div class="form-panel-header">
             <div>
                 <strong>{{ __('shipping.section_carriers') }}</strong>

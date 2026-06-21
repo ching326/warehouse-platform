@@ -1,11 +1,7 @@
 <div class="tenant-index-page">
-    @if (session('status'))
-        <div class="active-filter-row">
-            <flux:badge color="green">{{ session('status') }}</flux:badge>
-        </div>
-    @endif
+    <x-flash-toast />
 
-    <section class="table-shell flux-panel">
+<section class="table-shell flux-panel">
         <div class="movement-toolbar tenant-toolbar">
             <flux:select wire:model.live="statusFilter" :label="__('setup.field_status')">
                 <flux:select.option value="">{{ __('setup.all_statuses') }}</flux:select.option>

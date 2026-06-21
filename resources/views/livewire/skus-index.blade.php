@@ -7,10 +7,7 @@
             </div>
             <flux:button href="{{ route('skus.create') }}" variant="primary">{{ __('skus.btn_create') }}</flux:button>
         </div>
-
-        @if (session('status'))
-            <div class="status-message">{{ session('status') }}</div>
-        @endif
+        <x-flash-toast />
 
         <div class="active-filter-row">
             <div class="view-switcher" role="group" aria-label="{{ __('skus.view_switcher_label') }}">
@@ -127,7 +124,6 @@
                             <flux:table.cell class="sku-muted-cell">
                                 @if ($sku->defaultPackagingMaterial)
                                     <strong>{{ $sku->defaultPackagingMaterial->code }}</strong>
-                                    <span>{{ $sku->defaultPackagingMaterial->name }}</span>
                                 @else
                                     <span class="muted-dash">-</span>
                                 @endif
@@ -198,7 +194,7 @@
                                 <select wire:model="logisticsDrafts.{{ $sku->id }}.default_packaging_material_id" wire:change="saveLogisticsField({{ $sku->id }}, 'default_packaging_material_id')">
                                     <option value=""></option>
                                     @foreach ($packagingMaterials as $material)
-                                        <option value="{{ $material->id }}">{{ $material->code }} - {{ $material->name }}</option>
+                                        <option value="{{ $material->id }}">{{ $material->code }}</option>
                                     @endforeach
                                 </select>
                             </flux:table.cell>
@@ -212,7 +208,7 @@
                                         @continue($isInactiveShippingMethod && ! $isCurrentShippingMethod)
 
                                         <option value="{{ $method->id }}" @disabled($isInactiveShippingMethod && ! $isCurrentShippingMethod)>
-                                            {{ $method->name }} / {{ $method->carrier?->name }}
+                                            {{ $method->name }}
                                             @if ($method->status !== 'active')
                                                 ({{ __('skus.inactive_shipping_method') }})
                                             @endif

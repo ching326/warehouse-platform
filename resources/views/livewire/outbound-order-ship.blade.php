@@ -1,11 +1,7 @@
 <div class="outbound-ship-page">
-    @if (session('error'))
-        <div class="active-filter-row">
-            <flux:badge color="red">{{ session('error') }}</flux:badge>
-        </div>
-    @endif
+    <x-flash-toast />
 
-    <form wire:submit="save" class="sku-form">
+<form wire:submit="save" class="sku-form">
         <section class="table-shell flux-panel form-panel">
             <div class="form-panel-header">
                 <div>

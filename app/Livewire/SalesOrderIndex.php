@@ -86,17 +86,11 @@ class SalesOrderIndex extends Component
 
     public $trackingImportFile = null;
 
-    public bool $trackingImportParsed = false;
-
     public string $trackingImportCourier = 'unknown';
 
     public ?string $trackingImportError = null;
 
     public ?string $trackingImportSourceFileName = null;
-
-    public array $trackingImportRows = [];
-
-    public array $trackingImportSummary = [];
 
     private bool $allowedTenantIdsResolved = false;
 
@@ -625,54 +619,39 @@ class SalesOrderIndex extends Component
         $this->resetValidation('trackingImportFile');
     }
 
-    public function previewTrackingImport(): void
+    public function confirmTrackingImport(): void
     {
         $this->validate([
             'trackingImportFile' => ['required', 'file', 'max:5120'],
         ]);
 
         $parsed = $this->parseTrackingImportFile();
-        $this->applyTrackingImportPreview($parsed);
-    }
-
-    public function confirmTrackingImport(): void
-    {
-        if (! $this->trackingImportFile) {
-            $this->trackingImportError = __('sales_orders.tracking_import_nothing_to_import');
-
-            return;
-        }
-
-        $parsed = $this->parseTrackingImportFile();
-        $preview = $this->buildTrackingImportPreview($parsed);
         $this->trackingImportCourier = $parsed['courier'];
 
-        if ($preview['error']) {
-            $this->applyTrackingImportPreview($parsed);
+        if ($parsed['error'] === 'unknown_courier') {
+            $this->trackingImportError = __('sales_orders.tracking_import_unknown_courier');
 
             return;
         }
 
-        $updatableRows = collect($preview['rows'])
-            ->where('result', 'will_update')
-            ->values();
-
-        if ($updatableRows->isEmpty() && collect($preview['rows'])->where('result', 'already_same')->isEmpty()) {
-            $this->trackingImportError = __('sales_orders.tracking_import_nothing_to_import');
-            $this->trackingImportRows = $preview['rows'];
-            $this->trackingImportSummary = $preview['summary'];
-
-            return;
-        }
-
-        $updated = DB::transaction(function () use ($updatableRows): int {
+        DB::transaction(function () use ($parsed): void {
             $updated = 0;
             $user = Auth::user();
 
-            foreach ($updatableRows as $row) {
+            foreach ($parsed['rows'] as $row) {
+                if ($row['status'] !== TrackingImportParser::STATUS_READY) {
+                    continue;
+                }
+
+                $orders = $this->findTrackingImportOrders((array) $row['order_tokens']);
+
+                if ($orders->count() !== 1) {
+                    continue;
+                }
+
                 $order = SalesOrder::query()
                     ->whereIn('tenant_id', $this->allowedTenantIds())
-                    ->whereKey((int) $row['sales_order_id'])
+                    ->whereKey($orders->first()->id)
                     ->lockForUpdate()
                     ->first();
 
@@ -704,19 +683,15 @@ class SalesOrderIndex extends Component
 
                 $updated++;
             }
-
-            return $updated;
         });
 
-        $this->applyTrackingImportPreview($parsed);
         $this->trackingImportError = null;
         $this->trackingDrafts = [];
         $this->trackingSavedDrafts = [];
 
-        session()->flash('status', __('sales_orders.tracking_import_succeeded', [
-            'updated' => $updated,
-            'skipped' => max(0, ($this->trackingImportSummary['total_rows'] ?? 0) - $updated),
-        ]));
+        session()->flash('status', __('sales_orders.tracking_import_succeeded'));
+
+        $this->closeTrackingImportModal();
     }
 
     private function clearPendingExport(): void
@@ -733,12 +708,9 @@ class SalesOrderIndex extends Component
     private function resetTrackingImportState(): void
     {
         $this->trackingImportFile = null;
-        $this->trackingImportParsed = false;
         $this->trackingImportCourier = 'unknown';
         $this->trackingImportError = null;
         $this->trackingImportSourceFileName = null;
-        $this->trackingImportRows = [];
-        $this->trackingImportSummary = $this->emptyTrackingImportSummary();
     }
 
     /**
@@ -753,103 +725,6 @@ class SalesOrderIndex extends Component
         $contents = file_get_contents($this->trackingImportFile->getRealPath());
 
         return app(TrackingImportParser::class)->parse($contents === false ? '' : $contents);
-    }
-
-    /**
-     * @param  array{courier: string, delimiter: string, rows: array<int, array<string, mixed>>, error: ?string}  $parsed
-     */
-    private function applyTrackingImportPreview(array $parsed): void
-    {
-        $preview = $this->buildTrackingImportPreview($parsed);
-
-        $this->trackingImportParsed = true;
-        $this->trackingImportCourier = $parsed['courier'];
-        $this->trackingImportRows = $preview['rows'];
-        $this->trackingImportSummary = $preview['summary'];
-        $this->trackingImportError = $preview['error'];
-    }
-
-    /**
-     * @param  array{courier: string, delimiter: string, rows: array<int, array<string, mixed>>, error: ?string}  $parsed
-     * @return array{rows: array<int, array<string, mixed>>, summary: array<string, int>, error: ?string}
-     */
-    private function buildTrackingImportPreview(array $parsed): array
-    {
-        if ($parsed['error'] === 'unknown_courier') {
-            return [
-                'rows' => [],
-                'summary' => $this->emptyTrackingImportSummary(),
-                'error' => __('sales_orders.tracking_import_unknown_courier'),
-            ];
-        }
-
-        $rows = collect($parsed['rows'])
-            ->map(fn (array $row): array => $this->matchTrackingImportRow($row))
-            ->values()
-            ->all();
-
-        return [
-            'rows' => $rows,
-            'summary' => $this->summarizeTrackingImportRows($rows),
-            'error' => null,
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $row
-     * @return array<string, mixed>
-     */
-    private function matchTrackingImportRow(array $row): array
-    {
-        $base = [
-            'row_no' => $row['row_no'],
-            'order_value' => $row['order_value'] ?? '',
-            'tracking_no' => $row['tracking_no'] ?? '',
-            'sales_order_id' => null,
-            'platform_order_id' => null,
-            'current_tracking_no' => null,
-            'result' => $row['status'],
-        ];
-
-        if ($row['status'] === TrackingImportParser::STATUS_SKIPPED) {
-            return array_merge($base, ['result_label' => __('sales_orders.tracking_import_status_skipped'), 'note' => '']);
-        }
-
-        if ($row['status'] === TrackingImportParser::STATUS_MISSING_ORDER) {
-            return array_merge($base, ['result_label' => __('sales_orders.tracking_import_status_missing_order'), 'note' => __('sales_orders.tracking_import_missing_order')]);
-        }
-
-        if ($row['status'] === TrackingImportParser::STATUS_MISSING_TRACKING) {
-            return array_merge($base, ['result_label' => __('sales_orders.tracking_import_status_missing_tracking'), 'note' => __('sales_orders.tracking_import_missing_tracking')]);
-        }
-
-        $orders = $this->findTrackingImportOrders((array) $row['order_tokens']);
-
-        if ($orders->isEmpty()) {
-            return array_merge($base, ['result' => 'unmatched', 'result_label' => __('sales_orders.tracking_import_status_unmatched'), 'note' => __('sales_orders.tracking_import_unmatched')]);
-        }
-
-        if ($orders->count() > 1) {
-            return array_merge($base, ['result' => 'ambiguous', 'result_label' => __('sales_orders.tracking_import_status_ambiguous'), 'note' => __('sales_orders.tracking_import_ambiguous')]);
-        }
-
-        $order = $orders->first();
-        $trackingNo = mb_substr((string) $row['tracking_no'], 0, 255);
-        $result = $order->tracking_no === $trackingNo ? 'already_same' : 'will_update';
-
-        return array_merge($base, [
-            'sales_order_id' => $order->id,
-            'platform_order_id' => $order->platform_order_id,
-            'current_tracking_no' => $order->tracking_no,
-            'tracking_no' => $trackingNo,
-            'result' => $result,
-            'result_label' => $result === 'already_same'
-                ? __('sales_orders.tracking_import_status_already_same')
-                : __('sales_orders.tracking_import_status_will_update'),
-            'note' => $result === 'already_same'
-                ? __('sales_orders.tracking_import_already_same')
-                : __('sales_orders.tracking_import_will_update'),
-        ]);
     }
 
     /**
@@ -877,55 +752,22 @@ class SalesOrderIndex extends Component
             return $exactMatches;
         }
 
+        $suffixTokens = $tokens
+            ->filter(fn (string $token): bool => mb_strlen($token) === 15)
+            ->values();
+
+        if ($suffixTokens->isEmpty()) {
+            return collect();
+        }
+
         return SalesOrder::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->where(function ($query) use ($tokens): void {
-                foreach ($tokens as $token) {
-                    $suffix = mb_substr($token, -15);
-                    $query->orWhereRaw('substr(platform_order_id, ?) = ?', [-mb_strlen($suffix), $suffix]);
+            ->where(function ($query) use ($suffixTokens): void {
+                foreach ($suffixTokens as $token) {
+                    $query->orWhereRaw('substr(platform_order_id, ?) = ?', [-15, $token]);
                 }
             })
             ->get(['id', 'tenant_id', 'platform_order_id', 'tracking_no']);
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $rows
-     * @return array<string, int>
-     */
-    private function summarizeTrackingImportRows(array $rows): array
-    {
-        $summary = $this->emptyTrackingImportSummary();
-        $summary['total_rows'] = count($rows);
-
-        foreach ($rows as $row) {
-            match ($row['result']) {
-                'will_update' => $summary['will_update']++,
-                'already_same' => $summary['already_same']++,
-                'unmatched' => $summary['unmatched']++,
-                'ambiguous' => $summary['ambiguous']++,
-                TrackingImportParser::STATUS_MISSING_ORDER,
-                TrackingImportParser::STATUS_MISSING_TRACKING,
-                TrackingImportParser::STATUS_SKIPPED => $summary['skipped']++,
-                default => null,
-            };
-        }
-
-        return $summary;
-    }
-
-    /**
-     * @return array<string, int>
-     */
-    private function emptyTrackingImportSummary(): array
-    {
-        return [
-            'total_rows' => 0,
-            'will_update' => 0,
-            'already_same' => 0,
-            'unmatched' => 0,
-            'ambiguous' => 0,
-            'skipped' => 0,
-        ];
     }
 
     public function render()

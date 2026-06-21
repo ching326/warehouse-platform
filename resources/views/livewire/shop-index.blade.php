@@ -1,11 +1,7 @@
 <div class="shop-index-page">
-    @if (session('status'))
-        <div class="active-filter-row">
-            <flux:badge color="green">{{ session('status') }}</flux:badge>
-        </div>
-    @endif
+    <x-flash-toast />
 
-    <section class="table-shell flux-panel">
+<section class="table-shell flux-panel">
         <div class="movement-toolbar">
             <flux:select wire:model.live="tenantId" :label="__('shop.field_tenant')">
                 <flux:select.option value="">{{ __('shop.all_tenants') }}</flux:select.option>

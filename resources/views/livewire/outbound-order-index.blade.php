@@ -1,17 +1,6 @@
 <div class="outbound-index-page">
-    @if (session('status'))
-        <div class="active-filter-row">
-            <flux:badge color="green">{{ session('status') }}</flux:badge>
-        </div>
-    @endif
-
-    @if (session('error'))
-        <div class="active-filter-row">
-            <flux:badge color="red">{{ session('error') }}</flux:badge>
-        </div>
-    @endif
-
-    <section class="table-shell flux-panel">
+    <x-flash-toast />
+<section class="table-shell flux-panel">
         <div class="movement-toolbar">
             <flux:select wire:model.live="tenantId" :label="__('outbound.field_tenant')">
                 <flux:select.option value="">{{ __('common.all_tenants') }}</flux:select.option>

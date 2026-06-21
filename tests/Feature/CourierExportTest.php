@@ -75,6 +75,23 @@ class CourierExportTest extends TestCase
         $this->assertStringContainsString('山田太郎', $csv);
     }
 
+    public function test_sagawa_export_writes_last_15_platform_order_id_to_customer_management_number(): void
+    {
+        Storage::fake('local');
+        [$tenant, $shop, $sku] = $this->salesSku();
+        $order = $this->order($shop, $sku, [
+            'shipping_method' => CourierCarrier::SAGAWA,
+            'platform_order_id' => 'SGW-LONG-0613-0659033902',
+        ]);
+
+        $batch = app(CourierExportService::class)->export([$order->id], CourierCarrier::SAGAWA, [$tenant->id], $this->internalUser());
+        $lines = preg_split('/\r\n/', trim($this->decodedCsv($batch)));
+        $dataRow = str_getcsv($lines[1] ?? '');
+
+        $this->assertSame('0613-0659033902', $dataRow[9]);
+        $this->assertNotContains('SGW-LONG-0613-0659033902', $dataRow);
+    }
+
     public function test_yamato_export_blocks_sagawa_orders(): void
     {
         [$tenant, $shop, $sku] = $this->salesSku();

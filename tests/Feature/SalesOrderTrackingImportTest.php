@@ -24,18 +24,16 @@ class SalesOrderTrackingImportTest extends TestCase
     {
         [$tenant, $shop, $sku] = $this->salesSku();
         $exact = $this->createOrder($shop, $sku, ['platform_order_id' => 'A000-20260619-1000']);
-        $suffix = $this->createOrder($shop, $sku, ['platform_order_id' => 'B000-20260619-1001']);
+        $suffix = $this->createOrder($shop, $sku, ['platform_order_id' => 'B000-0613-0659033902']);
         $csv = "注文番号,Name,Postal,伝票番号\n"
             ."A000-20260619-1000,,,123456789012\n"
-            ."20260619-1001,,,987654321098\n";
+            ."0613-0659033902,,,987654321098\n";
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
             ->set('trackingImportFile', $this->upload('yamato.csv', $csv))
-            ->call('previewTrackingImport')
-            ->assertSet('trackingImportCourier', 'yamato')
-            ->assertSet('trackingImportSummary.will_update', 2)
-            ->call('confirmTrackingImport');
+            ->call('confirmTrackingImport')
+            ->assertSet('showTrackingImportModal', false);
 
         $this->assertSame('123456789012', $exact->refresh()->tracking_no);
         $this->assertSame('987654321098', $suffix->refresh()->tracking_no);
@@ -57,10 +55,8 @@ class SalesOrderTrackingImportTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
             ->set('trackingImportFile', $this->upload('sagawa.csv', $csv))
-            ->call('previewTrackingImport')
-            ->assertSet('trackingImportCourier', 'sagawa')
-            ->assertSet('trackingImportSummary.will_update', 1)
-            ->call('confirmTrackingImport');
+            ->call('confirmTrackingImport')
+            ->assertSet('showTrackingImportModal', false);
 
         $this->assertSame('456789012345', $order->refresh()->tracking_no);
     }
@@ -81,10 +77,8 @@ class SalesOrderTrackingImportTest extends TestCase
         Livewire::actingAs($user)
             ->test(SalesOrderIndex::class)
             ->set('trackingImportFile', $this->upload('tenant-yamato.csv', $csv))
-            ->call('previewTrackingImport')
-            ->assertSet('trackingImportSummary.will_update', 1)
-            ->assertSet('trackingImportSummary.unmatched', 1)
-            ->call('confirmTrackingImport');
+            ->call('confirmTrackingImport')
+            ->assertSet('showTrackingImportModal', false);
 
         $this->assertSame('111111111111', $ownOrder->refresh()->tracking_no);
         $this->assertNull($otherOrder->refresh()->tracking_no);
@@ -101,10 +95,8 @@ class SalesOrderTrackingImportTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
             ->set('trackingImportFile', $this->upload('internal-id.csv', $csv))
-            ->call('previewTrackingImport')
-            ->assertSet('trackingImportSummary.will_update', 0)
-            ->assertSet('trackingImportSummary.unmatched', 1)
-            ->call('confirmTrackingImport');
+            ->call('confirmTrackingImport')
+            ->assertSet('showTrackingImportModal', false);
 
         $this->assertNull($order->refresh()->tracking_no);
     }
@@ -121,9 +113,26 @@ class SalesOrderTrackingImportTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
             ->set('trackingImportFile', $this->upload('ambiguous.csv', $csv))
-            ->call('previewTrackingImport')
-            ->assertSet('trackingImportSummary.ambiguous', 1)
-            ->call('confirmTrackingImport');
+            ->call('confirmTrackingImport')
+            ->assertSet('showTrackingImportModal', false);
+
+        $this->assertNull($first->refresh()->tracking_no);
+        $this->assertNull($second->refresh()->tracking_no);
+    }
+
+    public function test_tracking_import_does_not_suffix_match_short_order_values(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $first = $this->createOrder($shop, $sku, ['platform_order_id' => 'ORDER-100']);
+        $second = $this->createOrder($shop, $sku, ['platform_order_id' => 'ORDER-200']);
+        $csv = "縺雁撫縺・粋繧上○騾√ｊ迥ｶNo,縺雁ｮ｢讒倡ｮ｡逅・分蜿ｷ\n"
+            ."440069713300,00-TEST\n";
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('trackingImportFile', $this->upload('short-sagawa.csv', $csv))
+            ->call('confirmTrackingImport')
+            ->assertSet('showTrackingImportModal', false);
 
         $this->assertNull($first->refresh()->tracking_no);
         $this->assertNull($second->refresh()->tracking_no);
@@ -141,9 +150,8 @@ class SalesOrderTrackingImportTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
             ->set('trackingImportFile', $this->upload('same.csv', $csv))
-            ->call('previewTrackingImport')
-            ->assertSet('trackingImportSummary.already_same', 1)
-            ->call('confirmTrackingImport');
+            ->call('confirmTrackingImport')
+            ->assertSet('showTrackingImportModal', false);
 
         $this->assertSame('123456789012', $order->refresh()->tracking_no);
     }
@@ -153,15 +161,15 @@ class SalesOrderTrackingImportTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
             ->set('trackingImportFile', $this->upload('bad.csv', "foo,bar\nnot,a,courier\n"))
-            ->call('previewTrackingImport')
+            ->call('confirmTrackingImport')
             ->assertSet('trackingImportCourier', 'unknown')
             ->assertSet('trackingImportError', __('sales_orders.tracking_import_unknown_courier'));
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
             ->set('trackingImportFile', $this->upload('missing.csv', "注文番号,Name,Postal,伝票番号\n,,,123456789012\nORDER-1,,,\n"))
-            ->call('previewTrackingImport')
-            ->assertSet('trackingImportSummary.skipped', 2);
+            ->call('confirmTrackingImport')
+            ->assertSet('showTrackingImportModal', false);
     }
 
     public function test_tracking_import_reads_sjis_yamato_file(): void
@@ -174,9 +182,8 @@ class SalesOrderTrackingImportTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
             ->set('trackingImportFile', $this->upload('sjis.csv', $sjis))
-            ->call('previewTrackingImport')
-            ->assertSet('trackingImportCourier', 'yamato')
-            ->call('confirmTrackingImport');
+            ->call('confirmTrackingImport')
+            ->assertSet('showTrackingImportModal', false);
 
         $this->assertSame('123456789012', $order->refresh()->tracking_no);
     }

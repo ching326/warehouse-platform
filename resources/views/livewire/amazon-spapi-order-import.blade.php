@@ -1,17 +1,6 @@
 <div class="sales-order-import-page">
-    @if (session('status'))
-        <div class="active-filter-row">
-            <flux:badge color="green">{{ session('status') }}</flux:badge>
-        </div>
-    @endif
-
-    @if (session('error'))
-        <div class="active-filter-row">
-            <flux:badge color="red">{{ session('error') }}</flux:badge>
-        </div>
-    @endif
-
-    <section class="table-shell flux-panel form-panel">
+    <x-flash-toast />
+<section class="table-shell flux-panel form-panel">
         <div class="form-panel-header">
             <div>
                 <strong>{{ __('amazon_spapi_import.page_title') }}</strong>

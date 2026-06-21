@@ -123,13 +123,13 @@ class SkusIndex extends Component
 
         if ($checked) {
             $user->setPreference('skus_view', $this->view);
-            session()->flash('status', __('skus.default_view_saved'));
+            $this->flashStatus(__('skus.default_view_saved'));
 
             return;
         }
 
         $user->forgetPreference('skus_view');
-        session()->flash('status', __('skus.default_view_cleared'));
+        $this->flashStatus(__('skus.default_view_cleared'));
     }
 
     public function saveLogisticsField(int $skuId, string $field): void
@@ -160,7 +160,7 @@ class SkusIndex extends Component
             ])->validate();
 
             $sku->update([$field => $this->nullableId((string) $value)]);
-            session()->flash('status', __('skus.inline_saved'));
+            $this->flashStatus(__('skus.inline_saved'));
 
             return;
         }
@@ -199,7 +199,7 @@ class SkusIndex extends Component
         ])->validate();
 
         $sku->stockItem->update([$field => $value]);
-        session()->flash('status', __('skus.inline_saved'));
+        $this->flashStatus(__('skus.inline_saved'));
     }
 
     public function render()
@@ -480,7 +480,7 @@ class SkusIndex extends Component
         $sku->stockItem->refresh();
         $this->refreshSharedStockItemDrafts($sku, $field, $sku->stockItem->{$field});
 
-        session()->flash('status', __('skus.inline_saved'));
+        $this->flashStatus(__('skus.inline_saved'));
     }
 
     private function refreshSharedStockItemDrafts(Sku $sku, string $field, mixed $value): void
@@ -515,7 +515,7 @@ class SkusIndex extends Component
 
         if ($methodId === null) {
             $sku->update(['default_shipping_method_id' => null]);
-            session()->flash('status', __('skus.inline_saved'));
+            $this->flashStatus(__('skus.inline_saved'));
 
             return;
         }
@@ -534,7 +534,7 @@ class SkusIndex extends Component
         }
 
         $sku->update(['default_shipping_method_id' => $methodId]);
-        session()->flash('status', __('skus.inline_saved'));
+        $this->flashStatus(__('skus.inline_saved'));
     }
 
     private function flatColumns(): array
@@ -628,6 +628,11 @@ class SkusIndex extends Component
     private function nullableId(string $value): ?int
     {
         return trim($value) === '' ? null : (int) $value;
+    }
+
+    private function flashStatus(string $message): void
+    {
+        session()->flash('status', $message);
     }
 
     private function draftValue(mixed $value): string

@@ -1,11 +1,7 @@
 <div class="fulfillment-group-detail-page">
-    @if (session('status'))
-        <div class="active-filter-row">
-            <flux:badge color="green">{{ session('status') }}</flux:badge>
-        </div>
-    @endif
+    <x-flash-toast />
 
-    <section class="table-shell flux-panel form-panel">
+<section class="table-shell flux-panel form-panel">
         <div class="form-panel-header">
             <div>
                 <strong>{{ $group->reference_no }}</strong>

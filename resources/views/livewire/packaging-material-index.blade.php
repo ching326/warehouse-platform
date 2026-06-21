@@ -1,11 +1,7 @@
 <div class="packaging-index-page">
-    @if (session('status'))
-        <div class="active-filter-row">
-            <flux:badge color="green">{{ session('status') }}</flux:badge>
-        </div>
-    @endif
+    <x-flash-toast />
 
-    <section class="table-shell flux-panel">
+<section class="table-shell flux-panel">
         <div class="movement-toolbar packaging-toolbar">
             <flux:select wire:model.live="typeFilter" :label="__('setup.field_type')">
                 <flux:select.option value="">{{ __('setup.all_types') }}</flux:select.option>

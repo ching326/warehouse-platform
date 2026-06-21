@@ -1,6 +1,7 @@
-﻿<div class="return-order-index-page">
-    @if (session('status')) <div class="active-filter-row"><flux:badge color="green">{{ session('status') }}</flux:badge></div> @endif
-    <div class="movement-toolbar">
+<div class="return-order-index-page">
+    <x-flash-toast />
+
+<div class="movement-toolbar">
         @if ($showTenantSelect)<flux:select wire:model.live="tenantId" :label="__('return_orders.field_tenant')"><flux:select.option value="">{{ __('common.all_tenants') }}</flux:select.option>@foreach($tenants as $tenant)<flux:select.option value="{{ $tenant->id }}">{{ $tenant->code }} - {{ $tenant->name }}</flux:select.option>@endforeach</flux:select>@endif
         <flux:select wire:model.live="warehouseId" :label="__('return_orders.field_warehouse')"><flux:select.option value="">{{ __('return_orders.all_warehouses') }}</flux:select.option>@foreach($warehouses as $warehouse)<flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} - {{ $warehouse->name }}</flux:select.option>@endforeach</flux:select>
         <flux:select wire:model.live="statusFilter" :label="__('return_orders.field_status')"><flux:select.option value="">{{ __('return_orders.all_statuses') }}</flux:select.option>@foreach($statuses as $value=>$label)<flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>@endforeach</flux:select>

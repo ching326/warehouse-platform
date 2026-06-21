@@ -1,11 +1,7 @@
 <div class="inbound-index-page">
-    @if (session('status'))
-        <div class="active-filter-row">
-            <flux:badge color="green">{{ session('status') }}</flux:badge>
-        </div>
-    @endif
+    <x-flash-toast />
 
-    <section class="table-shell flux-panel">
+<section class="table-shell flux-panel">
         <div class="movement-toolbar">
             @if ($showTenantFilter)
                 <flux:select wire:model.live="tenantId" :label="__('inbound.field_tenant')">

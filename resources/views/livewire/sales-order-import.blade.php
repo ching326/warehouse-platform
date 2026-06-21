@@ -22,19 +22,8 @@
     x-on:livewire-upload-error="uploadingImportFile = false"
     x-on:livewire-upload-cancel="uploadingImportFile = false"
 >
-    @if (session('status'))
-        <div class="active-filter-row">
-            <flux:badge color="green">{{ session('status') }}</flux:badge>
-        </div>
-    @endif
-
-    @if (session('error'))
-        <div class="active-filter-row">
-            <flux:badge color="red">{{ session('error') }}</flux:badge>
-        </div>
-    @endif
-
-    <section class="table-shell flux-panel form-panel">
+    <x-flash-toast />
+<section class="table-shell flux-panel form-panel">
         <div class="form-panel-header">
             <div>
                 <strong>{{ __('sales_orders.import_page_title') }}</strong>

@@ -1,11 +1,7 @@
 <div class="issue-index-page">
-    @if (session('status'))
-        <div class="active-filter-row">
-            <flux:badge color="green">{{ session('status') }}</flux:badge>
-        </div>
-    @endif
+    <x-flash-toast />
 
-    <section class="table-shell flux-panel">
+<section class="table-shell flux-panel">
         <div class="issue-filter-stack">
             <div class="issue-filter-row issue-filter-row-primary">
                 @if ($showTenantFilter)

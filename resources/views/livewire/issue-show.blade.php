@@ -1,12 +1,6 @@
 <div class="issue-show-page">
-    @if (session('status'))
-        <div class="active-filter-row"><flux:badge color="green">{{ session('status') }}</flux:badge></div>
-    @endif
-    @if (session('error'))
-        <div class="active-filter-row"><flux:badge color="red">{{ session('error') }}</flux:badge></div>
-    @endif
-
-    <section class="table-shell flux-panel form-panel">
+    <x-flash-toast />
+<section class="table-shell flux-panel form-panel">
         <div class="form-panel-header">
             <div>
                 <strong>{{ $case->issue_no }}</strong>
