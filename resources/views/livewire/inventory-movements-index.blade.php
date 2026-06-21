@@ -72,7 +72,7 @@
 
             <flux:input wire:model.live="dateTo" type="date" :label="__('movements.filter_date_to')" />
 
-            <flux:button wire:click="clearFilters" variant="outline">
+            <flux:button wire:click="clearFilters" variant="primary">
                 {{ __('common.clear') }}
             </flux:button>
         </div>
@@ -174,4 +174,3 @@
         </flux:table>
     </section>
 </div>
-

@@ -258,8 +258,8 @@
 
             h1 {
                 margin: 0;
-                font-size: clamp(28px, 4vw, 42px);
-                line-height: 1.1;
+                font-size: 24px;
+                line-height: 1.2;
                 letter-spacing: 0;
             }
 
@@ -485,6 +485,21 @@
                 width: 116px;
             }
 
+            .inventory-row-actions {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .inventory-row-actions > * {
+                min-width: 104px;
+            }
+
+            .inventory-row-actions button,
+            .inventory-row-actions a {
+                justify-content: center;
+            }
+
             .sku-chip small {
                 color: var(--muted);
                 font-size: 11px;
@@ -573,6 +588,33 @@
                 margin-bottom: 12px;
             }
 
+            .flash-message {
+                width: 100%;
+                border-radius: 7px;
+                padding: 8px 10px;
+                font-size: 13px;
+                font-weight: 600;
+                line-height: 1.5;
+                white-space: pre-line;
+            }
+
+            .flash-message-error {
+                background: #fee2e2;
+                color: #b91c1c;
+            }
+
+            .export-warning-message {
+                max-width: min(100%, 760px);
+                border-radius: 7px;
+                background: var(--warning-soft);
+                color: var(--warning);
+                font-size: 13px;
+                font-weight: 700;
+                line-height: 1.5;
+                padding: 8px 10px;
+                white-space: pre-line;
+            }
+
             .latest-movement-row {
                 display: inline-flex;
                 align-items: baseline;
@@ -629,12 +671,17 @@
 
             .movement-stock-cell {
                 width: 30%;
+                min-width: 0;
             }
 
             .movement-stock-cell strong,
             .movement-stock-cell span,
             .movement-stock-cell small {
                 display: block;
+                max-width: 100%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
 
             .movement-stock-cell strong {
@@ -655,9 +702,6 @@
                 color: var(--muted);
                 font-size: 11px;
                 line-height: 1.25;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
             }
 
             .movement-change-cell {
@@ -1958,6 +2002,7 @@
                 ],
                 request()->routeIs('setup.*') => [
                     ['label' => __('common.nav_tenants'),        'href' => route('setup.tenants.index'),    'active' => request()->routeIs('setup.tenants.*')],
+                    ['label' => __('common.nav_shops'),          'href' => route('setup.shops.index'),      'active' => request()->routeIs('setup.shops.*')],
                     ['label' => __('common.nav_warehouses'),     'href' => route('setup.warehouses.index'), 'active' => request()->routeIs('setup.warehouses.*')],
                     ['label' => __('common.nav_shipping_methods'), 'href' => route('setup.shipping-methods.index'), 'active' => request()->routeIs('setup.shipping-methods.*')],
                     ['label' => __('common.nav_locations'),      'href' => route('setup.locations.index'),   'active' => request()->routeIs('setup.locations.*')],

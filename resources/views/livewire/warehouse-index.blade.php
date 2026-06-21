@@ -6,7 +6,7 @@
     @endif
 
     <section class="table-shell flux-panel">
-        <div class="movement-toolbar">
+        <div class="movement-toolbar warehouse-toolbar">
             <flux:select wire:model.live="statusFilter" :label="__('setup.field_status')">
                 <flux:select.option value="">{{ __('setup.all_statuses') }}</flux:select.option>
                 @foreach ($statuses as $value => $label)
@@ -20,9 +20,11 @@
                 :placeholder="__('setup.search_warehouses_placeholder')"
             />
 
-            <flux:button href="{{ route('setup.warehouses.create') }}" variant="primary">
-                {{ __('setup.btn_create_warehouse') }}
-            </flux:button>
+            <div class="warehouse-create-action">
+                <flux:button href="{{ route('setup.warehouses.create') }}" variant="primary">
+                    {{ __('setup.btn_create_warehouse') }}
+                </flux:button>
+            </div>
         </div>
 
         <flux:table :paginate="$warehouses" class="data-table">
@@ -71,4 +73,25 @@
             </flux:table.rows>
         </flux:table>
     </section>
+
+    <style>
+        .warehouse-toolbar {
+            grid-template-columns: 132px minmax(260px, 1fr) auto;
+        }
+
+        .warehouse-create-action {
+            justify-self: end;
+            align-self: end;
+        }
+
+        @media (max-width: 760px) {
+            .warehouse-toolbar {
+                grid-template-columns: 1fr;
+            }
+
+            .warehouse-create-action {
+                justify-self: start;
+            }
+        }
+    </style>
 </div>

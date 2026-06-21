@@ -6,7 +6,7 @@
     @endif
 
     <section class="table-shell flux-panel">
-        <div class="movement-toolbar">
+        <div class="movement-toolbar packaging-toolbar">
             <flux:select wire:model.live="typeFilter" :label="__('setup.field_type')">
                 <flux:select.option value="">{{ __('setup.all_types') }}</flux:select.option>
                 @foreach ($types as $value => $label)
@@ -27,9 +27,11 @@
                 :placeholder="__('setup.search_packagings_placeholder')"
             />
 
-            <flux:button href="{{ route('setup.packagings.create') }}" variant="primary">
-                {{ __('setup.btn_create_packaging') }}
-            </flux:button>
+            <div class="packaging-create-action">
+                <flux:button href="{{ route('setup.packagings.create') }}" variant="primary">
+                    {{ __('setup.btn_create_packaging') }}
+                </flux:button>
+            </div>
         </div>
 
         <flux:table :paginate="$items" class="data-table">
@@ -102,4 +104,25 @@
             </flux:table.rows>
         </flux:table>
     </section>
+
+    <style>
+        .packaging-toolbar {
+            grid-template-columns: 132px 132px minmax(260px, 1fr) auto;
+        }
+
+        .packaging-create-action {
+            justify-self: end;
+            align-self: end;
+        }
+
+        @media (max-width: 860px) {
+            .packaging-toolbar {
+                grid-template-columns: 1fr;
+            }
+
+            .packaging-create-action {
+                justify-self: start;
+            }
+        }
+    </style>
 </div>

@@ -76,6 +76,7 @@ class SkusIndex extends Component
         ])->layout('inventory', [
             'title' => __('skus.page_title'),
             'subtitle' => __('skus.page_subtitle'),
+            'hidePageHeader' => true,
             'pageWide' => true,
         ]);
     }

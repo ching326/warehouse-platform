@@ -155,26 +155,24 @@
                             @endif
                         </flux:table.cell>
                         <flux:table.cell>
-                            <flux:button
-                                href="/inventory/movements?stock_item_id={{ $balance->stock_item_id }}"
-                                size="xs"
-                                variant="outline"
-                                class="action-link"
-                            >
-                                {{ __('inventory.btn_movements') }}
-                            </flux:button>
-                            <flux:button
-                                href="{{ route('stock-adjustments.create', [
-                                    'tenant_id' => $balance->tenant_id,
-                                    'warehouse_id' => $balance->warehouse_id,
-                                    'stock_item_id' => $balance->stock_item_id,
-                                ]) }}"
-                                size="xs"
-                                variant="outline"
-                                class="action-link"
-                            >
-                                {{ __('stock_adjustments.btn_adjust') }}
-                            </flux:button>
+                            <div class="inventory-row-actions">
+                                <flux:button
+                                    href="/inventory/movements?stock_item_id={{ $balance->stock_item_id }}"
+                                    variant="primary"
+                                >
+                                    {{ __('inventory.btn_movements') }}
+                                </flux:button>
+                                <flux:button
+                                    href="{{ route('stock-adjustments.create', [
+                                        'tenant_id' => $balance->tenant_id,
+                                        'warehouse_id' => $balance->warehouse_id,
+                                        'stock_item_id' => $balance->stock_item_id,
+                                    ]) }}"
+                                    variant="primary"
+                                >
+                                    {{ __('stock_adjustments.btn_adjust') }}
+                                </flux:button>
+                            </div>
                         </flux:table.cell>
                     </flux:table.row>
                 @empty

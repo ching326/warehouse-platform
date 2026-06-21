@@ -65,28 +65,30 @@
                         </flux:table.cell>
                         <flux:table.cell>
                             @if ($order->status === 'pending')
-                                <flux:button
-                                    type="button"
-                                    size="xs"
-                                    variant="primary"
-                                    wire:click="markArrived({{ $order->id }})"
-                                    wire:confirm="{{ __('inbound.confirm_arrive') }}"
-                                >
-                                    {{ __('inbound.btn_mark_arrived') }}
-                                </flux:button>
-                                <flux:button
-                                    type="button"
-                                    size="xs"
-                                    variant="danger"
-                                    wire:click="cancel({{ $order->id }})"
-                                    wire:confirm="{{ __('inbound.confirm_cancel') }}"
-                                >
-                                    {{ __('inbound.btn_cancel_order') }}
-                                </flux:button>
+                                <div class="inbound-row-actions">
+                                    <flux:button
+                                        type="button"
+                                        variant="primary"
+                                        wire:click="markArrived({{ $order->id }})"
+                                        wire:confirm="{{ __('inbound.confirm_arrive') }}"
+                                    >
+                                        {{ __('inbound.btn_mark_arrived') }}
+                                    </flux:button>
+                                    <flux:button
+                                        type="button"
+                                        variant="danger"
+                                        wire:click="cancel({{ $order->id }})"
+                                        wire:confirm="{{ __('inbound.confirm_cancel') }}"
+                                    >
+                                        {{ __('inbound.btn_cancel_order') }}
+                                    </flux:button>
+                                </div>
                             @elseif (in_array($order->status, ['arrived', 'partially_received'], true))
-                                <flux:button href="{{ route('inbound.receive', $order) }}" variant="primary">
-                                    {{ __('inbound.btn_receive') }}
-                                </flux:button>
+                                <div class="inbound-row-actions">
+                                    <flux:button href="{{ route('inbound.receive', $order) }}" variant="primary">
+                                        {{ __('inbound.btn_receive') }}
+                                    </flux:button>
+                                </div>
                             @else
                                 <span class="muted-dash">-</span>
                             @endif
@@ -102,4 +104,28 @@
             </flux:table.rows>
         </flux:table>
     </section>
+
+    <style>
+        .inbound-row-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .inbound-row-actions > * {
+            min-width: 110px;
+        }
+
+        .inbound-row-actions button,
+        .inbound-row-actions a {
+            min-height: 34px;
+            justify-content: center;
+        }
+
+        @media (max-width: 760px) {
+            .inbound-row-actions {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
 </div>
