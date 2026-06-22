@@ -16,6 +16,11 @@
                         {{ __('fulfillment_groups.btn_go_to_outbound') }}
                     </flux:button>
                 @endif
+                @if ($group->status === 'reserved')
+                    <flux:button href="{{ route('fulfillment-groups.pack', $group) }}" size="xs" variant="primary" wire:navigate>
+                        {{ __('fulfillment_pack.page_title') }}
+                    </flux:button>
+                @endif
             </div>
         </div>
 

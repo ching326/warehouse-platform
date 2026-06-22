@@ -5,10 +5,13 @@ namespace Tests\Feature;
 use App\Livewire\FulfillmentGroupCreate;
 use App\Livewire\FulfillmentGroupDetail;
 use App\Livewire\FulfillmentGroupIndex;
+use App\Livewire\FulfillmentGroupPack;
+use App\Livewire\FulfillmentPackStart;
 use App\Livewire\OutboundOrderDetail;
 use App\Livewire\OutboundOrderShip;
 use App\Models\CourierExportBatch;
 use App\Models\FulfillmentGroup;
+use App\Models\FulfillmentPackScan;
 use App\Models\InventoryBalance;
 use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
@@ -658,6 +661,8 @@ class FulfillmentGroupTest extends TestCase
         $this->actingAs($this->internalUser())->get('/fulfillment-groups')->assertOk()->assertSee('Fulfillment Groups');
         $this->actingAs($this->internalUser())->get('/fulfillment-groups/create')->assertOk()->assertSee('Create Fulfillment Group');
         $this->actingAs($this->internalUser())->get(route('fulfillment-groups.show', $group))->assertOk()->assertSee($group->reference_no);
+        $this->actingAs($this->internalUser())->get(route('fulfillment.pack.start'))->assertOk()->assertSee('Scan tracking no. or order no.');
+        $this->actingAs($this->internalUser())->get(route('fulfillment-groups.pack', $group))->assertOk()->assertSee($group->reference_no);
     }
 
     public function test_tenant_user_without_active_tenant_cannot_access_pages(): void
@@ -669,6 +674,222 @@ class FulfillmentGroupTest extends TestCase
 
         $this->actingAs($user)->get('/fulfillment-groups')->assertForbidden();
         $this->actingAs($user)->get('/fulfillment-groups/create')->assertForbidden();
+    }
+
+    public function test_guest_and_tenant_user_cannot_access_pack_check(): void
+    {
+        [$tenant, $tenantUser] = $this->tenantUser();
+
+        $this->get(route('fulfillment.pack.start'))->assertForbidden();
+        $this->actingAs($tenantUser)->get(route('fulfillment.pack.start'))->assertForbidden();
+
+        $warehouse = Warehouse::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create();
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $stockItem->id, 5);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-TENANT-PACK');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order], $this->internalUser());
+        $group = FulfillmentGroup::firstOrFail();
+
+        $this->actingAs($tenantUser)->get(route('fulfillment-groups.pack', $group))->assertForbidden();
+    }
+
+    public function test_pack_start_finds_reference_and_normalized_tracking(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-LOOKUP');
+        $order->update(['tracking_no' => '1234-5678-9012']);
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPackStart::class)
+            ->set('scan', $group->reference_no)
+            ->call('search')
+            ->assertRedirect(route('fulfillment-groups.pack', $group));
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPackStart::class)
+            ->set('scan', '123456789012')
+            ->call('search')
+            ->assertRedirect(route('fulfillment-groups.pack', $group));
+    }
+
+    public function test_pack_start_rejects_unknown_multiple_and_other_tenant_matches(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $orderA = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-MULTI-A');
+        $orderB = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-MULTI-B', addressLine1: '2 Shared Street');
+        $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA]);
+        $this->createGroup($tenant, $warehouse, $orderB->ship_together_key, [$orderB]);
+        FulfillmentGroup::query()->each(fn (FulfillmentGroup $group) => $group->groupOrders()->update(['tracking_no' => 'DUP-TRACK']));
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPackStart::class)
+            ->set('scan', 'NO-SUCH-GROUP')
+            ->call('search')
+            ->assertSee('No matching fulfillment group found.');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPackStart::class)
+            ->set('scan', 'DUPTRACK')
+            ->call('search')
+            ->assertSee('Multiple matches found.');
+
+        [$otherTenant, $otherUser] = $this->tenantUser();
+        $otherWarehouse = Warehouse::factory()->create();
+        $otherShop = Shop::factory()->for($otherTenant)->create();
+        $otherStock = StockItem::factory()->for($otherTenant)->create();
+        $otherSku = Sku::factory()->for($otherTenant)->for($otherShop)->for($otherStock)->create();
+        $otherOrder = $this->readySalesOrder($otherTenant, $otherShop, $otherSku, 1, 'SO-OTHER-TENANT');
+        $this->createGroup($otherTenant, $otherWarehouse, $otherOrder->ship_together_key, [$otherOrder], $this->internalUser());
+
+        Livewire::actingAs($otherUser)
+            ->test(FulfillmentPackStart::class)
+            ->assertForbidden();
+    }
+
+    public function test_pack_page_scans_sku_and_stock_item_barcodes_and_persists_progress(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $sku->update(['barcode' => 'SKU-BAR-001']);
+        $sku->stockItem->update(['barcode' => 'STOCK-BAR-001']);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 2, 'SO-PACK-SCAN');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->assertSee('2')
+            ->set('barcode', 'SKU-BAR-001')
+            ->call('scan')
+            ->assertSee('Scanned '.$sku->sku)
+            ->set('barcode', 'STOCK-BAR-001')
+            ->call('scan')
+            ->assertSee('Ready to ship');
+
+        $this->assertSame(2, FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->count());
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->assertSee('Ready to ship')
+            ->assertSee('2');
+    }
+
+    public function test_pack_page_rejects_wrong_barcode_and_over_scan_with_audit_rows(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $sku->update(['barcode' => 'SKU-BAR-OVER']);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-REJECT');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->set('barcode', 'WRONG')
+            ->call('scan')
+            ->assertSee('Barcode does not match this shipment.')
+            ->set('barcode', 'SKU-BAR-OVER')
+            ->call('scan')
+            ->set('barcode', 'SKU-BAR-OVER')
+            ->call('scan')
+            ->assertSee('This item is already fully scanned.');
+
+        $this->assertDatabaseHas('fulfillment_pack_scans', [
+            'fulfillment_group_id' => $group->id,
+            'barcode_scanned' => 'WRONG',
+            'result' => FulfillmentPackScan::RESULT_WRONG_ITEM,
+        ]);
+        $this->assertDatabaseHas('fulfillment_pack_scans', [
+            'fulfillment_group_id' => $group->id,
+            'barcode_scanned' => 'SKU-BAR-OVER',
+            'result' => FulfillmentPackScan::RESULT_OVER_SCAN,
+        ]);
+        $this->assertSame(1, FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->count());
+    }
+
+    public function test_pack_mark_shipped_requires_completion_and_uses_outbound_shipping(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $sku->update(['barcode' => 'SKU-BAR-SHIP']);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-SHIP');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::with('outboundOrder')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->call('markShipped')
+            ->assertSee('Scan all required items before shipping.');
+
+        $this->assertSame(FulfillmentGroup::STATUS_RESERVED, $group->refresh()->status);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->set('barcode', 'SKU-BAR-SHIP')
+            ->call('scan')
+            ->call('markShipped')
+            ->assertRedirect(route('fulfillment-groups.show', $group));
+
+        $this->assertSame(FulfillmentGroup::STATUS_SHIPPED, $group->refresh()->status);
+        $this->assertSame(OutboundOrder::STATUS_SHIPPED, $group->outboundOrder->refresh()->status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_SHIPPED, $order->refresh()->fulfillment_status);
+        $this->assertDatabaseHas('inventory_movements', [
+            'ref_type' => 'outbound_order',
+            'ref_id' => (string) $group->outboundOrder->id,
+        ]);
+    }
+
+    public function test_shipped_and_cancelled_groups_cannot_accept_new_scans(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $sku->update(['barcode' => 'SKU-BAR-BLOCK']);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-BLOCK');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        $group->update(['status' => FulfillmentGroup::STATUS_CANCELLED]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->set('barcode', 'SKU-BAR-BLOCK')
+            ->call('scan')
+            ->assertSee('This fulfillment group is cancelled.');
+
+        $group->update(['status' => FulfillmentGroup::STATUS_SHIPPED]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->set('barcode', 'SKU-BAR-BLOCK')
+            ->call('scan')
+            ->assertSee('This fulfillment group is already shipped.');
+
+        $this->assertSame(2, FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_BLOCKED_STATUS)->count());
+    }
+
+    public function test_virtual_bundle_pack_lines_scan_component_stock_items(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create();
+        $component = StockItem::factory()->for($tenant)->create(['barcode' => 'COMPONENT-BAR']);
+        $bundle = Sku::factory()->virtualBundle()->for($tenant)->for($shop)->create(['sku' => 'BUNDLE-1']);
+        SkuBundleComponent::factory()->for($tenant)->for($bundle, 'bundleSku')->for($component, 'componentStockItem')->create(['quantity' => 2]);
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $component->id, 10);
+        $order = $this->readySalesOrder($tenant, $shop, $bundle, 1, 'SO-BUNDLE-PACK');
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->assertSee('BUNDLE-1')
+            ->assertSee('2')
+            ->set('barcode', 'COMPONENT-BAR')
+            ->call('scan')
+            ->set('barcode', 'COMPONENT-BAR')
+            ->call('scan')
+            ->assertSee('Ready to ship');
     }
 
     /**

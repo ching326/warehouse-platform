@@ -20,6 +20,7 @@ class Sku extends Model
         'shop_id',
         'stock_item_id',
         'sku',
+        'barcode',
         'name',
         'platform_sku',
         'platform_product_id',

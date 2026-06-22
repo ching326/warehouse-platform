@@ -195,6 +195,13 @@
                             <flux:badge color="{{ $this->statusColor($group->status) }}">
                                 {{ $this->statusLabel($group->status) }}
                             </flux:badge>
+                            @if ($group->status === 'reserved')
+                                <div class="fg-row-action">
+                                    <flux:button href="{{ route('fulfillment-groups.pack', $group) }}" size="xs" variant="outline" wire:navigate>
+                                        {{ __('fulfillment_pack.page_title') }}
+                                    </flux:button>
+                                </div>
+                            @endif
                         </flux:table.cell>
                     </flux:table.row>
                 @empty
@@ -362,6 +369,10 @@
 
         .fg-col-select {
             width: 34px;
+        }
+
+        .fg-row-action {
+            margin-top: 6px;
         }
 
         .tracking-import-backdrop {
