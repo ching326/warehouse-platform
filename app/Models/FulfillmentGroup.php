@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
@@ -74,6 +75,11 @@ class FulfillmentGroup extends Model
     public function orders(): BelongsToMany
     {
         return $this->belongsToMany(SalesOrder::class, 'fulfillment_group_orders')->withTimestamps();
+    }
+
+    public function groupOrders(): HasMany
+    {
+        return $this->hasMany(FulfillmentGroupOrder::class);
     }
 
     public static function buildReferenceNo(int $id): string

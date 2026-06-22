@@ -27,40 +27,42 @@
                 :placeholder="__('inventory.search_placeholder')"
             />
 
-            <flux:select wire:model.live="tenantId" :label="__('common.tenant')">
-                <flux:select.option value="">{{ __('common.all_tenants') }}</flux:select.option>
-                @foreach ($tenants as $tenant)
-                    <flux:select.option value="{{ $tenant->id }}">{{ $tenant->code }} - {{ $tenant->name }}</flux:select.option>
-                @endforeach
-            </flux:select>
+            <div class="inventory-filter-row">
+                <flux:select wire:model.live="tenantId" :label="__('common.tenant')">
+                    <flux:select.option value="">{{ __('common.all_tenants') }}</flux:select.option>
+                    @foreach ($tenants as $tenant)
+                        <flux:select.option value="{{ $tenant->id }}">{{ $tenant->code }} - {{ $tenant->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
 
-            <flux:select wire:model.live="warehouseId" :label="__('common.warehouse')">
-                <flux:select.option value="">{{ __('common.all_warehouses') }}</flux:select.option>
-                @foreach ($warehouses as $warehouse)
-                    <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} - {{ $warehouse->name }}</flux:select.option>
-                @endforeach
-            </flux:select>
+                <flux:select wire:model.live="warehouseId" :label="__('common.warehouse')">
+                    <flux:select.option value="">{{ __('common.all_warehouses') }}</flux:select.option>
+                    @foreach ($warehouses as $warehouse)
+                        <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} - {{ $warehouse->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
 
-            <flux:select wire:model.live="shopId" :label="__('common.shop')">
-                <flux:select.option value="">{{ __('common.all_shops') }}</flux:select.option>
-                @foreach ($shops as $shop)
-                    <flux:select.option value="{{ $shop->id }}">{{ $shop->code }} - {{ $shop->name }}</flux:select.option>
-                @endforeach
-            </flux:select>
+                <flux:select wire:model.live="shopId" :label="__('common.shop')">
+                    <flux:select.option value="">{{ __('common.all_shops') }}</flux:select.option>
+                    @foreach ($shops as $shop)
+                        <flux:select.option value="{{ $shop->id }}">{{ $shop->code }} - {{ $shop->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
 
-            <flux:select wire:model.live="productType" :label="__('skus.field_product_type')">
-                <flux:select.option value="">{{ __('common.all_types') }}</flux:select.option>
-                @foreach ($productTypes as $type)
-                    <flux:select.option value="{{ $type->slug }}">{{ $type->name }}</flux:select.option>
-                @endforeach
-            </flux:select>
+                <flux:select wire:model.live="productType" :label="__('skus.field_product_type')">
+                    <flux:select.option value="">{{ __('common.all_types') }}</flux:select.option>
+                    @foreach ($productTypes as $type)
+                        <flux:select.option value="{{ $type->slug }}">{{ $type->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
 
-            <flux:select wire:model.live="status" :label="__('common.status')">
-                <flux:select.option value="">{{ __('common.all_statuses') }}</flux:select.option>
-                @foreach ($statuses as $statusOption)
-                    <flux:select.option value="{{ $statusOption }}">{{ $this->statusLabel($statusOption) }}</flux:select.option>
-                @endforeach
-            </flux:select>
+                <flux:select wire:model.live="status" :label="__('common.status')">
+                    <flux:select.option value="">{{ __('common.all_statuses') }}</flux:select.option>
+                    @foreach ($statuses as $statusOption)
+                        <flux:select.option value="{{ $statusOption }}">{{ $this->statusLabel($statusOption) }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </div>
         </div>
 
         <flux:table :paginate="$balances" class="inventory-table">
@@ -69,11 +71,10 @@
                 @if ($showTenantColumn)
                     <flux:table.column><span class="inventory-tenant-column-label">{{ __('common.tenant') }}</span></flux:table.column>
                 @endif
-                <flux:table.column>{{ __('common.warehouse') }}</flux:table.column>
-                <flux:table.column align="end">{{ __('inventory.col_available') }}</flux:table.column>
-                <flux:table.column align="end">{{ __('inventory.col_on_hand') }}</flux:table.column>
-                <flux:table.column align="end">{{ __('inventory.col_reserved') }}</flux:table.column>
-                <flux:table.column align="end">{{ __('inventory.col_inbound') }}</flux:table.column>
+                <flux:table.column align="end" class="inventory-number-column">{{ __('inventory.col_available') }}</flux:table.column>
+                <flux:table.column align="end" class="inventory-number-column">{{ __('inventory.col_on_hand') }}</flux:table.column>
+                <flux:table.column align="end" class="inventory-number-column">{{ __('inventory.col_reserved') }}</flux:table.column>
+                <flux:table.column align="end" class="inventory-number-column">{{ __('inventory.col_inbound') }}</flux:table.column>
                 <flux:table.column>{{ __('inventory.col_exceptions') }}</flux:table.column>
                 <flux:table.column>{{ __('inventory.col_actions') }}</flux:table.column>
             </flux:table.columns>
@@ -131,18 +132,14 @@
                                 <span class="subtle">{{ $balance->tenant->name }}</span>
                             </flux:table.cell>
                         @endif
-                        <flux:table.cell>
-                            <strong>{{ $balance->warehouse->code }}</strong>
-                            <span class="subtle">{{ $balance->warehouse->name }}</span>
-                        </flux:table.cell>
-                        <flux:table.cell align="end">
+                        <flux:table.cell align="end" class="inventory-number-cell">
                             <span class="{{ $this->availableStatusClass($balance->available_qty) }}">
                                 {{ number_format($balance->available_qty) }}
                             </span>
                         </flux:table.cell>
-                        <flux:table.cell align="end">{{ number_format($balance->on_hand_qty) }}</flux:table.cell>
-                        <flux:table.cell align="end">{{ number_format($balance->reserved_qty) }}</flux:table.cell>
-                        <flux:table.cell align="end">{{ number_format($balance->inbound_qty) }}</flux:table.cell>
+                        <flux:table.cell align="end" class="inventory-number-cell">{{ number_format($balance->on_hand_qty) }}</flux:table.cell>
+                        <flux:table.cell align="end" class="inventory-number-cell">{{ number_format($balance->reserved_qty) }}</flux:table.cell>
+                        <flux:table.cell align="end" class="inventory-number-cell">{{ number_format($balance->inbound_qty) }}</flux:table.cell>
                         <flux:table.cell class="exceptions-cell">
                             @if ($balance->hold_qty > 0)
                                 <flux:badge color="amber" class="exception-badge">{{ __('inventory.exception_hold', ['qty' => number_format($balance->hold_qty)]) }}</flux:badge>
@@ -177,7 +174,7 @@
                     </flux:table.row>
                 @empty
                     <flux:table.row>
-                        <flux:table.cell colspan="{{ $showTenantColumn ? 9 : 8 }}">
+                        <flux:table.cell colspan="{{ $showTenantColumn ? 8 : 7 }}">
                             <div class="empty-state">{{ __('inventory.empty_state') }}</div>
                         </flux:table.cell>
                     </flux:table.row>

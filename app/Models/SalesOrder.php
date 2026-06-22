@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -142,6 +143,19 @@ class SalesOrder extends Model
     public function issues(): HasMany
     {
         return $this->hasMany(Issue::class);
+    }
+
+    public function fulfillmentGroupOrders(): HasMany
+    {
+        return $this->hasMany(FulfillmentGroupOrder::class);
+    }
+
+    public function activeFulfillmentGroupOrder(): HasOne
+    {
+        return $this->hasOne(FulfillmentGroupOrder::class)
+            ->whereHas('fulfillmentGroup', fn ($query) => $query
+                ->where('status', '!=', FulfillmentGroup::STATUS_CANCELLED))
+            ->latestOfMany();
     }
 
     public function recalculateShipTogetherKey(): void

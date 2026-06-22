@@ -274,6 +274,51 @@ class SalesOrderTest extends TestCase
         $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $order->order_status);
     }
 
+    public function test_delete_sales_order_succeeds(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, [
+            'order_status' => SalesOrder::ORDER_STATUS_PENDING,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+        ]);
+        $line = $order->lines()->create(['sku_id' => $sku->id, 'quantity' => 2, 'line_status' => SalesOrderLine::STATUS_READY]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('deleteOrder')
+            ->assertRedirect(route('sales.orders.index'));
+
+        $this->assertDatabaseMissing('sales_orders', ['id' => $order->id]);
+        $this->assertDatabaseMissing('sales_order_lines', ['id' => $line->id]);
+    }
+
+    public function test_delete_sales_order_blocked_when_in_group(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, [
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('deleteOrder')
+            ->assertSee(__('sales_orders.cannot_delete_order'));
+
+        $this->assertDatabaseHas('sales_orders', ['id' => $order->id]);
+    }
+
+    public function test_sales_order_detail_updates_note(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, ['note' => 'Old note']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->call('updateNote', ' Updated detail note ');
+
+        $this->assertSame('Updated detail note', $order->refresh()->note);
+    }
+
     public function test_update_recipient_recalculates_ship_together_key(): void
     {
         [, $shop, $sku] = $this->salesSku();
@@ -475,7 +520,7 @@ class SalesOrderTest extends TestCase
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $order->refresh()->fulfillment_status);
     }
 
-    public function test_hold_succeeds_and_resets_fulfillment_to_unfulfilled(): void
+    public function test_hold_succeeds_without_changing_fulfillment_status(): void
     {
         [, $shop, $sku] = $this->salesSku();
         $order = $this->createPersistedOrder($shop, $sku, [
@@ -488,7 +533,7 @@ class SalesOrderTest extends TestCase
 
         $order->refresh();
         $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $order->order_status);
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_READY, $order->fulfillment_status);
     }
 
     public function test_hold_blocked_when_in_group(): void
@@ -665,6 +710,59 @@ class SalesOrderTest extends TestCase
             ->call('bulkMarkReady');
 
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->refresh()->fulfillment_status);
+    }
+
+    public function test_bulk_hold_does_not_change_fulfillment_status(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'BULK-HOLD-READY',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $order->id])
+            ->call('bulkHold');
+
+        $order->refresh();
+        $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $order->order_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_READY, $order->fulfillment_status);
+    }
+
+    public function test_bulk_delete_sales_orders_succeeds(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'BULK-DELETE']);
+        $lineId = $order->lines()->firstOrFail()->id;
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $order->id])
+            ->call('bulkDelete')
+            ->assertSet('selectedIds', []);
+
+        $this->assertDatabaseMissing('sales_orders', ['id' => $order->id]);
+        $this->assertDatabaseMissing('sales_order_lines', ['id' => $lineId]);
+    }
+
+    public function test_bulk_delete_skips_ineligible_orders(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $eligible = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'BULK-DELETE-YES']);
+        $ineligible = $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'BULK-DELETE-NO',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $eligible->id, (string) $ineligible->id])
+            ->call('bulkDelete')
+            ->assertSet('selectedIds', []);
+
+        $this->assertDatabaseMissing('sales_orders', ['id' => $eligible->id]);
+        $this->assertDatabaseHas('sales_orders', ['id' => $ineligible->id]);
     }
 
     public function test_release_hold_blocked_when_fulfillment_status_terminal(): void
@@ -883,7 +981,6 @@ class SalesOrderTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/<th[^>]*>\s*FULFILLMENT\s*<\/th>/i', $html);
         $this->assertStringContainsString('Status', $html);
         $this->assertStringContainsString('Ship Ready', $html);
-        $this->assertStringContainsString('Pending', $html);
         $this->assertStringContainsString('status-stack', $html);
     }
 
@@ -901,6 +998,7 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString(__('sales_orders.btn_bulk_mark_ready'), $html);
         $this->assertStringContainsString(__('sales_orders.btn_bulk_hold'), $html);
         $this->assertStringContainsString(__('sales_orders.btn_bulk_cancel'), $html);
+        $this->assertStringContainsString(__('sales_orders.btn_bulk_delete'), $html);
         $this->assertStringContainsString(__('sales_orders.courier_export_menu'), $html);
         $this->assertStringContainsString(__('sales_orders.shipping_notice_menu'), $html);
         $this->assertStringContainsString('x-show="has()"', $html);
@@ -1468,6 +1566,18 @@ class SalesOrderTest extends TestCase
             ->test(SalesOrderIndex::class)
             ->assertSee(__('sales_orders.col_note'))
             ->assertSee('Pack with invoice');
+    }
+
+    public function test_sales_order_index_updates_note(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $order = $this->createPersistedOrder($shop, $sku, ['note' => 'Old index note']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->call('updateNote', $order->id, ' Updated index note ');
+
+        $this->assertSame('Updated index note', $order->refresh()->note);
     }
 
     public function test_sales_order_index_searches_address_phone_tracking_note_and_sku(): void

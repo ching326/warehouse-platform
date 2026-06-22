@@ -135,7 +135,6 @@ class InventoryIndex extends Component
         return $this->baseQuery()
             ->with([
                 'tenant:id,code,name',
-                'warehouse:id,code,name',
                 'stockItem' => fn ($query) => $query->select([
                     'id',
                     'tenant_id',

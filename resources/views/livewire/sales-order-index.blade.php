@@ -413,6 +413,27 @@
                 >
                     {{ __('sales_orders.btn_bulk_cancel') }}
                 </flux:button>
+
+                <flux:button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled
+                    x-show="! has()"
+                >
+                    {{ __('sales_orders.btn_bulk_delete') }}
+                </flux:button>
+                <flux:button
+                    type="button"
+                    size="sm"
+                    variant="danger"
+                    wire:click="bulkDelete"
+                    wire:confirm="{{ __('sales_orders.bulk_delete_confirm') }}"
+                    x-show="has()"
+                    x-cloak
+                >
+                    {{ __('sales_orders.btn_bulk_delete') }}
+                </flux:button>
             </div>
         </div>
 
@@ -540,12 +561,14 @@
                                     <flux:badge color="{{ $this->fulfillmentStatusColor($order->fulfillment_status) }}">
                                         {{ $this->fulfillmentStatusLabel($order->fulfillment_status) }}
                                     </flux:badge>
-                                    <flux:badge color="{{ $this->orderStatusColor($order->order_status) }}">
-                                        {{ $this->orderStatusLabel($order->order_status) }}
-                                    </flux:badge>
+                                    @if ($order->order_status !== \App\Models\SalesOrder::ORDER_STATUS_PENDING)
+                                        <flux:badge color="{{ $this->orderStatusColor($order->order_status) }}">
+                                            {{ $this->orderStatusLabel($order->order_status) }}
+                                        </flux:badge>
+                                    @endif
                                 </div>
                             </flux:table.cell>
-                            <flux:table.cell>
+                            <flux:table.cell class="so-created-cell">
                                 <strong>{{ $order->order_date?->format('Y-m-d') ?? $order->created_at->format('Y-m-d') }}</strong>
                                 @if ($order->courier_csv_exported_at)
                                     <span class="subtle">
@@ -554,11 +577,12 @@
                                 @endif
                             </flux:table.cell>
                             <flux:table.cell class="so-note-cell">
-                                @if ($order->note)
-                                    <span title="{{ $order->note }}">{{ $order->note }}</span>
-                                @else
-                                    <span class="subtle">-</span>
-                                @endif
+                                <textarea
+                                    class="table-control so-note-input"
+                                    rows="3"
+                                    aria-label="{{ __('sales_orders.col_note') }} {{ $order->platform_order_id ?: $order->id }}"
+                                    x-on:change="$wire.updateNote({{ $order->id }}, $event.target.value)"
+                                >{{ $order->note }}</textarea>
                             </flux:table.cell>
                         </flux:table.row>
                     @empty

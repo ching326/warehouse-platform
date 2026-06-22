@@ -8,7 +8,7 @@
         wire:key="app-toast-{{ \Illuminate\Support\Str::uuid() }}"
         x-data="{ show: true }"
         x-show="show"
-        x-init="@if (session('status')) setTimeout(() => show = false, 1500) @endif"
+        x-init="@if (session('status')) setTimeout(() => show = false, 2000) @endif"
         x-transition.opacity.duration.150ms
     >
         <span>{{ session('status') ?: session('error') }}</span>

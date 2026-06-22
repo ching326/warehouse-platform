@@ -150,6 +150,37 @@ class SalesOrderDetail extends Component
         session()->flash('status', __('sales_orders.order_cancelled_msg'));
     }
 
+    public function deleteOrder()
+    {
+        $order = SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->findOrFail($this->orderId);
+
+        if (
+            ! in_array($order->order_status, [
+                SalesOrder::ORDER_STATUS_PENDING,
+                SalesOrder::ORDER_STATUS_ON_HOLD,
+                SalesOrder::ORDER_STATUS_BACKORDER,
+            ], true)
+            || ! in_array($order->fulfillment_status, [
+                SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+                SalesOrder::FULFILLMENT_STATUS_READY,
+            ], true)
+        ) {
+            session()->flash('error', __('sales_orders.cannot_delete_order'));
+
+            return null;
+        }
+
+        DB::transaction(function () use ($order): void {
+            $order->delete();
+        });
+
+        return redirect()
+            ->route('sales.orders.index')
+            ->with('status', __('sales_orders.order_deleted_msg'));
+    }
+
     public function markReady(): void
     {
         $order = SalesOrder::query()
@@ -248,10 +279,7 @@ class SalesOrderDetail extends Component
             return;
         }
 
-        $order->update([
-            'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
-        ]);
+        $order->update(['order_status' => SalesOrder::ORDER_STATUS_ON_HOLD]);
         session()->flash('status', __('sales_orders.put_on_hold'));
     }
 
@@ -409,6 +437,19 @@ class SalesOrderDetail extends Component
         ]);
 
         session()->flash('status', __('sales_orders.shipping_method_updated'));
+    }
+
+    public function updateNote(string $value): void
+    {
+        $note = trim($value);
+        $note = $note === '' ? null : mb_substr($note, 0, 2000);
+
+        SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->whereKey($this->orderId)
+            ->update(['note' => $note]);
+
+        session()->flash('status', __('sales_orders.note_updated'));
     }
 
     public function fulfillmentStatusLabel(string $status): string

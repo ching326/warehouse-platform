@@ -247,6 +247,7 @@
                                     @if ($view === 'catalog' && $key === 'product_type')
                                         @if ($sku->stockItem)
                                             <select
+                                                class="table-control compact-select-control"
                                                 wire:model="catalogDrafts.{{ $sku->id }}.product_type"
                                                 wire:change="saveCatalogField({{ $sku->id }}, 'product_type')"
                                                 aria-label="{{ __('skus.col_product_type') }} {{ $sku->sku }}"

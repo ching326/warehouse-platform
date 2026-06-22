@@ -279,10 +279,7 @@ class SalesOrderIndex extends Component
                 SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
                 SalesOrder::FULFILLMENT_STATUS_READY,
             ])
-            ->update([
-                'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
-                'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
-            ]);
+            ->update(['order_status' => SalesOrder::ORDER_STATUS_ON_HOLD]);
 
         $this->finishBulk('sales_orders.bulk_hold_result', $updated, count($selectedIds));
     }
@@ -372,6 +369,42 @@ class SalesOrderIndex extends Component
         $this->finishBulk('sales_orders.bulk_cancel_result', count($eligibleIds), count($selectedIds));
     }
 
+    public function bulkDelete(): void
+    {
+        if ($this->selectedIds === []) {
+            return;
+        }
+
+        $selectedIds = $this->normalizedSelectedIds();
+
+        $eligibleIds = SalesOrder::query()
+            ->whereIn('id', $selectedIds)
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->whereIn('order_status', [
+                SalesOrder::ORDER_STATUS_PENDING,
+                SalesOrder::ORDER_STATUS_ON_HOLD,
+                SalesOrder::ORDER_STATUS_BACKORDER,
+            ])
+            ->whereIn('fulfillment_status', [
+                SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+                SalesOrder::FULFILLMENT_STATUS_READY,
+            ])
+            ->pluck('id')
+            ->all();
+
+        DB::transaction(function () use ($eligibleIds) {
+            if ($eligibleIds === []) {
+                return;
+            }
+
+            SalesOrder::query()
+                ->whereIn('id', $eligibleIds)
+                ->delete();
+        });
+
+        $this->finishBulk('sales_orders.bulk_delete_result', count($eligibleIds), count($selectedIds));
+    }
+
     public function fulfillmentStatusLabel(string $status): string
     {
         return $this->fulfillmentStatuses()[$status] ?? $status;
@@ -447,6 +480,17 @@ class SalesOrderIndex extends Component
         $order->update(['tracking_no' => $trackingNo]);
 
         return true;
+    }
+
+    public function updateNote(int $orderId, string $value): void
+    {
+        $note = trim($value);
+        $note = $note === '' ? null : mb_substr($note, 0, 2000);
+
+        SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->whereKey($orderId)
+            ->update(['note' => $note]);
     }
 
     public function saveTrackingDraft(int $orderId): void

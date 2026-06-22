@@ -123,6 +123,9 @@
                     <flux:button type="button" variant="danger" wire:click="cancelOrder" wire:confirm="{{ __('sales_orders.btn_cancel_order') }}?" data-action-variant="danger">
                         {{ __('sales_orders.btn_cancel_order') }}
                     </flux:button>
+                    <flux:button type="button" variant="danger" wire:click="deleteOrder" wire:confirm="{{ __('sales_orders.btn_delete_order') }}?" data-action-variant="danger">
+                        {{ __('sales_orders.btn_delete_order') }}
+                    </flux:button>
                 </div>
             @endif
         </div>
@@ -317,7 +320,12 @@
         <div class="form-grid">
             <div>
                 <span class="subtle">{{ __('sales_orders.field_note') }}</span>
-                <strong>{{ $order->note ?: __('common.no_note') }}</strong>
+                <textarea
+                    class="table-control"
+                    rows="3"
+                    aria-label="{{ __('sales_orders.field_note') }}"
+                    x-on:change="$wire.updateNote($event.target.value)"
+                >{{ $order->note }}</textarea>
             </div>
             <div>
                 <span class="subtle">{{ __('sales_orders.field_source') }}</span>

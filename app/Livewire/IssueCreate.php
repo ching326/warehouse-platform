@@ -423,10 +423,10 @@ class IssueCreate extends Component
                     ->orWhere('recipient_name', 'like', $like)
                     ->orWhere('recipient_phone', 'like', $like))
                 ->orWhereHas('fulfillmentGroup.orders', fn ($query) => $query
-                    ->where('platform_order_id', 'like', $like)
-                    ->orWhere('tracking_no', 'like', $like)
-                    ->orWhere('recipient_name', 'like', $like)
-                    ->orWhere('recipient_phone', 'like', $like)))
+                    ->where('sales_orders.platform_order_id', 'like', $like)
+                    ->orWhere('sales_orders.tracking_no', 'like', $like)
+                    ->orWhere('sales_orders.recipient_name', 'like', $like)
+                    ->orWhere('sales_orders.recipient_phone', 'like', $like)))
             ->latest()
             ->limit(20)
             ->get(['id', 'tenant_id', 'warehouse_id', 'fulfillment_group_id', 'ref', 'status', 'tracking_no', 'recipient_name']);
