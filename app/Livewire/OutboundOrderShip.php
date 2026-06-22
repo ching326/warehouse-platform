@@ -4,9 +4,8 @@ namespace App\Livewire;
 
 use App\Models\OutboundOrder;
 use App\Models\Tenant;
-use App\Services\InventoryService;
+use App\Services\Outbound\ShipOutboundOrderService;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Livewire\Component;
 
@@ -62,37 +61,14 @@ class OutboundOrderShip extends Component
         $this->validateInput();
 
         try {
-            DB::transaction(function () use ($order) {
-                $order->load('leafLines');
-
-                foreach ($order->leafLines as $line) {
-                    $movement = app(InventoryService::class)->shipReservedStock(
-                        tenantId: $order->tenant_id,
-                        warehouseId: $order->warehouse_id,
-                        stockItemId: $line->stock_item_id,
-                        quantity: $line->qty,
-                        context: [
-                            'ref_type' => 'outbound_order',
-                            'ref_id' => (string) $order->id,
-                            'user_id' => Auth::id(),
-                        ],
-                    );
-
-                    $line->inventory_movement_id = $movement->id;
-                    $line->save();
-                }
-
-                $order->status = OutboundOrder::STATUS_SHIPPED;
-                $order->shipped_at = now();
-                $order->shipped_by_user_id = Auth::id();
-                $order->shipping_method = $this->nullableString($this->shippingMethod);
-                $order->courier = $this->nullableString($this->courier);
-                $order->tracking_no = $this->nullableString($this->trackingNo);
-                $order->package_count = $this->packageCount !== '' ? (int) $this->packageCount : null;
-                $order->package_weight_g = $this->packageWeightG !== '' ? (int) $this->packageWeightG : null;
-                $order->ship_note = $this->nullableString($this->shipNote);
-                $order->save();
-            });
+            app(ShipOutboundOrderService::class)->ship($order, [
+                'courier' => $this->courier,
+                'shipping_method' => $this->shippingMethod,
+                'tracking_no' => $this->trackingNo,
+                'package_count' => $this->packageCount,
+                'package_weight_g' => $this->packageWeightG,
+                'ship_note' => $this->shipNote,
+            ]);
         } catch (InvalidArgumentException $exception) {
             session()->flash('error', $exception->getMessage());
 
@@ -168,12 +144,5 @@ class OutboundOrderShip extends Component
         }
 
         return $this->visibleTenantIdsCache = $user->activeTenantIds();
-    }
-
-    private function nullableString(?string $value): ?string
-    {
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
     }
 }

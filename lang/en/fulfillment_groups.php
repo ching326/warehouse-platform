@@ -74,6 +74,7 @@ return [
     'batch_import_tracking' => 'Import tracking',
     'btn_mark_shipped' => 'Mark shipped',
     'batch_pending_hint' => 'Batch ship / export / import are added in the next build step.',
+    'batch_mark_shipped_result' => ':updated group(s) marked shipped. :skipped skipped.',
     'search_placeholder' => 'Reference, tracking, or recipient...',
     'select_tenant' => 'Select tenant',
     'select_warehouse' => 'Select warehouse',

@@ -99,6 +99,22 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame($method->id, FulfillmentGroup::firstOrFail()->shipping_method_id);
     }
 
+    public function test_create_group_leaves_shipping_method_blank_when_members_differ(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $yamato = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+        $sagawa = ShippingMethod::where('code', 'sagawa_thb')->firstOrFail();
+
+        $orderA = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-MIX-A');
+        $orderA->update(['shipping_method_id' => $yamato->id]);
+        $orderB = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-MIX-B');
+        $orderB->update(['shipping_method_id' => $sagawa->id]);
+
+        $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA, $orderB]);
+
+        $this->assertNull(FulfillmentGroup::firstOrFail()->shipping_method_id);
+    }
+
     public function test_fulfillment_index_updates_group_shipping_method_and_rejects_inactive(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
@@ -316,10 +332,82 @@ class FulfillmentGroupTest extends TestCase
             ->assertRedirect(route('outbound.index'));
 
         $this->assertSame(FulfillmentGroup::STATUS_SHIPPED, $group->refresh()->status);
-        $this->assertSame('Yamato', $group->courier);
-        $this->assertSame('TRACK-1', $group->tracking_no);
+        $this->assertNotNull($group->shipped_at);
+        $pivot = $group->groupOrders()->firstOrFail();
+        $this->assertSame('Yamato', $pivot->courier);
+        $this->assertSame('TRACK-1', $pivot->tracking_no);
+        $this->assertNotNull($pivot->shipped_at);
+        $this->assertSame('TRACK-1', $outbound->refresh()->tracking_no);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_SHIPPED, $order->refresh()->fulfillment_status);
         $this->assertSame(SalesOrder::ORDER_STATUS_COMPLETED, $order->order_status);
+        $this->assertSame('TRACK-1', $order->tracking_no);
+    }
+
+    public function test_fulfillment_index_mark_shipped_ships_reserved_group(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $orderA = $this->readySalesOrder($tenant, $shop, $sku, 2, 'SO-BATCH-SHIP-A');
+        $orderB = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-BATCH-SHIP-B');
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->with('carrier')->firstOrFail();
+
+        $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA, $orderB]);
+        $group = FulfillmentGroup::with(['outboundOrder.leafLines', 'groupOrders'])->firstOrFail();
+        $group->update(['shipping_method_id' => $method->id]);
+        $group->groupOrders()->update(['tracking_no' => 'FG-TRACK-1']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupIndex::class)
+            ->set('selectedIds', [(string) $group->id])
+            ->call('markShipped')
+            ->assertSet('selectedIds', []);
+
+        $group->refresh();
+        $outbound = $group->outboundOrder()->with('leafLines')->firstOrFail();
+        $balance = $this->balance($tenant, $warehouse, $sku->stockItem);
+
+        $this->assertSame(FulfillmentGroup::STATUS_SHIPPED, $group->status);
+        $this->assertNotNull($group->shipped_at);
+        $this->assertSame(OutboundOrder::STATUS_SHIPPED, $outbound->status);
+        $this->assertSame($method->carrier->code, $outbound->courier);
+        $this->assertSame($method->name, $outbound->shipping_method);
+        $this->assertSame('FG-TRACK-1', $outbound->tracking_no);
+        $this->assertSame(15, $balance->on_hand_qty);
+        $this->assertSame(0, $balance->reserved_qty);
+        $this->assertSame(15, $balance->available_qty);
+        $this->assertTrue($outbound->leafLines->every(fn ($line) => $line->inventory_movement_id !== null));
+
+        foreach ([$orderA->refresh(), $orderB->refresh()] as $salesOrder) {
+            $this->assertSame(SalesOrder::FULFILLMENT_STATUS_SHIPPED, $salesOrder->fulfillment_status);
+            $this->assertSame(SalesOrder::ORDER_STATUS_COMPLETED, $salesOrder->order_status);
+            $this->assertSame('FG-TRACK-1', $salesOrder->tracking_no);
+            $this->assertNotNull($salesOrder->shipped_at);
+        }
+
+        foreach ($group->groupOrders()->get() as $pivot) {
+            $this->assertSame('FG-TRACK-1', $pivot->tracking_no);
+            $this->assertSame($method->carrier->code, $pivot->courier);
+            $this->assertNotNull($pivot->shipped_at);
+        }
+    }
+
+    public function test_fulfillment_index_mark_shipped_skips_non_reserved_group(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 2, 'SO-BATCH-SKIP');
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+        $outbound = $group->outboundOrder()->firstOrFail();
+        $group->update(['status' => FulfillmentGroup::STATUS_SHIPPED]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupIndex::class)
+            ->set('selectedIds', [(string) $group->id])
+            ->call('markShipped')
+            ->assertSet('selectedIds', []);
+
+        $this->assertSame(OutboundOrder::STATUS_PENDING, $outbound->refresh()->status);
+        $this->assertSame(2, $this->balance($tenant, $warehouse, $sku->stockItem)->reserved_qty);
     }
 
     public function test_cancelling_linked_outbound_order_back_writes_group_and_sales_orders(): void

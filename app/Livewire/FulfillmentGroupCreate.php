@@ -94,10 +94,14 @@ class FulfillmentGroupCreate extends Component
                 }
 
                 $firstOrder = $orders->firstOrFail();
+                $shippingMethodIds = $orders->pluck('shipping_method_id')->unique();
+                $defaultShippingMethodId = $shippingMethodIds->count() === 1
+                    ? $shippingMethodIds->first()
+                    : null;
                 $group = FulfillmentGroup::create([
                     'tenant_id' => $tenantId,
                     'warehouse_id' => (int) $this->warehouseId,
-                    'shipping_method_id' => $firstOrder->shipping_method_id,
+                    'shipping_method_id' => $defaultShippingMethodId,
                     'reference_no' => 'FG-PENDING-'.Str::uuid(),
                     'status' => FulfillmentGroup::STATUS_RESERVED,
                     'ship_together_key' => $firstOrder->ship_together_key,

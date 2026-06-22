@@ -7,8 +7,10 @@ use App\Models\SalesOrder;
 use App\Models\ShippingMethod;
 use App\Models\Tenant;
 use App\Models\Warehouse;
+use App\Services\Outbound\ShipOutboundOrderService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -143,6 +145,58 @@ class FulfillmentGroupIndex extends Component
         });
 
         $this->trackingDrafts[$groupId] = $trackingNo ?? '';
+    }
+
+    public function markShipped(): void
+    {
+        $selectedIds = collect($this->selectedIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($selectedIds->isEmpty()) {
+            return;
+        }
+
+        $groups = FulfillmentGroup::query()
+            ->whereIn('id', $selectedIds)
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->where('status', FulfillmentGroup::STATUS_RESERVED)
+            ->whereHas('outboundOrder')
+            ->with([
+                'outboundOrder',
+                'shippingMethod.carrier:id,code',
+                'groupOrders:id,fulfillment_group_id,tracking_no',
+            ])
+            ->get();
+
+        $updated = 0;
+
+        foreach ($groups as $group) {
+            if (! $group->outboundOrder) {
+                continue;
+            }
+
+            try {
+                app(ShipOutboundOrderService::class)->ship($group->outboundOrder, [
+                    'courier' => $group->shippingMethod?->carrier?->code ?? '',
+                    'shipping_method' => $group->shippingMethod?->name ?? '',
+                    'tracking_no' => $group->groupOrders->pluck('tracking_no')->filter()->first() ?? '',
+                ]);
+
+                $updated++;
+            } catch (InvalidArgumentException) {
+                continue;
+            }
+        }
+
+        $this->selectedIds = [];
+
+        session()->flash('status', __('fulfillment_groups.batch_mark_shipped_result', [
+            'updated' => $updated,
+            'skipped' => $selectedIds->count() - $updated,
+        ]));
     }
 
     public function render()

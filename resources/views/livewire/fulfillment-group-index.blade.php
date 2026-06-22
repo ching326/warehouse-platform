@@ -57,7 +57,7 @@
                 <flux:button size="sm" variant="outline" disabled :title="__('fulfillment_groups.batch_pending_hint')">
                     {{ __('fulfillment_groups.batch_import_tracking') }}
                 </flux:button>
-                <flux:button size="sm" variant="primary" disabled :title="__('fulfillment_groups.batch_pending_hint')">
+                <flux:button size="sm" variant="primary" wire:click="markShipped">
                     {{ __('fulfillment_groups.btn_mark_shipped') }}
                 </flux:button>
             </div>

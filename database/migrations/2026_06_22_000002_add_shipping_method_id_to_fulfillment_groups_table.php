@@ -13,7 +13,7 @@ return new class extends Migration
                 ->nullable()
                 ->after('warehouse_id')
                 ->constrained()
-                ->nullOnDelete();
+                ->restrictOnDelete();
         });
     }
 
