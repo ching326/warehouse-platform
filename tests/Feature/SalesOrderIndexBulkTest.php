@@ -13,6 +13,7 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\InventoryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -169,6 +170,7 @@ class SalesOrderIndexBulkTest extends TestCase
     {
         [$tenant, $shop, $sku] = $this->salesSku('BULK-READY-ALL');
         $extraSku = $this->skuForShop($tenant, $shop, 'BULK-READY-ALL-EXTRA');
+        $warehouse = $this->warehouseWithStock($tenant, [$sku, $extraSku]);
         $order = $this->orderWithLines($shop, $sku);
         $order->lines()->create([
             'sku_id' => $extraSku->id,
@@ -182,7 +184,17 @@ class SalesOrderIndexBulkTest extends TestCase
             ->call('bulkMarkReady')
             ->assertSee(__('sales_orders.bulk_ready_result', ['updated' => 1, 'skipped' => 0]));
 
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_READY, $order->refresh()->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $order->refresh()->fulfillment_status);
+        $this->assertDatabaseHas('fulfillment_group_orders', [
+            'sales_order_id' => $order->id,
+        ]);
+        $this->assertNotNull($order->fulfillmentGroupOrders()->firstOrFail()->arranged_at);
+        $this->assertDatabaseHas('inventory_balances', [
+            'tenant_id' => $tenant->id,
+            'warehouse_id' => $warehouse->id,
+            'stock_item_id' => $sku->stock_item_id,
+            'reserved_qty' => 1,
+        ]);
     }
 
     public function test_bulk_mark_ready_skips_order_with_non_ready_fulfillable_line(): void
@@ -205,9 +217,147 @@ class SalesOrderIndexBulkTest extends TestCase
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->refresh()->fulfillment_status);
     }
 
+    public function test_bulk_mark_ready_prompts_and_combines_ready_candidates(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('BULK-COMBINE');
+        $this->warehouseWithStock($tenant, [$sku]);
+        $orderA = $this->orderWithLines($shop, $sku);
+        $orderB = $this->orderWithLines($shop, $sku);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $orderA->id, (string) $orderB->id])
+            ->call('bulkMarkReady')
+            ->assertSet('showReadyCombinePrompt', true)
+            ->assertSet('pendingReadyCombineCandidateCount', 2)
+            ->call('confirmReadyCombine')
+            ->assertSet('showReadyCombinePrompt', false);
+
+        $this->assertSame(1, FulfillmentGroup::count());
+        $this->assertSame(
+            [SalesOrder::FULFILLMENT_STATUS_IN_GROUP, SalesOrder::FULFILLMENT_STATUS_IN_GROUP],
+            SalesOrder::whereKey([$orderA->id, $orderB->id])->orderBy('id')->pluck('fulfillment_status')->all(),
+        );
+    }
+
+    public function test_bulk_mark_ready_decline_creates_single_order_groups(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('BULK-DECLINE');
+        $this->warehouseWithStock($tenant, [$sku]);
+        $orderA = $this->orderWithLines($shop, $sku);
+        $orderB = $this->orderWithLines($shop, $sku);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $orderA->id, (string) $orderB->id])
+            ->call('bulkMarkReady')
+            ->assertSet('showReadyCombinePrompt', true)
+            ->call('declineReadyCombine')
+            ->assertSet('showReadyCombinePrompt', false);
+
+        $this->assertSame(2, FulfillmentGroup::count());
+        $this->assertSame(2, SalesOrder::whereIn('id', [$orderA->id, $orderB->id])
+            ->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_IN_GROUP)
+            ->count());
+    }
+
+    public function test_bulk_mark_ready_joins_existing_group_when_confirmed(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('BULK-JOIN');
+        $warehouse = $this->warehouseWithStock($tenant, [$sku]);
+        $grouped = $this->orderWithLines($shop, $sku, ['fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY]);
+        $group = app(\App\Services\Fulfillment\GroupSalesOrdersService::class)
+            ->singleOrderGroup($tenant->id, $warehouse->id, $grouped->id);
+        $newOrder = $this->orderWithLines($shop, $sku);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $newOrder->id])
+            ->call('bulkMarkReady')
+            ->assertSet('showReadyCombinePrompt', true)
+            ->assertSet('pendingReadyJoinableGroupCount', 1)
+            ->call('confirmReadyCombine');
+
+        $this->assertSame(1, FulfillmentGroup::count());
+        $this->assertSame([$grouped->id, $newOrder->id], $group->refresh()->orders()->orderBy('sales_orders.id')->pluck('sales_orders.id')->all());
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $newOrder->refresh()->fulfillment_status);
+    }
+
+    public function test_bulk_mark_ready_does_not_group_unfulfilled_suggestions(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('BULK-SUGGESTION');
+        $this->warehouseWithStock($tenant, [$sku]);
+        $readyNow = $this->orderWithLines($shop, $sku);
+        $notSelected = $this->orderWithLines($shop, $sku);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $readyNow->id])
+            ->call('bulkMarkReady')
+            ->assertSet('showReadyCombinePrompt', false);
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $readyNow->refresh()->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $notSelected->refresh()->fulfillment_status);
+        $this->assertSame(1, FulfillmentGroup::count());
+    }
+
+    public function test_bulk_mark_ready_requires_warehouse_selection_when_multiple_active_warehouses_exist(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('BULK-WAREHOUSE');
+        $this->warehouseWithStock($tenant, [$sku]);
+        Warehouse::factory()->create(['status' => 'active']);
+        $order = $this->orderWithLines($shop, $sku);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $order->id])
+            ->call('bulkMarkReady')
+            ->assertSet('showReadyCombinePrompt', true)
+            ->assertSet('readyWarehouseId', '');
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->refresh()->fulfillment_status);
+    }
+
+    public function test_bulk_mark_ready_respects_consolidation_modes(): void
+    {
+        [$tenant, $shopA, $skuA] = $this->salesSku('BULK-CONSOL-A');
+        $shopB = Shop::factory()->for($tenant)->create([
+            'status' => 'active',
+            'consolidation_mode' => Shop::CONSOLIDATION_SAME_SHOP,
+        ]);
+        $skuB = $this->skuForShop($tenant, $shopB, 'BULK-CONSOL-B');
+        $this->warehouseWithStock($tenant, [$skuA, $skuB]);
+        $orderA = $this->orderWithLines($shopA, $skuA);
+        $orderB = $this->orderWithLines($shopB, $skuB);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $orderA->id, (string) $orderB->id])
+            ->call('bulkMarkReady');
+
+        $this->assertSame(2, FulfillmentGroup::count());
+
+        $shopA->update(['consolidation_mode' => Shop::CONSOLIDATION_CROSS_SHOP]);
+        $shopB->update(['consolidation_mode' => Shop::CONSOLIDATION_CROSS_SHOP]);
+        $crossOrderA = $this->orderWithLines($shopA, $skuA, ['platform_order_id' => 'BULK-CONSOL-CROSS-A']);
+        $crossOrderB = $this->orderWithLines($shopB, $skuB, ['platform_order_id' => 'BULK-CONSOL-CROSS-B']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $crossOrderA->id, (string) $crossOrderB->id])
+            ->call('bulkMarkReady')
+            ->assertSet('showReadyCombinePrompt', true)
+            ->call('confirmReadyCombine');
+
+        $this->assertSame(2, FulfillmentGroup::count());
+        $this->assertSame(1, FulfillmentGroup::whereHas('orders', fn ($query) => $query
+            ->whereIn('sales_orders.id', [$crossOrderA->id, $crossOrderB->id]))->count());
+    }
+
     public function test_bulk_mark_ready_ignores_cancelled_lines(): void
     {
         [$tenant, $shop, $sku] = $this->salesSku('BULK-READY-CANCELLED');
+        $this->warehouseWithStock($tenant, [$sku]);
         $cancelledSku = $this->skuForShop($tenant, $shop, 'BULK-READY-CANCELLED-EXTRA');
         $order = $this->orderWithLines($shop, $sku);
         $order->lines()->create([
@@ -222,7 +372,7 @@ class SalesOrderIndexBulkTest extends TestCase
             ->call('bulkMarkReady')
             ->assertSee(__('sales_orders.bulk_ready_result', ['updated' => 1, 'skipped' => 0]));
 
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_READY, $order->refresh()->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $order->refresh()->fulfillment_status);
     }
 
     public function test_bulk_actions_noop_on_empty_selection(): void
@@ -279,7 +429,16 @@ class SalesOrderIndexBulkTest extends TestCase
         $order = SalesOrder::factory()->for($shop->tenant)->for($shop)->create(array_merge([
             'order_status' => SalesOrder::ORDER_STATUS_PENDING,
             'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+            'recipient_name' => 'Shared Recipient',
+            'recipient_country_code' => 'JP',
+            'recipient_postal_code' => '1000001',
+            'recipient_state' => 'Tokyo',
+            'recipient_city' => 'Tokyo',
+            'recipient_address_line1' => '1 Shared Street',
+            'recipient_address_line2' => '',
         ], $attributes));
+        $order->recalculateShipTogetherKey();
+        $order->save();
 
         $order->lines()->create([
             'sku_id' => $sku->id,
@@ -288,6 +447,19 @@ class SalesOrderIndexBulkTest extends TestCase
         ]);
 
         return $order;
+    }
+
+    private function warehouseWithStock(Tenant $tenant, array $skus): Warehouse
+    {
+        $warehouse = Warehouse::factory()->create(['status' => 'active']);
+
+        foreach ($skus as $sku) {
+            if ($sku->stock_item_id) {
+                app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $sku->stock_item_id, 100);
+            }
+        }
+
+        return $warehouse;
     }
 
     private function internalUser(): User

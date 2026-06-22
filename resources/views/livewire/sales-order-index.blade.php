@@ -26,6 +26,44 @@
             @endif
         </div>
     @endif
+    @if ($showReadyCombinePrompt)
+        <div class="active-filter-row">
+            <div>
+                <strong>{{ __('sales_orders.ready_combine_title') }}</strong>
+                <div class="subtle">
+                    {{ __('sales_orders.ready_combine_message') }}
+                    @if ($pendingReadySuggestionCount > 0)
+                        {{ __('sales_orders.ready_unfulfilled_suggestion', ['count' => $pendingReadySuggestionCount]) }}
+                    @endif
+                </div>
+            </div>
+
+            @if ($readyWarehouseOptions->count() > 1)
+                <flux:select wire:model.live="readyWarehouseId" :label="__('fulfillment_groups.field_warehouse')">
+                    <flux:select.option value="">{{ __('fulfillment_groups.select_warehouse') }}</flux:select.option>
+                    @foreach ($readyWarehouseOptions as $warehouse)
+                        <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} / {{ $warehouse->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            @endif
+
+            @if ($pendingReadyJoinableGroupCount > 0 || $pendingReadyCombineCandidateCount > 0)
+                <flux:button type="button" size="sm" variant="primary" wire:click="confirmReadyCombine">
+                    {{ __('sales_orders.ready_combine_confirm') }}
+                </flux:button>
+            @else
+                <flux:button type="button" size="sm" variant="primary" wire:click="confirmReadyCombine">
+                    {{ __('sales_orders.ready_arrange_confirm') }}
+                </flux:button>
+            @endif
+            <flux:button type="button" size="sm" variant="outline" wire:click="declineReadyCombine">
+                {{ __('sales_orders.ready_combine_decline') }}
+            </flux:button>
+            <flux:button type="button" size="sm" variant="ghost" wire:click="cancelReadyCombine">
+                {{ __('sales_orders.btn_cancel_edit') }}
+            </flux:button>
+        </div>
+    @endif
 <section class="table-shell flux-panel">
         @if ($filterWarning)
             <div class="active-filter-row">

@@ -8,15 +8,19 @@ use App\Models\SalesOrderLine;
 use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Tenant;
+use App\Models\Warehouse;
+use App\Services\Fulfillment\GroupSalesOrdersService;
 use App\Services\MarketplaceShippingNotice\MarketplaceShippingNoticeExportService;
 use App\Support\SalesOrderFilters;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
+use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use RuntimeException;
 
 class SalesOrderIndex extends Component
 {
@@ -66,6 +70,20 @@ class SalesOrderIndex extends Component
     public ?string $pendingExportWarning = null;
 
     public ?string $filterWarning = null;
+
+    public bool $showReadyCombinePrompt = false;
+
+    public string $readyWarehouseId = '';
+
+    public array $pendingReadyOrderIds = [];
+
+    public int $pendingReadySkipped = 0;
+
+    public int $pendingReadyCombineCandidateCount = 0;
+
+    public int $pendingReadyJoinableGroupCount = 0;
+
+    public int $pendingReadySuggestionCount = 0;
 
     private bool $allowedTenantIdsResolved = false;
 
@@ -203,42 +221,37 @@ class SalesOrderIndex extends Component
 
         $selectedIds = array_values(array_unique(array_map('intval', $this->selectedIds)));
 
-        $orders = SalesOrder::query()
-            ->whereIn('id', $selectedIds)
-            ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->where('order_status', SalesOrder::ORDER_STATUS_PENDING)
-            ->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_UNFULFILLED)
-            ->whereNotNull('ship_together_key')
-            ->whereHas('lines', fn ($query) => $query
-                ->where(fn ($lineQuery) => $lineQuery
-                    ->whereNull('line_status')
-                    ->orWhere('line_status', '!=', SalesOrderLine::STATUS_CANCELLED)))
-            ->whereDoesntHave('lines', fn ($query) => $query
-                ->where(fn ($lineQuery) => $lineQuery
-                    ->whereNull('line_status')
-                    ->orWhere('line_status', '!=', SalesOrderLine::STATUS_CANCELLED))
-                ->where(fn ($lineQuery) => $lineQuery
-                    ->whereNull('line_status')
-                    ->orWhere('line_status', '!=', SalesOrderLine::STATUS_READY)))
-            ->whereDoesntHave('lines', fn ($query) => $query
-                ->where('line_status', SalesOrderLine::STATUS_READY)
-                ->whereHas('sku', fn ($skuQuery) => $skuQuery
-                    ->whereNull('stock_item_id')
-                    ->where(fn ($missingStockQuery) => $missingStockQuery
-                        ->where('sku_type', '!=', 'virtual_bundle')
-                        ->orWhereDoesntHave('bundleComponents'))))
+        $orders = $this->markReadyEligibleQuery($selectedIds)
+            ->with('shop')
             ->get();
 
-        $updated = $orders->count();
-        $orders->each->update(['fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY]);
+        if ($orders->isEmpty()) {
+            $this->finishBulk('sales_orders.bulk_ready_result', 0, count($selectedIds));
 
-        $skipped = count($selectedIds) - $updated;
-        $this->selectedIds = [];
+            return;
+        }
 
-        session()->flash('status', __('sales_orders.bulk_ready_result', [
-            'updated' => $updated,
-            'skipped' => $skipped,
-        ]));
+        $this->prepareReadyGrouping($selectedIds, $orders, count($selectedIds) - $orders->count());
+    }
+
+    public function updatedReadyWarehouseId(): void
+    {
+        $this->refreshReadyPromptContext();
+    }
+
+    public function confirmReadyCombine(): void
+    {
+        $this->executeReadyGrouping(combine: true);
+    }
+
+    public function declineReadyCombine(): void
+    {
+        $this->executeReadyGrouping(combine: false);
+    }
+
+    public function cancelReadyCombine(): void
+    {
+        $this->resetReadyPrompt();
     }
 
     public function bulkHold(): void
@@ -564,6 +577,7 @@ class SalesOrderIndex extends Component
             'activeFilterChips' => $this->activeFilterChips(),
             'exportFilters' => $this->exportFilterParams(),
             'visibleOrderIds' => $this->visibleOrderIds,
+            'readyWarehouseOptions' => $this->readyWarehouseOptions(),
         ])->layout('inventory', [
             'title' => __('sales_orders.index_page_title'),
             'subtitle' => __('sales_orders.index_page_subtitle'),
@@ -735,6 +749,212 @@ class SalesOrderIndex extends Component
             'date_to' => $this->dateTo,
             'search' => $this->search,
         ]);
+    }
+
+    private function prepareReadyGrouping(array $selectedIds, Collection $orders, int $skipped): void
+    {
+        $warehouses = $this->readyWarehouseOptions();
+
+        if ($warehouses->isEmpty()) {
+            $this->selectedIds = [];
+            session()->flash('error', __('sales_orders.ready_no_active_warehouse'));
+
+            return;
+        }
+
+        $this->pendingReadyOrderIds = $orders->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $this->pendingReadySkipped = $skipped;
+        $this->readyWarehouseId = $warehouses->count() === 1 ? (string) $warehouses->first()->id : '';
+        $this->selectedIds = $selectedIds;
+
+        $this->refreshReadyPromptContext();
+
+        if (
+            $warehouses->count() > 1
+            || $this->pendingReadyCombineCandidateCount > 0
+            || $this->pendingReadyJoinableGroupCount > 0
+        ) {
+            $this->showReadyCombinePrompt = true;
+
+            return;
+        }
+
+        $this->executeReadyGrouping(combine: false);
+    }
+
+    private function refreshReadyPromptContext(): void
+    {
+        $this->pendingReadyCombineCandidateCount = 0;
+        $this->pendingReadyJoinableGroupCount = 0;
+        $this->pendingReadySuggestionCount = 0;
+
+        if ($this->pendingReadyOrderIds === []) {
+            return;
+        }
+
+        $orders = SalesOrder::query()
+            ->whereIn('id', $this->pendingReadyOrderIds)
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->with('shop')
+            ->get();
+
+        $service = app(GroupSalesOrdersService::class);
+        $warehouseId = (int) $this->readyWarehouseId;
+
+        foreach ($orders->groupBy('ship_together_key') as $shipKey => $keyOrders) {
+            if ($shipKey === '' || $shipKey === null) {
+                continue;
+            }
+
+            if ($keyOrders->count() > 1 && $service->canCombineOrders($keyOrders)) {
+                $this->pendingReadyCombineCandidateCount += $keyOrders->count();
+            }
+
+            if ($warehouseId > 0) {
+                foreach ($keyOrders as $order) {
+                    $group = $service->joinableGroupFor($order, $warehouseId);
+
+                    if ($group && $service->canCombineOrders($group->orders->concat(collect([$order])))) {
+                        $this->pendingReadyJoinableGroupCount++;
+                        break;
+                    }
+                }
+            }
+
+            $this->pendingReadySuggestionCount += SalesOrder::query()
+                ->whereIn('tenant_id', $this->allowedTenantIds())
+                ->whereNotIn('id', $this->pendingReadyOrderIds)
+                ->where('ship_together_key', $shipKey)
+                ->where('order_status', SalesOrder::ORDER_STATUS_PENDING)
+                ->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_UNFULFILLED)
+                ->count();
+        }
+    }
+
+    private function executeReadyGrouping(bool $combine): void
+    {
+        $selectedCount = count($this->pendingReadyOrderIds) + $this->pendingReadySkipped;
+        $warehouseId = (int) $this->readyWarehouseId;
+
+        if ($this->pendingReadyOrderIds === []) {
+            return;
+        }
+
+        if (! $this->readyWarehouseOptions()->contains('id', $warehouseId)) {
+            session()->flash('error', __('sales_orders.ready_select_warehouse'));
+            $this->showReadyCombinePrompt = true;
+
+            return;
+        }
+
+        try {
+            $grouped = DB::transaction(function () use ($warehouseId, $combine) {
+                $orders = $this->markReadyEligibleQuery($this->pendingReadyOrderIds)
+                    ->with('shop')
+                    ->lockForUpdate()
+                    ->get();
+
+                if ($orders->isEmpty()) {
+                    return 0;
+                }
+
+                SalesOrder::query()
+                    ->whereIn('id', $orders->pluck('id')->all())
+                    ->update(['fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY]);
+
+                $orders = SalesOrder::query()
+                    ->whereIn('id', $orders->pluck('id')->all())
+                    ->with('shop')
+                    ->get();
+
+                $service = app(GroupSalesOrdersService::class);
+
+                foreach ($orders->groupBy('ship_together_key') as $keyOrders) {
+                    $this->groupReadyOrders($service, $keyOrders, $warehouseId, $combine);
+                }
+
+                return $orders->count();
+            });
+        } catch (InvalidArgumentException|ValidationException $exception) {
+            session()->flash('error', $exception->getMessage());
+
+            return;
+        }
+
+        $this->resetReadyPrompt();
+        $this->finishBulk('sales_orders.bulk_ready_result', $grouped, $selectedCount);
+    }
+
+    private function groupReadyOrders(GroupSalesOrdersService $service, Collection $orders, int $warehouseId, bool $combine): void
+    {
+        $firstOrder = $orders->firstOrFail();
+
+        if ($combine) {
+            $joinableGroup = $service->joinableGroupFor($firstOrder, $warehouseId);
+
+            if ($joinableGroup && $service->canCombineOrders($joinableGroup->orders->concat($orders))) {
+                $service->joinGroup($joinableGroup, $orders->pluck('id')->all());
+
+                return;
+            }
+
+            if ($orders->count() > 1 && $service->canCombineOrders($orders)) {
+                $service->createGroup((int) $firstOrder->tenant_id, $warehouseId, $orders->pluck('id')->all());
+
+                return;
+            }
+        }
+
+        foreach ($orders as $order) {
+            $service->singleOrderGroup((int) $order->tenant_id, $warehouseId, (int) $order->id);
+        }
+    }
+
+    private function resetReadyPrompt(): void
+    {
+        $this->showReadyCombinePrompt = false;
+        $this->readyWarehouseId = '';
+        $this->pendingReadyOrderIds = [];
+        $this->pendingReadySkipped = 0;
+        $this->pendingReadyCombineCandidateCount = 0;
+        $this->pendingReadyJoinableGroupCount = 0;
+        $this->pendingReadySuggestionCount = 0;
+    }
+
+    private function markReadyEligibleQuery(array $selectedIds)
+    {
+        return SalesOrder::query()
+            ->whereIn('id', array_values(array_unique(array_map('intval', $selectedIds))))
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->where('order_status', SalesOrder::ORDER_STATUS_PENDING)
+            ->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_UNFULFILLED)
+            ->whereNotNull('ship_together_key')
+            ->whereHas('lines', fn ($query) => $query
+                ->where(fn ($lineQuery) => $lineQuery
+                    ->whereNull('line_status')
+                    ->orWhere('line_status', '!=', SalesOrderLine::STATUS_CANCELLED)))
+            ->whereDoesntHave('lines', fn ($query) => $query
+                ->where(fn ($lineQuery) => $lineQuery
+                    ->whereNull('line_status')
+                    ->orWhere('line_status', '!=', SalesOrderLine::STATUS_CANCELLED))
+                ->where(fn ($lineQuery) => $lineQuery
+                    ->whereNull('line_status')
+                    ->orWhere('line_status', '!=', SalesOrderLine::STATUS_READY)))
+            ->whereDoesntHave('lines', fn ($query) => $query
+                ->where('line_status', SalesOrderLine::STATUS_READY)
+                ->whereHas('sku', fn ($skuQuery) => $skuQuery
+                    ->whereNull('stock_item_id')
+                    ->where(fn ($missingStockQuery) => $missingStockQuery
+                        ->where('sku_type', '!=', 'virtual_bundle')
+                        ->orWhereDoesntHave('bundleComponents'))));
+    }
+
+    private function readyWarehouseOptions(): Collection
+    {
+        return Warehouse::query()
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'code', 'name']);
     }
 
     private function normalizeFilterState(bool $useRequestFallback = true): void

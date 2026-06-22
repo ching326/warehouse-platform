@@ -16,6 +16,8 @@ use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Models\Warehouse;
+use App\Services\InventoryService;
 use App\Support\SalesOrderFilters;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -724,6 +726,8 @@ class SalesOrderTest extends TestCase
     public function test_bulk_mark_ready_updates_eligible_skips_ineligible(): void
     {
         [, $shop, $sku] = $this->salesSku();
+        $warehouse = Warehouse::factory()->create(['status' => 'active']);
+        app(InventoryService::class)->adjustStock($shop->tenant_id, $warehouse->id, $sku->stock_item_id, 20);
         $eligible = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'BULK-READY']);
         $ineligible = $this->createPersistedOrder($shop, $sku, [
             'platform_order_id' => 'BULK-SKIP',
@@ -735,7 +739,7 @@ class SalesOrderTest extends TestCase
             ->set('selectedIds', [(string) $eligible->id, (string) $ineligible->id])
             ->call('bulkMarkReady');
 
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_READY, $eligible->refresh()->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $eligible->refresh()->fulfillment_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $ineligible->refresh()->fulfillment_status);
     }
 
@@ -744,6 +748,8 @@ class SalesOrderTest extends TestCase
         [$ownTenant, $user] = $this->tenantUser();
         $ownShop = Shop::factory()->for($ownTenant)->create(['status' => 'active']);
         $ownSku = Sku::factory()->for($ownTenant)->for($ownShop)->for(StockItem::factory()->for($ownTenant)->create())->create(['sku_type' => 'single']);
+        $warehouse = Warehouse::factory()->create(['status' => 'active']);
+        app(InventoryService::class)->adjustStock($ownTenant->id, $warehouse->id, $ownSku->stock_item_id, 20);
         $ownOrder = $this->createPersistedOrder($ownShop, $ownSku, ['platform_order_id' => 'OWN-BULK']);
         [, $otherShop, $otherSku] = $this->salesSku();
         $otherOrder = $this->createPersistedOrder($otherShop, $otherSku, ['platform_order_id' => 'OTHER-BULK']);
@@ -753,7 +759,7 @@ class SalesOrderTest extends TestCase
             ->set('selectedIds', [(string) $ownOrder->id, (string) $otherOrder->id])
             ->call('bulkMarkReady');
 
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_READY, $ownOrder->refresh()->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $ownOrder->refresh()->fulfillment_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $otherOrder->refresh()->fulfillment_status);
     }
 

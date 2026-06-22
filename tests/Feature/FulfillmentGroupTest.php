@@ -309,6 +309,74 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame(0, FulfillmentGroup::count());
     }
 
+    public function test_create_group_enforces_cross_shop_consolidation_mode(): void
+    {
+        [$tenant, $warehouse, $shopA, $skuA] = $this->skuWithStock(20);
+        $shopB = Shop::factory()->for($tenant)->create([
+            'status' => 'active',
+            'consolidation_mode' => Shop::CONSOLIDATION_SAME_SHOP,
+        ]);
+        $skuB = Sku::factory()
+            ->for($tenant)
+            ->for($shopB)
+            ->for(StockItem::factory()->for($tenant)->create())
+            ->create(['sku_type' => 'single']);
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $skuB->stock_item_id, 20);
+        $orderA = $this->readySalesOrder($tenant, $shopA, $skuA, 1, 'SO-CONSOL-A');
+        $orderB = $this->readySalesOrder($tenant, $shopB, $skuB, 1, 'SO-CONSOL-B');
+
+        $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA, $orderB]);
+
+        $this->assertSame(0, FulfillmentGroup::count());
+
+        $shopA->update(['consolidation_mode' => Shop::CONSOLIDATION_CROSS_SHOP]);
+        $shopB->update(['consolidation_mode' => Shop::CONSOLIDATION_CROSS_SHOP]);
+
+        $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA, $orderB]);
+
+        $this->assertSame(1, FulfillmentGroup::count());
+    }
+
+    public function test_create_group_rejects_none_shop_consolidation(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $shop->update(['consolidation_mode' => Shop::CONSOLIDATION_NONE]);
+        $orderA = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-NONE-A');
+        $orderB = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-NONE-B');
+
+        $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA, $orderB]);
+
+        $this->assertSame(0, FulfillmentGroup::count());
+    }
+
+    public function test_join_group_refuses_exported_or_shipped_groups(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $orderA = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-JOIN-BLOCK-A');
+        $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA]);
+        $group = FulfillmentGroup::firstOrFail();
+        $orderA->update(['courier_csv_exported_at' => now()]);
+        $orderB = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-JOIN-BLOCK-B');
+
+        $this->expectException(\InvalidArgumentException::class);
+
+        app(\App\Services\Fulfillment\GroupSalesOrdersService::class)->joinGroup($group, [$orderB->id]);
+    }
+
+    public function test_join_group_refuses_shipped_groups(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $orderA = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-JOIN-SHIPPED-A');
+        $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA]);
+        $group = FulfillmentGroup::firstOrFail();
+        $group->update(['status' => FulfillmentGroup::STATUS_SHIPPED, 'shipped_at' => now()]);
+        $orderB = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-JOIN-SHIPPED-B');
+
+        $this->expectException(\InvalidArgumentException::class);
+
+        app(\App\Services\Fulfillment\GroupSalesOrdersService::class)->joinGroup($group, [$orderB->id]);
+    }
+
     public function test_group_creation_preserves_distinct_outbound_lines_for_skus_sharing_stock_item(): void
     {
         [$tenant, $warehouse, $shop, $skuA] = $this->skuWithStock(30);
