@@ -165,6 +165,66 @@ class SalesOrderIndexBulkTest extends TestCase
         $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $otherOrder->refresh()->order_status);
     }
 
+    public function test_bulk_mark_ready_marks_order_when_all_fulfillable_lines_are_ready(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('BULK-READY-ALL');
+        $extraSku = $this->skuForShop($tenant, $shop, 'BULK-READY-ALL-EXTRA');
+        $order = $this->orderWithLines($shop, $sku);
+        $order->lines()->create([
+            'sku_id' => $extraSku->id,
+            'quantity' => 2,
+            'line_status' => SalesOrderLine::STATUS_READY,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $order->id])
+            ->call('bulkMarkReady')
+            ->assertSee(__('sales_orders.bulk_ready_result', ['updated' => 1, 'skipped' => 0]));
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_READY, $order->refresh()->fulfillment_status);
+    }
+
+    public function test_bulk_mark_ready_skips_order_with_non_ready_fulfillable_line(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('BULK-READY-PARTIAL');
+        $extraSku = $this->skuForShop($tenant, $shop, 'BULK-READY-PARTIAL-EXTRA');
+        $order = $this->orderWithLines($shop, $sku);
+        $order->lines()->create([
+            'sku_id' => $extraSku->id,
+            'quantity' => 1,
+            'line_status' => 'pending',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $order->id])
+            ->call('bulkMarkReady')
+            ->assertSee(__('sales_orders.bulk_ready_result', ['updated' => 0, 'skipped' => 1]));
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->refresh()->fulfillment_status);
+    }
+
+    public function test_bulk_mark_ready_ignores_cancelled_lines(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('BULK-READY-CANCELLED');
+        $cancelledSku = $this->skuForShop($tenant, $shop, 'BULK-READY-CANCELLED-EXTRA');
+        $order = $this->orderWithLines($shop, $sku);
+        $order->lines()->create([
+            'sku_id' => $cancelledSku->id,
+            'quantity' => 1,
+            'line_status' => SalesOrderLine::STATUS_CANCELLED,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $order->id])
+            ->call('bulkMarkReady')
+            ->assertSee(__('sales_orders.bulk_ready_result', ['updated' => 1, 'skipped' => 0]));
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_READY, $order->refresh()->fulfillment_status);
+    }
+
     public function test_bulk_actions_noop_on_empty_selection(): void
     {
         [, $shop, $sku] = $this->salesSku('BULK-NOOP');

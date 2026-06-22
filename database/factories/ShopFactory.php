@@ -22,6 +22,7 @@ class ShopFactory extends Factory
             'marketplace' => $marketplace,
             'code' => strtoupper($platform).'-'.fake()->unique()->numberBetween(100, 999),
             'name' => ucfirst($platform).' '.($marketplace ?? 'Global'),
+            'consolidation_mode' => Shop::CONSOLIDATION_SAME_SHOP,
             'contact_name' => fake()->optional()->name(),
             'contact_email' => fake()->optional()->safeEmail(),
             'status' => 'active',

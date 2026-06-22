@@ -16,17 +16,31 @@ class Shop extends Model
     /** @use HasFactory<ShopFactory> */
     use HasFactory, LogsActivity;
 
+    public const CONSOLIDATION_NONE = 'none';
+    public const CONSOLIDATION_SAME_SHOP = 'same_shop';
+    public const CONSOLIDATION_CROSS_SHOP = 'cross_shop';
+
     protected $fillable = [
         'tenant_id',
         'platform',
         'marketplace',
         'code',
         'name',
+        'consolidation_mode',
         'contact_name',
         'contact_email',
         'status',
         'note',
     ];
+
+    public static function consolidationModes(): array
+    {
+        return [
+            self::CONSOLIDATION_NONE,
+            self::CONSOLIDATION_SAME_SHOP,
+            self::CONSOLIDATION_CROSS_SHOP,
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

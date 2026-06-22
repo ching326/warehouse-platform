@@ -38,6 +38,28 @@ class ShopTest extends TestCase
             'code' => 'AMZJP',
             'name' => 'Amazon JP',
             'status' => 'active',
+            'consolidation_mode' => Shop::CONSOLIDATION_SAME_SHOP,
+        ]);
+    }
+
+    public function test_create_shop_persists_consolidation_mode(): void
+    {
+        $tenant = Tenant::factory()->create(['status' => 'active']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ShopCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('platform', 'amazon')
+            ->set('code', 'AMZ-CROSS')
+            ->set('name', 'Amazon Cross')
+            ->set('consolidationMode', Shop::CONSOLIDATION_CROSS_SHOP)
+            ->call('save')
+            ->assertRedirect(route('setup.shops.index'));
+
+        $this->assertDatabaseHas('shops', [
+            'tenant_id' => $tenant->id,
+            'code' => 'AMZ-CROSS',
+            'consolidation_mode' => Shop::CONSOLIDATION_CROSS_SHOP,
         ]);
     }
 
@@ -177,6 +199,21 @@ class ShopTest extends TestCase
             ->assertHasErrors(['platform']);
     }
 
+    public function test_create_shop_rejects_invalid_consolidation_mode(): void
+    {
+        $tenant = Tenant::factory()->create(['status' => 'active']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ShopCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('platform', 'amazon')
+            ->set('code', 'BAD-CONSOL')
+            ->set('name', 'Bad Consolidation')
+            ->set('consolidationMode', 'invalid')
+            ->call('save')
+            ->assertHasErrors(['consolidation_mode']);
+    }
+
     public function test_toggle_shop_status(): void
     {
         $shop = Shop::factory()->create(['status' => 'active']);
@@ -250,6 +287,7 @@ class ShopTest extends TestCase
             ->test(ShopEdit::class, ['shop' => $shop])
             ->set('name', 'New Name')
             ->set('status', 'inactive')
+            ->set('consolidationMode', Shop::CONSOLIDATION_NONE)
             ->call('save')
             ->assertRedirect(route('setup.shops.index'));
 
@@ -257,7 +295,19 @@ class ShopTest extends TestCase
             'id'     => $shop->id,
             'name'   => 'New Name',
             'status' => 'inactive',
+            'consolidation_mode' => Shop::CONSOLIDATION_NONE,
         ]);
+    }
+
+    public function test_edit_shop_rejects_invalid_consolidation_mode(): void
+    {
+        $shop = Shop::factory()->create(['status' => 'active']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ShopEdit::class, ['shop' => $shop])
+            ->set('consolidationMode', 'invalid')
+            ->call('save')
+            ->assertHasErrors(['consolidation_mode']);
     }
 
     public function test_edit_shop_allows_keeping_own_code(): void

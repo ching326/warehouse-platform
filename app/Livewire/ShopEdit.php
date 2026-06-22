@@ -22,6 +22,7 @@ class ShopEdit extends Component
     public string $marketplace   = '';
     public string $code          = '';
     public string $name          = '';
+    public string $consolidationMode = Shop::CONSOLIDATION_SAME_SHOP;
     public string $contactName   = '';
     public string $contactEmail  = '';
     public string $status        = 'active';
@@ -47,6 +48,7 @@ class ShopEdit extends Component
         $this->marketplace  = $shop->marketplace ?? '';
         $this->code         = $shop->code;
         $this->name         = $shop->name;
+        $this->consolidationMode = $shop->consolidation_mode ?? Shop::CONSOLIDATION_SAME_SHOP;
         $this->contactName  = $shop->contact_name ?? '';
         $this->contactEmail = $shop->contact_email ?? '';
         $this->status       = $shop->status;
@@ -65,6 +67,7 @@ class ShopEdit extends Component
             'marketplace'   => $marketplace,
             'code'          => $this->code,
             'name'          => $this->name,
+            'consolidation_mode' => $this->consolidationMode,
             'contact_name'  => $this->contactName,
             'contact_email' => $this->contactEmail,
             'status'        => $this->status,
@@ -84,6 +87,7 @@ class ShopEdit extends Component
                     ->ignore($this->shop->id),
             ],
             'name'          => ['required', 'string', 'max:255'],
+            'consolidation_mode' => ['required', 'string', Rule::in(Shop::consolidationModes())],
             'contact_name'  => ['nullable', 'string', 'max:255'],
             'contact_email' => ['nullable', 'email', 'max:255'],
             'status'        => ['required', 'string', Rule::in(['active', 'inactive'])],
@@ -96,6 +100,7 @@ class ShopEdit extends Component
             'marketplace'   => $marketplace,
             'code'          => $this->code,
             'name'          => trim($this->name),
+            'consolidation_mode' => $this->consolidationMode,
             'contact_name'  => $this->nullableString($this->contactName),
             'contact_email' => $this->nullableString($this->contactEmail),
             'status'        => $this->status,
@@ -252,6 +257,7 @@ class ShopEdit extends Component
                 'active'   => __('shop.status_active'),
                 'inactive' => __('shop.status_inactive'),
             ],
+            'consolidationModes' => $this->consolidationModes(),
             'amazonConnection' => $amazonConnection,
             'amazonEndpoint' => AmazonSpapiRegion::endpoint($this->spapiRegion),
             'amazonMarketplaceOptions' => AmazonSpapiRegion::marketplaceOptions(),
@@ -283,6 +289,15 @@ class ShopEdit extends Component
             'rakuten' => __('shop.platform_rakuten'),
             'shopify' => __('shop.platform_shopify'),
             'manual'  => __('shop.platform_manual'),
+        ];
+    }
+
+    private function consolidationModes(): array
+    {
+        return [
+            Shop::CONSOLIDATION_NONE => __('shop.consolidation_none'),
+            Shop::CONSOLIDATION_SAME_SHOP => __('shop.consolidation_same_shop'),
+            Shop::CONSOLIDATION_CROSS_SHOP => __('shop.consolidation_cross_shop'),
         ];
     }
 

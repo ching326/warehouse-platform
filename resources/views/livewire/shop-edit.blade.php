@@ -58,6 +58,18 @@
                     @error('name') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
             </div>
+
+            <div class="form-grid three">
+                <div>
+                    <flux:select wire:model="consolidationMode" :label="__('shop.field_consolidation_mode')">
+                        @foreach ($consolidationModes as $value => $label)
+                            <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    <span class="subtle">{{ __('shop.field_consolidation_mode_hint') }}</span>
+                    @error('consolidation_mode') <p class="form-error">{{ $message }}</p> @enderror
+                </div>
+            </div>
         </section>
 
         <section class="table-shell flux-panel form-panel">

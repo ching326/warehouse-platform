@@ -168,7 +168,6 @@ class SalesOrder extends Model
 
         $this->ship_together_key = md5(implode('|', [
             $this->tenant_id,
-            $this->shop_id,
             strtolower(trim((string) $this->recipient_name)),
             strtolower(trim((string) $this->recipient_country_code)),
             strtolower(trim((string) $this->recipient_postal_code)),

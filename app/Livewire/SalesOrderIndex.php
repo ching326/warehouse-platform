@@ -210,7 +210,16 @@ class SalesOrderIndex extends Component
             ->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_UNFULFILLED)
             ->whereNotNull('ship_together_key')
             ->whereHas('lines', fn ($query) => $query
-                ->where('line_status', SalesOrderLine::STATUS_READY))
+                ->where(fn ($lineQuery) => $lineQuery
+                    ->whereNull('line_status')
+                    ->orWhere('line_status', '!=', SalesOrderLine::STATUS_CANCELLED)))
+            ->whereDoesntHave('lines', fn ($query) => $query
+                ->where(fn ($lineQuery) => $lineQuery
+                    ->whereNull('line_status')
+                    ->orWhere('line_status', '!=', SalesOrderLine::STATUS_CANCELLED))
+                ->where(fn ($lineQuery) => $lineQuery
+                    ->whereNull('line_status')
+                    ->orWhere('line_status', '!=', SalesOrderLine::STATUS_READY)))
             ->whereDoesntHave('lines', fn ($query) => $query
                 ->where('line_status', SalesOrderLine::STATUS_READY)
                 ->whereHas('sku', fn ($skuQuery) => $skuQuery

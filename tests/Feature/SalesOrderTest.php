@@ -113,6 +113,65 @@ class SalesOrderTest extends TestCase
         $this->assertSame($orders[0]->ship_together_key, $orders[1]->ship_together_key);
     }
 
+    public function test_ship_together_key_no_longer_depends_on_shop_id(): void
+    {
+        [$tenant, $shopA, $skuA] = $this->salesSku();
+        $shopB = Shop::factory()->for($tenant)->create(['status' => 'active']);
+        $skuB = Sku::factory()
+            ->for($tenant)
+            ->for($shopB)
+            ->for(StockItem::factory()->for($tenant)->create())
+            ->create(['sku_type' => 'single']);
+
+        $this->createOrder($shopA, $skuA, platformOrderId: 'SO-KEY-SHOP-A');
+        $this->createOrder($shopB, $skuB, platformOrderId: 'SO-KEY-SHOP-B');
+
+        $orders = SalesOrder::orderBy('id')->get();
+
+        $this->assertNotSame($orders[0]->shop_id, $orders[1]->shop_id);
+        $this->assertNotNull($orders[0]->ship_together_key);
+        $this->assertSame($orders[0]->ship_together_key, $orders[1]->ship_together_key);
+    }
+
+    public function test_recompute_ship_together_key_migration_updates_active_orders_only(): void
+    {
+        [$tenant, $shopA, $skuA] = $this->salesSku();
+        $shopB = Shop::factory()->for($tenant)->create(['status' => 'active']);
+        $skuB = Sku::factory()
+            ->for($tenant)
+            ->for($shopB)
+            ->for(StockItem::factory()->for($tenant)->create())
+            ->create(['sku_type' => 'single']);
+
+        $pendingA = $this->createPersistedOrder($shopA, $skuA, ['platform_order_id' => 'REKEY-PENDING-A']);
+        $pendingB = $this->createPersistedOrder($shopB, $skuB, ['platform_order_id' => 'REKEY-PENDING-B']);
+        $shipped = $this->createPersistedOrder($shopB, $skuB, [
+            'platform_order_id' => 'REKEY-SHIPPED',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_SHIPPED,
+        ]);
+        $cancelled = $this->createPersistedOrder($shopB, $skuB, [
+            'platform_order_id' => 'REKEY-CANCELLED',
+            'order_status' => SalesOrder::ORDER_STATUS_CANCELLED,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_CANCELLED,
+        ]);
+
+        foreach ([$pendingA, $pendingB, $shipped, $cancelled] as $order) {
+            SalesOrder::whereKey($order->id)->update([
+                'ship_together_key' => $this->legacyShipTogetherKey($order),
+            ]);
+        }
+
+        $shippedLegacyKey = $shipped->refresh()->ship_together_key;
+        $cancelledLegacyKey = $cancelled->refresh()->ship_together_key;
+
+        $migration = require database_path('migrations/2026_06_23_000003_recompute_sales_order_ship_together_keys.php');
+        $migration->up();
+
+        $this->assertSame($pendingA->refresh()->ship_together_key, $pendingB->refresh()->ship_together_key);
+        $this->assertSame($shippedLegacyKey, $shipped->refresh()->ship_together_key);
+        $this->assertSame($cancelledLegacyKey, $cancelled->refresh()->ship_together_key);
+    }
+
     public function test_create_sales_order_key_null_when_no_address(): void
     {
         [, $shop, $sku] = $this->salesSku();
@@ -1879,6 +1938,25 @@ class SalesOrderTest extends TestCase
         ]);
 
         return $order;
+    }
+
+    private function legacyShipTogetherKey(SalesOrder $order): ?string
+    {
+        if (empty(trim((string) $order->recipient_address_line1))) {
+            return null;
+        }
+
+        return md5(implode('|', [
+            $order->tenant_id,
+            $order->shop_id,
+            strtolower(trim((string) $order->recipient_name)),
+            strtolower(trim((string) $order->recipient_country_code)),
+            strtolower(trim((string) $order->recipient_postal_code)),
+            strtolower(trim((string) $order->recipient_state)),
+            strtolower(trim((string) $order->recipient_city)),
+            strtolower(trim((string) $order->recipient_address_line1)),
+            strtolower(trim((string) $order->recipient_address_line2)),
+        ]));
     }
 
     private function internalUser(): User
