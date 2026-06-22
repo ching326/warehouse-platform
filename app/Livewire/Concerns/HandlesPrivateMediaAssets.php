@@ -74,7 +74,7 @@ trait HandlesPrivateMediaAssets
         $path = $asset->path;
         $assetId = $asset->id;
 
-        DB::transaction(fn () => $asset->delete());
+        $asset->delete();
 
         try {
             Storage::disk($disk)->delete($path);

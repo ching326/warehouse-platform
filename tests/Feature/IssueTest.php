@@ -325,6 +325,26 @@ class IssueTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_media_streaming_route_escapes_user_controlled_filename_header(): void
+    {
+        Storage::fake('local');
+        [, $order] = $this->salesOrderWithLine(null, 'ISS-HEADER-SKU', 'ISS-HEADER-ORDER');
+        $case = $this->issueForOrder($order);
+        Storage::disk('local')->put('media/private/tenant-'.$case->tenant_id.'/issues/'.$case->id.'/header.jpg', 'image-bytes');
+        $asset = $this->mediaAsset($case, MediaAsset::MODEL_TYPE_ISSUE, [
+            'path' => 'media/private/tenant-'.$case->tenant_id.'/issues/'.$case->id.'/header.jpg',
+            'file_name' => "bad\"\r\nX-Injected: yes.jpg",
+        ]);
+
+        $response = $this->actingAs($this->internalUser())
+            ->get(route('media.show', $asset))
+            ->assertOk();
+
+        $this->assertStringNotContainsString("\r", $response->headers->get('Content-Disposition'));
+        $this->assertStringNotContainsString("\n", $response->headers->get('Content-Disposition'));
+        $this->assertFalse($response->headers->has('X-Injected'));
+    }
+
     public function test_sales_order_detail_shows_linked_issues(): void
     {
         [, $order] = $this->salesOrderWithLine(null, 'DETAIL-LINK-SKU', 'DETAIL-LINK-ORDER');

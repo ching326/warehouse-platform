@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\MediaAsset;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 
 class MediaController
 {
@@ -28,7 +29,28 @@ class MediaController
 
         return response($disk->get($mediaAsset->path), 200, [
             'Content-Type' => $mediaAsset->mime_type ?: 'application/octet-stream',
-            'Content-Disposition' => 'inline; filename="'.$mediaAsset->file_name.'"',
+            'Content-Disposition' => HeaderUtils::makeDisposition(
+                HeaderUtils::DISPOSITION_INLINE,
+                $this->safeDispositionFilename($mediaAsset->file_name),
+                $this->fallbackDispositionFilename($mediaAsset->file_name),
+            ),
         ]);
+    }
+
+    private function safeDispositionFilename(string $filename): string
+    {
+        $filename = str_replace(['/', '\\'], '-', $filename);
+        $filename = preg_replace('/[\x00-\x1F\x7F]+/', '', $filename) ?? '';
+
+        return $filename !== '' ? $filename : 'media';
+    }
+
+    private function fallbackDispositionFilename(string $filename): string
+    {
+        $filename = $this->safeDispositionFilename($filename);
+        $filename = preg_replace('/[^\x20-\x7E]/', '_', $filename) ?? '';
+        $filename = str_replace('%', '_', $filename);
+
+        return $filename !== '' ? $filename : 'media';
     }
 }
