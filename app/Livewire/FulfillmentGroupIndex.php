@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\FulfillmentGroup;
 use App\Models\SalesOrder;
+use App\Models\ShippingMethod;
 use App\Models\Tenant;
 use App\Models\Warehouse;
 use Illuminate\Support\Facades\Auth;
@@ -98,6 +99,27 @@ class FulfillmentGroupIndex extends Component
         $this->noteDrafts[$groupId] = $note ?? '';
     }
 
+    public function updateShippingMethod(int $groupId, string $value): void
+    {
+        $methodId = $value === '' ? null : (int) $value;
+
+        if ($value !== '' && $methodId <= 0) {
+            return;
+        }
+
+        if ($methodId !== null && ! ShippingMethod::query()
+            ->where('status', 'active')
+            ->whereKey($methodId)
+            ->exists()) {
+            return;
+        }
+
+        FulfillmentGroup::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->whereKey($groupId)
+            ->update(['shipping_method_id' => $methodId]);
+    }
+
     public function updateTracking(int $groupId, string $value): void
     {
         $trackingNo = trim($value);
@@ -129,6 +151,7 @@ class FulfillmentGroupIndex extends Component
             ->with([
                 'tenant:id,code,name',
                 'warehouse:id,code,name',
+                'shippingMethod:id,name',
                 'outboundOrder:id,fulfillment_group_id,shipping_method',
                 'groupOrders:id,fulfillment_group_id,sales_order_id,tracking_no,arranged_at,shipped_at',
                 'groupOrders.salesOrder:id,shop_id,platform_order_id,courier_csv_exported_at,shipping_method',
@@ -174,6 +197,12 @@ class FulfillmentGroupIndex extends Component
                 ->where('status', 'active')
                 ->orderBy('name')
                 ->get(['id', 'code', 'name']),
+            'shippingMethods' => ShippingMethod::query()
+                ->where('status', 'active')
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->mapWithKeys(fn (ShippingMethod $method) => [(string) $method->id => $method->name])
+                ->all(),
             'statuses' => $this->statuses(),
             'showTenantFilter' => $this->isInternalUser(),
         ])->layout('inventory', [

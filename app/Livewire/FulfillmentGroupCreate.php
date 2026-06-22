@@ -97,6 +97,7 @@ class FulfillmentGroupCreate extends Component
                 $group = FulfillmentGroup::create([
                     'tenant_id' => $tenantId,
                     'warehouse_id' => (int) $this->warehouseId,
+                    'shipping_method_id' => $firstOrder->shipping_method_id,
                     'reference_no' => 'FG-PENDING-'.Str::uuid(),
                     'status' => FulfillmentGroup::STATUS_RESERVED,
                     'ship_together_key' => $firstOrder->ship_together_key,
@@ -110,7 +111,7 @@ class FulfillmentGroupCreate extends Component
                     'recipient_address_line2' => $firstOrder->recipient_address_line2,
                     'created_by_user_id' => Auth::id(),
                 ]);
-                $group->update(['reference_no' => FulfillmentGroup::buildReferenceNo($group->id)]);
+                $group->update(['reference_no' => FulfillmentGroup::buildReferenceNo($group->id, $firstOrder->tenant->code)]);
                 $group->orders()->attach($orders->pluck('id')->all());
 
                 [$bySkuAndItem, $byStockItem] = $this->aggregateLines($orders);

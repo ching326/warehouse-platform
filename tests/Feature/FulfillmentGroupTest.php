@@ -12,6 +12,7 @@ use App\Models\InventoryBalance;
 use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
+use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\SkuBundleComponent;
@@ -67,7 +68,7 @@ class FulfillmentGroupTest extends TestCase
         $references = FulfillmentGroup::query()->orderBy('id')->pluck('reference_no');
 
         $this->assertCount(2, $references->unique());
-        $this->assertMatchesRegularExpression('/^FG-\d{8}-\d{4,}$/', $references->first());
+        $this->assertMatchesRegularExpression('/^FG-'.preg_quote($tenant->code, '/').'-\d{6}-\d{5}$/', $references->first());
     }
 
     public function test_create_group_snapshots_recipient_from_sales_order(): void
@@ -82,6 +83,43 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame($order->recipient_name, $group->recipient_name);
         $this->assertSame($order->recipient_city, $group->recipient_city);
         $this->assertSame($order->recipient_address_line1, $group->recipient_address_line1);
+    }
+
+    public function test_create_group_defaults_shipping_method_from_sales_order(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-SHIPMETHOD');
+        $order->update(['shipping_method_id' => $method->id]);
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+
+        $this->assertSame($method->id, FulfillmentGroup::firstOrFail()->shipping_method_id);
+    }
+
+    public function test_fulfillment_index_updates_group_shipping_method_and_rejects_inactive(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-UPD-METHOD');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        $yamato = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupIndex::class)
+            ->call('updateShippingMethod', $group->id, (string) $yamato->id);
+
+        $this->assertSame($yamato->id, $group->refresh()->shipping_method_id);
+
+        $inactive = ShippingMethod::where('code', 'sagawa_thb')->firstOrFail();
+        $inactive->update(['status' => 'inactive']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupIndex::class)
+            ->call('updateShippingMethod', $group->id, (string) $inactive->id);
+
+        $this->assertSame($yamato->id, $group->refresh()->shipping_method_id);
     }
 
     public function test_create_group_rejects_empty_order_selection(): void

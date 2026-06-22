@@ -24,6 +24,7 @@ class FulfillmentGroup extends Model
     protected $fillable = [
         'tenant_id',
         'warehouse_id',
+        'shipping_method_id',
         'reference_no',
         'status',
         'ship_together_key',
@@ -67,6 +68,11 @@ class FulfillmentGroup extends Model
         return $this->belongsTo(Warehouse::class);
     }
 
+    public function shippingMethod(): BelongsTo
+    {
+        return $this->belongsTo(ShippingMethod::class);
+    }
+
     public function outboundOrder(): HasOne
     {
         return $this->hasOne(OutboundOrder::class);
@@ -82,8 +88,13 @@ class FulfillmentGroup extends Model
         return $this->hasMany(FulfillmentGroupOrder::class);
     }
 
-    public static function buildReferenceNo(int $id): string
+    public static function buildReferenceNo(int $id, string $tenantCode): string
     {
-        return 'FG-'.now()->format('Ymd').'-'.str_pad((string) $id, 4, '0', STR_PAD_LEFT);
+        $tenantCode = strtoupper(trim($tenantCode));
+        $tenantCode = preg_replace('/[^A-Z0-9]+/', '-', $tenantCode) ?? '';
+        $tenantCode = trim($tenantCode, '-');
+        $tenantCode = $tenantCode !== '' ? $tenantCode : 'TENANT';
+
+        return 'FG-'.$tenantCode.'-'.now()->format('ymd').'-'.str_pad((string) $id, 5, '0', STR_PAD_LEFT);
     }
 }

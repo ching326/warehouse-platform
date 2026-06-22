@@ -93,12 +93,6 @@
                         $itemQty = $members->sum(fn ($go) => $go->salesOrder
                             ? (int) $go->salesOrder->lines->sum('quantity')
                             : 0);
-                        $shipping = $group->outboundOrder?->shipping_method
-                            ?: $members
-                                ->map(fn ($go) => $go->salesOrder?->shipping_method)
-                                ->filter()
-                                ->unique()
-                                ->implode(', ');
                         $arranged = $members->pluck('arranged_at')->filter()->min();
                         $printed = $members
                             ->map(fn ($go) => $go->salesOrder?->courier_csv_exported_at)
@@ -147,7 +141,17 @@
                             <strong>{{ number_format($group->orders_count) }}</strong> / {{ number_format($itemQty) }}
                         </flux:table.cell>
 
-                        <flux:table.cell>{{ $shipping ?: '-' }}</flux:table.cell>
+                        <flux:table.cell>
+                            <select
+                                class="fg-inline-input"
+                                wire:change="updateShippingMethod({{ $group->id }}, $event.target.value)"
+                            >
+                                <option value="">-</option>
+                                @foreach ($shippingMethods as $methodId => $methodName)
+                                    <option value="{{ $methodId }}" @selected((string) $group->shipping_method_id === (string) $methodId)>{{ $methodName }}</option>
+                                @endforeach
+                            </select>
+                        </flux:table.cell>
 
                         <flux:table.cell>
                             <input

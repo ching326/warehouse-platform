@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\SalesOrderIndex;
+use App\Models\FulfillmentGroup;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\Shop;
@@ -11,6 +12,7 @@ use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -51,6 +53,27 @@ class SalesOrderIndexBulkTest extends TestCase
 
         $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $inGroup->refresh()->order_status);
         $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $shipped->refresh()->order_status);
+    }
+
+    public function test_bulk_hold_skips_orders_in_an_active_fulfillment_group(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('BULK-HOLD-GROUPED');
+        $warehouse = Warehouse::factory()->create(['status' => 'active']);
+        $order = $this->orderWithLines($shop, $sku, ['fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY]);
+
+        $group = FulfillmentGroup::factory()->for($tenant)->for($warehouse)->create([
+            'status' => FulfillmentGroup::STATUS_RESERVED,
+        ]);
+        $group->orders()->attach($order->id);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $order->id])
+            ->call('bulkHold');
+
+        $order->refresh();
+        $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $order->order_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_READY, $order->fulfillment_status);
     }
 
     public function test_bulk_hold_skips_non_pending_orders(): void

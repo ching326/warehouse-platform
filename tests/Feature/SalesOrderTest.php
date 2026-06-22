@@ -712,7 +712,7 @@ class SalesOrderTest extends TestCase
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->refresh()->fulfillment_status);
     }
 
-    public function test_bulk_hold_does_not_change_fulfillment_status(): void
+    public function test_bulk_hold_resets_ungrouped_ready_order_to_unfulfilled(): void
     {
         [, $shop, $sku] = $this->salesSku();
         $order = $this->createPersistedOrder($shop, $sku, [
@@ -727,7 +727,7 @@ class SalesOrderTest extends TestCase
 
         $order->refresh();
         $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $order->order_status);
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_READY, $order->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->fulfillment_status);
     }
 
     public function test_bulk_delete_sales_orders_succeeds(): void

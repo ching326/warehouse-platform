@@ -111,7 +111,7 @@ Ship Ready order is already in a group); it never shows loose ungrouped sales or
 Adds / owns:
 
 - list FulfillmentGroups (the ship queue), each showing its member orders
-- batch by warehouse / courier / shipping method / print-waiting
+- batch by warehouse / shipping method / print-waiting
 - courier export Yamato / Sagawa (moved from Sales Order), one parcel row per group (Invariant 2)
 - tracking import (moved from Sales Order), maps the returned tracking to the group
 - print waiting filter (moved from Sales Order)
@@ -235,6 +235,23 @@ v1 is conservative: keep `sales_orders.courier_csv_exported_at` as the printed/e
   avoids the printed-state logic splitting across two columns. (A later task may move it to the pivot
   if per-parcel export tracking is needed.)
 
+### 6. Shipping method lineage (implemented)
+
+Shipping method has three roles across the journey; do not collapse them:
+
+- `sales_orders.shipping_method_id` -- the INSTRUCTION (what the tenant / platform requested). Left
+  unchanged when the warehouse overrides; preserved for OMS audit.
+- `fulfillment_groups.shipping_method_id` (NEW, nullable FK) -- the DECISION (what this parcel will
+  actually ship with). Defaulted from the member sales order at group creation, editable by warehouse
+  staff via the Fulfillment Shipping dropdown.
+- `outbound_orders.shipping_method` -- the EXECUTED record, written at ship time from the group's
+  decision (the ship service also derives `courier` from the method's carrier).
+
+Why the group, not the sales order or outbound: a group can span multiple sales orders (each with a
+different requested method), so the one-method-per-parcel decision can only live on the group; the
+outbound's method is only known at ship, so it cannot back a pre-ship dropdown. This lineage also
+feeds courier export (carrier from the group's method) and removes the need for a courier filter.
+
 ### 5. Shop consolidation setting + ship_together_key recompute
 
 DECIDED: cross-shop combine is controlled by a per-shop setting in Setup.
@@ -321,6 +338,40 @@ remodel.
 
 ---
 
+## Hold and recall policy
+
+The thing that gates a hold is NOT the `ready` status by itself, but whether the order has entered
+fulfillment, i.e. whether it is in an ACTIVE (non-cancelled) FulfillmentGroup with reserved stock.
+
+Three tiers:
+
+| Order state | Hold | What happens |
+|---|---|---|
+| Not in an active group (`unfulfilled`, or `ready` but not yet grouped) | allowed (casual bulk hold) | set `order_status = on_hold` and reset `fulfillment_status = unfulfilled` (leaves the ship queue) |
+| In an active group, group still `reserved` and NOT exported / shipped | NOT a plain hold | requires a deliberate "Recall from fulfillment" action: release the reserved stock, remove the order from the group, then hold |
+| In a group already courier-exported or shipped | blocked | too late; stopping it is a cancellation / warehouse recall, not a tenant hold |
+
+### bulkHold (implemented)
+
+`SalesOrderIndex::bulkHold` holds an order only when it is:
+
+- `order_status = pending`, and
+- `fulfillment_status` in (`unfulfilled`, `ready`), and
+- NOT in an active fulfillment group
+  (`whereDoesntHave('fulfillmentGroupOrders', group status != cancelled)`).
+
+Held orders are set to `order_status = on_hold` + `fulfillment_status = unfulfilled`. Everything else
+in the selection is skipped and reported in the result count. This blocks the dangerous case (order
+already reserved / being picked) while still letting a not-yet-grouped order be held.
+
+### Recall from fulfillment (deferred to Phase 4)
+
+A separate action for an order in a `reserved`, not-exported/not-shipped group: release its reserved
+stock (`InventoryService::releaseReserve`), detach it from the group, then set it on hold /
+unfulfilled. Refused when the group is already exported or shipped. Not built in this step.
+
+---
+
 ## Flow A: Sales Order -- Mark Ship Ready + combine prompt
 
 On the Sales Order page, when the tenant marks one or more orders Ship Ready (per Invariant 1, every
@@ -368,7 +419,7 @@ of scope for v1 (use join-existing or single-order instead).
 The Fulfillment page (`FulfillmentGroupIndex` plus its detail) becomes the operator surface. It
 operates on FulfillmentGroups (Invariant 1) and must support:
 
-- filter by warehouse / courier / shipping method / print-waiting
+- filter by warehouse / shipping method / print-waiting
 - courier export (Yamato / Sagawa CSV) -- one parcel row per selected group (Invariant 2)
 - tracking import -- import the returned tracking and apply it to the matched group
 - one tracking number per group (entered once, written to all member rows + synced to all member
@@ -408,7 +459,7 @@ One row = one FulfillmentGroup (one shipment). Columns, left to right:
 | Shop | tenant code + shop name (header label is just "Shop"). Multi-shop group shows tenant + shop count | no | shop derived from member orders |
 | Recipient | recipient name + city / postal | no | from group |
 | Orders / items | order count + total item qty | no | qty summed from member order lines |
-| Shipping | shipping method name | yes -- dropdown of active shipping methods | stored as the group's shipping method (on its OutboundOrder), defaulted from member orders at group creation |
+| Shipping | shipping method name | yes -- dropdown of active shipping methods | stored on `fulfillment_groups.shipping_method_id` (see Data model 6), defaulted from member orders at group creation |
 | Tracking | tracking number | yes -- text input | one per group (Invariant 2); on save writes every pivot row + syncs member sales orders |
 | Note | note text | yes -- inline (same UX as the Sales Order page note) | stored on `fulfillment_groups.note`, initialized by copying the member sales order note at group creation |
 | Added | `arranged_at` (top) and printed time = `courier_csv_exported_at` (below), mirroring the Sales Order page added/printed display | no | printed time shown here, NOT as a status pill |
@@ -419,7 +470,8 @@ batch toolbar.
 
 Toolbar:
 
-- Filters (top row): warehouse, courier, shipping method, status, print-waiting toggle, search.
+- Filters (top row): warehouse, shipping method, status, print-waiting toggle, search.
+  (No standalone courier filter: a shipping method already implies its carrier, so it would be redundant.)
 - Batch actions (shown when at least one row is selected): Export Yamato, Export Sagawa,
   Import tracking, Mark shipped.
 - Default sort: `arranged_at` ascending (oldest queued first / FIFO).

@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\FulfillmentGroup;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\ShippingMethod;
@@ -279,7 +280,13 @@ class SalesOrderIndex extends Component
                 SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
                 SalesOrder::FULFILLMENT_STATUS_READY,
             ])
-            ->update(['order_status' => SalesOrder::ORDER_STATUS_ON_HOLD]);
+            ->whereDoesntHave('fulfillmentGroupOrders', fn ($query) => $query
+                ->whereHas('fulfillmentGroup', fn ($group) => $group
+                    ->where('status', '!=', FulfillmentGroup::STATUS_CANCELLED)))
+            ->update([
+                'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
+                'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+            ]);
 
         $this->finishBulk('sales_orders.bulk_hold_result', $updated, count($selectedIds));
     }
