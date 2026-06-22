@@ -6,6 +6,7 @@ use App\Models\FulfillmentGroup;
 use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
+use App\Models\ShippingMethod;
 use App\Models\Tenant;
 use App\Models\Warehouse;
 use App\Services\InventoryService;
@@ -94,10 +95,7 @@ class FulfillmentGroupCreate extends Component
                 }
 
                 $firstOrder = $orders->firstOrFail();
-                $shippingMethodIds = $orders->pluck('shipping_method_id')->unique();
-                $defaultShippingMethodId = $shippingMethodIds->count() === 1
-                    ? $shippingMethodIds->first()
-                    : null;
+                $defaultShippingMethodId = $this->resolveGroupShippingMethodId($orders);
                 $group = FulfillmentGroup::create([
                     'tenant_id' => $tenantId,
                     'warehouse_id' => (int) $this->warehouseId,
@@ -201,6 +199,31 @@ class FulfillmentGroupCreate extends Component
             'title' => __('fulfillment_groups.create_page_title'),
             'subtitle' => __('fulfillment_groups.create_page_subtitle'),
         ]);
+    }
+
+    private function resolveGroupShippingMethodId(Collection $orders): ?int
+    {
+        $methodIds = $orders->pluck('shipping_method_id');
+
+        // Any member without a chosen method -> leave blank so staff decides.
+        if ($methodIds->contains(fn ($id) => $id === null)) {
+            return null;
+        }
+
+        $candidates = ShippingMethod::query()
+            ->whereIn('id', $methodIds->unique()->all())
+            ->where('status', 'active')
+            ->orderBy('selection_priority')
+            ->get(['id', 'selection_priority']);
+
+        if ($candidates->isEmpty()) {
+            return null;
+        }
+
+        // Lower selection_priority wins (priority 1 beats priority 2). Tie -> blank.
+        $top = $candidates->where('selection_priority', $candidates->min('selection_priority'));
+
+        return $top->count() === 1 ? (int) $top->first()->id : null;
     }
 
     private function validateInput(int $tenantId): void

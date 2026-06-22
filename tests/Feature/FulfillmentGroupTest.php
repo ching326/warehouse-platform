@@ -99,16 +99,51 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame($method->id, FulfillmentGroup::firstOrFail()->shipping_method_id);
     }
 
-    public function test_create_group_leaves_shipping_method_blank_when_members_differ(): void
+    public function test_create_group_picks_lowest_selection_priority_when_members_differ(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
         $yamato = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
         $sagawa = ShippingMethod::where('code', 'sagawa_thb')->firstOrFail();
+        $yamato->update(['selection_priority' => 1]);
+        $sagawa->update(['selection_priority' => 2]);
 
-        $orderA = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-MIX-A');
+        $orderA = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PRIO-A');
         $orderA->update(['shipping_method_id' => $yamato->id]);
-        $orderB = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-MIX-B');
+        $orderB = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PRIO-B');
         $orderB->update(['shipping_method_id' => $sagawa->id]);
+
+        $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA, $orderB]);
+
+        $this->assertSame($yamato->id, FulfillmentGroup::firstOrFail()->shipping_method_id);
+    }
+
+    public function test_create_group_leaves_shipping_method_blank_on_priority_tie(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $yamato = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+        $sagawa = ShippingMethod::where('code', 'sagawa_thb')->firstOrFail();
+        $yamato->update(['selection_priority' => 1]);
+        $sagawa->update(['selection_priority' => 1]);
+
+        $orderA = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-TIE-A');
+        $orderA->update(['shipping_method_id' => $yamato->id]);
+        $orderB = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-TIE-B');
+        $orderB->update(['shipping_method_id' => $sagawa->id]);
+
+        $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA, $orderB]);
+
+        $this->assertNull(FulfillmentGroup::firstOrFail()->shipping_method_id);
+    }
+
+    public function test_create_group_leaves_shipping_method_blank_when_a_member_has_no_method(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $yamato = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+
+        $orderA = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-NULL-A');
+        $orderA->update(['shipping_method_id' => $yamato->id]);
+        $orderB = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-NULL-B');
+        $orderB->update(['shipping_method_id' => null]);
 
         $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA, $orderB]);
 
