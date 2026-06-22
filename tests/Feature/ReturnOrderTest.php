@@ -6,9 +6,11 @@ use App\Livewire\IssueShow;
 use App\Livewire\ReturnOrderDisposition;
 use App\Livewire\ReturnOrderIndex;
 use App\Livewire\ReturnOrderReceive;
+use App\Livewire\ReturnOrderShow;
 use App\Models\InventoryBalance;
 use App\Models\InventoryMovement;
 use App\Models\Issue;
+use App\Models\MediaAsset;
 use App\Models\ReturnOrder;
 use App\Models\ReturnOrderCost;
 use App\Models\ReturnOrderLine;
@@ -16,10 +18,13 @@ use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\StockItem;
 use App\Models\Tenant;
+use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Models\WarehouseLocation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -187,9 +192,108 @@ class ReturnOrderTest extends TestCase
             ->assertSee($order->return_no);
     }
 
-    private function returnOrderWithLine(int $expectedQty = 1, int $receivedQty = 0): array
+    public function test_return_order_photo_upload_uses_private_disk_and_correct_model_type(): void
     {
-        $tenant = Tenant::factory()->create();
+        Storage::fake('local');
+        Storage::fake('public');
+        [$tenant, $user] = $this->tenantUser();
+        [$order] = $this->returnOrderWithLine($tenant);
+
+        Livewire::actingAs($user)
+            ->test(ReturnOrderShow::class, ['returnOrder' => $order])
+            ->set('photo', UploadedFile::fake()->image('return-damage.webp', 90, 70))
+            ->set('photoType', 'damage')
+            ->call('uploadPhoto')
+            ->assertHasNoErrors();
+
+        $asset = MediaAsset::firstOrFail();
+
+        $this->assertSame('local', $asset->disk);
+        $this->assertSame($tenant->id, $asset->tenant_id);
+        $this->assertSame(MediaAsset::MODEL_TYPE_RETURN_ORDER, $asset->model_type);
+        $this->assertSame($order->id, $asset->model_id);
+        $this->assertSame(90, $asset->width);
+        $this->assertSame(70, $asset->height);
+        Storage::disk('local')->assertExists($asset->path);
+        Storage::disk('public')->assertMissing($asset->path);
+    }
+
+    public function test_tenant_user_cannot_upload_return_order_photo_for_another_tenant(): void
+    {
+        Storage::fake('local');
+        [, $user] = $this->tenantUser();
+        [$order] = $this->returnOrderWithLine();
+
+        Livewire::actingAs($user)
+            ->test(ReturnOrderShow::class, ['returnOrder' => $order])
+            ->assertForbidden();
+
+        $this->assertSame(0, MediaAsset::count());
+    }
+
+    public function test_return_order_photo_delete_removes_row_and_private_file(): void
+    {
+        Storage::fake('local');
+        [$order] = $this->returnOrderWithLine();
+        Storage::disk('local')->put('media/private/tenant-'.$order->tenant_id.'/return-orders/'.$order->id.'/delete.jpg', 'image');
+        $asset = $this->mediaAsset($order, [
+            'path' => 'media/private/tenant-'.$order->tenant_id.'/return-orders/'.$order->id.'/delete.jpg',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ReturnOrderShow::class, ['returnOrder' => $order])
+            ->call('deletePhoto', $asset->id)
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseMissing('media_assets', ['id' => $asset->id]);
+        Storage::disk('local')->assertMissing($asset->path);
+    }
+
+    public function test_return_order_photo_soft_limit_rejects_eleventh_image(): void
+    {
+        Storage::fake('local');
+        [$order] = $this->returnOrderWithLine();
+
+        foreach (range(1, 10) as $index) {
+            $this->mediaAsset($order, ['file_name' => 'existing-'.$index.'.jpg']);
+        }
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ReturnOrderShow::class, ['returnOrder' => $order])
+            ->set('photo', UploadedFile::fake()->image('eleventh.jpg'))
+            ->call('uploadPhoto')
+            ->assertHasErrors(['photo']);
+
+        $this->assertSame(10, MediaAsset::count());
+    }
+
+    public function test_media_asset_url_returns_public_url_for_public_disk_and_media_route_for_private_disk(): void
+    {
+        [$order] = $this->returnOrderWithLine();
+        $private = $this->mediaAsset($order);
+        $public = MediaAsset::create([
+            'tenant_id' => $order->tenant_id,
+            'model_type' => MediaAsset::MODEL_TYPE_STOCK_ITEM,
+            'model_id' => 123,
+            'type' => 'main',
+            'disk' => 'public',
+            'path' => 'product-images/tenant-'.$order->tenant_id.'/stock-items/123/public.jpg',
+            'file_name' => 'public.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 10,
+            'width' => 10,
+            'height' => 10,
+            'sort_order' => 1,
+            'is_primary' => true,
+        ]);
+
+        $this->assertSame('/storage/product-images/tenant-'.$order->tenant_id.'/stock-items/123/public.jpg', parse_url($public->url(), PHP_URL_PATH));
+        $this->assertSame(route('media.show', $private), $private->url());
+    }
+
+    private function returnOrderWithLine(?Tenant $tenant = null, int $expectedQty = 1, int $receivedQty = 0): array
+    {
+        $tenant ??= Tenant::factory()->create();
         $warehouse = Warehouse::factory()->create();
         $location = WarehouseLocation::factory()->for($warehouse)->create();
         $shop = Shop::factory()->for($tenant)->create();
@@ -226,6 +330,45 @@ class ReturnOrderTest extends TestCase
             'user_type' => 'internal',
             'is_active' => true,
         ]);
+    }
+
+    /**
+     * @return array{0: Tenant, 1: User}
+     */
+    private function tenantUser(): array
+    {
+        $tenant = Tenant::factory()->create();
+        $user = User::factory()->create([
+            'user_type' => 'tenant',
+            'is_active' => true,
+        ]);
+
+        TenantUser::factory()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'status' => 'active',
+        ]);
+
+        return [$tenant, $user];
+    }
+
+    private function mediaAsset(ReturnOrder $order, array $attributes = []): MediaAsset
+    {
+        return MediaAsset::create(array_merge([
+            'tenant_id' => $order->tenant_id,
+            'model_type' => MediaAsset::MODEL_TYPE_RETURN_ORDER,
+            'model_id' => $order->id,
+            'type' => 'damage',
+            'disk' => 'local',
+            'path' => 'media/private/tenant-'.$order->tenant_id.'/return-orders/'.$order->id.'/test.jpg',
+            'file_name' => 'test.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 10,
+            'width' => 10,
+            'height' => 10,
+            'sort_order' => 1,
+            'is_primary' => false,
+        ], $attributes));
     }
 }
 

@@ -543,6 +543,7 @@ class SkuManagementTest extends TestCase
         $this->assertTrue($asset->is_primary);
         $this->assertSame(64, $asset->width);
         $this->assertSame(48, $asset->height);
+        $this->assertSame('/storage/'.$asset->path, parse_url($asset->url(), PHP_URL_PATH));
         Storage::disk('public')->assertExists($asset->path);
     }
 

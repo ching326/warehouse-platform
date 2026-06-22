@@ -6,6 +6,7 @@ use Database\Factories\ReturnOrderLineFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ReturnOrderLine extends Model
 {
@@ -35,6 +36,7 @@ class ReturnOrderLine extends Model
     public function salesOrderLine(): BelongsTo { return $this->belongsTo(SalesOrderLine::class); }
     public function sku(): BelongsTo { return $this->belongsTo(Sku::class); }
     public function stockItem(): BelongsTo { return $this->belongsTo(StockItem::class); }
+    public function mediaAssets(): HasMany { return $this->hasMany(MediaAsset::class, 'model_id')->where('model_type', MediaAsset::MODEL_TYPE_RETURN_ORDER_LINE)->orderBy('sort_order')->orderBy('id'); }
     public function receivedLocation(): BelongsTo { return $this->belongsTo(WarehouseLocation::class, 'received_location_id'); }
     public function dispositionLocation(): BelongsTo { return $this->belongsTo(WarehouseLocation::class, 'disposition_location_id'); }
     public function conditionLabel(): string { return __('return_orders.conditions.'.$this->condition); }

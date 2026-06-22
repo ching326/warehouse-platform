@@ -2,15 +2,22 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\HandlesPrivateMediaAssets;
 use App\Models\Issue;
 use App\Models\IssueLine;
+use App\Models\MediaAsset;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 
 class IssueShow extends Component
 {
+    use HandlesPrivateMediaAssets;
+    use WithFileUploads;
+
     public int $issueId = 0;
 
     public string $status = '';
@@ -18,6 +25,10 @@ class IssueShow extends Component
     public string $note = '';
 
     public array $lineDrafts = [];
+
+    public ?TemporaryUploadedFile $photo = null;
+
+    public string $photoType = 'damage';
 
     private bool $allowedTenantIdsResolved = false;
 
@@ -95,6 +106,41 @@ class IssueShow extends Component
         session()->flash('status', __('issues.lines_updated'));
     }
 
+    public function uploadPhoto(): void
+    {
+        $case = $this->issueQuery()->findOrFail($this->issueId);
+
+        $this->validate([
+            'photo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'photoType' => ['required', Rule::in(['damage', 'other'])],
+        ]);
+
+        $this->createPrivateMediaAsset(
+            $case,
+            $this->photo,
+            MediaAsset::MODEL_TYPE_ISSUE,
+            $this->photoType,
+            'media/private/tenant-'.$case->tenant_id.'/issues/'.$case->id,
+            'issue',
+        );
+
+        $this->resetPhotoForm();
+        session()->flash('status', __('media.image_uploaded'));
+    }
+
+    public function deletePhoto(int $mediaAssetId): void
+    {
+        $case = $this->issueQuery()->with('mediaAssets')->findOrFail($this->issueId);
+        $asset = $case->mediaAssets->firstWhere('id', $mediaAssetId);
+
+        if (! $asset) {
+            abort(404);
+        }
+
+        $this->deletePrivateMediaAsset($asset, $case, 'issue');
+        session()->flash('status', __('media.image_deleted'));
+    }
+
     public function render()
     {
         $case = $this->issueQuery()
@@ -108,6 +154,7 @@ class IssueShow extends Component
                 'lines.sku:id,sku,name',
                 'lines.stockItem:id,code,name',
                 'returnOrders:id,issue_id,return_no,status,tracking_no',
+                'mediaAssets:id,tenant_id,model_type,model_id,type,disk,path,file_name,mime_type,width,height,sort_order',
             ])
             ->findOrFail($this->issueId);
 
@@ -116,6 +163,7 @@ class IssueShow extends Component
             'statuses' => Issue::statusOptions(),
             'conditions' => IssueLine::conditionOptions(),
             'actions' => IssueLine::actionOptions(),
+            'photoTypes' => $this->photoTypeOptions(),
         ])->layout('inventory', [
             'title' => $case->issue_no,
             'subtitle' => __('issues.detail_page_subtitle'),
@@ -175,6 +223,20 @@ class IssueShow extends Component
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    private function resetPhotoForm(): void
+    {
+        $this->photo = null;
+        $this->photoType = 'damage';
+    }
+
+    private function photoTypeOptions(): array
+    {
+        return [
+            'damage' => __('media.type_damage'),
+            'other' => __('media.type_other'),
+        ];
     }
 }
 

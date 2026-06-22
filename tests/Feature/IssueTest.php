@@ -10,6 +10,7 @@ use App\Models\Issue;
 use App\Models\IssueLine;
 use App\Models\InventoryBalance;
 use App\Models\InventoryMovement;
+use App\Models\MediaAsset;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\Shop;
@@ -22,6 +23,8 @@ use App\Models\OutboundOrder;
 use App\Models\Warehouse;
 use App\Services\InventoryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -179,6 +182,147 @@ class IssueTest extends TestCase
 
         $this->assertSame(Issue::STATUS_CLOSED, $case->refresh()->status);
         $this->assertSame(IssueLine::CONDITION_UNKNOWN, $line->refresh()->condition);
+    }
+
+    public function test_tenant_user_can_upload_issue_photo_for_own_tenant_on_private_disk(): void
+    {
+        Storage::fake('local');
+        Storage::fake('public');
+        [$tenant, $user] = $this->tenantUser();
+        [, $order] = $this->salesOrderWithLine($tenant, 'ISS-PHOTO-SKU', 'ISS-PHOTO-ORDER');
+        $case = $this->issueForOrder($order);
+
+        Livewire::actingAs($user)
+            ->test(IssueShow::class, ['issue' => $case])
+            ->set('photo', UploadedFile::fake()->image('damage.jpg', 80, 60))
+            ->set('photoType', 'damage')
+            ->call('uploadPhoto')
+            ->assertHasNoErrors();
+
+        $asset = MediaAsset::firstOrFail();
+
+        $this->assertSame('local', $asset->disk);
+        $this->assertSame($tenant->id, $asset->tenant_id);
+        $this->assertSame(MediaAsset::MODEL_TYPE_ISSUE, $asset->model_type);
+        $this->assertSame($case->id, $asset->model_id);
+        $this->assertSame(80, $asset->width);
+        $this->assertSame(60, $asset->height);
+        Storage::disk('local')->assertExists($asset->path);
+        Storage::disk('public')->assertMissing($asset->path);
+    }
+
+    public function test_tenant_user_cannot_upload_issue_photo_for_another_tenant(): void
+    {
+        Storage::fake('local');
+        [, $user] = $this->tenantUser();
+        [, $order] = $this->salesOrderWithLine(Tenant::factory()->create(), 'ISS-HIDDEN-SKU', 'ISS-HIDDEN-ORDER');
+        $case = $this->issueForOrder($order);
+
+        Livewire::actingAs($user)
+            ->test(IssueShow::class, ['issue' => $case])
+            ->assertForbidden();
+
+        $this->assertSame(0, MediaAsset::count());
+    }
+
+    public function test_issue_photo_upload_rejects_non_image_and_oversized_file(): void
+    {
+        Storage::fake('local');
+        [, $order] = $this->salesOrderWithLine(null, 'ISS-BAD-FILE-SKU', 'ISS-BAD-FILE-ORDER');
+        $case = $this->issueForOrder($order);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(IssueShow::class, ['issue' => $case])
+            ->set('photo', UploadedFile::fake()->create('notes.txt', 1, 'text/plain'))
+            ->call('uploadPhoto')
+            ->assertHasErrors(['photo']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(IssueShow::class, ['issue' => $case])
+            ->set('photo', UploadedFile::fake()->image('large.jpg')->size(5121))
+            ->call('uploadPhoto')
+            ->assertHasErrors(['photo']);
+    }
+
+    public function test_issue_photo_delete_removes_row_and_private_file(): void
+    {
+        Storage::fake('local');
+        [, $order] = $this->salesOrderWithLine(null, 'ISS-DELETE-SKU', 'ISS-DELETE-ORDER');
+        $case = $this->issueForOrder($order);
+        Storage::disk('local')->put('media/private/tenant-'.$case->tenant_id.'/issues/'.$case->id.'/delete.jpg', 'image');
+        $asset = $this->mediaAsset($case, MediaAsset::MODEL_TYPE_ISSUE, [
+            'path' => 'media/private/tenant-'.$case->tenant_id.'/issues/'.$case->id.'/delete.jpg',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(IssueShow::class, ['issue' => $case])
+            ->call('deletePhoto', $asset->id)
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseMissing('media_assets', ['id' => $asset->id]);
+        Storage::disk('local')->assertMissing($asset->path);
+    }
+
+    public function test_issue_photo_soft_limit_rejects_eleventh_image(): void
+    {
+        Storage::fake('local');
+        [, $order] = $this->salesOrderWithLine(null, 'ISS-LIMIT-SKU', 'ISS-LIMIT-ORDER');
+        $case = $this->issueForOrder($order);
+
+        foreach (range(1, 10) as $index) {
+            $this->mediaAsset($case, MediaAsset::MODEL_TYPE_ISSUE, ['file_name' => 'existing-'.$index.'.jpg']);
+        }
+
+        Livewire::actingAs($this->internalUser())
+            ->test(IssueShow::class, ['issue' => $case])
+            ->set('photo', UploadedFile::fake()->image('eleventh.jpg'))
+            ->call('uploadPhoto')
+            ->assertHasErrors(['photo']);
+
+        $this->assertSame(10, MediaAsset::count());
+    }
+
+    public function test_media_streaming_route_authorizes_internal_own_tenant_and_denies_guest_or_other_tenant(): void
+    {
+        Storage::fake('local');
+        [$tenant, $tenantUser] = $this->tenantUser();
+        [, $order] = $this->salesOrderWithLine($tenant, 'ISS-STREAM-SKU', 'ISS-STREAM-ORDER');
+        $case = $this->issueForOrder($order);
+        Storage::disk('local')->put('media/private/tenant-'.$tenant->id.'/issues/'.$case->id.'/stream.jpg', 'image-bytes');
+        $asset = $this->mediaAsset($case, MediaAsset::MODEL_TYPE_ISSUE, [
+            'path' => 'media/private/tenant-'.$tenant->id.'/issues/'.$case->id.'/stream.jpg',
+            'mime_type' => 'image/jpeg',
+        ]);
+        [, $otherUser] = $this->tenantUser();
+
+        $this->actingAs($tenantUser)
+            ->get(route('media.show', $asset))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/jpeg')
+            ->assertSee('image-bytes');
+
+        $this->actingAs($this->internalUser())
+            ->get(route('media.show', $asset))
+            ->assertOk();
+
+        $this->actingAs($otherUser)
+            ->get(route('media.show', $asset))
+            ->assertForbidden();
+
+        auth()->logout();
+        $this->get(route('media.show', $asset))->assertForbidden();
+    }
+
+    public function test_media_streaming_route_returns_not_found_when_file_missing(): void
+    {
+        Storage::fake('local');
+        [, $order] = $this->salesOrderWithLine(null, 'ISS-MISSING-FILE-SKU', 'ISS-MISSING-FILE-ORDER');
+        $case = $this->issueForOrder($order);
+        $asset = $this->mediaAsset($case, MediaAsset::MODEL_TYPE_ISSUE, ['path' => 'missing.jpg']);
+
+        $this->actingAs($this->internalUser())
+            ->get(route('media.show', $asset))
+            ->assertNotFound();
     }
 
     public function test_sales_order_detail_shows_linked_issues(): void
@@ -591,5 +735,24 @@ class IssueTest extends TestCase
         ]);
 
         return [$tenant, $user];
+    }
+
+    private function mediaAsset(Issue $case, string $modelType, array $attributes = []): MediaAsset
+    {
+        return MediaAsset::create(array_merge([
+            'tenant_id' => $case->tenant_id,
+            'model_type' => $modelType,
+            'model_id' => $case->id,
+            'type' => 'damage',
+            'disk' => 'local',
+            'path' => 'media/private/tenant-'.$case->tenant_id.'/issues/'.$case->id.'/test.jpg',
+            'file_name' => 'test.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 10,
+            'width' => 10,
+            'height' => 10,
+            'sort_order' => 1,
+            'is_primary' => false,
+        ], $attributes));
     }
 }

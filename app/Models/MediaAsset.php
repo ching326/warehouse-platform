@@ -4,10 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 class MediaAsset extends Model
 {
     public const MODEL_TYPE_STOCK_ITEM = 'stock_item';
+    public const MODEL_TYPE_ISSUE = 'issue';
+    public const MODEL_TYPE_RETURN_ORDER = 'return_order';
+    public const MODEL_TYPE_RETURN_ORDER_LINE = 'return_order_line';
 
     protected $fillable = [
         'tenant_id',
@@ -46,5 +50,14 @@ class MediaAsset extends Model
     public function uploadedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'uploaded_by_user_id');
+    }
+
+    public function url(): string
+    {
+        if ($this->disk === 'public') {
+            return Storage::disk('public')->url($this->path);
+        }
+
+        return route('media.show', $this);
     }
 }

@@ -898,7 +898,7 @@ class SkusIndex extends Component
             return null;
         }
 
-        return Storage::disk($asset->disk)->url($asset->path);
+        return $asset->url();
     }
 
     private function nullableString(string $value): ?string

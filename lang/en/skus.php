@@ -6,6 +6,7 @@ return [
     'create_page_title' => 'Create SKU',
     'create_page_subtitle' => 'Create SKU master data and link it to an inventory pool.',
     'btn_create' => 'Create SKU',
+    'btn_edit' => 'Edit',
     'btn_back' => 'Back to SKUs',
     'btn_cancel' => 'Cancel',
     'btn_submit' => 'Create SKU',

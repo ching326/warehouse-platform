@@ -3,6 +3,7 @@
 use App\Http\Controllers\SalesOrderExportController;
 use App\Http\Controllers\CourierExportDownloadController;
 use App\Http\Controllers\FulfillmentTrackingImportController;
+use App\Http\Controllers\MediaController;
 use App\Http\Controllers\MarketplaceShippingNoticeDownloadController;
 use App\Livewire\FulfillmentGroupCreate;
 use App\Livewire\FulfillmentGroupDetail;
@@ -93,6 +94,7 @@ if (app()->environment('local')) {
 }
 
 Route::middleware('authenticated')->group(function (): void {
+    Route::get('/media/{mediaAsset}', MediaController::class)->name('media.show');
     Route::get('/', InventoryIndex::class);
     Route::get('/inventory', InventoryIndex::class)->name('inventory.index');
     Route::get('/inventory/movements', InventoryMovementsIndex::class)->name('inventory.movements.index');

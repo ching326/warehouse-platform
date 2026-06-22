@@ -66,6 +66,7 @@ class ReturnOrder extends Model
     public function fulfillmentGroup(): BelongsTo { return $this->belongsTo(FulfillmentGroup::class); }
     public function lines(): HasMany { return $this->hasMany(ReturnOrderLine::class)->orderBy('id'); }
     public function costs(): HasMany { return $this->hasMany(ReturnOrderCost::class)->orderBy('id'); }
+    public function mediaAssets(): HasMany { return $this->hasMany(MediaAsset::class, 'model_id')->where('model_type', MediaAsset::MODEL_TYPE_RETURN_ORDER)->orderBy('sort_order')->orderBy('id'); }
     public function createdBy(): BelongsTo { return $this->belongsTo(User::class, 'created_by_user_id'); }
     public function arrivedBy(): BelongsTo { return $this->belongsTo(User::class, 'arrived_by_user_id'); }
     public function receivedBy(): BelongsTo { return $this->belongsTo(User::class, 'received_by_user_id'); }

@@ -93,6 +93,15 @@ class Issue extends Model
     {
         return $this->hasMany(ReturnOrder::class)->orderBy('id');
     }
+
+    public function mediaAssets(): HasMany
+    {
+        return $this->hasMany(MediaAsset::class, 'model_id')
+            ->where('model_type', MediaAsset::MODEL_TYPE_ISSUE)
+            ->orderBy('sort_order')
+            ->orderBy('id');
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');

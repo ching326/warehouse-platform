@@ -32,6 +32,55 @@
     <section class="table-shell flux-panel form-panel">
         <div class="form-panel-header">
             <div>
+                <strong>{{ __('media.section_photos') }}</strong>
+                <span>{{ __('media.photos_hint') }}</span>
+            </div>
+        </div>
+
+        <form class="image-upload-form" wire:submit="uploadPhoto">
+            <label>
+                <span>{{ __('media.image_file') }}</span>
+                <input type="file" accept="image/*" capture="environment" wire:model="photo">
+            </label>
+            @error('photo')
+                <span class="field-error">{{ $message }}</span>
+            @enderror
+
+            <flux:select wire:model="photoType" :label="__('media.image_type')">
+                @foreach ($photoTypes as $type => $label)
+                    <flux:select.option value="{{ $type }}">{{ $label }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
+            <flux:button type="submit" variant="primary">{{ __('media.upload_image') }}</flux:button>
+        </form>
+
+        <div class="image-list">
+            @forelse ($case->mediaAssets as $asset)
+                <article class="image-list-item" wire:key="issue-media-{{ $asset->id }}">
+                    <a href="{{ $asset->url() }}" target="_blank">
+                        <img src="{{ $asset->url() }}" alt="{{ $asset->file_name }}">
+                    </a>
+                    <div>
+                        <strong>{{ $asset->file_name }}</strong>
+                        <span>{{ $photoTypes[$asset->type] ?? $asset->type }}</span>
+                        @if ($asset->width && $asset->height)
+                            <small>{{ $asset->width }} x {{ $asset->height }}</small>
+                        @endif
+                    </div>
+                    <flux:button type="button" size="xs" variant="danger" wire:click="deletePhoto({{ $asset->id }})">
+                        {{ __('media.delete_image') }}
+                    </flux:button>
+                </article>
+            @empty
+                <div class="empty-state">{{ __('media.no_images') }}</div>
+            @endforelse
+        </div>
+    </section>
+
+    <section class="table-shell flux-panel form-panel">
+        <div class="form-panel-header">
+            <div>
                 <strong>{{ __('issues.section_workflow') }}</strong>
                 <span>{{ $case->isClosed() ? __('issues.read_only_hint') : __('issues.workflow_hint') }}</span>
             </div>
