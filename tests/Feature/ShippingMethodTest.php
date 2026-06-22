@@ -19,7 +19,6 @@ use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
-use App\Services\Courier\CourierExportService;
 use App\Services\ShippingRateResolver;
 use App\Support\CourierCarrier;
 use Illuminate\Database\QueryException;
@@ -421,64 +420,6 @@ class ShippingMethodTest extends TestCase
 
         $this->assertSame('inactive', $carrier->refresh()->status);
         $this->assertDatabaseHas('carriers', ['id' => $carrier->id]);
-    }
-
-    public function test_courier_export_accepts_method_by_carrier(): void
-    {
-        [$tenant, $shop, $sku] = $this->salesSku();
-        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
-        $order = $this->order($shop, $sku, [
-            'shipping_method_id' => $method->id,
-            'shipping_method' => null,
-        ]);
-
-        $yamato = app(CourierExportService::class)->validateExport([$order->id], CourierCarrier::YAMATO, [$tenant->id]);
-        $sagawa = app(CourierExportService::class)->validateExport([$order->id], CourierCarrier::SAGAWA, [$tenant->id]);
-
-        $this->assertTrue($yamato->ok);
-        $this->assertFalse($sagawa->ok);
-        $this->assertSame([$order->id], $sagawa->wrongCarrierOrderIds);
-    }
-
-    public function test_courier_export_accepts_legacy_short_carrier_aliases(): void
-    {
-        [$tenant, $shop, $sku] = $this->salesSku();
-        $carrier = Carrier::where('code', 'yamato')->firstOrFail();
-        $carrier->update(['code' => 'ymt']);
-
-        $method = ShippingMethod::where('code', 'yamato_compact')->firstOrFail();
-        $order = $this->order($shop, $sku, [
-            'shipping_method_id' => $method->id,
-            'shipping_method' => 'ymt',
-        ]);
-
-        $result = app(CourierExportService::class)->validateExport([$order->id], CourierCarrier::YAMATO, [$tenant->id]);
-
-        $this->assertTrue($result->ok);
-    }
-
-    public function test_courier_export_hard_blocks_method_without_courier_csv_support(): void
-    {
-        [$tenant, $shop, $sku] = $this->salesSku();
-        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
-        $method->update(['supports_courier_csv' => false]);
-        $methodOrder = $this->order($shop, $sku, [
-            'shipping_method_id' => $method->id,
-            'shipping_method' => CourierCarrier::YAMATO,
-        ]);
-        $legacyOrder = $this->order($shop, $sku, [
-            'shipping_method_id' => null,
-            'shipping_method' => CourierCarrier::YAMATO,
-            'platform_order_id' => 'LEGACY-CSV-OK',
-        ]);
-
-        $methodResult = app(CourierExportService::class)->validateExport([$methodOrder->id], CourierCarrier::YAMATO, [$tenant->id]);
-        $legacyResult = app(CourierExportService::class)->validateExport([$legacyOrder->id], CourierCarrier::YAMATO, [$tenant->id]);
-
-        $this->assertFalse($methodResult->ok);
-        $this->assertTrue($methodResult->hasHardBlock());
-        $this->assertSame([$methodOrder->id], $methodResult->unsupportedCourierOrderIds);
-        $this->assertTrue($legacyResult->ok);
     }
 
     public function test_shipping_method_in_use_cannot_be_deleted(): void

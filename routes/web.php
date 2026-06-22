@@ -1,10 +1,7 @@
 <?php
 
 use App\Http\Controllers\SalesOrderExportController;
-use App\Http\Controllers\SalesOrderTrackingImportController;
-use App\Http\Controllers\CourierExportController;
 use App\Http\Controllers\CourierExportDownloadController;
-use App\Http\Controllers\CourierExportValidateController;
 use App\Http\Controllers\FulfillmentTrackingImportController;
 use App\Http\Controllers\MarketplaceShippingNoticeDownloadController;
 use App\Livewire\FulfillmentGroupCreate;
@@ -117,10 +114,7 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/sales-orders/create', SalesOrderCreate::class)->name('sales.orders.create');
     Route::get('/sales-orders/import', SalesOrderImport::class)->name('sales.orders.import');
     Route::get('/sales-orders/import/amazon-api', AmazonSpapiOrderImport::class)->name('sales.orders.import.amazon-api');
-    Route::post('/sales-orders/tracking-import', SalesOrderTrackingImportController::class)->name('sales.orders.tracking-import');
     Route::get('/sales-orders/export', SalesOrderExportController::class)->name('sales.orders.export');
-    Route::post('/sales-orders/courier-export/validate', CourierExportValidateController::class)->name('sales.orders.courier-export.validate');
-    Route::post('/sales-orders/courier-export', CourierExportController::class)->name('sales.orders.courier-export');
     Route::get('/sales-orders/{order}/issues/create', IssueCreate::class)->name('sales.orders.issues.create');
     Route::get('/sales-orders/{order}', SalesOrderDetail::class)->name('sales.orders.show');
     Route::get('/courier-export-batches/{batch}/download', CourierExportDownloadController::class)->name('courier-export-batches.download');

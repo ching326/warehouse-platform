@@ -45,7 +45,6 @@ class SalesOrderExportController extends Controller
             'active_only' => $request->query('active_only', true),
             'date_from' => $request->query('date_from', ''),
             'date_to' => $request->query('date_to', ''),
-            'print_waiting' => $request->query('print_waiting', false),
             'q' => $request->query('q', ''),
         ]);
 

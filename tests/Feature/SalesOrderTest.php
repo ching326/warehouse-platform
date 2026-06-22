@@ -999,7 +999,7 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString(__('sales_orders.btn_bulk_hold'), $html);
         $this->assertStringContainsString(__('sales_orders.btn_bulk_cancel'), $html);
         $this->assertStringContainsString(__('sales_orders.btn_bulk_delete'), $html);
-        $this->assertStringContainsString(__('sales_orders.courier_export_menu'), $html);
+        $this->assertStringNotContainsString(__('sales_orders.courier_export_menu'), $html);
         $this->assertStringContainsString(__('sales_orders.shipping_notice_menu'), $html);
         $this->assertStringContainsString('x-show="has()"', $html);
         $this->assertStringContainsString('disabled', $html);
@@ -1019,14 +1019,14 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString('data-testid="sales-order-selection-actions"', $html);
         $this->assertStringContainsString('data-testid="sales-order-page-import-menu"', $html);
         $this->assertStringContainsString('data-testid="sales-order-orders-import-menu"', $html);
-        $this->assertStringContainsString('data-testid="sales-order-courier-import-menu"', $html);
+        $this->assertStringNotContainsString('data-testid="sales-order-courier-import-menu"', $html);
         $this->assertStringContainsString(__('sales_orders.import_btn'), $html);
         $this->assertStringContainsString(__('sales_orders.import_orders_menu'), $html);
         $this->assertStringContainsString(__('sales_orders.import_file_upload'), $html);
         $this->assertStringContainsString(__('sales_orders.import_amazon_api'), $html);
         $this->assertStringContainsString(__('sales_orders.import_manual_input'), $html);
-        $this->assertStringContainsString(__('sales_orders.import_courier_menu'), $html);
-        $this->assertStringContainsString(__('sales_orders.import_tracking_numbers'), $html);
+        $this->assertStringNotContainsString(__('sales_orders.import_courier_menu'), $html);
+        $this->assertStringNotContainsString(__('sales_orders.import_tracking_numbers'), $html);
         $this->assertStringContainsString(__('sales_orders.export_menu'), $html);
         $this->assertStringNotContainsString(__('sales_orders.btn_create_order'), $html);
     }
@@ -1072,7 +1072,6 @@ class SalesOrderTest extends TestCase
             ->call('toggleOtherFilter', SalesOrderFilters::OTHER_NOT_PRINTED)
             ->set('dateRange', SalesOrderFilters::DATE_LAST_30_DAYS)
             ->set('search', 'Tanaka')
-            ->set('printWaiting', true)
             ->assertSee('Platform: amazon')
             ->assertSee('Shop: '.$shop->tenant->code.' / '.$shop->name)
             ->assertSee('Ship status: Ship Ready')
@@ -1080,8 +1079,7 @@ class SalesOrderTest extends TestCase
             ->assertSee('Shipping: Yamato Nekopos')
             ->assertSee('Others: Not Printed')
             ->assertSee('Order Date: Last 30 days')
-            ->assertSee('Search: Tanaka')
-            ->assertSee(__('sales_orders.print_waiting'));
+            ->assertSee('Search: Tanaka');
 
         $component
             ->call('removeFilterChip', 'platform', 'amazon')
@@ -1092,9 +1090,7 @@ class SalesOrderTest extends TestCase
             ->assertSet('dateFrom', '')
             ->assertSet('dateTo', '')
             ->call('removeFilterChip', 'search')
-            ->assertSet('search', '')
-            ->call('removeFilterChip', 'print_waiting')
-            ->assertSet('printWaiting', false);
+            ->assertSet('search', '');
     }
 
     public function test_sales_order_index_clear_all_filters_resets_user_filters(): void
@@ -1114,7 +1110,6 @@ class SalesOrderTest extends TestCase
             ->set('dateFrom', '2026-06-01')
             ->set('dateTo', '2026-06-20')
             ->set('search', 'Tanaka')
-            ->set('printWaiting', true)
             ->call('clearAllFilters')
             ->assertSet('platforms', [])
             ->assertSet('shopIds', [])
@@ -1125,8 +1120,7 @@ class SalesOrderTest extends TestCase
             ->assertSet('dateRange', SalesOrderFilters::DATE_ALL)
             ->assertSet('dateFrom', '')
             ->assertSet('dateTo', '')
-            ->assertSet('search', '')
-            ->assertSet('printWaiting', false);
+            ->assertSet('search', '');
     }
 
     public function test_sales_order_index_filter_chips_show_clear_all_only_when_filters_are_active(): void
@@ -1161,9 +1155,9 @@ class SalesOrderTest extends TestCase
         $this->assertStringNotContainsString('Export all', $html);
         $this->assertStringNotContainsString('data-testid="sales-order-selected-export-menu"', $html);
         $this->assertStringNotContainsString('Export selected', $html);
-        $this->assertStringContainsString('data-testid="sales-order-courier-export-menu"', $html);
-        $this->assertStringContainsString(__('sales_orders.btn_export_yamato_csv'), $html);
-        $this->assertStringContainsString(__('sales_orders.btn_export_sagawa_csv'), $html);
+        $this->assertStringNotContainsString('data-testid="sales-order-courier-export-menu"', $html);
+        $this->assertStringNotContainsString(__('sales_orders.btn_export_yamato_csv'), $html);
+        $this->assertStringNotContainsString(__('sales_orders.btn_export_sagawa_csv'), $html);
         $this->assertStringContainsString('data-testid="sales-order-shipping-notice-export-menu"', $html);
         $this->assertStringContainsString(__('sales_orders.btn_export_amazon_ship_notice'), $html);
         $this->assertStringContainsString(__('sales_orders.btn_export_rakuten_ship_notice'), $html);
@@ -1246,54 +1240,6 @@ class SalesOrderTest extends TestCase
         $this->assertStringNotContainsString('wire:click="toggleRowSelection"', $html);
     }
 
-    public function test_sales_order_index_reserves_mark_shipped_slot(): void
-    {
-        [, $shop, $sku] = $this->salesSku();
-        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'MARK-SHIPPED-SLOT']);
-
-        $html = Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderIndex::class)
-            ->html();
-
-        $markReadyPosition = strpos($html, __('sales_orders.btn_bulk_mark_ready'));
-        $markShippedPosition = strpos($html, __('sales_orders.btn_mark_shipped'));
-        $holdPosition = strpos($html, __('sales_orders.btn_bulk_hold'));
-
-        $this->assertNotFalse($markReadyPosition);
-        $this->assertNotFalse($markShippedPosition);
-        $this->assertNotFalse($holdPosition);
-        $this->assertGreaterThan($markReadyPosition, $markShippedPosition);
-        $this->assertGreaterThan($markShippedPosition, $holdPosition);
-    }
-
-    public function test_sales_order_index_bulk_mark_shipped_updates_only_ship_ready_orders(): void
-    {
-        [, $shop, $sku] = $this->salesSku();
-        $ready = $this->createPersistedOrder($shop, $sku, [
-            'platform_order_id' => 'BULK-SHIP-READY',
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
-        ]);
-        $unfulfilled = $this->createPersistedOrder($shop, $sku, [
-            'platform_order_id' => 'BULK-SHIP-UNFULFILLED',
-        ]);
-
-        Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderIndex::class)
-            ->set('selectedIds', [(string) $ready->id, (string) $unfulfilled->id])
-            ->call('bulkMarkShipped')
-            ->assertSee(__('sales_orders.bulk_shipped_result', ['updated' => 1, 'skipped' => 1]));
-
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_SHIPPED, $ready->refresh()->fulfillment_status);
-        $this->assertSame(SalesOrder::ORDER_STATUS_COMPLETED, $ready->order_status);
-        $this->assertNotNull($ready->shipped_at);
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $unfulfilled->refresh()->fulfillment_status);
-
-        Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderIndex::class)
-            ->assertDontSee('BULK-SHIP-READY')
-            ->assertSee('BULK-SHIP-UNFULFILLED');
-    }
-
     public function test_sales_order_index_default_view_shows_active_backlog_all_dates(): void
     {
         [, $shop, $sku] = $this->salesSku();
@@ -1329,8 +1275,7 @@ class SalesOrderTest extends TestCase
         $this->assertStringNotContainsString('wire:model.live="activeOnly"', $html);
         $this->assertStringNotContainsString('active-only-toggle', $html);
         $this->assertStringContainsString('sales-order-search-icon', $html);
-        $this->assertStringContainsString(__('sales_orders.print_waiting'), $html);
-        $this->assertStringContainsString('print-ready-pill', $html);
+        $this->assertStringNotContainsString('print-ready-pill', $html);
 
         $this->assertNotNull($oldActive->refresh()->order_date);
     }
@@ -1361,56 +1306,6 @@ class SalesOrderTest extends TestCase
             ->assertSee('OPEN-BACKORDER')
             ->assertSee('OPEN-CANCEL-REQUEST')
             ->assertSee('OPEN-SHIP-READY');
-    }
-
-    public function test_sales_order_index_print_waiting_filters_ready_pending_not_exported_orders(): void
-    {
-        [, $shop, $sku] = $this->salesSku();
-        $ready = $this->createPersistedOrder($shop, $sku, [
-            'platform_order_id' => 'PRINT-WAITING-READY',
-            'order_status' => SalesOrder::ORDER_STATUS_PENDING,
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
-        ]);
-        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'PRINT-WAITING-UNFULFILLED']);
-        $this->createPersistedOrder($shop, $sku, [
-            'platform_order_id' => 'PRINT-WAITING-HOLD',
-            'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
-        ]);
-        $this->createPersistedOrder($shop, $sku, [
-            'platform_order_id' => 'PRINT-WAITING-BACKORDER',
-            'order_status' => SalesOrder::ORDER_STATUS_BACKORDER,
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
-        ]);
-        $this->createPersistedOrder($shop, $sku, [
-            'platform_order_id' => 'PRINT-WAITING-CANCEL-REQUEST',
-            'order_status' => SalesOrder::ORDER_STATUS_CANCEL_REQUESTED,
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
-        ]);
-        $this->createPersistedOrder($shop, $sku, [
-            'platform_order_id' => 'PRINT-WAITING-EXPORTED',
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
-            'courier_csv_exported_at' => now(),
-        ]);
-        $this->createPersistedOrder($shop, $sku, [
-            'platform_order_id' => 'PRINT-WAITING-SHIPPED',
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_SHIPPED,
-            'order_status' => SalesOrder::ORDER_STATUS_COMPLETED,
-        ]);
-
-        $html = Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderIndex::class)
-            ->set('printWaiting', true)
-            ->assertSee($ready->platform_order_id)
-            ->assertDontSee('PRINT-WAITING-UNFULFILLED')
-            ->assertDontSee('PRINT-WAITING-HOLD')
-            ->assertDontSee('PRINT-WAITING-BACKORDER')
-            ->assertDontSee('PRINT-WAITING-CANCEL-REQUEST')
-            ->assertDontSee('PRINT-WAITING-EXPORTED')
-            ->assertDontSee('PRINT-WAITING-SHIPPED')
-            ->html();
-
-        $this->assertStringContainsString(__('sales_orders.print_waiting'), $html);
     }
 
     public function test_sales_order_index_others_filters_multi_item_printed_and_not_printed(): void
@@ -1450,11 +1345,11 @@ class SalesOrderTest extends TestCase
             ->assertDontSee($printed->platform_order_id);
     }
 
-    public function test_sales_order_index_other_printed_toggle_is_mutually_exclusive_and_conflicts_with_print_waiting(): void
+    public function test_sales_order_index_other_printed_toggle_is_mutually_exclusive(): void
     {
         [, $shop, $sku] = $this->salesSku();
         $this->createPersistedOrder($shop, $sku, [
-            'platform_order_id' => 'PRINT-WAITING-CONFLICT',
+            'platform_order_id' => 'PRINTED-TOGGLE',
             'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
         ]);
 
@@ -1464,12 +1359,6 @@ class SalesOrderTest extends TestCase
             ->assertSet('othersFilter', [SalesOrderFilters::OTHER_PRINTED])
             ->call('toggleOtherFilter', SalesOrderFilters::OTHER_NOT_PRINTED)
             ->assertSet('othersFilter', [SalesOrderFilters::OTHER_NOT_PRINTED]);
-
-        Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderIndex::class)
-            ->set('printWaiting', true)
-            ->set('othersFilter', [SalesOrderFilters::OTHER_PRINTED])
-            ->assertDontSee('PRINT-WAITING-CONFLICT');
     }
 
     public function test_sales_order_index_today_date_filter(): void
@@ -1770,101 +1659,24 @@ class SalesOrderTest extends TestCase
         $this->assertNull($otherOrder->refresh()->shipping_method_id);
     }
 
-    public function test_sales_order_index_updates_tracking_no_with_tenant_scope(): void
-    {
-        [$ownTenant, $tenantUser] = $this->tenantUser();
-        $ownShop = Shop::factory()->for($ownTenant)->create(['status' => 'active']);
-        $ownSku = Sku::factory()->for($ownTenant)->for($ownShop)->for(StockItem::factory()->for($ownTenant)->create())->create(['sku_type' => 'single']);
-        $ownOrder = $this->createPersistedOrder($ownShop, $ownSku, ['platform_order_id' => 'OWN-TRACKING']);
-        [, $otherShop, $otherSku] = $this->salesSku();
-        $otherOrder = $this->createPersistedOrder($otherShop, $otherSku, ['platform_order_id' => 'OTHER-TRACKING']);
-
-        Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderIndex::class)
-            ->call('updateTrackingNo', $ownOrder->id, ' 1234567890 ');
-
-        $this->assertSame('1234567890', $ownOrder->refresh()->tracking_no);
-
-        Livewire::actingAs($tenantUser)
-            ->test(SalesOrderIndex::class)
-            ->call('updateTrackingNo', $ownOrder->id, 'SELLER-TRACK-1');
-
-        $this->assertSame('SELLER-TRACK-1', $ownOrder->refresh()->tracking_no);
-
-        Livewire::actingAs($tenantUser)
-            ->test(SalesOrderIndex::class)
-            ->call('updateTrackingNo', $otherOrder->id, 'SHOULD-NOT-SAVE');
-
-        $this->assertNull($otherOrder->refresh()->tracking_no);
-    }
-
-    public function test_sales_order_index_saves_tracking_draft(): void
+    public function test_sales_order_index_tracking_no_is_read_only_synced_text(): void
     {
         [, $shop, $sku] = $this->salesSku();
-        $order = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'DRAFT-TRACKING']);
-
-        Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderIndex::class)
-            ->set("trackingDrafts.{$order->id}", ' DRAFT-123 ')
-            ->call('saveTrackingDraft', $order->id)
-            ->assertSet("trackingDrafts.{$order->id}", 'DRAFT-123')
-            ->assertSet("trackingSavedDrafts.{$order->id}", 'DRAFT-123');
-
-        $this->assertSame('DRAFT-123', $order->refresh()->tracking_no);
-    }
-
-    public function test_sales_order_index_does_not_mark_tracking_draft_saved_when_order_is_out_of_scope(): void
-    {
-        [$ownTenant, $tenantUser] = $this->tenantUser();
-        Shop::factory()->for($ownTenant)->create(['status' => 'active']);
-        [, $otherShop, $otherSku] = $this->salesSku();
-        $otherOrder = $this->createPersistedOrder($otherShop, $otherSku, ['platform_order_id' => 'OUT-OF-SCOPE-DRAFT']);
-
-        Livewire::actingAs($tenantUser)
-            ->test(SalesOrderIndex::class)
-            ->set("trackingDrafts.{$otherOrder->id}", 'SHOULD-NOT-SAVE')
-            ->call('saveTrackingDraft', $otherOrder->id)
-            ->assertSet("trackingDrafts.{$otherOrder->id}", 'SHOULD-NOT-SAVE')
-            ->assertNotSet("trackingSavedDrafts.{$otherOrder->id}", 'SHOULD-NOT-SAVE');
-
-        $this->assertNull($otherOrder->refresh()->tracking_no);
-    }
-
-    public function test_sales_order_index_tracking_unsaved_indicator_uses_wire_dirty_label(): void
-    {
-        [, $shop, $sku] = $this->salesSku();
-        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'DIRTY-TRACKING']);
+        $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'READONLY-TRACKING',
+            'tracking_no' => 'TRACK-READ-1',
+        ]);
 
         $html = Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
             ->html();
 
-        $this->assertStringContainsString('class="tracking-field"', $html);
-        $this->assertStringContainsString('class="tracking-unsaved"', $html);
-        $this->assertStringContainsString('wire:dirty', $html);
-        $this->assertStringContainsString('wire:target="trackingDrafts.', $html);
-        $this->assertStringNotContainsString('trackingServerDirty', $html);
-        $this->assertStringNotContainsString('class="so-unsaved"', $html);
-    }
-
-    public function test_sales_order_index_tracking_unsaved_indicator_has_wrapper(): void
-    {
-        [, $shop, $sku] = $this->salesSku();
-        $order = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'WRAPPED-TRACKING']);
-
-        $html = Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderIndex::class)
-            ->html();
-
-        $trackingFieldPosition = strpos($html, 'class="tracking-field"');
-        $trackingInputPosition = strpos($html, 'wire:model.live.debounce.800ms="trackingDrafts.'.$order->id.'"');
-        $unsavedPosition = strpos($html, 'class="tracking-unsaved"');
-
-        $this->assertNotFalse($trackingFieldPosition);
-        $this->assertNotFalse($trackingInputPosition);
-        $this->assertNotFalse($unsavedPosition);
-        $this->assertGreaterThan($trackingFieldPosition, $trackingInputPosition);
-        $this->assertGreaterThan($trackingInputPosition, $unsavedPosition);
+        $this->assertStringContainsString('TRACK-READ-1', $html);
+        $this->assertStringContainsString('class="tracking-readonly"', $html);
+        $this->assertStringNotContainsString('wire:model.live.debounce.800ms="trackingDrafts.', $html);
+        $this->assertStringNotContainsString('wire:target="trackingDrafts.', $html);
+        $this->assertStringNotContainsString('wire:click="openTrackingImportModal"', $html);
+        $this->assertStringNotContainsString('route(\'sales.orders.tracking-import\')', $html);
     }
 
     public function test_sales_order_index_combines_shipping_and_tracking_and_shows_method_names(): void
@@ -1882,7 +1694,7 @@ class SalesOrderTest extends TestCase
         $this->assertMatchesRegularExpression('/<option value="\d+"\s*>\s*Yamato Nekopos\s*<\/option>/', $html);
         $this->assertDoesNotMatchRegularExpression('/<option value="\d+"\s*>\s*Yamato Nekopos \/ Yamato\s*<\/option>/', $html);
         $this->assertStringContainsString('class="shipping-tracking-stack"', $html);
-        $this->assertStringContainsString('class="tracking-field"', $html);
+        $this->assertStringContainsString('class="tracking-readonly"', $html);
     }
 
     public function test_sales_order_index_shows_printed_date_when_courier_csv_exported(): void
@@ -1957,50 +1769,25 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString('wire:click="hold"', $html);
         $this->assertStringContainsString('wire:click="markBackorder"', $html);
         $this->assertStringContainsString('wire:click="editLines"', $html);
-        $this->assertSame(5, substr_count($html, 'data-action-variant="primary"'));
+        $this->assertSame(4, substr_count($html, 'data-action-variant="primary"'));
         $this->assertStringContainsString('data-action-variant="danger"', $html);
     }
 
-    public function test_sales_order_detail_mark_shipped_visibility_and_action(): void
+    public function test_sales_order_detail_does_not_expose_mark_shipped_action(): void
     {
         [, $shop, $sku] = $this->salesSku();
         $ready = $this->createPersistedOrder($shop, $sku, [
             'platform_order_id' => 'DETAIL-SHIP-READY',
             'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
         ]);
-        $unfulfilled = $this->createPersistedOrder($shop, $sku, [
-            'platform_order_id' => 'DETAIL-SHIP-UNFULFILLED',
-        ]);
-        $hold = $this->createPersistedOrder($shop, $sku, [
-            'platform_order_id' => 'DETAIL-SHIP-HOLD',
-            'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
-        ]);
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderDetail::class, ['order' => $ready])
-            ->assertSee(__('sales_orders.btn_mark_shipped'))
-            ->call('markShipped')
-            ->assertSee(__('sales_orders.marked_shipped'));
-
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_SHIPPED, $ready->refresh()->fulfillment_status);
-        $this->assertSame(SalesOrder::ORDER_STATUS_COMPLETED, $ready->order_status);
-        $this->assertNotNull($ready->shipped_at);
-
-        Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderDetail::class, ['order' => $unfulfilled])
-            ->assertDontSee(__('sales_orders.btn_mark_shipped'))
-            ->call('markShipped')
-            ->assertSee(__('sales_orders.cannot_mark_shipped'));
-
-        Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderDetail::class, ['order' => $hold])
             ->assertDontSee(__('sales_orders.btn_mark_shipped'));
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
-            ->assertDontSee('DETAIL-SHIP-READY')
-            ->set('fulfillmentStatusesFilter', [SalesOrder::FULFILLMENT_STATUS_SHIPPED])
+            ->set('search', 'DETAIL-SHIP-READY')
             ->assertSee('DETAIL-SHIP-READY');
     }
 

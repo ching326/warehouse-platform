@@ -4,16 +4,6 @@
 @if ($pendingExportWarning)
         <div class="active-filter-row">
             <div class="export-warning-message">{{ $pendingExportWarning }}</div>
-            @if ($pendingCourierExportCarrier)
-                <flux:button
-                    type="button"
-                    size="sm"
-                    variant="primary"
-                    wire:click="confirmCourierExport"
-                >
-                    {{ __('sales_orders.courier_export_confirm_btn') }}
-                </flux:button>
-            @endif
             @if ($pendingMarketplaceNoticePlatform)
                 <flux:button
                     type="button"
@@ -24,7 +14,7 @@
                     {{ __('sales_orders.marketplace_notice_export_confirm_btn') }}
                 </flux:button>
             @endif
-            @if ($pendingCourierExportCarrier || $pendingMarketplaceNoticePlatform)
+            @if ($pendingMarketplaceNoticePlatform)
                 <flux:button
                     type="button"
                     size="sm"
@@ -207,8 +197,8 @@
                         {{ __('sales_orders.other_multi_item') }}
                     </label>
                     <small class="filter-helper">{{ __('sales_orders.other_multi_item_hint') }}</small>
-                    <label @class(['is-disabled' => $printWaiting]) title="{{ $printWaiting ? __('sales_orders.print_waiting_printed_conflict') : '' }}">
-                        <input type="checkbox" wire:click="toggleOtherFilter('{{ \App\Support\SalesOrderFilters::OTHER_PRINTED }}')" @checked(in_array(\App\Support\SalesOrderFilters::OTHER_PRINTED, (array) $othersFilter, true)) @disabled($printWaiting)>
+                    <label>
+                        <input type="checkbox" wire:click="toggleOtherFilter('{{ \App\Support\SalesOrderFilters::OTHER_PRINTED }}')" @checked(in_array(\App\Support\SalesOrderFilters::OTHER_PRINTED, (array) $othersFilter, true))>
                         {{ __('sales_orders.other_printed') }}
                     </label>
                     <label>
@@ -218,11 +208,6 @@
                 </div>
             </details>
 
-            <label @class(['filter-button', 'print-ready-pill', 'is-active' => $printWaiting])>
-                <input class="print-ready-toggle-input" type="checkbox" wire:model.live="printWaiting">
-                <flux:icon.printer class="print-ready-icon" />
-                <span class="print-ready-label">{{ __('sales_orders.print_waiting') }}</span>
-            </label>
         </div>
 
         <div class="sales-order-search-bar-row">
@@ -318,12 +303,6 @@
                         </a>
                     </div>
 
-                    <div class="action-menu-section" data-testid="sales-order-courier-import-menu">
-                        <span>{{ __('sales_orders.import_courier_menu') }}</span>
-                        <button type="button" wire:click="openTrackingImportModal">
-                            {{ __('sales_orders.import_tracking_numbers') }}
-                        </button>
-                    </div>
                 </div>
             </details>
             <details
@@ -334,16 +313,6 @@
             >
                 <summary x-on:click.prevent="openActionMenu = openActionMenu === 'export' ? null : 'export'"><span class="action-menu-label"><flux:icon.arrow-down-tray />{{ __('sales_orders.export_menu') }}</span></summary>
                 <div class="action-menu-panel action-menu-panel-sectioned">
-                    <div class="action-menu-section" data-testid="sales-order-courier-export-menu">
-                        <span>{{ __('sales_orders.courier_export_menu') }}</span>
-                        <button type="button" wire:click="validateCourierExport('yamato')">
-                            {{ __('sales_orders.btn_export_yamato_csv') }}
-                        </button>
-                        <button type="button" wire:click="validateCourierExport('sagawa')">
-                            {{ __('sales_orders.btn_export_sagawa_csv') }}
-                        </button>
-                    </div>
-
                     <div class="action-menu-section" data-testid="sales-order-shipping-notice-export-menu">
                         <span>{{ __('sales_orders.shipping_notice_menu') }}</span>
                         <button type="button" wire:click="validateMarketplaceShippingNoticeExport('amazon')">
@@ -370,13 +339,6 @@
                 </flux:button>
                 <flux:button type="button" size="sm" variant="primary" wire:click="bulkMarkReady" x-show="has()" x-cloak>
                     {{ __('sales_orders.btn_bulk_mark_ready') }}
-                </flux:button>
-
-                <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
-                    {{ __('sales_orders.btn_mark_shipped') }}
-                </flux:button>
-                <flux:button type="button" size="sm" variant="primary" wire:click="bulkMarkShipped" x-show="has()" x-cloak>
-                    {{ __('sales_orders.btn_mark_shipped') }}
                 </flux:button>
 
                 <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
@@ -536,24 +498,9 @@
                                         @endforeach
                                     </select>
 
-                                    <div class="tracking-field">
-                                        <input
-                                            type="text"
-                                            class="table-control"
-                                            wire:key="tracking-{{ $order->id }}"
-                                            wire:model.live.debounce.800ms="trackingDrafts.{{ $order->id }}"
-                                            placeholder="{{ __('sales_orders.tracking_no_placeholder') }}"
-                                            aria-label="{{ __('sales_orders.col_tracking_no') }} {{ $order->platform_order_id ?: $order->id }}"
-                                        >
-
-                                        <span
-                                            class="tracking-unsaved"
-                                            wire:dirty
-                                            wire:target="trackingDrafts.{{ $order->id }}"
-                                        >
-                                            {{ __('sales_orders.tracking_unsaved') }}
-                                        </span>
-                                    </div>
+                                    <span class="tracking-readonly" title="{{ $order->tracking_no ?? '' }}">
+                                        {{ $order->tracking_no ?: '-' }}
+                                    </span>
                                 </div>
                             </flux:table.cell>
                             <flux:table.cell>
@@ -598,62 +545,4 @@
         </div>
     </section>
 
-    @if ($showTrackingImportModal)
-        <div class="modal-backdrop tracking-import-backdrop" wire:key="tracking-import-modal">
-            <section class="tracking-import-modal flux-panel">
-                <header class="tracking-import-header">
-                    <div>
-                        <h2>{{ __('sales_orders.tracking_import_title') }}</h2>
-                        <p>{{ __('sales_orders.tracking_import_subtitle') }}</p>
-                    </div>
-                    <flux:button type="button" variant="ghost" size="sm" wire:click="closeTrackingImportModal">
-                        {{ __('sales_orders.tracking_import_close_btn') }}
-                    </flux:button>
-                </header>
-
-                <form
-                    method="POST"
-                    action="{{ route('sales.orders.tracking-import') }}"
-                    enctype="multipart/form-data"
-                    x-data="{ dragging: false, fileName: '' }"
-                >
-                    @csrf
-
-                    <label
-                        class="tracking-import-dropzone"
-                        x-bind:class="{ 'is-dragging': dragging }"
-                        x-on:dragover.prevent="dragging = true"
-                        x-on:dragleave.prevent="dragging = false"
-                        x-on:drop.prevent="
-                            dragging = false;
-                            const input = $refs.trackingFile;
-                            input.files = $event.dataTransfer.files;
-                            fileName = input.files.length ? input.files[0].name : '';
-                        "
-                    >
-                        <input
-                            x-ref="trackingFile"
-                            class="tracking-import-file-input"
-                            type="file"
-                            name="tracking_file"
-                            accept=".csv,.txt,text/csv,text/plain"
-                            x-on:change="fileName = $event.target.files.length ? $event.target.files[0].name : ''"
-                        >
-                        <strong>{{ __('sales_orders.tracking_import_drop_title') }}</strong>
-                        <span>{{ __('sales_orders.tracking_import_drop_hint') }}</span>
-                        <span class="tracking-import-file-name" x-show="fileName" x-text="fileName"></span>
-                    </label>
-
-                    <footer class="tracking-import-footer">
-                        <flux:button type="button" variant="ghost" wire:click="closeTrackingImportModal">
-                            {{ __('common.cancel') }}
-                        </flux:button>
-                        <flux:button type="submit" variant="primary">
-                            {{ __('sales_orders.tracking_import_confirm_btn') }}
-                        </flux:button>
-                    </footer>
-                </form>
-            </section>
-        </div>
-    @endif
 </div>

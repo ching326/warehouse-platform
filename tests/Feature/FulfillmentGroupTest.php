@@ -489,6 +489,34 @@ class FulfillmentGroupTest extends TestCase
         $this->assertNotNull($orderB->refresh()->courier_csv_exported_at);
     }
 
+    public function test_fulfillment_sagawa_export_writes_last_15_group_reference_to_customer_management_number(): void
+    {
+        Storage::fake('local');
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-SAGAWA-LONG');
+        $method = ShippingMethod::where('code', 'sagawa_thb')->firstOrFail();
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+        $group->update([
+            'reference_no' => 'FG-LONG-0613-0659033902',
+            'shipping_method_id' => $method->id,
+        ]);
+
+        $batch = app(CourierExportService::class)->exportGroups(
+            fulfillmentGroupIds: [$group->id],
+            carrier: CourierCarrier::SAGAWA,
+            allowedTenantIds: [$tenant->id],
+            user: $this->internalUser(),
+        );
+
+        $lines = preg_split('/\r\n/', trim(mb_convert_encoding(Storage::disk($batch->disk)->get($batch->path), 'UTF-8', 'SJIS-win')));
+        $dataRow = str_getcsv($lines[1] ?? '');
+
+        $this->assertSame('0613-0659033902', $dataRow[9]);
+        $this->assertNotContains('FG-LONG-0613-0659033902', $dataRow);
+    }
+
     public function test_fulfillment_courier_export_blocks_wrong_carrier_group(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);

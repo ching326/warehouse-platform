@@ -8,9 +8,7 @@ use App\Models\SalesOrderLine;
 use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Tenant;
-use App\Services\Courier\CourierExportService;
 use App\Services\MarketplaceShippingNotice\MarketplaceShippingNoticeExportService;
-use App\Support\CourierCarrier;
 use App\Support\SalesOrderFilters;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -48,9 +46,6 @@ class SalesOrderIndex extends Component
     #[Url(as: 'active_only', except: true)]
     public bool $activeOnly = true;
 
-    #[Url(as: 'print_waiting', except: false)]
-    public bool $printWaiting = false;
-
     #[Url(as: 'date_from', except: '')]
     public string $dateFrom = '';
 
@@ -64,14 +59,6 @@ class SalesOrderIndex extends Component
 
     public array $visibleOrderIds = [];
 
-    public array $trackingDrafts = [];
-
-    public array $trackingSavedDrafts = [];
-
-    public ?string $pendingCourierExportCarrier = null;
-
-    public array $pendingCourierExportOrderIds = [];
-
     public ?string $pendingMarketplaceNoticePlatform = null;
 
     public array $pendingMarketplaceNoticeOrderIds = [];
@@ -79,8 +66,6 @@ class SalesOrderIndex extends Component
     public ?string $pendingExportWarning = null;
 
     public ?string $filterWarning = null;
-
-    public bool $showTrackingImportModal = false;
 
     private bool $allowedTenantIdsResolved = false;
 
@@ -146,11 +131,6 @@ class SalesOrderIndex extends Component
         $this->filterChanged();
     }
 
-    public function updatedPrintWaiting(): void
-    {
-        $this->filterChanged();
-    }
-
     public function updatedSearch(): void
     {
         $this->filterChanged();
@@ -194,7 +174,6 @@ class SalesOrderIndex extends Component
             'other' => $this->othersFilter = $this->removeFilterValue($this->othersFilter, $value),
             'date' => $this->resetDateFilter(),
             'search' => $this->search = '',
-            'print_waiting' => $this->printWaiting = false,
             default => null,
         };
 
@@ -213,18 +192,7 @@ class SalesOrderIndex extends Component
         $this->dateFrom = '';
         $this->dateTo = '';
         $this->search = '';
-        $this->printWaiting = false;
-
         $this->filterChanged();
-    }
-
-    public function updatedTrackingDrafts(mixed $value, string|int $key): void
-    {
-        if (! is_numeric($key)) {
-            return;
-        }
-
-        $this->saveTrackingDraft((int) $key);
     }
 
     public function bulkMarkReady(): void
@@ -289,28 +257,6 @@ class SalesOrderIndex extends Component
             ]);
 
         $this->finishBulk('sales_orders.bulk_hold_result', $updated, count($selectedIds));
-    }
-
-    public function bulkMarkShipped(): void
-    {
-        if ($this->selectedIds === []) {
-            return;
-        }
-
-        $selectedIds = $this->normalizedSelectedIds();
-
-        $updated = SalesOrder::query()
-            ->whereIn('id', $selectedIds)
-            ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->where('order_status', SalesOrder::ORDER_STATUS_PENDING)
-            ->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_READY)
-            ->update([
-                'order_status' => SalesOrder::ORDER_STATUS_COMPLETED,
-                'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_SHIPPED,
-                'shipped_at' => now(),
-            ]);
-
-        $this->finishBulk('sales_orders.bulk_shipped_result', $updated, count($selectedIds));
     }
 
     public function bulkReleaseHold(): void
@@ -470,25 +416,6 @@ class SalesOrderIndex extends Component
             ]);
     }
 
-    public function updateTrackingNo(int $orderId, string $value): bool
-    {
-        $trackingNo = trim($value);
-        $trackingNo = $trackingNo === '' ? null : mb_substr($trackingNo, 0, 255);
-
-        $order = SalesOrder::query()
-            ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->whereKey($orderId)
-            ->first();
-
-        if (! $order) {
-            return false;
-        }
-
-        $order->update(['tracking_no' => $trackingNo]);
-
-        return true;
-    }
-
     public function updateNote(int $orderId, string $value): void
     {
         $note = trim($value);
@@ -498,19 +425,6 @@ class SalesOrderIndex extends Component
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->whereKey($orderId)
             ->update(['note' => $note]);
-    }
-
-    public function saveTrackingDraft(int $orderId): void
-    {
-        $trackingNo = trim((string) ($this->trackingDrafts[$orderId] ?? ''));
-        $trackingNo = $trackingNo === '' ? '' : mb_substr($trackingNo, 0, 255);
-
-        $this->trackingDrafts[$orderId] = $trackingNo;
-        $saved = $this->updateTrackingNo($orderId, $trackingNo);
-
-        if ($saved) {
-            $this->trackingSavedDrafts[$orderId] = $trackingNo;
-        }
     }
 
     public function toggleVisibleSelection(): void
@@ -532,55 +446,6 @@ class SalesOrderIndex extends Component
         }
 
         $this->selectedIds = array_values(array_unique(array_merge($selectedIds, $visibleIds)));
-    }
-
-    public function validateCourierExport(string $carrier): mixed
-    {
-        $this->pendingCourierExportCarrier = null;
-        $this->pendingCourierExportOrderIds = [];
-        $this->pendingExportWarning = null;
-
-        if ($this->selectedIds === []) {
-            session()->flash('error', __('sales_orders.courier_export_no_selection'));
-
-            return null;
-        }
-
-        $carrier = $this->normalizeCourierCarrier($carrier);
-        $result = app(CourierExportService::class)->validateExport(
-            salesOrderIds: $this->normalizedSelectedIds(),
-            carrier: $carrier,
-            allowedTenantIds: $this->allowedTenantIds(),
-        );
-
-        if ($result->hasHardBlock()) {
-            session()->flash('error', $this->courierExportMessage($result->toArray()));
-
-            return null;
-        }
-
-        if ($result->requiresConfirmation) {
-            $this->pendingCourierExportCarrier = $carrier;
-            $this->pendingCourierExportOrderIds = $this->normalizedSelectedIds();
-            $this->pendingExportWarning = $this->reExportWarning($result->alreadyExportedOrderIds);
-
-            return null;
-        }
-
-        return $this->performCourierExport($carrier, confirmedReExport: false);
-    }
-
-    public function confirmCourierExport(): mixed
-    {
-        if ($this->pendingCourierExportCarrier === null || $this->pendingCourierExportOrderIds === []) {
-            return null;
-        }
-
-        $carrier = $this->pendingCourierExportCarrier;
-        $orderIds = $this->pendingCourierExportOrderIds;
-        $this->clearPendingExport();
-
-        return $this->performCourierExport($carrier, confirmedReExport: true, orderIds: $orderIds);
     }
 
     public function validateMarketplaceShippingNoticeExport(string $platform): mixed
@@ -646,20 +511,8 @@ class SalesOrderIndex extends Component
         $this->clearPendingExport();
     }
 
-    public function openTrackingImportModal(): void
-    {
-        $this->showTrackingImportModal = true;
-    }
-
-    public function closeTrackingImportModal(): void
-    {
-        $this->showTrackingImportModal = false;
-    }
-
     private function clearPendingExport(): void
     {
-        $this->pendingCourierExportCarrier = null;
-        $this->pendingCourierExportOrderIds = [];
         $this->pendingMarketplaceNoticePlatform = null;
         $this->pendingMarketplaceNoticeOrderIds = [];
         $this->pendingExportWarning = null;
@@ -682,11 +535,6 @@ class SalesOrderIndex extends Component
             ->orderByDesc('order_date')
             ->orderByDesc('id')
             ->simplePaginate(30);
-
-        foreach ($orders as $order) {
-            $this->trackingDrafts[$order->id] ??= $order->tracking_no ?? '';
-            $this->trackingSavedDrafts[$order->id] ??= $order->tracking_no ?? '';
-        }
 
         $this->visibleOrderIds = $orders->getCollection()->pluck('id')->map(fn ($id) => (int) $id)->all();
 
@@ -791,52 +639,6 @@ class SalesOrderIndex extends Component
         ];
     }
 
-    private function performCourierExport(string $carrier, bool $confirmedReExport, ?array $orderIds = null): mixed
-    {
-        try {
-            $batch = app(CourierExportService::class)->export(
-                salesOrderIds: $orderIds ?? $this->normalizedSelectedIds(),
-                carrier: $carrier,
-                allowedTenantIds: $this->allowedTenantIds(),
-                user: Auth::user(),
-                confirmedReExport: $confirmedReExport,
-            );
-        } catch (RuntimeException $exception) {
-            session()->flash('error', $exception->getMessage());
-
-            return null;
-        }
-
-        $this->selectedIds = [];
-        $this->pendingCourierExportCarrier = null;
-        $this->pendingCourierExportOrderIds = [];
-
-        return redirect()->route('courier-export-batches.download', $batch);
-    }
-
-    private function courierExportMessage(array $result): string
-    {
-        $parts = [];
-
-        foreach ([
-            'wrong_carrier_order_ids' => 'courier_export_wrong_carrier_ids',
-            'unsupported_courier_order_ids' => 'courier_export_unsupported_courier_ids',
-            'blocked_status_order_ids' => 'courier_export_blocked_status_ids',
-            'no_ready_lines_order_ids' => 'courier_export_no_ready_lines_ids',
-            'mixed_tenant_order_ids' => 'courier_export_mixed_tenant_ids',
-            'missing_order_ids' => 'courier_export_missing_ids',
-        ] as $key => $translationKey) {
-            if ($result[$key] !== []) {
-                $parts[] = __(
-                    'sales_orders.'.$translationKey,
-                    ['ids' => implode(', ', $result[$key])]
-                );
-            }
-        }
-
-        return implode("\n", $parts ?: [$result['message']]);
-    }
-
     private function performMarketplaceShippingNoticeExport(string $platform, bool $confirmedReExport, ?array $orderIds = null): mixed
     {
         try {
@@ -908,13 +710,6 @@ class SalesOrderIndex extends Component
         ]);
     }
 
-    private function normalizeCourierCarrier(string $carrier): string
-    {
-        return in_array($carrier, CourierCarrier::values(), true)
-            ? $carrier
-            : CourierCarrier::YAMATO;
-    }
-
     private function filters(): array
     {
         return SalesOrderFilters::normalize([
@@ -929,7 +724,6 @@ class SalesOrderIndex extends Component
             'active_only' => $this->activeOnly,
             'date_from' => $this->dateFrom,
             'date_to' => $this->dateTo,
-            'print_waiting' => $this->printWaiting,
             'search' => $this->search,
         ]);
     }
@@ -950,7 +744,6 @@ class SalesOrderIndex extends Component
             'active_only' => $this->activeOnly,
             'date_from' => $this->dateFrom,
             'date_to' => $this->dateTo,
-            'print_waiting' => $useRequestFallback ? ($query['print_waiting'] ?? $this->printWaiting) : $this->printWaiting,
             'search' => $this->search,
         ]);
 
@@ -964,7 +757,6 @@ class SalesOrderIndex extends Component
         $this->activeOnly = $filters['active_only'];
         $this->dateFrom = $filters['date_from'];
         $this->dateTo = $filters['date_to'];
-        $this->printWaiting = $filters['print_waiting'];
         $this->search = $filters['search'];
     }
 
@@ -998,7 +790,6 @@ class SalesOrderIndex extends Component
             'active_only' => $this->activeOnly ? null : '0',
             'date_from' => $this->dateFrom ?: null,
             'date_to' => $this->dateTo ?: null,
-            'print_waiting' => $this->printWaiting ? '1' : null,
             'q' => $this->search ?: null,
         ];
     }
@@ -1100,14 +891,6 @@ class SalesOrderIndex extends Component
 
         if (trim($this->search) !== '') {
             $chips[] = $this->chip('search', '', __('common.search'), $this->search);
-        }
-
-        if ($this->printWaiting) {
-            $chips[] = [
-                'group' => 'print_waiting',
-                'value' => '',
-                'text' => __('sales_orders.print_waiting'),
-            ];
         }
 
         return $chips;

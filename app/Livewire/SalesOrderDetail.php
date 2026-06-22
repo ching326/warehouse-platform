@@ -242,28 +242,6 @@ class SalesOrderDetail extends Component
         session()->flash('status', __('sales_orders.unmarked_ready'));
     }
 
-    public function markShipped(): void
-    {
-        $order = SalesOrder::query()
-            ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->findOrFail($this->orderId);
-
-        if (! $this->canMarkShipped($order)) {
-            session()->flash('error', __('sales_orders.cannot_mark_shipped'));
-
-            return;
-        }
-
-        $order->update([
-            'order_status' => SalesOrder::ORDER_STATUS_COMPLETED,
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_SHIPPED,
-            'shipped_at' => now(),
-        ]);
-
-        session()->flash('status', __('sales_orders.marked_shipped'));
-    }
-
-
     public function hold(): void
     {
         $order = SalesOrder::query()
@@ -536,7 +514,6 @@ class SalesOrderDetail extends Component
             'activities' => $activities,
             'skuOptions' => $this->skuOptions($order->tenant_id),
             'shippingMethods' => $this->shippingMethodOptions($order),
-            'canMarkShipped' => $this->canMarkShipped($order),
         ])->layout('inventory', [
             'title' => __('sales_orders.detail_page_title'),
             'subtitle' => $order->platform_order_id ?? "#{$order->id}",
@@ -614,12 +591,6 @@ class SalesOrderDetail extends Component
             SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
             SalesOrder::FULFILLMENT_STATUS_READY,
         ], true);
-    }
-
-    private function canMarkShipped(SalesOrder $order): bool
-    {
-        return $order->order_status === SalesOrder::ORDER_STATUS_PENDING
-            && $order->fulfillment_status === SalesOrder::FULFILLMENT_STATUS_READY;
     }
 
     private function isLineShippable(SalesOrderLine $line, int $tenantId): bool
