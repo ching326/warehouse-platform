@@ -216,6 +216,24 @@ class ShippingMethodTest extends TestCase
         $this->assertStringOrder($html, 'Yamato Nekopos', 'Japan Post Yu-Pack');
     }
 
+    public function test_shipping_method_index_edits_selection_priority(): void
+    {
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ShippingMethodIndex::class)
+            ->assertSee(__('shipping.field_selection_priority'))
+            ->assertSet("methodSelectionPriorities.{$method->id}", (string) $method->selection_priority)
+            ->set("methodSelectionPriorities.{$method->id}", '65536')
+            ->call('saveMethodOrder')
+            ->assertHasErrors(["methodSelectionPriorities.{$method->id}"])
+            ->set("methodSelectionPriorities.{$method->id}", '45')
+            ->call('saveMethodOrder')
+            ->assertSee(__('shipping.order_updated'));
+
+        $this->assertSame(45, $method->refresh()->selection_priority);
+    }
+
     public function test_shipping_method_index_search_filters_methods_with_ordered_scope(): void
     {
         Livewire::actingAs($this->internalUser())

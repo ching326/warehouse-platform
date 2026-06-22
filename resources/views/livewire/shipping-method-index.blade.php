@@ -139,6 +139,7 @@
         <flux:table :paginate="$methods" class="data-table">
             <flux:table.columns>
                 <flux:table.column class="shipping-sort-column">{{ __('shipping.field_sort_order') }}</flux:table.column>
+                <flux:table.column class="shipping-priority-column">{{ __('shipping.field_selection_priority') }}</flux:table.column>
                 <flux:table.column>{{ __('shipping.field_carrier') }}</flux:table.column>
                 <flux:table.column>{{ __('shipping.field_code') }}</flux:table.column>
                 <flux:table.column>{{ __('shipping.field_name') }}</flux:table.column>
@@ -157,6 +158,15 @@
                                 min="0"
                                 step="1"
                                 aria-label="{{ __('shipping.field_sort_order') }} {{ $method->name }}"
+                            />
+                        </flux:table.cell>
+                        <flux:table.cell class="shipping-priority-cell">
+                            <flux:input
+                                wire:model="methodSelectionPriorities.{{ $method->id }}"
+                                type="number"
+                                min="0"
+                                step="1"
+                                aria-label="{{ __('shipping.field_selection_priority') }} {{ $method->name }}"
                             />
                         </flux:table.cell>
                         <flux:table.cell>
@@ -193,7 +203,7 @@
                     </flux:table.row>
                 @empty
                     <flux:table.row>
-                        <flux:table.cell colspan="8">
+                        <flux:table.cell colspan="9">
                             <div class="empty-state">{{ __('shipping.empty_state') }}</div>
                         </flux:table.cell>
                     </flux:table.row>
@@ -240,6 +250,16 @@
 
         .shipping-sort-cell input {
             max-width: 72px;
+        }
+
+        .shipping-priority-column,
+        .shipping-priority-cell {
+            width: 132px;
+            max-width: 132px;
+        }
+
+        .shipping-priority-cell input {
+            max-width: 108px;
         }
 
         @media (max-width: 980px) {

@@ -32,6 +32,7 @@ class ShippingMethodIndex extends Component
     public string $carrierStatus = 'active';
     public array $carrierSortOrders = [];
     public array $methodSortOrders = [];
+    public array $methodSelectionPriorities = [];
 
     public function mount(): void
     {
@@ -146,6 +147,8 @@ class ShippingMethodIndex extends Component
         $this->validate([
             'methodSortOrders' => ['array'],
             'methodSortOrders.*' => ['required', 'integer', 'min:0', 'max:65535'],
+            'methodSelectionPriorities' => ['array'],
+            'methodSelectionPriorities.*' => ['required', 'integer', 'min:0', 'max:65535'],
         ]);
 
         foreach ($this->methodSortOrders as $methodId => $sortOrder) {
@@ -155,7 +158,10 @@ class ShippingMethodIndex extends Component
 
             ShippingMethod::query()
                 ->whereKey((int) $methodId)
-                ->update(['sort_order' => (int) $sortOrder]);
+                ->update([
+                    'sort_order' => (int) $sortOrder,
+                    'selection_priority' => (int) ($this->methodSelectionPriorities[$methodId] ?? 0),
+                ]);
         }
 
         session()->flash('status', __('shipping.order_updated'));
@@ -264,6 +270,7 @@ class ShippingMethodIndex extends Component
 
         foreach ($methodRows as $method) {
             $this->methodSortOrders[$method->id] ??= (string) $method->sort_order;
+            $this->methodSelectionPriorities[$method->id] ??= (string) $method->selection_priority;
         }
     }
 
