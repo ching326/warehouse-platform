@@ -20,6 +20,8 @@ class FulfillmentPackStart extends Component
 
     public string $scan = '';
 
+    public ?string $lastScan = null;
+
     public ?string $message = null;
 
     private bool $allowedTenantIdsResolved = false;
@@ -40,6 +42,7 @@ class FulfillmentPackStart extends Component
     public function search(FulfillmentPackService $service)
     {
         $this->authorizeInternalUser();
+        $this->lastScan = trim($this->scan) === '' ? null : trim($this->scan);
 
         if (! $this->filtersReady()) {
             $this->message = __('fulfillment_pack.select_station_first');
@@ -70,6 +73,16 @@ class FulfillmentPackStart extends Component
         $this->dispatch('pack-scan-focus');
 
         return null;
+    }
+
+    public function updatedWarehouseId(): void
+    {
+        $this->focusScannerWhenReady();
+    }
+
+    public function updatedShippingMethodId(): void
+    {
+        $this->focusScannerWhenReady();
     }
 
     public function render()
@@ -113,6 +126,13 @@ class FulfillmentPackStart extends Component
     private function filtersReady(): bool
     {
         return (int) $this->warehouseId > 0 && (int) $this->shippingMethodId > 0;
+    }
+
+    private function focusScannerWhenReady(): void
+    {
+        if ($this->filtersReady()) {
+            $this->dispatch('pack-scan-focus');
+        }
     }
 
     private function warehouseOptions()

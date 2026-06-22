@@ -32,6 +32,7 @@ return [
     'select_warehouse' => 'Select warehouse',
     'select_shipping_method' => 'Select shipping method',
     'select_station_first' => 'Please select warehouse and shipping method first.',
+    'last_scan' => 'Last scan: :scan',
     'status_not_started' => 'Not started',
     'status_in_progress' => 'In progress',
     'status_complete' => 'Complete',

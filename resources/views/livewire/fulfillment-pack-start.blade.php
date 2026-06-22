@@ -30,6 +30,9 @@
                 :disabled="! $filtersReady"
             />
             <p class="subtle">{{ __('fulfillment_pack.scan_tracking_helper') }}</p>
+            @if ($lastScan)
+                <p class="pack-last-scan">{{ __('fulfillment_pack.last_scan', ['scan' => $lastScan]) }}</p>
+            @endif
 
             @if ($message)
                 <div class="pack-feedback error">{{ $message }}</div>
@@ -66,6 +69,13 @@
             min-height: 44px;
             border-radius: 8px;
             padding: 12px 14px;
+            font-weight: 700;
+        }
+
+        .pack-last-scan {
+            min-height: 20px;
+            color: var(--muted);
+            font-size: 12px;
             font-weight: 700;
         }
 
