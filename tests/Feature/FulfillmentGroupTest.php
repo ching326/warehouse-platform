@@ -7,6 +7,7 @@ use App\Livewire\FulfillmentGroupDetail;
 use App\Livewire\FulfillmentGroupIndex;
 use App\Livewire\OutboundOrderDetail;
 use App\Livewire\OutboundOrderShip;
+use App\Models\CourierExportBatch;
 use App\Models\FulfillmentGroup;
 use App\Models\InventoryBalance;
 use App\Models\OutboundOrder;
@@ -21,8 +22,13 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Courier\CourierExportService;
+use App\Services\Courier\TrackingImport\TrackingImportService;
 use App\Services\InventoryService;
+use App\Support\CourierCarrier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -443,6 +449,125 @@ class FulfillmentGroupTest extends TestCase
 
         $this->assertSame(OutboundOrder::STATUS_PENDING, $outbound->refresh()->status);
         $this->assertSame(2, $this->balance($tenant, $warehouse, $sku->stockItem)->reserved_qty);
+    }
+
+    public function test_fulfillment_courier_export_emits_one_row_per_group_and_marks_member_orders_exported(): void
+    {
+        Storage::fake('local');
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $orderA = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-EXPORT-A');
+        $orderB = $this->readySalesOrder($tenant, $shop, $sku, 2, 'SO-FG-EXPORT-B');
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+
+        $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA, $orderB]);
+        $group = FulfillmentGroup::firstOrFail();
+        $group->update(['shipping_method_id' => $method->id]);
+
+        $batch = app(CourierExportService::class)->exportGroups(
+            fulfillmentGroupIds: [$group->id],
+            carrier: CourierCarrier::YAMATO,
+            allowedTenantIds: [$tenant->id],
+            user: $this->internalUser(),
+        );
+
+        $csv = mb_convert_encoding(Storage::disk($batch->disk)->get($batch->path), 'UTF-8', 'SJIS-win');
+        $lines = array_values(array_filter(preg_split('/\r\n/', $csv) ?: []));
+
+        $this->assertSame(2, count($lines));
+        $this->assertStringContainsString($group->reference_no, $csv);
+        $this->assertStringNotContainsString('SO-FG-EXPORT-A', $csv);
+        $this->assertStringNotContainsString('SO-FG-EXPORT-B', $csv);
+        $this->assertDatabaseHas('courier_export_batches', [
+            'id' => $batch->id,
+            'carrier' => CourierCarrier::YAMATO,
+            'order_count' => 1,
+        ]);
+        $this->assertNotNull($orderA->refresh()->courier_csv_exported_at);
+        $this->assertNotNull($orderB->refresh()->courier_csv_exported_at);
+    }
+
+    public function test_fulfillment_courier_export_blocks_wrong_carrier_group(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-WRONG-CARRIER');
+        $method = ShippingMethod::where('code', 'sagawa_thb')->firstOrFail();
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+        $group->update(['shipping_method_id' => $method->id]);
+
+        $result = app(CourierExportService::class)->validateGroupExport(
+            fulfillmentGroupIds: [$group->id],
+            carrier: CourierCarrier::YAMATO,
+            allowedTenantIds: [$tenant->id],
+        );
+
+        $this->assertFalse($result->ok);
+        $this->assertSame([$group->id], $result->wrongCarrierOrderIds);
+        $this->assertNull($order->refresh()->courier_csv_exported_at);
+    }
+
+    public function test_fulfillment_index_courier_export_redirects_to_download(): void
+    {
+        Storage::fake('local');
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-LW-EXPORT');
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+        $group->update(['shipping_method_id' => $method->id]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupIndex::class)
+            ->set('selectedIds', [(string) $group->id])
+            ->call('exportYamato')
+            ->assertRedirect(route('courier-export-batches.download', CourierExportBatch::firstOrFail()));
+
+        $this->assertNotNull($order->refresh()->courier_csv_exported_at);
+    }
+
+    public function test_fulfillment_tracking_import_matches_group_reference_and_syncs_member_orders(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $orderA = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-TRACK-A');
+        $orderB = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-TRACK-B');
+
+        $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA, $orderB]);
+        $group = FulfillmentGroup::firstOrFail();
+        $csv = "440069713300,{$group->reference_no}\r\n";
+
+        $result = app(TrackingImportService::class)->importFulfillmentGroups(
+            contents: $csv,
+            sourceFileName: 'sagawa.csv',
+            user: $this->internalUser(),
+            allowedTenantIds: [$tenant->id],
+        );
+
+        $this->assertSame(['updated' => 1], $result);
+
+        foreach ($group->groupOrders()->get() as $pivot) {
+            $this->assertSame('440069713300', $pivot->tracking_no);
+        }
+
+        $this->assertSame('440069713300', $orderA->refresh()->tracking_no);
+        $this->assertSame('440069713300', $orderB->refresh()->tracking_no);
+    }
+
+    public function test_fulfillment_tracking_import_route_accepts_file_upload(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-TRACK-ROUTE');
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+        $file = UploadedFile::fake()->createWithContent('tracking.csv', $group->reference_no.",,,YMT-TRACK\r\n");
+
+        $this->actingAs($this->internalUser())
+            ->post(route('fulfillment.tracking-import'), ['tracking_file' => $file])
+            ->assertRedirect(route('fulfillment-groups.index'));
+
+        $this->assertSame('YMT-TRACK', $order->refresh()->tracking_no);
     }
 
     public function test_cancelling_linked_outbound_order_back_writes_group_and_sales_orders(): void

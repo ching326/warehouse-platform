@@ -3,6 +3,7 @@
 namespace App\Services\Courier;
 
 use App\Models\CourierExportBatch;
+use App\Models\FulfillmentGroup;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\User;
@@ -186,6 +187,180 @@ class CourierExportService
         }
     }
 
+    public function validateGroupExport(array $fulfillmentGroupIds, string $carrier, array $allowedTenantIds): CourierExportValidationResult
+    {
+        $ids = $this->normalizeIds($fulfillmentGroupIds);
+        $carrier = $this->normalizeCarrier($carrier);
+
+        if ($ids === []) {
+            return new CourierExportValidationResult(
+                ok: false,
+                requiresConfirmation: false,
+                validOrderIds: [],
+                missingOrderIds: [],
+                blockedStatusOrderIds: [],
+                wrongCarrierOrderIds: [],
+                unsupportedCourierOrderIds: [],
+                mixedTenantOrderIds: [],
+                alreadyExportedOrderIds: [],
+                noReadyLinesOrderIds: [],
+                message: __('sales_orders.courier_export_no_selection'),
+            );
+        }
+
+        $groups = $this->loadGroups($ids, $allowedTenantIds);
+        $foundIds = $groups->pluck('id')->all();
+        $missingIds = array_values(array_diff($ids, $foundIds));
+        $tenantIds = $groups->pluck('tenant_id')->unique()->values();
+        $mixedTenantGroupIds = $tenantIds->count() > 1 ? $foundIds : [];
+
+        $blockedStatuses = [
+            SalesOrder::ORDER_STATUS_ON_HOLD,
+            SalesOrder::ORDER_STATUS_CANCEL_REQUESTED,
+            SalesOrder::ORDER_STATUS_CANCELLED,
+        ];
+
+        $blockedStatusGroupIds = $groups
+            ->filter(fn (FulfillmentGroup $group): bool => $group->status !== FulfillmentGroup::STATUS_RESERVED
+                || $group->groupOrders->contains(fn ($groupOrder): bool => in_array($groupOrder->salesOrder?->order_status, $blockedStatuses, true)))
+            ->pluck('id')
+            ->values()
+            ->all();
+        $wrongCarrierGroupIds = $groups
+            ->filter(fn (FulfillmentGroup $group): bool => ! $this->groupCarrierMatches($group, $carrier))
+            ->pluck('id')
+            ->values()
+            ->all();
+        $unsupportedCourierGroupIds = $groups
+            ->filter(fn (FulfillmentGroup $group): bool => $group->shippingMethod?->supports_courier_csv === false)
+            ->pluck('id')
+            ->values()
+            ->all();
+        $noReadyLinesGroupIds = $groups
+            ->filter(fn (FulfillmentGroup $group): bool => $this->groupShipmentRow($group)->lines->where('line_status', SalesOrderLine::STATUS_READY)->isEmpty())
+            ->pluck('id')
+            ->values()
+            ->all();
+        $alreadyExportedGroupIds = $groups
+            ->filter(fn (FulfillmentGroup $group): bool => $group->groupOrders->contains(fn ($groupOrder): bool => $groupOrder->salesOrder?->courier_csv_exported_at !== null))
+            ->pluck('id')
+            ->values()
+            ->all();
+        $hardBlocks = $missingIds !== []
+            || $blockedStatusGroupIds !== []
+            || $wrongCarrierGroupIds !== []
+            || $unsupportedCourierGroupIds !== []
+            || $mixedTenantGroupIds !== []
+            || $noReadyLinesGroupIds !== [];
+        $requiresConfirmation = ! $hardBlocks && $alreadyExportedGroupIds !== [];
+
+        return new CourierExportValidationResult(
+            ok: ! $hardBlocks && ! $requiresConfirmation,
+            requiresConfirmation: $requiresConfirmation,
+            validOrderIds: array_values(array_diff($foundIds, array_merge(
+                $blockedStatusGroupIds,
+                $wrongCarrierGroupIds,
+                $unsupportedCourierGroupIds,
+                $mixedTenantGroupIds,
+                $noReadyLinesGroupIds,
+            ))),
+            missingOrderIds: $missingIds,
+            blockedStatusOrderIds: $blockedStatusGroupIds,
+            wrongCarrierOrderIds: $wrongCarrierGroupIds,
+            unsupportedCourierOrderIds: $unsupportedCourierGroupIds,
+            mixedTenantOrderIds: $mixedTenantGroupIds,
+            alreadyExportedOrderIds: $alreadyExportedGroupIds,
+            noReadyLinesOrderIds: $noReadyLinesGroupIds,
+            message: $this->messageFor($hardBlocks, $requiresConfirmation),
+        );
+    }
+
+    public function exportGroups(
+        array $fulfillmentGroupIds,
+        string $carrier,
+        array $allowedTenantIds,
+        ?User $user,
+        bool $confirmedReExport = false,
+    ): CourierExportBatch {
+        $carrier = $this->normalizeCarrier($carrier);
+        $validation = $this->validateGroupExport($fulfillmentGroupIds, $carrier, $allowedTenantIds);
+
+        if ($validation->hasHardBlock()) {
+            throw new RuntimeException($validation->message);
+        }
+
+        if ($validation->requiresConfirmation && ! $confirmedReExport) {
+            throw new RuntimeException($validation->message);
+        }
+
+        $groups = $this->loadGroups($this->normalizeIds($fulfillmentGroupIds), $allowedTenantIds);
+        $tenantId = (int) $groups->pluck('tenant_id')->unique()->first();
+        $japanNow = CarbonImmutable::now('Asia/Tokyo');
+        $fileName = $carrier.'_'.$japanNow->format('Ymd_Hi').'.csv';
+        $path = 'courier_exports/'.$carrier.'/'.$japanNow->format('Y/m').'/'.$fileName;
+        $temporaryPath = 'tmp/courier_exports/'.Str::uuid().'.csv';
+        $csv = $this->buildCsv($carrier, $groups->map(fn (FulfillmentGroup $group) => $this->groupShipmentRow($group)), $japanNow);
+
+        Storage::disk('local')->put($temporaryPath, $csv);
+
+        try {
+            return DB::transaction(function () use ($groups, $tenantId, $carrier, $fileName, $path, $temporaryPath, $user, $confirmedReExport) {
+                Storage::disk('local')->move($temporaryPath, $path);
+
+                $exportedAt = now();
+                $batch = CourierExportBatch::create([
+                    'tenant_id' => $tenantId,
+                    'carrier' => $carrier,
+                    'file_name' => $fileName,
+                    'disk' => 'local',
+                    'path' => $path,
+                    'order_count' => $groups->count(),
+                    'exported_by_user_id' => $user?->id,
+                    'exported_at' => $exportedAt,
+                ]);
+
+                foreach ($groups as $group) {
+                    foreach ($group->groupOrders as $groupOrder) {
+                        $order = $groupOrder->salesOrder;
+
+                        if (! $order) {
+                            continue;
+                        }
+
+                        $batch->batchOrders()->create([
+                            'sales_order_id' => $order->id,
+                            'platform_order_id' => $order->platform_order_id,
+                            'carrier' => $carrier,
+                            'exported_at' => $exportedAt,
+                        ]);
+
+                        $order->update(['courier_csv_exported_at' => $exportedAt]);
+
+                        activity('sales_order')
+                            ->performedOn($order)
+                            ->causedBy($user)
+                            ->event('courier_exported')
+                            ->withProperties([
+                                'carrier' => $carrier,
+                                'batch_id' => $batch->id,
+                                'file_name' => $fileName,
+                                'fulfillment_group_id' => $group->id,
+                                'fulfillment_group_reference_no' => $group->reference_no,
+                                're_export' => $confirmedReExport,
+                            ])
+                            ->log('courier_exported');
+                    }
+                }
+
+                return $batch;
+            });
+        } catch (\Throwable $exception) {
+            Storage::disk('local')->delete([$temporaryPath, $path]);
+
+            throw $exception;
+        }
+    }
+
     private function loadOrders(array $ids, array $allowedTenantIds): Collection
     {
         return SalesOrder::query()
@@ -194,6 +369,21 @@ class CourierExportService
             ->with(['shop.tenant', 'shippingMethod.carrier', 'lines.sku.stockItem'])
             ->get()
             ->sortBy(fn (SalesOrder $order) => array_search($order->id, $ids, true))
+            ->values();
+    }
+
+    private function loadGroups(array $ids, array $allowedTenantIds): Collection
+    {
+        return FulfillmentGroup::query()
+            ->whereIn('id', $ids)
+            ->whereIn('tenant_id', $allowedTenantIds)
+            ->with([
+                'shippingMethod.carrier',
+                'groupOrders.salesOrder.shop.tenant',
+                'groupOrders.salesOrder.lines.sku.stockItem',
+            ])
+            ->get()
+            ->sortBy(fn (FulfillmentGroup $group) => array_search($group->id, $ids, true))
             ->values();
     }
 
@@ -209,6 +399,11 @@ class CourierExportService
     {
         return CourierCarrier::normalize($order->shippingMethod?->carrier?->code) === $carrier
             || CourierCarrier::normalize($order->shipping_method) === $carrier;
+    }
+
+    private function groupCarrierMatches(FulfillmentGroup $group, string $carrier): bool
+    {
+        return CourierCarrier::normalize($group->shippingMethod?->carrier?->code) === $carrier;
     }
 
     private function normalizeCarrier(string $carrier): string
@@ -228,6 +423,30 @@ class CourierExportService
             CourierCarrier::YAMATO => $this->yamatoCsvBuilder->build($orders, $japanNow),
             CourierCarrier::SAGAWA => $this->sagawaCsvBuilder->build($orders, $japanNow),
         };
+    }
+
+    private function groupShipmentRow(FulfillmentGroup $group): object
+    {
+        $firstOrder = $group->groupOrders
+            ->map(fn ($groupOrder) => $groupOrder->salesOrder)
+            ->filter()
+            ->first();
+        $lines = $group->groupOrders
+            ->flatMap(fn ($groupOrder) => $groupOrder->salesOrder?->lines ?? collect())
+            ->values();
+
+        return (object) [
+            'platform_order_id' => $group->reference_no,
+            'recipient_phone' => $group->recipient_phone,
+            'recipient_postal_code' => $group->recipient_postal_code,
+            'recipient_state' => $group->recipient_state,
+            'recipient_city' => $group->recipient_city,
+            'recipient_address_line1' => $group->recipient_address_line1,
+            'recipient_address_line2' => $group->recipient_address_line2,
+            'recipient_name' => $group->recipient_name,
+            'shop' => $firstOrder?->shop,
+            'lines' => $lines,
+        ];
     }
 
     private function messageFor(bool $hardBlocks, bool $requiresConfirmation): string

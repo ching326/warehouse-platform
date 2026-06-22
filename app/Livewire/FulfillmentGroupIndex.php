@@ -7,13 +7,16 @@ use App\Models\SalesOrder;
 use App\Models\ShippingMethod;
 use App\Models\Tenant;
 use App\Models\Warehouse;
+use App\Services\Courier\CourierExportService;
 use App\Services\Outbound\ShipOutboundOrderService;
+use App\Support\CourierCarrier;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use RuntimeException;
 
 class FulfillmentGroupIndex extends Component
 {
@@ -39,6 +42,14 @@ class FulfillmentGroupIndex extends Component
     public array $noteDrafts = [];
 
     public array $trackingDrafts = [];
+
+    public ?string $pendingCourierExportCarrier = null;
+
+    public array $pendingCourierExportGroupIds = [];
+
+    public ?string $pendingExportWarning = null;
+
+    public bool $showTrackingImportModal = false;
 
     private bool $allowedTenantIdsResolved = false;
 
@@ -199,6 +210,75 @@ class FulfillmentGroupIndex extends Component
         ]));
     }
 
+    public function exportYamato(): mixed
+    {
+        return $this->validateCourierExport(CourierCarrier::YAMATO);
+    }
+
+    public function exportSagawa(): mixed
+    {
+        return $this->validateCourierExport(CourierCarrier::SAGAWA);
+    }
+
+    public function validateCourierExport(string $carrier): mixed
+    {
+        $this->pendingCourierExportCarrier = null;
+        $this->pendingCourierExportGroupIds = [];
+        $this->pendingExportWarning = null;
+
+        if ($this->selectedIds === []) {
+            session()->flash('error', __('fulfillment_groups.courier_export_no_selection'));
+
+            return null;
+        }
+
+        $carrier = $this->normalizeCourierCarrier($carrier);
+        $result = app(CourierExportService::class)->validateGroupExport(
+            fulfillmentGroupIds: $this->normalizedSelectedIds(),
+            carrier: $carrier,
+            allowedTenantIds: $this->allowedTenantIds(),
+        );
+
+        if ($result->hasHardBlock()) {
+            session()->flash('error', $this->courierExportMessage($result->toArray()));
+
+            return null;
+        }
+
+        if ($result->requiresConfirmation) {
+            $this->pendingCourierExportCarrier = $carrier;
+            $this->pendingCourierExportGroupIds = $this->normalizedSelectedIds();
+            $this->pendingExportWarning = $this->reExportWarning($result->alreadyExportedOrderIds);
+
+            return null;
+        }
+
+        return $this->performCourierExport($carrier, confirmedReExport: false);
+    }
+
+    public function confirmCourierExport(): mixed
+    {
+        if ($this->pendingCourierExportCarrier === null || $this->pendingCourierExportGroupIds === []) {
+            return null;
+        }
+
+        $carrier = $this->pendingCourierExportCarrier;
+        $groupIds = $this->pendingCourierExportGroupIds;
+        $this->clearPendingExport();
+
+        return $this->performCourierExport($carrier, confirmedReExport: true, groupIds: $groupIds);
+    }
+
+    public function openTrackingImportModal(): void
+    {
+        $this->showTrackingImportModal = true;
+    }
+
+    public function closeTrackingImportModal(): void
+    {
+        $this->showTrackingImportModal = false;
+    }
+
     public function render()
     {
         $groups = FulfillmentGroup::query()
@@ -273,6 +353,94 @@ class FulfillmentGroupIndex extends Component
             FulfillmentGroup::STATUS_SHIPPED => __('fulfillment_groups.status_shipped'),
             FulfillmentGroup::STATUS_CANCELLED => __('fulfillment_groups.status_cancelled'),
         ];
+    }
+
+    private function performCourierExport(string $carrier, bool $confirmedReExport, ?array $groupIds = null): mixed
+    {
+        try {
+            $batch = app(CourierExportService::class)->exportGroups(
+                fulfillmentGroupIds: $groupIds ?? $this->normalizedSelectedIds(),
+                carrier: $carrier,
+                allowedTenantIds: $this->allowedTenantIds(),
+                user: Auth::user(),
+                confirmedReExport: $confirmedReExport,
+            );
+        } catch (RuntimeException $exception) {
+            session()->flash('error', $exception->getMessage());
+
+            return null;
+        }
+
+        $this->selectedIds = [];
+        $this->pendingCourierExportCarrier = null;
+        $this->pendingCourierExportGroupIds = [];
+
+        return redirect()->route('courier-export-batches.download', $batch);
+    }
+
+    private function courierExportMessage(array $result): string
+    {
+        $parts = [];
+
+        foreach ([
+            'wrong_carrier_order_ids' => 'courier_export_wrong_carrier_ids',
+            'unsupported_courier_order_ids' => 'courier_export_unsupported_courier_ids',
+            'blocked_status_order_ids' => 'courier_export_blocked_status_ids',
+            'no_ready_lines_order_ids' => 'courier_export_no_ready_lines_ids',
+            'mixed_tenant_order_ids' => 'courier_export_mixed_tenant_ids',
+            'missing_order_ids' => 'courier_export_missing_ids',
+        ] as $key => $translationKey) {
+            if ($result[$key] !== []) {
+                $parts[] = __(
+                    'fulfillment_groups.'.$translationKey,
+                    ['ids' => implode(', ', $result[$key])]
+                );
+            }
+        }
+
+        return implode("\n", $parts ?: [$result['message']]);
+    }
+
+    private function reExportWarning(array $groupIds): string
+    {
+        $references = FulfillmentGroup::query()
+            ->whereIn('id', $groupIds)
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->orderBy('reference_no')
+            ->pluck('reference_no')
+            ->all();
+
+        return __('fulfillment_groups.courier_export_reexport_warning')."\n".implode("\n", $references);
+    }
+
+    private function clearPendingExport(): void
+    {
+        $this->pendingCourierExportCarrier = null;
+        $this->pendingCourierExportGroupIds = [];
+        $this->pendingExportWarning = null;
+
+        session()->forget('warning');
+    }
+
+    private function normalizedSelectedIds(): array
+    {
+        return collect($this->selectedIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function normalizeCourierCarrier(string $carrier): string
+    {
+        $carrier = CourierCarrier::normalize($carrier);
+
+        if (! in_array($carrier, CourierCarrier::values(), true)) {
+            throw new InvalidArgumentException('Unsupported courier carrier.');
+        }
+
+        return $carrier;
     }
 
     private function isInternalUser(): bool

@@ -5,6 +5,7 @@ use App\Http\Controllers\SalesOrderTrackingImportController;
 use App\Http\Controllers\CourierExportController;
 use App\Http\Controllers\CourierExportDownloadController;
 use App\Http\Controllers\CourierExportValidateController;
+use App\Http\Controllers\FulfillmentTrackingImportController;
 use App\Http\Controllers\MarketplaceShippingNoticeDownloadController;
 use App\Livewire\FulfillmentGroupCreate;
 use App\Livewire\FulfillmentGroupDetail;
@@ -124,6 +125,7 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/marketplace-shipping-notice-batches/{batch}/download', MarketplaceShippingNoticeDownloadController::class)
         ->name('marketplace-shipping-notice-batches.download');
     Route::get('/fulfillment-groups', FulfillmentGroupIndex::class)->name('fulfillment-groups.index');
+    Route::post('/fulfillment-groups/tracking-import', FulfillmentTrackingImportController::class)->name('fulfillment.tracking-import');
     Route::get('/fulfillment-groups/create', FulfillmentGroupCreate::class)->name('fulfillment-groups.create');
     Route::get('/fulfillment-groups/{group}', FulfillmentGroupDetail::class)->name('fulfillment-groups.show');
     Route::get('/issues', IssueIndex::class)->name('issues.index');
