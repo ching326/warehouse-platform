@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\FulfillmentGroup;
 use App\Models\SalesOrderLine;
 use App\Models\Tenant;
+use App\Support\TrackingNumber;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -138,7 +139,7 @@ class FulfillmentGroupDetail extends Component
 
         $group->update([
             'courier' => $this->nullableString($this->courier),
-            'tracking_no' => $this->nullableString($this->trackingNo),
+            'tracking_no' => TrackingNumber::normalize($this->trackingNo),
             'note' => $this->nullableString($this->note),
         ]);
 

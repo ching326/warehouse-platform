@@ -69,9 +69,11 @@ class FulfillmentGroupPack extends Component
         }
 
         $lines = $service->packLinesWithProgress($group);
-        $matchedLine = collect($lines)->first(fn (array $line): bool => $service->lineMatchesScan($line, $normalized));
+        $matchedLines = collect($lines)
+            ->filter(fn (array $line): bool => $service->lineMatchesScan($line, $normalized))
+            ->values();
 
-        if (! $matchedLine) {
+        if ($matchedLines->isEmpty()) {
             $message = __('fulfillment_pack.wrong_item');
             $this->writeScan($group, [
                 'barcode_scanned' => $barcodeScanned,
@@ -85,11 +87,14 @@ class FulfillmentGroupPack extends Component
             return;
         }
 
-        if ($matchedLine['remaining_qty'] <= 0) {
+        $matchedLine = $matchedLines->first(fn (array $line): bool => $line['remaining_qty'] > 0);
+
+        if (! $matchedLine) {
             $message = __('fulfillment_pack.over_scan');
+            $completedLine = $matchedLines->first();
             $this->writeScan($group, [
-                'sku_id' => $matchedLine['sku_id'],
-                'stock_item_id' => $matchedLine['stock_item_id'],
+                'sku_id' => $completedLine['sku_id'],
+                'stock_item_id' => $completedLine['stock_item_id'],
                 'barcode_scanned' => $barcodeScanned,
                 'normalized_barcode' => $normalized,
                 'result' => FulfillmentPackScan::RESULT_OVER_SCAN,

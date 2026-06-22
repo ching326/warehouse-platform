@@ -6,6 +6,7 @@ use App\Models\FulfillmentGroup;
 use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Services\InventoryService;
+use App\Support\TrackingNumber;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -49,7 +50,7 @@ class ShipOutboundOrderService
             $shippedAt = now();
             $courier = $this->nullableString($input['courier'] ?? null);
             $shippingMethod = $this->nullableString($input['shipping_method'] ?? null);
-            $trackingNo = $this->nullableString($input['tracking_no'] ?? null);
+            $trackingNo = TrackingNumber::normalize($this->nullableString($input['tracking_no'] ?? null));
 
             $lockedOrder->update([
                 'status' => OutboundOrder::STATUS_SHIPPED,

@@ -4,20 +4,13 @@ namespace App\Services\Fulfillment;
 
 use App\Models\FulfillmentGroup;
 use App\Models\FulfillmentPackScan;
-use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\Sku;
+use App\Support\TrackingNumber;
 use Illuminate\Support\Collection;
 
 class FulfillmentPackService
 {
-    public function normalizeTrackingNo(string $value): string
-    {
-        $value = strtoupper(trim($value));
-
-        return preg_replace('/[\s\-\._\/\\\\:;|]+/', '', $value) ?? '';
-    }
-
     public function normalizeProductBarcode(string $value): string
     {
         return trim($value);
@@ -26,59 +19,34 @@ class FulfillmentPackService
     /**
      * @param  list<int>  $allowedTenantIds
      */
-    public function findGroupForScan(string $scan, array $allowedTenantIds): PackLookupResult
+    public function findGroupForTrackingNo(
+        ?string $trackingNo,
+        array $allowedTenantIds,
+        int $warehouseId,
+        int $shippingMethodId,
+    ): PackLookupResult
     {
-        $scan = trim($scan);
+        $trackingNo = TrackingNumber::normalize($trackingNo);
 
-        if ($scan === '' || $allowedTenantIds === []) {
+        if ($trackingNo === null || $allowedTenantIds === [] || $warehouseId <= 0 || $shippingMethodId <= 0) {
             return PackLookupResult::notFound();
         }
 
-        $exactCandidates = $this->baseGroupQuery($allowedTenantIds)
-            ->where('reference_no', $scan)
+        $candidates = FulfillmentGroup::query()
+            ->whereIn('tenant_id', $allowedTenantIds)
+            ->where('status', FulfillmentGroup::STATUS_RESERVED)
+            ->where('warehouse_id', $warehouseId)
+            ->where('shipping_method_id', $shippingMethodId)
+            ->where(function ($query) use ($trackingNo): void {
+                $query
+                    ->where('fulfillment_groups.tracking_no', $trackingNo)
+                    ->orWhereHas('groupOrders', fn ($groupOrder) => $groupOrder->where('fulfillment_group_orders.tracking_no', $trackingNo))
+                    ->orWhereHas('orders', fn ($order) => $order->where('sales_orders.tracking_no', $trackingNo))
+                    ->orWhereHas('outboundOrder', fn ($outbound) => $outbound->where('outbound_orders.tracking_no', $trackingNo));
+            })
             ->get();
 
-        if ($exactCandidates->isEmpty()) {
-            $exactCandidates = $this->baseGroupQuery($allowedTenantIds)
-                ->whereHas('orders', fn ($query) => $query->where('platform_order_id', $scan))
-                ->orWhere(fn ($query) => $query
-                    ->whereIn('tenant_id', $allowedTenantIds)
-                    ->whereHas('outboundOrder', fn ($outbound) => $outbound->where('ref', $scan)))
-                ->get();
-        }
-
-        if ($exactCandidates->isNotEmpty()) {
-            return $this->resultFromCandidates($exactCandidates);
-        }
-
-        $normalized = $this->normalizeTrackingNo($scan);
-        $trackingCandidates = $this->baseGroupQuery($allowedTenantIds)
-            ->with(['groupOrders.salesOrder', 'outboundOrder'])
-            ->get()
-            ->filter(function (FulfillmentGroup $group) use ($normalized): bool {
-                if ($this->normalizeTrackingNo((string) $group->tracking_no) === $normalized) {
-                    return true;
-                }
-
-                if ($this->normalizeTrackingNo((string) $group->outboundOrder?->tracking_no) === $normalized) {
-                    return true;
-                }
-
-                foreach ($group->groupOrders as $groupOrder) {
-                    if ($this->normalizeTrackingNo((string) $groupOrder->tracking_no) === $normalized) {
-                        return true;
-                    }
-
-                    if ($this->normalizeTrackingNo((string) $groupOrder->salesOrder?->tracking_no) === $normalized) {
-                        return true;
-                    }
-                }
-
-                return false;
-            })
-            ->values();
-
-        return $this->resultFromCandidates($trackingCandidates);
+        return $this->resultFromCandidates($candidates);
     }
 
     /**
@@ -233,11 +201,4 @@ class FulfillmentPackService
         return PackLookupResult::found($group);
     }
 
-    /**
-     * @param  list<int>  $allowedTenantIds
-     */
-    private function baseGroupQuery(array $allowedTenantIds)
-    {
-        return FulfillmentGroup::query()->whereIn('tenant_id', $allowedTenantIds);
-    }
 }

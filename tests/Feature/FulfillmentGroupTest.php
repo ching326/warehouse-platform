@@ -29,8 +29,10 @@ use App\Services\Courier\CourierExportService;
 use App\Services\Courier\TrackingImport\TrackingImportService;
 use App\Services\InventoryService;
 use App\Support\CourierCarrier;
+use App\Support\TrackingNumber;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -38,6 +40,21 @@ use Tests\TestCase;
 class FulfillmentGroupTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_tracking_number_normalizer_removes_common_separators(): void
+    {
+        $this->assertSame('123456789012', TrackingNumber::normalize('1234-5678-9012'));
+        $this->assertSame('123456789012', TrackingNumber::normalize('1234 5678 9012'));
+        $this->assertSame('AB123CD', TrackingNumber::normalize('  ab-123 cd  '));
+        $this->assertSame('ABC123', TrackingNumber::normalize('a_b.c/1\\2:3;|'));
+    }
+
+    public function test_tracking_number_normalizer_returns_null_for_blank_or_separator_only_input(): void
+    {
+        $this->assertNull(TrackingNumber::normalize(null));
+        $this->assertNull(TrackingNumber::normalize(''));
+        $this->assertNull(TrackingNumber::normalize(' - _ . / \\ : ; | '));
+    }
 
     public function test_create_group_from_ready_sales_orders_reserves_stock_and_creates_outbound_order(): void
     {
@@ -379,12 +396,27 @@ class FulfillmentGroupTest extends TestCase
         $this->assertNotNull($group->shipped_at);
         $pivot = $group->groupOrders()->firstOrFail();
         $this->assertSame('Yamato', $pivot->courier);
-        $this->assertSame('TRACK-1', $pivot->tracking_no);
+        $this->assertSame('TRACK1', $pivot->tracking_no);
         $this->assertNotNull($pivot->shipped_at);
-        $this->assertSame('TRACK-1', $outbound->refresh()->tracking_no);
+        $this->assertSame('TRACK1', $outbound->refresh()->tracking_no);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_SHIPPED, $order->refresh()->fulfillment_status);
         $this->assertSame(SalesOrder::ORDER_STATUS_COMPLETED, $order->order_status);
-        $this->assertSame('TRACK-1', $order->tracking_no);
+        $this->assertSame('TRACK1', $order->tracking_no);
+    }
+
+    public function test_fulfillment_index_tracking_update_stores_normalized_value_on_member_orders(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-NORMALIZE-TRACK');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupIndex::class)
+            ->call('updateTracking', $group->id, '  ab-123 cd  ');
+
+        $this->assertSame('AB123CD', $group->groupOrders()->firstOrFail()->tracking_no);
+        $this->assertSame('AB123CD', $order->refresh()->tracking_no);
     }
 
     public function test_fulfillment_index_mark_shipped_ships_reserved_group(): void
@@ -397,7 +429,7 @@ class FulfillmentGroupTest extends TestCase
         $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA, $orderB]);
         $group = FulfillmentGroup::with(['outboundOrder.leafLines', 'groupOrders'])->firstOrFail();
         $group->update(['shipping_method_id' => $method->id]);
-        $group->groupOrders()->update(['tracking_no' => 'FG-TRACK-1']);
+        $group->groupOrders()->update(['tracking_no' => 'FGTRACK1']);
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentGroupIndex::class)
@@ -414,7 +446,7 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame(OutboundOrder::STATUS_SHIPPED, $outbound->status);
         $this->assertSame($method->carrier->code, $outbound->courier);
         $this->assertSame($method->name, $outbound->shipping_method);
-        $this->assertSame('FG-TRACK-1', $outbound->tracking_no);
+        $this->assertSame('FGTRACK1', $outbound->tracking_no);
         $this->assertSame(15, $balance->on_hand_qty);
         $this->assertSame(0, $balance->reserved_qty);
         $this->assertSame(15, $balance->available_qty);
@@ -423,12 +455,12 @@ class FulfillmentGroupTest extends TestCase
         foreach ([$orderA->refresh(), $orderB->refresh()] as $salesOrder) {
             $this->assertSame(SalesOrder::FULFILLMENT_STATUS_SHIPPED, $salesOrder->fulfillment_status);
             $this->assertSame(SalesOrder::ORDER_STATUS_COMPLETED, $salesOrder->order_status);
-            $this->assertSame('FG-TRACK-1', $salesOrder->tracking_no);
+            $this->assertSame('FGTRACK1', $salesOrder->tracking_no);
             $this->assertNotNull($salesOrder->shipped_at);
         }
 
         foreach ($group->groupOrders()->get() as $pivot) {
-            $this->assertSame('FG-TRACK-1', $pivot->tracking_no);
+            $this->assertSame('FGTRACK1', $pivot->tracking_no);
             $this->assertSame($method->carrier->code, $pivot->courier);
             $this->assertNotNull($pivot->shipped_at);
         }
@@ -566,7 +598,7 @@ class FulfillmentGroupTest extends TestCase
 
         $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA, $orderB]);
         $group = FulfillmentGroup::firstOrFail();
-        $csv = "440069713300,{$group->reference_no}\r\n";
+        $csv = "440-069 713300,{$group->reference_no}\r\n";
 
         $result = app(TrackingImportService::class)->importFulfillmentGroups(
             contents: $csv,
@@ -598,7 +630,7 @@ class FulfillmentGroupTest extends TestCase
             ->post(route('fulfillment.tracking-import'), ['tracking_file' => $file])
             ->assertRedirect(route('fulfillment-groups.index'));
 
-        $this->assertSame('YMT-TRACK', $order->refresh()->tracking_no);
+        $this->assertSame('YMTTRACK', $order->refresh()->tracking_no);
     }
 
     public function test_cancelling_linked_outbound_order_back_writes_group_and_sales_orders(): void
@@ -675,7 +707,7 @@ class FulfillmentGroupTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertSame('Sagawa', $group->refresh()->courier);
-        $this->assertSame('SG-1', $group->tracking_no);
+        $this->assertSame('SG1', $group->tracking_no);
         $this->assertNull($group->outboundOrder->refresh()->courier);
     }
 
@@ -689,7 +721,7 @@ class FulfillmentGroupTest extends TestCase
         $this->actingAs($this->internalUser())->get('/fulfillment-groups')->assertOk()->assertSee('Fulfillment Groups');
         $this->actingAs($this->internalUser())->get('/fulfillment-groups/create')->assertOk()->assertSee('Create Fulfillment Group');
         $this->actingAs($this->internalUser())->get(route('fulfillment-groups.show', $group))->assertOk()->assertSee($group->reference_no);
-        $this->actingAs($this->internalUser())->get(route('fulfillment.pack.start'))->assertOk()->assertSee('Scan tracking no. or order no.');
+        $this->actingAs($this->internalUser())->get(route('fulfillment.pack.start'))->assertOk()->assertSee('Scan tracking no.');
         $this->actingAs($this->internalUser())->get(route('fulfillment-groups.pack', $group))->assertOk()->assertSee($group->reference_no);
     }
 
@@ -723,59 +755,169 @@ class FulfillmentGroupTest extends TestCase
         $this->actingAs($tenantUser)->get(route('fulfillment-groups.pack', $group))->assertForbidden();
     }
 
-    public function test_pack_start_finds_reference_and_normalized_tracking(): void
+    public function test_pack_start_requires_warehouse_and_shipping_method_before_scan(): void
+    {
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPackStart::class)
+            ->set('scan', '1234-5678')
+            ->call('search')
+            ->assertSee('Please select warehouse and shipping method first.');
+    }
+
+    public function test_pack_start_preselects_warehouse_when_only_one_active_warehouse_exists(): void
+    {
+        $warehouse = Warehouse::factory()->create(['status' => 'active']);
+        Warehouse::factory()->create(['status' => 'inactive']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPackStart::class)
+            ->assertSet('warehouseId', (string) $warehouse->id);
+    }
+
+    public function test_pack_start_finds_group_by_group_tracking_number(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-LOOKUP');
-        $order->update(['tracking_no' => '1234-5678-9012']);
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-GROUP-TRACK');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $group = FulfillmentGroup::firstOrFail();
+        $group->update(['shipping_method_id' => $method->id, 'tracking_no' => '123456789012']);
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPackStart::class)
-            ->set('scan', $group->reference_no)
-            ->call('search')
-            ->assertRedirect(route('fulfillment-groups.pack', $group));
-
-        Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentPackStart::class)
-            ->set('scan', '123456789012')
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('shippingMethodId', (string) $method->id)
+            ->set('scan', '1234-5678-9012')
             ->call('search')
             ->assertRedirect(route('fulfillment-groups.pack', $group));
     }
 
-    public function test_pack_start_rejects_unknown_multiple_and_other_tenant_matches(): void
+    public function test_pack_start_finds_group_by_group_order_tracking_number(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-PIVOT-TRACK');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+        $group->update(['shipping_method_id' => $method->id]);
+        $group->groupOrders()->update(['tracking_no' => 'PIVOT123']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPackStart::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('shippingMethodId', (string) $method->id)
+            ->set('scan', 'pivot-123')
+            ->call('search')
+            ->assertRedirect(route('fulfillment-groups.pack', $group));
+    }
+
+    public function test_pack_start_finds_group_by_sales_order_tracking_number(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-SALES-TRACK');
+        $order->update(['tracking_no' => 'SALES123']);
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+        $group->update(['shipping_method_id' => $method->id]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPackStart::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('shippingMethodId', (string) $method->id)
+            ->set('scan', 'sales 123')
+            ->call('search')
+            ->assertRedirect(route('fulfillment-groups.pack', $group));
+    }
+
+    public function test_pack_start_finds_group_by_outbound_order_tracking_number(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-OUTBOUND-TRACK');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+        $group->update(['shipping_method_id' => $method->id]);
+        $group->outboundOrder->update(['tracking_no' => 'OUTBOUND123']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPackStart::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('shippingMethodId', (string) $method->id)
+            ->set('scan', 'outbound/123')
+            ->call('search')
+            ->assertRedirect(route('fulfillment-groups.pack', $group));
+    }
+
+    public function test_pack_start_does_not_match_wrong_station_or_blocked_status(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $otherWarehouse = Warehouse::factory()->create();
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+        $otherMethod = ShippingMethod::where('code', 'sagawa_thb')->firstOrFail();
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-MISMATCH');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+        $group->update(['shipping_method_id' => $method->id, 'tracking_no' => 'STATION123']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPackStart::class)
+            ->set('warehouseId', (string) $otherWarehouse->id)
+            ->set('shippingMethodId', (string) $method->id)
+            ->set('scan', 'STATION123')
+            ->call('search')
+            ->assertSee('No matching fulfillment group found for this warehouse and shipping method.');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPackStart::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('shippingMethodId', (string) $otherMethod->id)
+            ->set('scan', 'STATION123')
+            ->call('search')
+            ->assertSee('No matching fulfillment group found for this warehouse and shipping method.');
+
+        $group->update(['status' => FulfillmentGroup::STATUS_SHIPPED]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPackStart::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('shippingMethodId', (string) $method->id)
+            ->set('scan', 'STATION123')
+            ->call('search')
+            ->assertSee('No matching fulfillment group found for this warehouse and shipping method.');
+    }
+
+    public function test_pack_start_multiple_matches_blocks_and_tracking_lookup_stays_scoped_in_sql(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
         $orderA = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-MULTI-A');
         $orderB = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-MULTI-B', addressLine1: '2 Shared Street');
         $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA]);
         $this->createGroup($tenant, $warehouse, $orderB->ship_together_key, [$orderB]);
-        FulfillmentGroup::query()->each(fn (FulfillmentGroup $group) => $group->groupOrders()->update(['tracking_no' => 'DUP-TRACK']));
+        FulfillmentGroup::query()->update(['shipping_method_id' => $method->id]);
+        FulfillmentGroup::query()->each(fn (FulfillmentGroup $group) => $group->groupOrders()->update(['tracking_no' => 'DUPTRACK']));
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPackStart::class)
-            ->set('scan', 'NO-SUCH-GROUP')
-            ->call('search')
-            ->assertSee('No matching fulfillment group found.');
-
-        Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentPackStart::class)
-            ->set('scan', 'DUPTRACK')
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('shippingMethodId', (string) $method->id)
+            ->set('scan', 'DUP-TRACK')
             ->call('search')
             ->assertSee('Multiple matches found.');
 
-        [$otherTenant, $otherUser] = $this->tenantUser();
-        $otherWarehouse = Warehouse::factory()->create();
-        $otherShop = Shop::factory()->for($otherTenant)->create();
-        $otherStock = StockItem::factory()->for($otherTenant)->create();
-        $otherSku = Sku::factory()->for($otherTenant)->for($otherShop)->for($otherStock)->create();
-        $otherOrder = $this->readySalesOrder($otherTenant, $otherShop, $otherSku, 1, 'SO-OTHER-TENANT');
-        $this->createGroup($otherTenant, $otherWarehouse, $otherOrder->ship_together_key, [$otherOrder], $this->internalUser());
+        $groupQueries = collect(DB::getQueryLog())
+            ->pluck('query')
+            ->filter(fn (string $query): bool => str_contains($query, 'from "fulfillment_groups"'))
+            ->values();
 
-        Livewire::actingAs($otherUser)
-            ->test(FulfillmentPackStart::class)
-            ->assertForbidden();
+        DB::disableQueryLog();
+
+        $this->assertTrue($groupQueries->contains(fn (string $query): bool => str_contains($query, '"warehouse_id"') && str_contains($query, '"shipping_method_id"') && str_contains($query, '"status"')));
+        $this->assertFalse($groupQueries->contains(fn (string $query): bool => preg_match('/from "fulfillment_groups" where "tenant_id" in \\([^)]*\\)$/', $query) === 1));
     }
 
     public function test_pack_page_scans_sku_and_stock_item_barcodes_and_persists_progress(): void
@@ -803,6 +945,45 @@ class FulfillmentGroupTest extends TestCase
             ->test(FulfillmentGroupPack::class, ['group' => $group])
             ->assertSee('Ready to ship')
             ->assertSee('2');
+    }
+
+    public function test_pack_page_prefers_remaining_line_when_skus_share_stock_item_barcode(): void
+    {
+        [$tenant, $warehouse, $shop, $skuA] = $this->skuWithStock(20);
+        $stockItem = $skuA->stockItem;
+        $stockItem->update(['barcode' => 'SHARED-STOCK-BAR']);
+        $skuB = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create([
+            'sku' => 'SKU-SHARED-B',
+            'sku_type' => 'single',
+        ]);
+        $orderA = $this->readySalesOrder($tenant, $shop, $skuA, 1, 'SO-SHARED-A');
+        $orderB = $this->readySalesOrder($tenant, $shop, $skuB, 1, 'SO-SHARED-B');
+
+        $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA, $orderB]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->set('barcode', 'SHARED-STOCK-BAR')
+            ->call('scan')
+            ->set('barcode', 'SHARED-STOCK-BAR')
+            ->call('scan')
+            ->assertSee('Ready to ship');
+
+        $this->assertSame(2, FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->count());
+        $this->assertSame(0, FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_OVER_SCAN)->count());
+        $this->assertDatabaseHas('fulfillment_pack_scans', [
+            'fulfillment_group_id' => $group->id,
+            'sku_id' => $skuA->id,
+            'stock_item_id' => $stockItem->id,
+            'result' => FulfillmentPackScan::RESULT_ACCEPTED,
+        ]);
+        $this->assertDatabaseHas('fulfillment_pack_scans', [
+            'fulfillment_group_id' => $group->id,
+            'sku_id' => $skuB->id,
+            'stock_item_id' => $stockItem->id,
+            'result' => FulfillmentPackScan::RESULT_ACCEPTED,
+        ]);
     }
 
     public function test_pack_page_rejects_wrong_barcode_and_over_scan_with_audit_rows(): void

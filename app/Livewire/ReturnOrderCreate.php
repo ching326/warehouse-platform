@@ -8,6 +8,7 @@ use App\Models\SalesOrder;
 use App\Models\Sku;
 use App\Models\Tenant;
 use App\Models\Warehouse;
+use App\Support\TrackingNumber;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -60,7 +61,7 @@ class ReturnOrderCreate extends Component
                 'tenant_id' => $tenantId, 'warehouse_id' => $this->intOrNull($this->warehouseId), 'issue_id' => $this->intOrNull($this->issueId), 'sales_order_id' => $this->intOrNull($this->salesOrderId),
                 'return_no' => 'RTN-PENDING-'.Str::uuid(), 'status' => ReturnOrder::STATUS_ANNOUNCED, 'return_type' => $this->return_type, 'return_reason' => $this->nullable($this->return_reason),
                 'reason_note' => $this->nullable($this->reason_note), 'external_return_id' => $this->nullable($this->external_return_id), 'original_order_no' => $this->nullable($this->original_order_no), 'customer_name' => $this->nullable($this->customer_name),
-                'sender_name' => $this->nullable($this->sender_name), 'sender_phone' => $this->nullable($this->sender_phone), 'shipping_method' => $this->nullable($this->shipping_method), 'tracking_no' => $this->nullable($this->tracking_no),
+                'sender_name' => $this->nullable($this->sender_name), 'sender_phone' => $this->nullable($this->sender_phone), 'shipping_method' => $this->nullable($this->shipping_method), 'tracking_no' => TrackingNumber::normalize($this->tracking_no),
                 'payment_type' => $this->payment_type, 'expected_arrival_date' => $this->nullable($this->expected_arrival_date), 'package_count' => $this->intOrNull($this->package_count), 'note' => $this->nullable($this->note), 'created_by_user_id' => Auth::id(),
             ]);
             $order->update(['return_no' => ReturnOrder::buildReturnNo($order->id)]);

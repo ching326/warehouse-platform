@@ -5,6 +5,7 @@ namespace App\Services\Courier\TrackingImport;
 use App\Models\FulfillmentGroup;
 use App\Models\SalesOrder;
 use App\Models\User;
+use App\Support\TrackingNumber;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -53,7 +54,7 @@ class TrackingImportService
                     continue;
                 }
 
-                $newTrackingNo = mb_substr((string) $row['tracking_no'], 0, 255);
+                $newTrackingNo = TrackingNumber::normalize(mb_substr((string) $row['tracking_no'], 0, 255));
                 $oldTrackingNo = (string) ($group->groupOrders->pluck('tracking_no')->filter()->first() ?? '');
 
                 if ($oldTrackingNo === $newTrackingNo) {

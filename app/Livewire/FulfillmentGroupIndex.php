@@ -10,6 +10,7 @@ use App\Models\Warehouse;
 use App\Services\Courier\CourierExportService;
 use App\Services\Outbound\ShipOutboundOrderService;
 use App\Support\CourierCarrier;
+use App\Support\TrackingNumber;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -135,8 +136,7 @@ class FulfillmentGroupIndex extends Component
 
     public function updateTracking(int $groupId, string $value): void
     {
-        $trackingNo = trim($value);
-        $trackingNo = $trackingNo === '' ? null : mb_substr($trackingNo, 0, 255);
+        $trackingNo = TrackingNumber::normalize(mb_substr($value, 0, 255));
 
         $group = FulfillmentGroup::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())

@@ -1,14 +1,33 @@
 <div class="fulfillment-pack-start-page">
     <section class="table-shell flux-panel form-panel pack-start-panel">
         <form wire:submit="search" class="pack-scan-form">
+            <div class="pack-station-grid">
+                <flux:select wire:model.live="warehouseId" :label="__('fulfillment_pack.warehouse_label')">
+                    <flux:select.option value="">{{ __('fulfillment_pack.select_warehouse') }}</flux:select.option>
+                    @foreach ($warehouses as $warehouse)
+                        <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} - {{ $warehouse->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+
+                <flux:select wire:model.live="shippingMethodId" :label="__('fulfillment_pack.shipping_method_label')">
+                    <flux:select.option value="">{{ __('fulfillment_pack.select_shipping_method') }}</flux:select.option>
+                    @foreach ($shippingMethods as $method)
+                        <flux:select.option value="{{ $method->id }}">
+                            {{ $method->carrier?->code ? $method->carrier->code.' / ' : '' }}{{ $method->name }} ({{ $method->code }})
+                        </flux:select.option>
+                    @endforeach
+                </flux:select>
+            </div>
+
             <flux:input
                 x-data
-                x-init="$nextTick(() => $el.querySelector('input')?.focus())"
+                x-init="$nextTick(() => {{ $filtersReady ? '$el.querySelector(\'input\')?.focus()' : 'null' }})"
                 x-on:pack-scan-focus.window="$nextTick(() => $el.querySelector('input')?.focus())"
                 wire:model="scan"
                 :label="__('fulfillment_pack.scan_tracking_label')"
                 :placeholder="__('fulfillment_pack.scan_tracking_placeholder')"
                 autocomplete="off"
+                :disabled="! $filtersReady"
             />
             <p class="subtle">{{ __('fulfillment_pack.scan_tracking_helper') }}</p>
 
@@ -29,6 +48,12 @@
         .pack-scan-form {
             display: grid;
             gap: 10px;
+        }
+
+        .pack-station-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
         }
 
         .pack-scan-form input {
@@ -52,6 +77,12 @@
 
         .pack-feedback.idle {
             border: 1px solid transparent;
+        }
+
+        @media (max-width: 720px) {
+            .pack-station-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </div>
