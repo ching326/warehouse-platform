@@ -1,4 +1,6 @@
 <div class="skus-page">
+    @php($managedStockItem = $managedStockItem ?? null)
+
     <section class="table-shell flux-panel">
         <div class="sku-page-actions">
             <div>
@@ -79,6 +81,7 @@
             <flux:table :paginate="$skus" class="sku-table">
                 <flux:table.columns>
                     <flux:table.column>{{ __('skus.col_sku') }}</flux:table.column>
+                    <flux:table.column>{{ __('skus.col_image') }}</flux:table.column>
                     <flux:table.column>{{ __('skus.col_stock_item') }}</flux:table.column>
                     <flux:table.column>{{ __('skus.col_shop') }}</flux:table.column>
                     <flux:table.column>{{ __('skus.col_platform_ids') }}</flux:table.column>
@@ -93,6 +96,9 @@
                                 <strong>{{ $sku->sku }}</strong>
                                 <span>{{ $sku->name }}</span>
                                 <small>{{ $this->skuTypeLabel($sku->sku_type) }}</small>
+                            </flux:table.cell>
+                            <flux:table.cell>
+                                @include('livewire.partials.stock-item-thumbnail', ['stockItem' => $sku->stockItem, 'interactive' => true])
                             </flux:table.cell>
                             <flux:table.cell class="sku-stock-cell">
                                 @if ($sku->stockItem)
@@ -129,7 +135,13 @@
                                 @endif
                             </flux:table.cell>
                             <flux:table.cell>
-                                <span class="muted-dash">{{ __('skus.read_only') }}</span>
+                                @if ($sku->stockItem)
+                                    <flux:button type="button" size="xs" variant="primary" wire:click="openImagePanel({{ $sku->stockItem->id }})">
+                                        {{ __('skus.manage_images') }}
+                                    </flux:button>
+                                @else
+                                    <span class="muted-dash">{{ __('skus.read_only') }}</span>
+                                @endif
                             </flux:table.cell>
                         </flux:table.row>
                     @empty
@@ -144,6 +156,7 @@
         @elseif ($view === 'logistics')
             <flux:table :paginate="$skus" class="sku-table sku-logistics-table">
                 <flux:table.columns>
+                    <flux:table.column>{{ __('skus.col_image') }}</flux:table.column>
                     <flux:table.column>{{ __('skus.col_stock_item') }}</flux:table.column>
                     <flux:table.column>{{ __('skus.col_sku') }}</flux:table.column>
                     <flux:table.column>{{ __('skus.col_name') }}</flux:table.column>
@@ -159,6 +172,9 @@
                 <flux:table.rows>
                     @forelse ($skus as $sku)
                         <flux:table.row :key="$sku->id">
+                            <flux:table.cell>
+                                @include('livewire.partials.stock-item-thumbnail', ['stockItem' => $sku->stockItem, 'interactive' => true])
+                            </flux:table.cell>
                             <flux:table.cell class="sku-stock-cell">
                                 @if ($sku->stockItem)
                                     <strong>{{ $sku->stockItem->code }}</strong>
@@ -241,10 +257,13 @@
                                 <flux:table.cell @class([
                                     'sku-flat-cell',
                                     'sku-name-cell' => $key === 'name',
+                                    'sku-image-cell' => $key === 'image',
                                     'sku-narrow-cell' => in_array($key, ['variation_code', 'type'], true),
                                     'sku-product-type-cell' => $key === 'product_type',
                                 ])>
-                                    @if ($view === 'catalog' && $key === 'product_type')
+                                    @if ($view === 'catalog' && $key === 'image')
+                                        @include('livewire.partials.stock-item-thumbnail', ['stockItem' => $sku->stockItem, 'interactive' => true])
+                                    @elseif ($view === 'catalog' && $key === 'product_type')
                                         @if ($sku->stockItem)
                                             <select
                                                 class="table-control compact-select-control"
@@ -275,6 +294,71 @@
                     @endforelse
                 </flux:table.rows>
             </flux:table>
+        @endif
+
+        @if ($managedStockItem)
+            <div class="image-panel-backdrop">
+                <section class="image-panel flux-panel" aria-label="{{ __('skus.manage_images') }}">
+                    <div class="image-panel-header">
+                        <div>
+                            <strong>{{ __('skus.manage_images') }}</strong>
+                            <span>{{ $managedStockItem->code }} - {{ $managedStockItem->name }}</span>
+                        </div>
+                        <flux:button type="button" size="sm" variant="subtle" wire:click="closeImagePanel">{{ __('skus.btn_cancel') }}</flux:button>
+                    </div>
+
+                    <form class="image-upload-form" wire:submit="uploadStockImage">
+                        <label>
+                            <span>{{ __('skus.image_file') }}</span>
+                            <input type="file" accept="image/*" capture="environment" wire:model="stockImage">
+                        </label>
+                        @error('stockImage')
+                            <span class="field-error">{{ $message }}</span>
+                        @enderror
+
+                        <flux:select wire:model="stockImageType" :label="__('skus.image_type')">
+                            @foreach ($this->imageTypeOptions() as $type => $label)
+                                <flux:select.option value="{{ $type }}">{{ $label }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
+
+                        <label class="default-view-toggle image-primary-toggle">
+                            <input type="checkbox" wire:model="stockImageIsPrimary">
+                            <span>{{ __('skus.set_as_primary') }}</span>
+                        </label>
+
+                        <flux:button type="submit" variant="primary">{{ __('skus.upload_image') }}</flux:button>
+                    </form>
+
+                    <div class="image-list">
+                        @forelse ($managedStockItem->mediaAssets as $asset)
+                            <article class="image-list-item" wire:key="media-asset-{{ $asset->id }}">
+                                <img src="{{ $this->mediaUrl($asset) }}" alt="{{ $asset->file_name }}">
+                                <div>
+                                    <strong>{{ $asset->file_name }}</strong>
+                                    <span>{{ $this->imageTypeOptions()[$asset->type] ?? $asset->type }} @if ($asset->is_primary) / {{ __('skus.primary_image') }} @endif</span>
+                                    @if ($asset->width && $asset->height)
+                                        <small>{{ $asset->width }} x {{ $asset->height }}</small>
+                                    @endif
+                                </div>
+                                <select wire:change="updateImageType({{ $asset->id }}, $event.target.value)" aria-label="{{ __('skus.image_type') }}">
+                                    @foreach ($this->imageTypeOptions() as $type => $label)
+                                        <option value="{{ $type }}" @selected($asset->type === $type)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                                <flux:button type="button" size="xs" variant="subtle" wire:click="setPrimaryImage({{ $asset->id }})" :disabled="$asset->is_primary">
+                                    {{ __('skus.set_primary') }}
+                                </flux:button>
+                                <flux:button type="button" size="xs" variant="danger" wire:click="deleteImage({{ $asset->id }})">
+                                    {{ __('skus.delete_image') }}
+                                </flux:button>
+                            </article>
+                        @empty
+                            <div class="empty-state">{{ __('skus.no_images') }}</div>
+                        @endforelse
+                    </div>
+                </section>
+            </div>
         @endif
     </section>
 </div>

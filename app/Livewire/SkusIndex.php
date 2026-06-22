@@ -3,24 +3,33 @@
 namespace App\Livewire;
 
 use App\Livewire\Concerns\HasEnumLabels;
+use App\Models\MediaAsset;
 use App\Models\PackagingMaterial;
 use App\Models\ProductType;
 use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
+use App\Models\StockItem;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 
 class SkusIndex extends Component
 {
     use HasEnumLabels;
+    use WithFileUploads;
     use WithPagination;
 
     public string $search = '';
@@ -46,10 +55,20 @@ class SkusIndex extends Component
 
     public bool $currentViewIsDefault = false;
 
+    public ?int $managingStockItemId = null;
+
+    public ?TemporaryUploadedFile $stockImage = null;
+
+    public string $stockImageType = 'main';
+
+    public bool $stockImageIsPrimary = false;
+
     private const VIEW_DETAILED = 'detailed';
     private const VIEW_CATALOG = 'catalog';
     private const VIEW_MARKETPLACE = 'marketplace';
     private const VIEW_LOGISTICS = 'logistics';
+
+    private const IMAGE_TYPES = ['main', 'gallery', 'barcode', 'packaging', 'other'];
 
     public function mount(): void
     {
@@ -202,6 +221,182 @@ class SkusIndex extends Component
         $this->flashStatus(__('skus.inline_saved'));
     }
 
+    public function openImagePanel(int $stockItemId): void
+    {
+        $stockItem = $this->scopedStockItemQuery()->find($stockItemId);
+
+        if (! $stockItem) {
+            abort(404);
+        }
+
+        $this->resetValidation();
+        $this->resetImageForm();
+        $this->managingStockItemId = $stockItem->id;
+    }
+
+    public function closeImagePanel(): void
+    {
+        $this->resetValidation();
+        $this->resetImageForm();
+        $this->managingStockItemId = null;
+    }
+
+    public function uploadStockImage(): void
+    {
+        $stockItem = $this->managedStockItem();
+        $imageCount = $stockItem->mediaAssets()->count();
+
+        if ($imageCount >= 10) {
+            throw ValidationException::withMessages([
+                'stockImage' => __('skus.image_limit_reached'),
+            ]);
+        }
+
+        $this->validate([
+            'stockImage' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'stockImageType' => ['required', Rule::in(self::IMAGE_TYPES)],
+            'stockImageIsPrimary' => ['boolean'],
+        ]);
+
+        $dimensions = $this->imageDimensions($this->stockImage);
+        $extension = $this->stockImage->getClientOriginalExtension() ?: $this->stockImage->extension() ?: 'jpg';
+        $fileName = Str::uuid()->toString().'.'.strtolower($extension);
+        $path = 'product-images/tenant-'.$stockItem->tenant_id.'/stock-items/'.$stockItem->id.'/'.$fileName;
+        $shouldBePrimary = $imageCount === 0 || $this->stockImageIsPrimary;
+
+        Storage::disk('public')->putFileAs(dirname($path), $this->stockImage, basename($path));
+
+        $asset = DB::transaction(function () use ($stockItem, $path, $dimensions, $shouldBePrimary) {
+            if ($shouldBePrimary) {
+                $this->clearPrimaryImages($stockItem->id);
+            }
+
+            $asset = MediaAsset::create([
+                'tenant_id' => $stockItem->tenant_id,
+                'model_type' => MediaAsset::MODEL_TYPE_STOCK_ITEM,
+                'model_id' => $stockItem->id,
+                'type' => $this->stockImageType,
+                'disk' => 'public',
+                'path' => $path,
+                'file_name' => $this->stockImage->getClientOriginalName(),
+                'mime_type' => $this->stockImage->getMimeType(),
+                'size_bytes' => $this->stockImage->getSize(),
+                'width' => $dimensions['width'],
+                'height' => $dimensions['height'],
+                'sort_order' => $this->nextImageSortOrder($stockItem->id),
+                'is_primary' => $shouldBePrimary,
+                'uploaded_by_user_id' => Auth::id(),
+            ]);
+
+            return $asset;
+        });
+
+        activity('stock_item')
+            ->performedOn($stockItem)
+            ->causedBy(Auth::user())
+            ->withProperties([
+                'media_asset_id' => $asset->id,
+                'type' => $asset->type,
+                'is_primary' => $asset->is_primary,
+            ])
+            ->log('image uploaded');
+
+        $this->resetImageForm();
+        $this->flashStatus(__('skus.image_uploaded'));
+    }
+
+    public function setPrimaryImage(int $mediaAssetId): void
+    {
+        $asset = $this->scopedMediaAssetQuery()->find($mediaAssetId);
+
+        if (! $asset) {
+            abort(404);
+        }
+
+        $stockItem = $this->scopedStockItemQuery()->find($asset->model_id);
+
+        if (! $stockItem) {
+            abort(404);
+        }
+
+        DB::transaction(function () use ($asset, $stockItem): void {
+            $this->clearPrimaryImages($stockItem->id);
+            $asset->forceFill(['is_primary' => true])->save();
+        });
+
+        activity('stock_item')
+            ->performedOn($stockItem)
+            ->causedBy(Auth::user())
+            ->withProperties(['media_asset_id' => $asset->id])
+            ->log('primary image changed');
+
+        $this->flashStatus(__('skus.image_primary_changed'));
+    }
+
+    public function updateImageType(int $mediaAssetId, string $type): void
+    {
+        validator(['type' => $type], ['type' => ['required', Rule::in(self::IMAGE_TYPES)]])->validate();
+
+        $asset = $this->scopedMediaAssetQuery()->find($mediaAssetId);
+
+        if (! $asset) {
+            abort(404);
+        }
+
+        $asset->update(['type' => $type]);
+        $this->flashStatus(__('skus.image_type_updated'));
+    }
+
+    public function deleteImage(int $mediaAssetId): void
+    {
+        $asset = $this->scopedMediaAssetQuery()->find($mediaAssetId);
+
+        if (! $asset) {
+            abort(404);
+        }
+
+        $stockItem = $this->scopedStockItemQuery()->find($asset->model_id);
+
+        if (! $stockItem) {
+            abort(404);
+        }
+
+        $disk = $asset->disk;
+        $path = $asset->path;
+        $wasPrimary = $asset->is_primary;
+
+        DB::transaction(function () use ($asset, $stockItem, $wasPrimary): void {
+            $asset->delete();
+
+            if ($wasPrimary) {
+                $next = $stockItem->mediaAssets()->first();
+
+                if ($next) {
+                    $next->forceFill(['is_primary' => true])->save();
+                }
+            }
+        });
+
+        try {
+            Storage::disk($disk)->delete($path);
+        } catch (\Throwable $exception) {
+            Log::warning('Product image file deletion failed.', [
+                'disk' => $disk,
+                'path' => $path,
+                'media_asset_id' => $mediaAssetId,
+                'exception' => $exception->getMessage(),
+            ]);
+        }
+
+        activity('stock_item')
+            ->performedOn($stockItem)
+            ->causedBy(Auth::user())
+            ->withProperties(['media_asset_id' => $mediaAssetId])
+            ->log('image deleted');
+
+        $this->flashStatus(__('skus.image_deleted'));
+    }
+
     public function render()
     {
         if (! $this->isAllowedView($this->view)) {
@@ -226,6 +421,7 @@ class SkusIndex extends Component
             'packagingMaterials' => $this->packagingMaterialOptions(),
             'shippingMethods' => $this->shippingMethodOptions($skus->getCollection()),
             'canSaveDefaultView' => Auth::check(),
+            'managedStockItem' => $this->managedStockItemForView(),
         ])->layout('inventory', [
             'title' => __('skus.page_title'),
             'subtitle' => __('skus.page_subtitle'),
@@ -241,6 +437,7 @@ class SkusIndex extends Component
                 'tenant:id,code,name',
                 'shop:id,tenant_id,code,name,platform,marketplace',
                 'stockItem:id,tenant_id,code,name,short_name,brand,model_number,variation_code,color,size,barcode,product_type,weight_value,weight_unit,length_value,width_value,height_value,dimension_unit',
+                'stockItem.primaryImage:id,tenant_id,model_type,model_id,type,disk,path,file_name,is_primary,sort_order',
                 'bundleComponents' => fn ($query) => $query->with('componentStockItem:id,tenant_id,code,name')->orderBy('id'),
                 'defaultPackagingMaterial:id,code,name,type',
                 'defaultShippingMethod:id,carrier_id,code,name,status',
@@ -541,6 +738,7 @@ class SkusIndex extends Component
     {
         return match ($this->view) {
             self::VIEW_CATALOG => [
+                'image' => __('skus.col_image'),
                 'sku' => __('skus.col_sku'),
                 'name' => __('skus.col_name'),
                 'brand' => __('skus.col_brand'),
@@ -565,10 +763,10 @@ class SkusIndex extends Component
     private function currentColumnCount(): int
     {
         return match ($this->view) {
-            self::VIEW_CATALOG => 9,
+            self::VIEW_CATALOG => 10,
             self::VIEW_MARKETPLACE => 5,
-            self::VIEW_LOGISTICS => 10,
-            default => 6,
+            self::VIEW_LOGISTICS => 11,
+            default => 7,
         };
     }
 
@@ -609,6 +807,98 @@ class SkusIndex extends Component
         }
 
         return $user->activeTenantIds();
+    }
+
+    private function scopedStockItemQuery(): Builder
+    {
+        return StockItem::query()
+            ->when($this->visibleTenantIds() !== null, fn ($query) => $query->whereIn('tenant_id', $this->visibleTenantIds()));
+    }
+
+    private function scopedMediaAssetQuery(): Builder
+    {
+        return MediaAsset::query()
+            ->where('model_type', MediaAsset::MODEL_TYPE_STOCK_ITEM)
+            ->when($this->visibleTenantIds() !== null, fn ($query) => $query->whereIn('tenant_id', $this->visibleTenantIds()));
+    }
+
+    private function managedStockItem(): StockItem
+    {
+        if (! $this->managingStockItemId) {
+            abort(404);
+        }
+
+        $stockItem = $this->scopedStockItemQuery()->find($this->managingStockItemId);
+
+        if (! $stockItem) {
+            abort(404);
+        }
+
+        return $stockItem;
+    }
+
+    private function managedStockItemForView(): ?StockItem
+    {
+        if (! $this->managingStockItemId) {
+            return null;
+        }
+
+        return $this->scopedStockItemQuery()
+            ->with('mediaAssets')
+            ->find($this->managingStockItemId);
+    }
+
+    private function clearPrimaryImages(int $stockItemId): void
+    {
+        MediaAsset::query()
+            ->where('model_type', MediaAsset::MODEL_TYPE_STOCK_ITEM)
+            ->where('model_id', $stockItemId)
+            ->update(['is_primary' => false]);
+    }
+
+    private function nextImageSortOrder(int $stockItemId): int
+    {
+        return ((int) MediaAsset::query()
+            ->where('model_type', MediaAsset::MODEL_TYPE_STOCK_ITEM)
+            ->where('model_id', $stockItemId)
+            ->max('sort_order')) + 1;
+    }
+
+    private function imageDimensions(TemporaryUploadedFile $file): array
+    {
+        $size = @getimagesize($file->getRealPath());
+
+        return [
+            'width' => $size[0] ?? null,
+            'height' => $size[1] ?? null,
+        ];
+    }
+
+    private function resetImageForm(): void
+    {
+        $this->stockImage = null;
+        $this->stockImageType = 'main';
+        $this->stockImageIsPrimary = false;
+    }
+
+    public function imageTypeOptions(): array
+    {
+        return [
+            'main' => __('skus.image_type_main'),
+            'gallery' => __('skus.image_type_gallery'),
+            'barcode' => __('skus.image_type_barcode'),
+            'packaging' => __('skus.image_type_packaging'),
+            'other' => __('skus.image_type_other'),
+        ];
+    }
+
+    public function mediaUrl(?MediaAsset $asset): ?string
+    {
+        if (! $asset) {
+            return null;
+        }
+
+        return Storage::disk($asset->disk)->url($asset->path);
     }
 
     private function nullableString(string $value): ?string

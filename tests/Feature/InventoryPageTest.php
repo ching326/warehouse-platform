@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Livewire\InventoryIndex;
 use App\Models\InventoryBalance;
+use App\Models\MediaAsset;
 use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\StockItem;
@@ -12,6 +13,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -180,6 +182,33 @@ class InventoryPageTest extends TestCase
             ->assertSee('Damaged 2')
             ->assertSee('Movements')
             ->assertSee('/inventory/movements?stock_item_id='.$rows['betaStock']->id, false);
+    }
+
+    public function test_inventory_page_renders_stock_item_thumbnails(): void
+    {
+        Storage::fake('public');
+        $rows = $this->createInventoryRows();
+        $asset = MediaAsset::create([
+            'tenant_id' => $rows['alphaStock']->tenant_id,
+            'model_type' => 'stock_item',
+            'model_id' => $rows['alphaStock']->id,
+            'type' => 'main',
+            'disk' => 'public',
+            'path' => 'product-images/tenant-'.$rows['alphaStock']->tenant_id.'/stock-items/'.$rows['alphaStock']->id.'/thumb.jpg',
+            'file_name' => 'thumb.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 10,
+            'width' => 10,
+            'height' => 10,
+            'sort_order' => 1,
+            'is_primary' => true,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(InventoryIndex::class)
+            ->assertSee('product-thumbnail', false)
+            ->assertSee($asset->path, false)
+            ->assertSee($rows['alphaStock']->code);
     }
 
     public function test_available_status_classes_use_simple_stock_thresholds(): void

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Livewire\SkuCreate;
 use App\Livewire\SkusIndex;
 use App\Models\Carrier;
+use App\Models\MediaAsset;
 use App\Models\PackagingMaterial;
 use App\Models\ProductType;
 use App\Models\ShippingMethod;
@@ -15,8 +16,12 @@ use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -502,7 +507,7 @@ class SkuManagementTest extends TestCase
         $this->actingAs($this->internalUser())
             ->get('/skus?view=catalog')
             ->assertOk()
-            ->assertSee('colspan="9"', false);
+            ->assertSee('colspan="10"', false);
 
         $this->actingAs($this->internalUser())
             ->get('/skus?view=marketplace')
@@ -512,7 +517,250 @@ class SkuManagementTest extends TestCase
         $this->actingAs($this->internalUser())
             ->get('/skus?view=logistics')
             ->assertOk()
-            ->assertSee('colspan="10"', false);
+            ->assertSee('colspan="11"', false);
+    }
+
+    public function test_internal_user_can_upload_stock_item_image(): void
+    {
+        Storage::fake('public');
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        Sku::factory()->for($tenant)->for($stockItem)->create();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openImagePanel', $stockItem->id)
+            ->set('stockImage', UploadedFile::fake()->image('front.jpg', 64, 48))
+            ->set('stockImageType', 'main')
+            ->call('uploadStockImage')
+            ->assertHasNoErrors();
+
+        $asset = MediaAsset::firstOrFail();
+
+        $this->assertSame($tenant->id, $asset->tenant_id);
+        $this->assertSame('stock_item', $asset->model_type);
+        $this->assertSame($stockItem->id, $asset->model_id);
+        $this->assertTrue($asset->is_primary);
+        $this->assertSame(64, $asset->width);
+        $this->assertSame(48, $asset->height);
+        Storage::disk('public')->assertExists($asset->path);
+    }
+
+    public function test_tenant_user_can_upload_image_for_own_tenant_stock_item(): void
+    {
+        Storage::fake('public');
+        [$tenant, $user] = $this->tenantUser();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        Sku::factory()->for($tenant)->for($stockItem)->create();
+
+        Livewire::actingAs($user)
+            ->test(SkusIndex::class)
+            ->call('openImagePanel', $stockItem->id)
+            ->set('stockImage', UploadedFile::fake()->image('own.png'))
+            ->call('uploadStockImage')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('media_assets', [
+            'tenant_id' => $tenant->id,
+            'model_type' => 'stock_item',
+            'model_id' => $stockItem->id,
+        ]);
+    }
+
+    public function test_tenant_user_cannot_upload_image_for_another_tenant_stock_item(): void
+    {
+        Storage::fake('public');
+        [, $user] = $this->tenantUser();
+        $otherTenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($otherTenant)->create();
+
+        Livewire::actingAs($user)
+            ->test(SkusIndex::class)
+            ->call('openImagePanel', $stockItem->id)
+            ->assertNotFound();
+
+        $this->assertSame(0, MediaAsset::count());
+    }
+
+    public function test_stock_image_upload_rejects_non_image_and_oversized_image(): void
+    {
+        Storage::fake('public');
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openImagePanel', $stockItem->id)
+            ->set('stockImage', UploadedFile::fake()->create('notes.txt', 1, 'text/plain'))
+            ->call('uploadStockImage')
+            ->assertHasErrors(['stockImage']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openImagePanel', $stockItem->id)
+            ->set('stockImage', UploadedFile::fake()->image('large.jpg')->size(5121))
+            ->call('uploadStockImage')
+            ->assertHasErrors(['stockImage']);
+    }
+
+    public function test_primary_image_logic_follows_primary_flag_not_type(): void
+    {
+        Storage::fake('public');
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openImagePanel', $stockItem->id)
+            ->set('stockImage', UploadedFile::fake()->image('first.jpg'))
+            ->set('stockImageType', 'gallery')
+            ->call('uploadStockImage')
+            ->set('stockImage', UploadedFile::fake()->image('main.jpg'))
+            ->set('stockImageType', 'main')
+            ->set('stockImageIsPrimary', false)
+            ->call('uploadStockImage')
+            ->assertHasNoErrors();
+
+        $first = MediaAsset::where('file_name', 'first.jpg')->firstOrFail();
+        $second = MediaAsset::where('file_name', 'main.jpg')->firstOrFail();
+
+        $this->assertTrue($first->is_primary);
+        $this->assertFalse($second->is_primary);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openImagePanel', $stockItem->id)
+            ->set('stockImage', UploadedFile::fake()->image('packaging.jpg'))
+            ->set('stockImageType', 'packaging')
+            ->set('stockImageIsPrimary', true)
+            ->call('uploadStockImage')
+            ->assertHasNoErrors();
+
+        $this->assertFalse($first->refresh()->is_primary);
+        $this->assertTrue(MediaAsset::where('file_name', 'packaging.jpg')->firstOrFail()->is_primary);
+    }
+
+    public function test_set_primary_action_changes_primary_image(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $first = $this->mediaAsset($stockItem, ['is_primary' => true, 'sort_order' => 1]);
+        $second = $this->mediaAsset($stockItem, ['is_primary' => false, 'sort_order' => 2]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('setPrimaryImage', $second->id)
+            ->assertHasNoErrors();
+
+        $this->assertFalse($first->refresh()->is_primary);
+        $this->assertTrue($second->refresh()->is_primary);
+    }
+
+    public function test_delete_image_removes_media_row_and_file(): void
+    {
+        Storage::fake('public');
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        Storage::disk('public')->put('product-images/tenant-'.$tenant->id.'/stock-items/'.$stockItem->id.'/delete.jpg', 'image');
+        $asset = $this->mediaAsset($stockItem, [
+            'path' => 'product-images/tenant-'.$tenant->id.'/stock-items/'.$stockItem->id.'/delete.jpg',
+            'is_primary' => true,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('deleteImage', $asset->id)
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseMissing('media_assets', ['id' => $asset->id]);
+        Storage::disk('public')->assertMissing($asset->path);
+    }
+
+    public function test_deleting_primary_image_promotes_next_image(): void
+    {
+        Storage::fake('public');
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $first = $this->mediaAsset($stockItem, ['is_primary' => true, 'sort_order' => 1]);
+        $second = $this->mediaAsset($stockItem, ['is_primary' => false, 'sort_order' => 2]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('deleteImage', $first->id)
+            ->assertHasNoErrors();
+
+        $this->assertTrue($second->refresh()->is_primary);
+    }
+
+    public function test_virtual_bundle_sku_does_not_show_upload_action(): void
+    {
+        $tenant = Tenant::factory()->create();
+        Sku::factory()->virtualBundle()->for($tenant)->create(['sku' => 'SKU-NO-IMAGE-UPLOAD']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->assertSee('SKU-NO-IMAGE-UPLOAD')
+            ->assertDontSee(__('skus.upload_image'));
+    }
+
+    public function test_sku_index_eager_loads_primary_images_without_n_plus_one(): void
+    {
+        $tenant = Tenant::factory()->create();
+
+        foreach (range(1, 3) as $index) {
+            $stockItem = StockItem::factory()->for($tenant)->create();
+            Sku::factory()->for($tenant)->for($stockItem)->create(['sku' => 'SKU-IMAGE-'.$index]);
+            $this->mediaAsset($stockItem, ['file_name' => 'image-'.$index.'.jpg', 'is_primary' => true]);
+        }
+
+        $queries = [];
+        DB::listen(function (QueryExecuted $query) use (&$queries): void {
+            if (str_contains($query->sql, 'media_assets')) {
+                $queries[] = $query->sql;
+            }
+        });
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->assertSee('SKU-IMAGE-1')
+            ->assertSee('image-1.jpg', false);
+
+        $this->assertLessThanOrEqual(2, count($queries));
+    }
+
+    public function test_unauthenticated_user_cannot_upload_image(): void
+    {
+        Storage::fake('public');
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+
+        Livewire::test(SkusIndex::class)
+            ->set('managingStockItemId', $stockItem->id)
+            ->set('stockImage', UploadedFile::fake()->image('guest.jpg'))
+            ->call('uploadStockImage')
+            ->assertNotFound();
+
+        $this->assertSame(0, MediaAsset::count());
+    }
+
+    public function test_upload_rejects_eleventh_image_for_same_stock_item(): void
+    {
+        Storage::fake('public');
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+
+        foreach (range(1, 10) as $index) {
+            $this->mediaAsset($stockItem, ['file_name' => 'existing-'.$index.'.jpg']);
+        }
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openImagePanel', $stockItem->id)
+            ->set('stockImage', UploadedFile::fake()->image('eleventh.jpg'))
+            ->call('uploadStockImage')
+            ->assertHasErrors(['stockImage']);
+
+        $this->assertSame(10, MediaAsset::count());
     }
 
     public function test_logistics_view_renders_editable_fields_and_saves_stock_item_and_sku_defaults(): void
@@ -802,5 +1050,25 @@ class SkuManagementTest extends TestCase
             'service_type' => 'parcel',
             'status' => $status,
         ]);
+    }
+
+    private function mediaAsset(StockItem $stockItem, array $attributes = []): MediaAsset
+    {
+        return MediaAsset::create(array_merge([
+            'tenant_id' => $stockItem->tenant_id,
+            'model_type' => 'stock_item',
+            'model_id' => $stockItem->id,
+            'type' => 'main',
+            'disk' => 'public',
+            'path' => 'product-images/tenant-'.$stockItem->tenant_id.'/stock-items/'.$stockItem->id.'/test.jpg',
+            'file_name' => 'test.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 10,
+            'width' => 10,
+            'height' => 10,
+            'sort_order' => 1,
+            'is_primary' => false,
+            'uploaded_by_user_id' => null,
+        ], $attributes));
     }
 }

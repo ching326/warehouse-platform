@@ -144,6 +144,7 @@ class InventoryIndex extends Component
                     'product_type',
                     'status',
                 ]),
+                'stockItem.primaryImage:id,tenant_id,model_type,model_id,type,disk,path,file_name,is_primary,sort_order',
                 'stockItem.skus' => fn ($query) => $query
                     ->select([
                         'id',

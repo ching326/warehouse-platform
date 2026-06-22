@@ -83,11 +83,16 @@
                 @forelse ($balances as $balance)
                     <flux:table.row :key="$balance->id">
                         <flux:table.cell class="stock-item-cell">
-                            <strong>{{ $balance->stockItem->name }}</strong>
-                            <span class="subtle">{{ $balance->stockItem->code }}</span>
-                            @if ($balance->stockItem->barcode)
-                                <span class="subtle">{{ __('inventory.barcode_label', ['barcode' => $balance->stockItem->barcode]) }}</span>
-                            @endif
+                            <div class="stock-item-summary">
+                                @include('livewire.partials.stock-item-thumbnail', ['stockItem' => $balance->stockItem])
+                                <div>
+                                    <strong>{{ $balance->stockItem->name }}</strong>
+                                    <span class="subtle">{{ $balance->stockItem->code }}</span>
+                                    @if ($balance->stockItem->barcode)
+                                        <span class="subtle">{{ __('inventory.barcode_label', ['barcode' => $balance->stockItem->barcode]) }}</span>
+                                    @endif
+                                </div>
+                            </div>
 
                             <div class="sku-list">
                                 @php
