@@ -78,7 +78,7 @@
         </div>
 
         @if ($view === 'detailed')
-            <flux:table :paginate="$skus" class="sku-table">
+            <flux:table :paginate="$skus" class="sku-table sku-detailed-table">
                 <flux:table.columns>
                     <flux:table.column>{{ __('skus.col_image') }}</flux:table.column>
                     <flux:table.column>{{ __('skus.col_sku') }}</flux:table.column>

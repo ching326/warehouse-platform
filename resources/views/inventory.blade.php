@@ -1701,6 +1701,13 @@
                 width: 64px;
             }
 
+            .sku-detailed-table th:nth-child(1),
+            .sku-detailed-table td:nth-child(1) {
+                width: 56px;
+                padding-left: 8px;
+                padding-right: 0;
+            }
+
             .sku-catalog-table th:nth-child(1),
             .sku-catalog-table td:nth-child(1) {
                 width: 64px;
