@@ -17,7 +17,7 @@ class FulfillmentGroupFactory extends Factory
         return [
             'tenant_id' => Tenant::factory(),
             'warehouse_id' => Warehouse::factory(),
-            'reference_no' => 'FG-ABC-'.now()->format('ymd').'-'.fake()->unique()->numerify('#####'),
+            'reference_no' => 'FABC'.now()->format('ymd').fake()->unique()->numerify('#####'),
             'status' => FulfillmentGroup::STATUS_RESERVED,
             'ship_together_key' => fake()->md5(),
             'recipient_name' => fake()->name(),

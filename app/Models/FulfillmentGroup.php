@@ -91,10 +91,9 @@ class FulfillmentGroup extends Model
     public static function buildReferenceNo(int $id, string $tenantCode): string
     {
         $tenantCode = strtoupper(trim($tenantCode));
-        $tenantCode = preg_replace('/[^A-Z0-9]+/', '-', $tenantCode) ?? '';
-        $tenantCode = trim($tenantCode, '-');
-        $tenantCode = $tenantCode !== '' ? $tenantCode : 'TENANT';
+        $tenantCode = preg_replace('/[^A-Z0-9]+/', '', $tenantCode) ?? '';
+        $tenantCode = str_pad(substr($tenantCode, 0, 3), 3, 'X');
 
-        return 'FG-'.$tenantCode.'-'.now()->format('ymd').'-'.str_pad((string) $id, 5, '0', STR_PAD_LEFT);
+        return 'F'.$tenantCode.now()->format('ymd').str_pad((string) $id, 5, '0', STR_PAD_LEFT);
     }
 }

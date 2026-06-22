@@ -68,7 +68,9 @@ class FulfillmentGroupTest extends TestCase
         $references = FulfillmentGroup::query()->orderBy('id')->pluck('reference_no');
 
         $this->assertCount(2, $references->unique());
-        $this->assertMatchesRegularExpression('/^FG-'.preg_quote($tenant->code, '/').'-\d{6}-\d{5}$/', $references->first());
+        $tenantCode = str_pad(substr(preg_replace('/[^A-Z0-9]+/', '', strtoupper($tenant->code)) ?? '', 0, 3), 3, 'X');
+        $this->assertMatchesRegularExpression('/^F'.preg_quote($tenantCode, '/').'\d{6}\d{5}$/', $references->first());
+        $this->assertSame(15, strlen($references->first()));
     }
 
     public function test_create_group_snapshots_recipient_from_sales_order(): void
