@@ -77,6 +77,8 @@
                         <strong>{{ number_format($pendingQuantityScan['remaining_qty']) }}</strong>
                     </div>
                     <flux:input
+                        x-data
+                        x-on:pack-quantity-focus.window="$nextTick(() => $el.querySelector('input')?.focus())"
                         wire:model="pendingQuantity"
                         type="number"
                         min="1"

@@ -135,6 +135,7 @@ class FulfillmentGroupPack extends Component
                 'sku' => $display,
                 'remaining' => $matchedLine['remaining_qty'],
             ]);
+            $this->dispatch('pack-quantity-focus');
 
             return;
         }
@@ -155,6 +156,25 @@ class FulfillmentGroupPack extends Component
 
         $group = $this->loadGroup();
         $pending = $this->pendingQuantityScan;
+
+        if ($group->status !== FulfillmentGroup::STATUS_RESERVED) {
+            $message = $group->status === FulfillmentGroup::STATUS_SHIPPED
+                ? __('fulfillment_pack.already_shipped')
+                : __('fulfillment_pack.cancelled_group');
+
+            $this->writeScan($group, [
+                'barcode_scanned' => (string) $pending['barcode_scanned'],
+                'normalized_barcode' => (string) $pending['normalized_barcode'],
+                'result' => FulfillmentPackScan::RESULT_BLOCKED_STATUS,
+                'message' => $message,
+            ]);
+            $this->clearPendingQuantity();
+            $this->error($message);
+            $this->focusScanner();
+
+            return;
+        }
+
         $line = collect($service->packLinesWithProgress($group))
             ->first(fn (array $line): bool => $line['key'] === $pending['line_key']);
 

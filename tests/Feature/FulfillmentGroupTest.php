@@ -1186,6 +1186,7 @@ class FulfillmentGroupTest extends TestCase
             ->set('barcode', 'SKU-BAR-QTY-PROMPT')
             ->call('scan')
             ->assertSet('pendingQuantity', 1)
+            ->assertDispatched('pack-quantity-focus')
             ->assertSee('Quantity')
             ->assertSee('Add')
             ->assertSee('Remaining');
@@ -1213,6 +1214,40 @@ class FulfillmentGroupTest extends TestCase
 
         $this->assertSame(3, (int) FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->sum('quantity'));
         $this->assertSame(1, FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->count());
+    }
+
+    public function test_pending_quantity_confirmation_is_blocked_if_group_becomes_unpackable(): void
+    {
+        foreach ([FulfillmentGroup::STATUS_SHIPPED, FulfillmentGroup::STATUS_CANCELLED] as $status) {
+            [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+            $sku->update(['barcode' => 'SKU-BAR-QTY-BLOCK-'.$status]);
+            $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-PACK-QTY-BLOCK-'.$status);
+            $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+            $group = FulfillmentGroup::query()->latest('id')->firstOrFail();
+
+            $component = Livewire::actingAs($this->internalUser())
+                ->test(FulfillmentGroupPack::class, ['group' => $group])
+                ->set('barcode', 'SKU-BAR-QTY-BLOCK-'.$status)
+                ->call('scan')
+                ->assertSet('pendingQuantity', 1);
+
+            $group->update(['status' => $status]);
+
+            $component
+                ->set('pendingQuantity', 3)
+                ->call('confirmPendingQuantity')
+                ->assertSet('pendingQuantityScan', null)
+                ->assertSee($status === FulfillmentGroup::STATUS_SHIPPED
+                    ? 'This fulfillment group is already shipped.'
+                    : 'This fulfillment group is cancelled.');
+
+            $this->assertSame(0, FulfillmentPackScan::where('fulfillment_group_id', $group->id)
+                ->where('result', FulfillmentPackScan::RESULT_ACCEPTED)
+                ->count());
+            $this->assertSame(1, FulfillmentPackScan::where('fulfillment_group_id', $group->id)
+                ->where('result', FulfillmentPackScan::RESULT_BLOCKED_STATUS)
+                ->count());
+        }
     }
 
     public function test_pending_quantity_cannot_exceed_remaining_quantity(): void
