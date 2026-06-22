@@ -25,9 +25,17 @@ class FulfillmentPackScan extends Model
         'barcode_scanned',
         'normalized_barcode',
         'result',
+        'quantity',
         'message',
         'scanned_by_user_id',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'quantity' => 'integer',
+        ];
+    }
 
     public function fulfillmentGroup(): BelongsTo
     {

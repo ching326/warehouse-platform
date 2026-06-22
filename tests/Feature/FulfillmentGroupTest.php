@@ -1129,6 +1129,7 @@ class FulfillmentGroupTest extends TestCase
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->set('packMode', 'strict')
             ->assertSee('2')
             ->set('barcode', 'SKU-BAR-001')
             ->call('scan')
@@ -1143,6 +1144,153 @@ class FulfillmentGroupTest extends TestCase
             ->test(FulfillmentGroupPack::class, ['group' => $group])
             ->assertSee('Ready to ship')
             ->assertSee('2');
+    }
+
+    public function test_pack_progress_sums_scan_quantity(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $sku->update(['barcode' => 'SKU-BAR-QTY-SUM']);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-PACK-QTY-SUM');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        FulfillmentPackScan::create([
+            'tenant_id' => $tenant->id,
+            'fulfillment_group_id' => $group->id,
+            'sku_id' => $sku->id,
+            'stock_item_id' => $sku->stock_item_id,
+            'barcode_scanned' => 'SKU-BAR-QTY-SUM',
+            'normalized_barcode' => 'SKU-BAR-QTY-SUM',
+            'result' => FulfillmentPackScan::RESULT_ACCEPTED,
+            'quantity' => 3,
+            'message' => 'Scanned quantity',
+            'scanned_by_user_id' => $this->internalUser()->id,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->assertSee('Ready to ship')
+            ->assertSee('3');
+    }
+
+    public function test_normal_mode_scan_with_remaining_quantity_shows_pending_prompt(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $sku->update(['barcode' => 'SKU-BAR-QTY-PROMPT']);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-PACK-QTY-PROMPT');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->set('barcode', 'SKU-BAR-QTY-PROMPT')
+            ->call('scan')
+            ->assertSet('pendingQuantity', 1)
+            ->assertSee('Quantity')
+            ->assertSee('Add')
+            ->assertSee('Remaining');
+
+        $this->assertSame(0, FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->count());
+    }
+
+    public function test_confirming_pending_quantity_adds_that_quantity(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $sku->update(['barcode' => 'SKU-BAR-QTY-ADD']);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-PACK-QTY-ADD');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->set('barcode', 'SKU-BAR-QTY-ADD')
+            ->call('scan')
+            ->set('pendingQuantity', 3)
+            ->call('confirmPendingQuantity')
+            ->assertSet('pendingQuantityScan', null)
+            ->assertSee('Ready to ship')
+            ->assertSee('Scanned '.$sku->sku.' x 3');
+
+        $this->assertSame(3, (int) FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->sum('quantity'));
+        $this->assertSame(1, FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->count());
+    }
+
+    public function test_pending_quantity_cannot_exceed_remaining_quantity(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $sku->update(['barcode' => 'SKU-BAR-QTY-CLAMP']);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-PACK-QTY-CLAMP');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->set('barcode', 'SKU-BAR-QTY-CLAMP')
+            ->call('scan')
+            ->set('pendingQuantity', 99)
+            ->call('confirmPendingQuantity')
+            ->assertSee('Ready to ship');
+
+        $this->assertSame(3, (int) FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->sum('quantity'));
+    }
+
+    public function test_remaining_quantity_one_accepts_immediately_without_prompt(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $sku->update(['barcode' => 'SKU-BAR-QTY-ONE']);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-QTY-ONE');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->set('barcode', 'SKU-BAR-QTY-ONE')
+            ->call('scan')
+            ->assertSet('pendingQuantityScan', null)
+            ->assertSee('Ready to ship');
+
+        $this->assertSame(1, (int) FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->sum('quantity'));
+    }
+
+    public function test_strict_mode_never_shows_quantity_prompt_and_adds_only_one(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $sku->update(['barcode' => 'SKU-BAR-STRICT']);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-PACK-STRICT');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->set('packMode', 'strict')
+            ->set('barcode', 'SKU-BAR-STRICT')
+            ->call('scan')
+            ->assertSet('pendingQuantityScan', null)
+            ->assertDontSee('Add')
+            ->assertDontSee('Ready to ship');
+
+        $this->assertSame(1, (int) FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->sum('quantity'));
+    }
+
+    public function test_high_risk_stock_item_in_normal_mode_requires_strict_scan(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $sku->update(['barcode' => 'SKU-BAR-RISK']);
+        $sku->stockItem->update(['is_dangerous_goods' => true]);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-PACK-RISK');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->assertSee('Strict scan')
+            ->set('barcode', 'SKU-BAR-RISK')
+            ->call('scan')
+            ->assertSet('pendingQuantityScan', null)
+            ->assertDontSee('Add')
+            ->assertDontSee('Ready to ship');
+
+        $this->assertSame(1, (int) FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->sum('quantity'));
     }
 
     public function test_pack_page_prefers_remaining_line_when_skus_share_stock_item_barcode(): void
@@ -1207,11 +1355,13 @@ class FulfillmentGroupTest extends TestCase
             'fulfillment_group_id' => $group->id,
             'barcode_scanned' => 'WRONG',
             'result' => FulfillmentPackScan::RESULT_WRONG_ITEM,
+            'quantity' => 1,
         ]);
         $this->assertDatabaseHas('fulfillment_pack_scans', [
             'fulfillment_group_id' => $group->id,
             'barcode_scanned' => 'SKU-BAR-OVER',
             'result' => FulfillmentPackScan::RESULT_OVER_SCAN,
+            'quantity' => 1,
         ]);
         $this->assertSame(1, FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->count());
     }
@@ -1245,6 +1395,46 @@ class FulfillmentGroupTest extends TestCase
             'ref_type' => 'outbound_order',
             'ref_id' => (string) $group->outboundOrder->id,
         ]);
+    }
+
+    public function test_cannot_mark_shipped_while_pending_quantity_exists(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $sku->update(['barcode' => 'SKU-BAR-PENDING-SHIP']);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 2, 'SO-PACK-PENDING-SHIP');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::with('outboundOrder')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->set('barcode', 'SKU-BAR-PENDING-SHIP')
+            ->call('scan')
+            ->call('markShipped')
+            ->assertSee('Confirm or cancel the pending quantity before shipping.');
+
+        $this->assertSame(FulfillmentGroup::STATUS_RESERVED, $group->refresh()->status);
+        $this->assertSame(0, FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->count());
+    }
+
+    public function test_can_mark_shipped_after_quantity_scan_completes_lines(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $sku->update(['barcode' => 'SKU-BAR-QTY-SHIP']);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-PACK-QTY-SHIP');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::with('outboundOrder')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->set('barcode', 'SKU-BAR-QTY-SHIP')
+            ->call('scan')
+            ->set('pendingQuantity', 3)
+            ->call('confirmPendingQuantity')
+            ->call('markShipped')
+            ->assertRedirect(route('fulfillment-groups.show', $group));
+
+        $this->assertSame(FulfillmentGroup::STATUS_SHIPPED, $group->refresh()->status);
+        $this->assertSame(3, (int) FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->sum('quantity'));
     }
 
     public function test_shipped_and_cancelled_groups_cannot_accept_new_scans(): void
@@ -1290,6 +1480,7 @@ class FulfillmentGroupTest extends TestCase
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->set('packMode', 'strict')
             ->assertSee('BUNDLE-1')
             ->assertSee('2')
             ->set('barcode', 'COMPONENT-BAR')

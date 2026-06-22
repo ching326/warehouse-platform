@@ -22,6 +22,12 @@ class FulfillmentGroupPack extends Component
 
     public string $feedbackType = 'success';
 
+    public string $packMode = 'normal';
+
+    public ?array $pendingQuantityScan = null;
+
+    public int $pendingQuantity = 1;
+
     private bool $allowedTenantIdsResolved = false;
 
     private array $allowedTenantIdsCache = [];
@@ -39,6 +45,10 @@ class FulfillmentGroupPack extends Component
     public function scan(FulfillmentPackService $service): void
     {
         $this->authorizeInternalUser();
+
+        if ($this->pendingQuantityScan !== null) {
+            $this->clearPendingQuantity();
+        }
 
         $group = $this->loadGroup();
         $barcodeScanned = $this->barcode;
@@ -106,19 +116,83 @@ class FulfillmentGroupPack extends Component
             return;
         }
 
-        $sku = $matchedLine['sku'];
-        $message = __('fulfillment_pack.scanned_message', ['sku' => $sku?->sku ?? $matchedLine['stock_item']?->code ?? $normalized]);
-        $this->writeScan($group, [
-            'sku_id' => $matchedLine['sku_id'],
-            'stock_item_id' => $matchedLine['stock_item_id'],
-            'barcode_scanned' => $barcodeScanned,
-            'normalized_barcode' => $normalized,
-            'result' => FulfillmentPackScan::RESULT_ACCEPTED,
-            'message' => $message,
-        ]);
+        if ($matchedLines->count() === 1 && $this->packMode !== 'strict' && ! $matchedLine['strict_only'] && $matchedLine['remaining_qty'] > 1) {
+            $display = $this->lineDisplay($matchedLine, $normalized);
 
-        $this->feedbackType = 'success';
-        $this->feedbackMessage = $message;
+            $this->pendingQuantityScan = [
+                'line_key' => $matchedLine['key'],
+                'sku_id' => $matchedLine['sku_id'],
+                'stock_item_id' => $matchedLine['stock_item_id'],
+                'display' => $display,
+                'barcode_scanned' => $barcodeScanned,
+                'normalized_barcode' => $normalized,
+                'remaining_qty' => $matchedLine['remaining_qty'],
+                'strict_only' => false,
+            ];
+            $this->pendingQuantity = 1;
+            $this->feedbackType = 'success';
+            $this->feedbackMessage = __('fulfillment_pack.quantity_prompt_message', [
+                'sku' => $display,
+                'remaining' => $matchedLine['remaining_qty'],
+            ]);
+
+            return;
+        }
+
+        $this->acceptScan($group, $matchedLine, $barcodeScanned, $normalized, 1);
+        $this->focusScanner();
+    }
+
+    public function confirmPendingQuantity(FulfillmentPackService $service): void
+    {
+        $this->authorizeInternalUser();
+
+        if ($this->pendingQuantityScan === null) {
+            $this->focusScanner();
+
+            return;
+        }
+
+        $group = $this->loadGroup();
+        $pending = $this->pendingQuantityScan;
+        $line = collect($service->packLinesWithProgress($group))
+            ->first(fn (array $line): bool => $line['key'] === $pending['line_key']);
+
+        if (! $line || $line['remaining_qty'] <= 0) {
+            $this->clearPendingQuantity();
+            $this->error(__('fulfillment_pack.over_scan'));
+            $this->focusScanner();
+
+            return;
+        }
+
+        $quantity = max(1, (int) $this->pendingQuantity);
+        $quantity = min($quantity, (int) $line['remaining_qty']);
+
+        $this->acceptScan(
+            $group,
+            $line,
+            (string) $pending['barcode_scanned'],
+            (string) $pending['normalized_barcode'],
+            $quantity
+        );
+        $this->clearPendingQuantity();
+        $this->focusScanner();
+    }
+
+    public function cancelPendingQuantity(): void
+    {
+        $this->clearPendingQuantity();
+        $this->focusScanner();
+    }
+
+    public function updatedPackMode(): void
+    {
+        if (! in_array($this->packMode, ['normal', 'strict'], true)) {
+            $this->packMode = 'normal';
+        }
+
+        $this->clearPendingQuantity();
         $this->focusScanner();
     }
 
@@ -127,6 +201,12 @@ class FulfillmentGroupPack extends Component
         $this->authorizeInternalUser();
 
         $group = $this->loadGroup();
+
+        if ($this->pendingQuantityScan !== null) {
+            $this->error(__('fulfillment_pack.confirm_or_cancel_quantity'));
+
+            return;
+        }
 
         if ($group->status !== FulfillmentGroup::STATUS_RESERVED) {
             $this->error(__('fulfillment_pack.already_shipped'));
@@ -221,8 +301,47 @@ class FulfillmentGroupPack extends Component
         FulfillmentPackScan::create($data + [
             'tenant_id' => $group->tenant_id,
             'fulfillment_group_id' => $group->id,
+            'quantity' => 1,
             'scanned_by_user_id' => Auth::id(),
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $line
+     */
+    private function acceptScan(FulfillmentGroup $group, array $line, string $barcodeScanned, string $normalized, int $quantity): void
+    {
+        $display = $this->lineDisplay($line, $normalized);
+        $message = $quantity > 1
+            ? __('fulfillment_pack.scanned_quantity_message', ['sku' => $display, 'quantity' => $quantity])
+            : __('fulfillment_pack.scanned_message', ['sku' => $display]);
+
+        $this->writeScan($group, [
+            'sku_id' => $line['sku_id'],
+            'stock_item_id' => $line['stock_item_id'],
+            'barcode_scanned' => $barcodeScanned,
+            'normalized_barcode' => $normalized,
+            'result' => FulfillmentPackScan::RESULT_ACCEPTED,
+            'quantity' => $quantity,
+            'message' => $message,
+        ]);
+
+        $this->feedbackType = 'success';
+        $this->feedbackMessage = $message;
+    }
+
+    /**
+     * @param  array<string, mixed>  $line
+     */
+    private function lineDisplay(array $line, string $fallback): string
+    {
+        return $line['sku']?->sku ?? $line['stock_item']?->code ?? $fallback;
+    }
+
+    private function clearPendingQuantity(): void
+    {
+        $this->pendingQuantityScan = null;
+        $this->pendingQuantity = 1;
     }
 
     private function error(string $message): void

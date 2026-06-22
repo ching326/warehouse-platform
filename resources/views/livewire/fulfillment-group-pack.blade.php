@@ -29,6 +29,26 @@
 
     <section class="table-shell flux-panel form-panel">
         @if (! $readOnly)
+            <div class="pack-mode-row">
+                <span class="pack-mode-label">{{ __('fulfillment_pack.pack_mode') }}</span>
+                <div class="pack-mode-control" role="group" aria-label="{{ __('fulfillment_pack.pack_mode') }}">
+                    <button
+                        type="button"
+                        wire:click="$set('packMode', 'normal')"
+                        @class(['active' => $packMode === 'normal'])
+                    >
+                        {{ __('fulfillment_pack.mode_normal') }}
+                    </button>
+                    <button
+                        type="button"
+                        wire:click="$set('packMode', 'strict')"
+                        @class(['active' => $packMode === 'strict'])
+                    >
+                        {{ __('fulfillment_pack.mode_strict') }}
+                    </button>
+                </div>
+            </div>
+
             <form wire:submit="scan" class="pack-scan-form">
                 <flux:input
                     x-data
@@ -40,6 +60,36 @@
                     autocomplete="off"
                 />
             </form>
+
+            @if ($pendingQuantityScan)
+                <form
+                    wire:submit="confirmPendingQuantity"
+                    class="pack-quantity-panel"
+                    x-data
+                    x-on:keydown.escape.window="$wire.cancelPendingQuantity()"
+                >
+                    <div>
+                        <span>{{ __('fulfillment_pack.pending_scanned') }}</span>
+                        <strong>{{ $pendingQuantityScan['display'] }}</strong>
+                    </div>
+                    <div>
+                        <span>{{ __('fulfillment_pack.remaining_qty') }}</span>
+                        <strong>{{ number_format($pendingQuantityScan['remaining_qty']) }}</strong>
+                    </div>
+                    <flux:input
+                        wire:model="pendingQuantity"
+                        type="number"
+                        min="1"
+                        max="{{ $pendingQuantityScan['remaining_qty'] }}"
+                        step="1"
+                        :label="__('fulfillment_pack.quantity_label')"
+                    />
+                    <div class="pack-quantity-actions">
+                        <flux:button type="submit" variant="primary">{{ __('fulfillment_pack.add_quantity') }}</flux:button>
+                        <flux:button type="button" variant="outline" wire:click="cancelPendingQuantity">{{ __('fulfillment_pack.cancel_quantity') }}</flux:button>
+                    </div>
+                </form>
+            @endif
         @endif
 
         <div class="pack-feedback {{ $feedbackMessage ? $feedbackType : 'idle' }}">
@@ -81,6 +131,9 @@
                             <flux:badge color="{{ $line['status'] === 'complete' ? 'green' : ($line['status'] === 'in_progress' ? 'amber' : 'zinc') }}">
                                 {{ __('fulfillment_pack.status_'.$line['status']) }}
                             </flux:badge>
+                            @if ($line['strict_only'])
+                                <flux:badge color="red">{{ __('fulfillment_pack.strict_scan') }}</flux:badge>
+                            @endif
                         </flux:table.cell>
                     </flux:table.row>
                 @endforeach
@@ -94,12 +147,55 @@
         @else
             <div class="pack-waiting">{{ __('fulfillment_pack.scan_all_before_shipping') }}</div>
         @endif
-        <flux:button type="button" variant="primary" wire:click="markShipped" :disabled="! $allComplete || $readOnly">
+        <flux:button type="button" variant="primary" wire:click="markShipped" :disabled="! $allComplete || $readOnly || (bool) $pendingQuantityScan">
             {{ __('fulfillment_pack.mark_shipped') }}
         </flux:button>
     </div>
 
     <style>
+        .pack-mode-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .pack-mode-label {
+            color: #475569;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .pack-mode-control {
+            display: inline-flex;
+            overflow: hidden;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            background: #ffffff;
+        }
+
+        .pack-mode-control button {
+            min-width: 78px;
+            border: 0;
+            border-right: 1px solid #cbd5e1;
+            padding: 8px 12px;
+            background: transparent;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .pack-mode-control button:last-child {
+            border-right: 0;
+        }
+
+        .pack-mode-control button.active {
+            background: #0f172a;
+            color: #ffffff;
+        }
+
         .pack-scan-form {
             margin-bottom: 12px;
         }
@@ -108,6 +204,37 @@
             min-height: 48px;
             font-size: 18px;
             font-weight: 700;
+        }
+
+        .pack-quantity-panel {
+            display: grid;
+            grid-template-columns: minmax(140px, 1fr) minmax(92px, auto) minmax(110px, 160px) auto;
+            gap: 10px;
+            align-items: end;
+            margin-bottom: 12px;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 10px;
+            background: #eff6ff;
+        }
+
+        .pack-quantity-panel span {
+            display: block;
+            color: #475569;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .pack-quantity-panel strong {
+            display: block;
+            color: #0f172a;
+            font-size: 14px;
+        }
+
+        .pack-quantity-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
         }
 
         .pack-feedback {
@@ -146,6 +273,17 @@
             padding: 10px 12px;
             font-size: 12px;
             font-weight: 700;
+        }
+
+        @media (max-width: 760px) {
+            .pack-quantity-panel {
+                grid-template-columns: 1fr;
+                align-items: stretch;
+            }
+
+            .pack-quantity-actions {
+                justify-content: flex-start;
+            }
         }
     </style>
 </div>

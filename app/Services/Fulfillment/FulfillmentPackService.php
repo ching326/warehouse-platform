@@ -115,7 +115,8 @@ class FulfillmentPackService
         $lines = $this->packLines($group);
 
         foreach ($lines as &$line) {
-            $line['scanned_qty'] = $this->acceptedScanCount($group, $line);
+            $line['strict_only'] = $this->lineIsStrictOnly($line);
+            $line['scanned_qty'] = $this->acceptedScanQuantity($group, $line);
             $line['remaining_qty'] = max(0, $line['required_qty'] - $line['scanned_qty']);
             $line['status'] = match (true) {
                 $line['scanned_qty'] <= 0 => 'not_started',
@@ -132,6 +133,14 @@ class FulfillmentPackService
      */
     public function acceptedScanCount(FulfillmentGroup $group, array $line): int
     {
+        return $this->acceptedScanQuantity($group, $line);
+    }
+
+    /**
+     * @param  array<string, mixed>  $line
+     */
+    public function acceptedScanQuantity(FulfillmentGroup $group, array $line): int
+    {
         return FulfillmentPackScan::query()
             ->where('fulfillment_group_id', $group->id)
             ->where('result', FulfillmentPackScan::RESULT_ACCEPTED)
@@ -139,7 +148,24 @@ class FulfillmentPackService
             ->when($line['sku_id'] === null, fn ($query) => $query->whereNull('sku_id'))
             ->when($line['stock_item_id'] !== null, fn ($query) => $query->where('stock_item_id', $line['stock_item_id']))
             ->when($line['stock_item_id'] === null, fn ($query) => $query->whereNull('stock_item_id'))
-            ->count();
+            ->sum('quantity');
+    }
+
+    /**
+     * @param  array<string, mixed>  $line
+     */
+    public function lineIsStrictOnly(array $line): bool
+    {
+        $stockItem = $line['stock_item'] ?? null;
+
+        if (! $stockItem) {
+            return false;
+        }
+
+        return (bool) $stockItem->is_dangerous_goods
+            || (bool) $stockItem->requires_expiry_tracking
+            || (bool) $stockItem->requires_lot_tracking
+            || in_array((string) $stockItem->product_type, ['food', 'is_battery', 'with_battery'], true);
     }
 
     public function allLinesComplete(FulfillmentGroup $group): bool
