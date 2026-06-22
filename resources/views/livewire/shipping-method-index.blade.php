@@ -183,7 +183,7 @@
                         <flux:table.cell>{{ $method->service_type ?: '-' }}</flux:table.cell>
                         <flux:table.cell>
                             @php($rate = $method->rates->first())
-                            {{ $rate ? $rate->currency.' '.number_format((float) $rate->price, 2) : '-' }}
+                            {{ $rate ? $rate->currency.' '.number_format((float) $rate->price) : '-' }}
                         </flux:table.cell>
                         <flux:table.cell>
                             <flux:badge color="{{ $this->statusColor($method->status) }}">
