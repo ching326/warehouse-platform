@@ -140,7 +140,8 @@ ja 不明 / zh_TW 未知 / zh_CN 未知.
 
 ## Module lang files -- status
 
-- Translated (ja, zh_TW, zh_CN): inbound.php, outbound.php, fulfillment_groups.php, setup.php.
+- Translated (ja, zh_TW, zh_CN): inbound.php, outbound.php, fulfillment_groups.php, setup.php,
+  issues.php, shop.php, locations.php.
 - Not yet translated (still hold English values): skus.php, fulfillment_pack.php, sales_orders.php,
-  return_orders.php, issues.php, locations.php, shop.php, etc. Translate when each module is done,
-  applying this glossary for shared terms (Reserve = 引当 / 分配, Ship = 出荷 / 出貨, etc.).
+  return_orders.php, etc. Translate when each module is done, applying this glossary for shared terms
+  (Reserve = 引当 / 分配, Ship = 出荷 / 出貨, etc.).
