@@ -189,8 +189,24 @@ class FulfillmentPickSummary extends Component
 
                 return $row;
             })
-            ->sortBy(fn (array $row): string => (string) ($row['stock_item']?->code ?? implode(',', $row['sku_codes'])))
+            ->sortBy(fn (array $row): array => $this->routeSortKey($row))
             ->values();
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array{0: int, 1: string, 2: string, 3: string}
+     */
+    private function routeSortKey(array $row): array
+    {
+        $location = (string) ($row['location_hint'] ?? '-');
+
+        return [
+            $location === '-' ? 1 : 0,
+            $location === '-' ? 'ZZZZZZ' : $location,
+            (string) ($row['stock_item']?->code ?? ''),
+            implode(',', $row['sku_codes'] ?? []),
+        ];
     }
 
     private function groupQuery()

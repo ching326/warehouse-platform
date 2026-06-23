@@ -76,7 +76,7 @@
                     <flux:table.column align="end">{{ __('fulfillment_pick.col_required_qty') }}</flux:table.column>
                     <flux:table.column align="end">{{ __('fulfillment_pick.col_pickable_qty') }}</flux:table.column>
                     <flux:table.column align="end">{{ __('fulfillment_pick.col_difference') }}</flux:table.column>
-                    <flux:table.column>{{ __('fulfillment_pick.col_location_hint') }}</flux:table.column>
+                    <flux:table.column>{{ __('fulfillment_pick.col_location') }}</flux:table.column>
                     <flux:table.column>{{ __('fulfillment_pick.col_groups_orders') }}</flux:table.column>
                     <flux:table.column class="no-print">{{ __('fulfillment_pick.col_actions') }}</flux:table.column>
                 </flux:table.columns>
@@ -86,7 +86,11 @@
                         @php($stockItem = $row['stock_item'])
                         @php($groups = collect($row['groups']))
                         @php($orders = collect($row['orders']))
-                        <flux:table.row :key="($row['sku_id'] ?? 'component').'-'.($row['stock_item_id'] ?? 'none')">
+                        @php($locationHint = $row['location_hint'])
+                        @php($previousLocation = $loop->first ? null : ($rows->get($loop->index - 1)['location_hint'] ?? null))
+                        @php($isNewLocation = $loop->first || $previousLocation !== $locationHint)
+                        @php($displayLocation = $locationHint === '-' ? __('fulfillment_pick.no_location') : $locationHint)
+                        <flux:table.row :key="($row['sku_id'] ?? 'component').'-'.($row['stock_item_id'] ?? 'none')" class="{{ $isNewLocation ? 'pick-location-start' : '' }}">
                             <flux:table.cell>
                                 <strong>{{ $stockItem?->code ?: '-' }}</strong>
                                 <div class="pick-badges">
@@ -113,7 +117,7 @@
                                     {{ number_format($row['difference']) }}
                                 </span>
                             </flux:table.cell>
-                            <flux:table.cell>{{ $row['location_hint'] }}</flux:table.cell>
+                            <flux:table.cell><span class="pick-location-badge">{{ $displayLocation }}</span></flux:table.cell>
                             <flux:table.cell>
                                 <strong>{{ trans_choice('fulfillment_pick.group_count', $groups->count(), ['count' => $groups->count()]) }}</strong>
                                 <span>{{ trans_choice('fulfillment_pick.order_count', $orders->count(), ['count' => $orders->count()]) }}</span>
@@ -161,22 +165,30 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse ($rows as $row)
-                        @php($stockItem = $row['stock_item'])
-                        <tr>
-                            <td>{{ $row['location_hint'] }}</td>
-                            <td>{{ $stockItem?->code ?: '-' }}</td>
-                            <td>{{ implode(', ', $row['sku_codes']) ?: '-' }}</td>
-                            <td>{{ $stockItem?->short_name ?: $stockItem?->name ?: collect($row['sku_names'])->first() ?: '-' }}</td>
-                            <td>{{ $row['barcode'] ?: '-' }}</td>
-                            <td>{{ number_format($row['required_qty']) }}</td>
-                            <td></td>
-                        </tr>
-                    @empty
+                    @if ($rows->isEmpty())
                         <tr>
                             <td colspan="7">{{ __('fulfillment_pick.empty_state') }}</td>
                         </tr>
-                    @endforelse
+                    @else
+                        @foreach ($rows->groupBy('location_hint') as $locationHint => $locationRows)
+                            @php($displayLocation = $locationHint === '-' ? __('fulfillment_pick.no_location') : $locationHint)
+                            <tr class="print-location-row">
+                                <td colspan="7">{{ $locationHint === '-' ? $displayLocation : __('fulfillment_pick.print_location_group', ['location' => $displayLocation]) }}</td>
+                            </tr>
+                            @foreach ($locationRows as $row)
+                                @php($stockItem = $row['stock_item'])
+                                <tr>
+                                    <td>{{ $displayLocation }}</td>
+                                    <td>{{ $stockItem?->code ?: '-' }}</td>
+                                    <td>{{ implode(', ', $row['sku_codes']) ?: '-' }}</td>
+                                    <td>{{ $stockItem?->short_name ?: $stockItem?->name ?: collect($row['sku_names'])->first() ?: '-' }}</td>
+                                    <td>{{ $row['barcode'] ?: '-' }}</td>
+                                    <td>{{ number_format($row['required_qty']) }}</td>
+                                    <td></td>
+                                </tr>
+                            @endforeach
+                        @endforeach
+                    @endif
                 </tbody>
             </table>
         </section>
@@ -254,6 +266,22 @@
             font-weight: 700;
         }
 
+        .pick-location-start td {
+            border-top: 2px solid #cbd5e1 !important;
+        }
+
+        .pick-location-badge {
+            display: inline-block;
+            color: #334155;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 2px 6px;
+            font-size: 12px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
         .pick-diff {
             font-weight: 900;
         }
@@ -315,6 +343,11 @@
 
             .print-pick-table th {
                 background: #f1f5f9;
+            }
+
+            .print-pick-table .print-location-row td {
+                background: #e2e8f0;
+                font-weight: 900;
             }
 
             .table-shell,

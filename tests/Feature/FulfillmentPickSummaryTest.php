@@ -7,6 +7,7 @@ use App\Livewire\FulfillmentGroupIndex;
 use App\Livewire\FulfillmentPickSummary;
 use App\Models\Carrier;
 use App\Models\FulfillmentGroup;
+use App\Models\InboundReceipt;
 use App\Models\InventoryBalance;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
@@ -19,6 +20,7 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Models\WarehouseLocation;
 use App\Services\InventoryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -566,6 +568,91 @@ class FulfillmentPickSummaryTest extends TestCase
             ->assertSee('3');
     }
 
+    public function test_rows_sort_by_location_before_stock_item_code(): void
+    {
+        [$tenant, $warehouse, $shop, $bLocationSku, $method] = $this->stationSku('STK-001', 'SKU-B-LOCATION');
+        $aLocationSku = $this->additionalSku($tenant, $warehouse, $shop, 'STK-999', 'SKU-A-LOCATION');
+        $this->locateStock($warehouse, $bLocationSku, 'B-01');
+        $this->locateStock($warehouse, $aLocationSku, 'A-01');
+
+        foreach ([[$bLocationSku, 'SO-LOCATION-B'], [$aLocationSku, 'SO-LOCATION-A']] as [$sku, $orderNumber]) {
+            $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, $orderNumber, $orderNumber.' Street');
+            $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        }
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPickSummary::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->assertSeeInOrder(['A-01', 'STK-999', 'B-01', 'STK-001']);
+    }
+
+    public function test_rows_without_location_appear_last(): void
+    {
+        [$tenant, $warehouse, $shop, $locatedSku, $method] = $this->stationSku('STK-WITH-LOC', 'SKU-WITH-LOC');
+        $unlocatedSku = $this->additionalSku($tenant, $warehouse, $shop, 'STK-NO-LOC', 'SKU-NO-LOC');
+        $this->locateStock($warehouse, $locatedSku, 'A-01');
+
+        foreach ([[$unlocatedSku, 'SO-NO-LOC'], [$locatedSku, 'SO-WITH-LOC']] as [$sku, $orderNumber]) {
+            $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, $orderNumber, $orderNumber.' Street');
+            $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        }
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPickSummary::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->assertSeeInOrder(['A-01', 'STK-WITH-LOC', 'No location', 'STK-NO-LOC']);
+    }
+
+    public function test_rows_inside_same_location_sort_by_stock_item_code(): void
+    {
+        [$tenant, $warehouse, $shop, $laterSku, $method] = $this->stationSku('STK-002', 'SKU-SAME-LATER');
+        $earlierSku = $this->additionalSku($tenant, $warehouse, $shop, 'STK-001', 'SKU-SAME-EARLIER');
+        $this->locateStock($warehouse, $laterSku, 'A-01');
+        $this->locateStock($warehouse, $earlierSku, 'A-01');
+
+        foreach ([[$laterSku, 'SO-SAME-LATER'], [$earlierSku, 'SO-SAME-EARLIER']] as [$sku, $orderNumber]) {
+            $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, $orderNumber, $orderNumber.' Street');
+            $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        }
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPickSummary::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->assertSeeInOrder(['A-01', 'STK-001', 'STK-002']);
+    }
+
+    public function test_print_view_includes_location_group_labels(): void
+    {
+        [$tenant, $warehouse, $shop, $locatedSku, $method] = $this->stationSku('STK-PRINT-LOC', 'SKU-PRINT-LOC');
+        $unlocatedSku = $this->additionalSku($tenant, $warehouse, $shop, 'STK-PRINT-NO-LOC', 'SKU-PRINT-NO-LOC');
+        $this->locateStock($warehouse, $locatedSku, 'A-01');
+
+        foreach ([[$locatedSku, 'SO-PRINT-LOC'], [$unlocatedSku, 'SO-PRINT-NO-LOC']] as [$sku, $orderNumber]) {
+            $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, $orderNumber, $orderNumber.' Street');
+            $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        }
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPickSummary::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->assertSee('print-location-row', false)
+            ->assertSee('Location A-01')
+            ->assertSee('No location');
+    }
+
+    public function test_user_facing_column_says_location(): void
+    {
+        [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-LOCATION-LABEL', 'SKU-LOCATION-LABEL');
+        $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-LOCATION-LABEL');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPickSummary::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->assertSee('Location')
+            ->assertDontSee('Location hint');
+    }
+
     /**
      * @return array{0: Tenant, 1: Warehouse, 2: Shop, 3: Sku, 4: ShippingMethod}
      */
@@ -587,6 +674,36 @@ class FulfillmentPickSummaryTest extends TestCase
         app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $stockItem->id, 50);
 
         return [$tenant, $warehouse, $shop, $sku, $method];
+    }
+
+    private function additionalSku(Tenant $tenant, Warehouse $warehouse, Shop $shop, string $stockCode, string $skuCode): Sku
+    {
+        $stockItem = StockItem::factory()->for($tenant)->create(['code' => $stockCode, 'name' => $stockCode.' name']);
+        $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create([
+            'sku_type' => 'single',
+            'sku' => $skuCode,
+            'name' => $skuCode.' name',
+        ]);
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $stockItem->id, 50);
+
+        return $sku;
+    }
+
+    private function locateStock(Warehouse $warehouse, Sku $sku, string $locationCode): void
+    {
+        $location = WarehouseLocation::query()->firstOrCreate(
+            ['warehouse_id' => $warehouse->id, 'code' => $locationCode],
+            ['name' => $locationCode, 'type' => 'storage', 'status' => 'active'],
+        );
+
+        InboundReceipt::factory()->create([
+            'tenant_id' => $sku->tenant_id,
+            'warehouse_id' => $warehouse->id,
+            'warehouse_location_id' => $location->id,
+            'sku_id' => $sku->id,
+            'stock_item_id' => $sku->stock_item_id,
+            'received_at' => now(),
+        ]);
     }
 
     private function readySalesOrder(
