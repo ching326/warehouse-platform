@@ -30,6 +30,12 @@ class ReturnOrderIndex extends Component
             ->when($this->tenantId !== '', fn ($q) => $q->where('tenant_id', $this->tenantId))
             ->when($this->warehouseId !== '', fn ($q) => $q->where('warehouse_id', $this->warehouseId))
             ->when($this->statusFilter !== '', fn ($q) => $q->where('status', $this->statusFilter))
+            ->when($this->statusFilter === '', fn ($q) => $q->whereNotIn('status', [
+                ReturnOrder::STATUS_DISPOSITIONED,
+                ReturnOrder::STATUS_CLOSED,
+                ReturnOrder::STATUS_CANCELLED,
+                ReturnOrder::STATUS_EXPIRED,
+            ]))
             ->when($this->typeFilter !== '', fn ($q) => $q->where('return_type', $this->typeFilter))
             ->when($this->reasonFilter !== '', fn ($q) => $q->where('return_reason', $this->reasonFilter))
             ->when($this->paymentFilter !== '', fn ($q) => $q->where('payment_type', $this->paymentFilter))

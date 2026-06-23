@@ -73,10 +73,14 @@ class ReturnOrder extends Model
     public function inspectedBy(): BelongsTo { return $this->belongsTo(User::class, 'inspected_by_user_id'); }
     public function dispositionedBy(): BelongsTo { return $this->belongsTo(User::class, 'dispositioned_by_user_id'); }
 
-    public static function buildReturnNo(int $id, ?CarbonInterface $date = null): string
+    public static function buildReturnNo(int $id, string $tenantCode, ?CarbonInterface $date = null): string
     {
         $date ??= now('Asia/Tokyo');
-        return 'RTN-'.$date->format('Ymd').'-'.str_pad((string) $id, 4, '0', STR_PAD_LEFT);
+        $tenantCode = strtoupper(trim($tenantCode));
+        $tenantCode = preg_replace('/[^A-Z0-9]+/', '', $tenantCode) ?? '';
+        $tenantCode = $tenantCode !== '' ? $tenantCode : 'TENANT';
+
+        return 'RTN-'.$tenantCode.'-'.$date->format('ymd').'-'.str_pad((string) $id, 3, '0', STR_PAD_LEFT);
     }
 
     public function statusLabel(): string { return __('return_orders.statuses.'.$this->status); }

@@ -64,7 +64,7 @@ class ReturnOrderCreate extends Component
                 'sender_name' => $this->nullable($this->sender_name), 'sender_phone' => $this->nullable($this->sender_phone), 'shipping_method' => $this->nullable($this->shipping_method), 'tracking_no' => TrackingNumber::normalize($this->tracking_no),
                 'payment_type' => $this->payment_type, 'expected_arrival_date' => $this->nullable($this->expected_arrival_date), 'package_count' => $this->intOrNull($this->package_count), 'note' => $this->nullable($this->note), 'created_by_user_id' => Auth::id(),
             ]);
-            $order->update(['return_no' => ReturnOrder::buildReturnNo($order->id)]);
+            $order->update(['return_no' => ReturnOrder::buildReturnNo($order->id, $order->tenant->code)]);
             foreach ($this->lines as $line) { $sku = Sku::query()->where('tenant_id', $tenantId)->findOrFail($line['sku_id']); $order->lines()->create(['tenant_id' => $tenantId, 'sku_id' => $sku->id, 'stock_item_id' => $sku->stock_item_id, 'expected_qty' => (int) $line['expected_qty'], 'received_qty' => 0, 'note' => $this->nullable($line['note'] ?? '')]); }
         });
         session()->flash('status', __('return_orders.created'));

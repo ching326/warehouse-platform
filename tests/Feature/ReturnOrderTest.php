@@ -40,6 +40,31 @@ class ReturnOrderTest extends TestCase
             ->assertSee(__('return_orders.page_title'));
     }
 
+    public function test_build_return_no_uses_tenant_code_date_and_sequence(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'acme']);
+
+        $no = ReturnOrder::buildReturnNo(7, $tenant->code, \Carbon\CarbonImmutable::create(2026, 6, 23, 0, 0, 0, 'Asia/Tokyo'));
+
+        $this->assertSame('RTN-ACME-260623-007', $no);
+    }
+
+    public function test_return_order_index_hides_terminal_status_orders_by_default(): void
+    {
+        $tenant = Tenant::factory()->create();
+        [$active] = $this->returnOrderWithLine($tenant);
+        [$closed] = $this->returnOrderWithLine($tenant);
+        $closed->update(['status' => ReturnOrder::STATUS_CLOSED]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ReturnOrderIndex::class)
+            ->assertSee($active->return_no)
+            ->assertDontSee($closed->return_no)
+            ->set('statusFilter', ReturnOrder::STATUS_CLOSED)
+            ->assertSee($closed->return_no)
+            ->assertDontSee($active->return_no);
+    }
+
     public function test_return_order_index_hides_quantity_summary_and_rounds_costs(): void
     {
         [$order] = $this->returnOrderWithLine(expectedQty: 2, receivedQty: 1);
@@ -309,7 +334,7 @@ class ReturnOrderTest extends TestCase
             'return_reason' => ReturnOrder::REASON_OTHER,
             'payment_type' => ReturnOrder::PAYMENT_UNKNOWN,
         ]);
-        $order->update(['return_no' => ReturnOrder::buildReturnNo($order->id)]);
+        $order->update(['return_no' => ReturnOrder::buildReturnNo($order->id, $tenant->code)]);
 
         $line = $order->lines()->create([
             'tenant_id' => $tenant->id,
