@@ -30,6 +30,7 @@ return [
     'col_actions' => 'Actions',
     'col_tenant_warehouse' => 'Tenant / Warehouse',
     'btn_create' => 'Create group',
+    'btn_pick_summary' => 'Pick Summary',
     'btn_view' => 'View',
     'btn_go_to_outbound' => 'Go to outbound',
     'btn_back' => 'Back to fulfillment',

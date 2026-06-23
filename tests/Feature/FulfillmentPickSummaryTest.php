@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\FulfillmentGroupCreate;
+use App\Livewire\FulfillmentGroupIndex;
 use App\Livewire\FulfillmentPickSummary;
 use App\Models\Carrier;
 use App\Models\FulfillmentGroup;
@@ -20,6 +21,8 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\InventoryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -39,12 +42,53 @@ class FulfillmentPickSummaryTest extends TestCase
         $this->actingAs($user)->get(route('fulfillment.pick-summary'))->assertForbidden();
     }
 
+    public function test_internal_user_can_access_pick_summary_route(): void
+    {
+        $this->actingAs($this->internalUser())
+            ->get(route('fulfillment.pick-summary'))
+            ->assertOk()
+            ->assertSee('Pick Summary');
+    }
+
     public function test_page_asks_for_warehouse_before_showing_results(): void
     {
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPickSummary::class)
             ->assertSee('Select a warehouse to view pick summary.')
             ->assertDontSee('Pick rows');
+    }
+
+    public function test_single_active_warehouse_is_auto_selected(): void
+    {
+        $warehouse = Warehouse::factory()->create(['status' => 'active']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPickSummary::class)
+            ->assertSet('warehouseId', (string) $warehouse->id);
+    }
+
+    public function test_multiple_active_warehouses_are_not_auto_selected(): void
+    {
+        Warehouse::factory()->count(2)->create(['status' => 'active']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPickSummary::class)
+            ->assertSet('warehouseId', '')
+            ->assertSee('Select a warehouse to view pick summary.');
+    }
+
+    public function test_default_date_filters_are_today(): void
+    {
+        Carbon::setTestNow('2026-06-24 09:00:00');
+
+        try {
+            Livewire::actingAs($this->internalUser())
+                ->test(FulfillmentPickSummary::class)
+                ->assertSet('dateFrom', '2026-06-24')
+                ->assertSet('dateTo', '2026-06-24');
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_reserved_group_appears_and_normal_sku_qty_aggregates(): void
@@ -186,6 +230,122 @@ class FulfillmentPickSummaryTest extends TestCase
             ->set('warehouseId', (string) $warehouse->id)
             ->assertSee($shown->reference_no)
             ->assertDontSee('SO-PICK-WH-HIDDEN');
+    }
+
+    public function test_changing_and_clearing_date_filters_updates_visible_rows(): void
+    {
+        Carbon::setTestNow('2026-06-24 09:00:00');
+
+        try {
+            [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-DATE-TODAY', 'SKU-DATE-TODAY');
+            $oldStockItem = StockItem::factory()->for($tenant)->create(['code' => 'STK-DATE-OLD', 'name' => 'Old date stock']);
+            $oldSku = Sku::factory()->for($tenant)->for($shop)->for($oldStockItem)->create([
+                'sku_type' => 'single',
+                'sku' => 'SKU-DATE-OLD',
+                'name' => 'Old date sku',
+            ]);
+            app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $oldStockItem->id, 50);
+            $todayOrder = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-PICK-TODAY');
+            $oldOrder = $this->readySalesOrder($tenant, $shop, $oldSku, $method, 1, 'SO-PICK-OLD', '2 Date Street');
+            $this->createGroup($tenant, $warehouse, $todayOrder->ship_together_key, [$todayOrder]);
+            $todayGroup = FulfillmentGroup::query()->latest('id')->firstOrFail();
+            DB::table('fulfillment_groups')->where('id', $todayGroup->id)->update(['reference_no' => 'FG-TODAY', 'created_at' => '2026-06-24 08:00:00']);
+            $this->createGroup($tenant, $warehouse, $oldOrder->ship_together_key, [$oldOrder]);
+            $oldGroup = FulfillmentGroup::query()->latest('id')->firstOrFail();
+            DB::table('fulfillment_groups')->where('id', $oldGroup->id)->update(['reference_no' => 'FG-OLD', 'created_at' => '2026-06-23 08:00:00']);
+
+            Livewire::actingAs($this->internalUser())
+                ->test(FulfillmentPickSummary::class)
+                ->assertSet('warehouseId', (string) $warehouse->id)
+                ->assertSee('STK-DATE-TODAY')
+                ->assertDontSee('STK-DATE-OLD')
+                ->call('clearDateFilters')
+                ->assertSee('STK-DATE-TODAY')
+                ->assertSee('STK-DATE-OLD')
+                ->set('dateFrom', '2026-06-23')
+                ->set('dateTo', '2026-06-23')
+                ->assertDontSee('STK-DATE-TODAY')
+                ->assertSee('STK-DATE-OLD');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_fulfillment_group_index_has_pick_summary_link(): void
+    {
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupIndex::class)
+            ->assertSee('Pick Summary')
+            ->assertSee(route('fulfillment.pick-summary'), false);
+    }
+
+    public function test_pick_summary_link_carries_supported_filters(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create();
+        $method = $this->shippingMethod('pick_link_method');
+
+        $component = Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupIndex::class)
+            ->set('warehouseId', (string) $warehouse->id);
+
+        if (property_exists(FulfillmentGroupIndex::class, 'tenantIds')) {
+            $component->set('tenantIds', [(string) $tenant->id]);
+        } elseif (property_exists(FulfillmentGroupIndex::class, 'tenantId')) {
+            $component->set('tenantId', (string) $tenant->id);
+        }
+
+        if (property_exists(FulfillmentGroupIndex::class, 'shippingMethodsFilter')) {
+            $component->set('shippingMethodsFilter', [(string) $method->id]);
+        }
+
+        $component
+            ->assertSee('warehouse_id='.$warehouse->id, false)
+            ->assertSee('tenant_id='.$tenant->id, false);
+
+        if (property_exists(FulfillmentGroupIndex::class, 'shippingMethodsFilter')) {
+            $component->assertSee('shipping_method_id='.$method->id, false);
+        }
+    }
+
+    public function test_print_view_contains_pick_sheet_context_without_printing_actions(): void
+    {
+        Carbon::setTestNow('2026-06-24 09:00:00');
+
+        try {
+            [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-PRINT-001', 'SKU-PRINT-001');
+            $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-PICK-PRINT');
+            $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+
+            Livewire::actingAs($this->internalUser())
+                ->test(FulfillmentPickSummary::class)
+                ->assertSee('Warehouse: '.$warehouse->name)
+                ->assertSee('Date: 2026-06-24 - 2026-06-24')
+                ->assertSee('Generated: 2026-06-24 09:00')
+                ->assertSee('print-pick-table', false)
+                ->assertSee('Pick qty')
+                ->assertSee('Notes')
+                ->assertSee('screen-pick-table', false);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_rows_with_many_group_references_show_more_count(): void
+    {
+        [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-MANY-GROUPS', 'SKU-MANY-GROUPS');
+
+        foreach (range(1, 4) as $index) {
+            $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-MANY-'.$index, $index.' Many Street');
+            $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        }
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPickSummary::class)
+            ->assertSee('STK-MANY-GROUPS')
+            ->assertSee('+1 more')
+            ->assertSee('Pack first')
+            ->assertSee('View groups');
     }
 
     public function test_summary_cards_reflect_filtered_rows(): void

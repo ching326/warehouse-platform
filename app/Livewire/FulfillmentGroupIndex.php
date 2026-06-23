@@ -100,6 +100,33 @@ class FulfillmentGroupIndex extends Component
         };
     }
 
+    public function pickSummaryUrl(): string
+    {
+        $query = [];
+
+        if ($this->warehouseId !== '') {
+            $query['warehouse_id'] = $this->warehouseId;
+        }
+
+        if (property_exists($this, 'tenantIds')) {
+            $tenantIds = array_values(array_filter($this->tenantIds, fn ($id): bool => ctype_digit((string) $id)));
+            if (count($tenantIds) === 1) {
+                $query['tenant_id'] = $tenantIds[0];
+            }
+        } elseif (property_exists($this, 'tenantId') && $this->tenantId !== '') {
+            $query['tenant_id'] = $this->tenantId;
+        }
+
+        if (property_exists($this, 'shippingMethodsFilter')) {
+            $shippingMethodIds = array_values(array_filter($this->shippingMethodsFilter, fn ($id): bool => ctype_digit((string) $id)));
+            if (count($shippingMethodIds) === 1) {
+                $query['shipping_method_id'] = $shippingMethodIds[0];
+            }
+        }
+
+        return route('fulfillment.pick-summary', $query);
+    }
+
     public function updateNote(int $groupId, string $value): void
     {
         $note = trim($value);

@@ -48,6 +48,10 @@
                 :placeholder="__('fulfillment_groups.search_placeholder')"
             />
 
+            <flux:button href="{{ $this->pickSummaryUrl() }}" variant="outline" wire:navigate>
+                {{ __('fulfillment_groups.btn_pick_summary') }}
+            </flux:button>
+
             <flux:button href="{{ route('fulfillment-groups.create') }}" variant="primary" wire:navigate>
                 {{ __('fulfillment_groups.btn_create') }}
             </flux:button>

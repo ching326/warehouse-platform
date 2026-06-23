@@ -43,6 +43,41 @@ class FulfillmentPickSummary extends Component
     public function mount(): void
     {
         $this->authorizeInternalUser();
+        $this->dateFrom = $this->dateFrom ?: today()->toDateString();
+        $this->dateTo = $this->dateTo ?: today()->toDateString();
+
+        if ($this->warehouseId === '') {
+            $activeWarehouseIds = Warehouse::query()
+                ->where('status', 'active')
+                ->pluck('id');
+
+            if ($activeWarehouseIds->count() === 1) {
+                $this->warehouseId = (string) $activeWarehouseIds->first();
+            }
+        }
+    }
+
+    public function clearWarehouseFilter(): void
+    {
+        if ($this->warehouseOptions()->count() > 1) {
+            $this->warehouseId = '';
+        }
+    }
+
+    public function clearShippingMethodFilter(): void
+    {
+        $this->shippingMethodId = '';
+    }
+
+    public function clearTenantFilter(): void
+    {
+        $this->tenantId = '';
+    }
+
+    public function clearDateFilters(): void
+    {
+        $this->dateFrom = '';
+        $this->dateTo = '';
     }
 
     public function render(FulfillmentPackService $packService)
@@ -62,6 +97,8 @@ class FulfillmentPickSummary extends Component
             'rows' => $rows,
             'summary' => $summary,
             'filterSummary' => $this->filterSummary(),
+            'filterChips' => $this->filterChips(),
+            'generatedAt' => now()->format('Y-m-d H:i'),
         ])->layout('inventory', [
             'title' => __('fulfillment_pick.page_title'),
             'subtitle' => __('fulfillment_pick.page_subtitle'),
@@ -158,8 +195,8 @@ class FulfillmentPickSummary extends Component
             ->where('warehouse_id', (int) $this->warehouseId)
             ->when($this->shippingMethodId !== '', fn ($query) => $query->where('shipping_method_id', (int) $this->shippingMethodId))
             ->when($this->tenantId !== '' && in_array((int) $this->tenantId, $this->allowedTenantIds(), true), fn ($query) => $query->where('tenant_id', (int) $this->tenantId))
-            ->when($this->dateFrom !== '', fn ($query) => $query->where('created_at', '>=', Carbon::parse($this->dateFrom)->startOfDay()))
-            ->when($this->dateTo !== '', fn ($query) => $query->where('created_at', '<=', Carbon::parse($this->dateTo)->endOfDay()))
+            ->when($this->dateFrom !== '', fn ($query) => $query->whereDate('created_at', '>=', Carbon::parse($this->dateFrom)->toDateString()))
+            ->when($this->dateTo !== '', fn ($query) => $query->whereDate('created_at', '<=', Carbon::parse($this->dateTo)->toDateString()))
             ->orderBy('created_at')
             ->orderBy('id');
     }
@@ -303,9 +340,50 @@ class FulfillmentPickSummary extends Component
         $parts = [];
         $parts[] = __('fulfillment_pick.print_warehouse', ['value' => $this->warehouseId ? (Warehouse::find($this->warehouseId)?->name ?? '-') : '-']);
         $parts[] = __('fulfillment_pick.print_shipping_method', ['value' => $this->shippingMethodId ? (ShippingMethod::find($this->shippingMethodId)?->name ?? '-') : __('common.all_types')]);
+        $parts[] = __('fulfillment_pick.print_tenant', ['value' => $this->tenantId ? (Tenant::find($this->tenantId)?->code ?? '-') : __('common.all_tenants')]);
         $parts[] = __('fulfillment_pick.print_date', ['from' => $this->dateFrom ?: '-', 'to' => $this->dateTo ?: '-']);
+        $parts[] = __('fulfillment_pick.print_generated', ['value' => now()->format('Y-m-d H:i')]);
 
         return implode(' / ', $parts);
+    }
+
+    private function filterChips(): array
+    {
+        $warehouseCount = $this->warehouseOptions()->count();
+        $chips = [];
+
+        if ($this->warehouseId !== '') {
+            $warehouse = Warehouse::find($this->warehouseId);
+            $chips[] = [
+                'label' => __('fulfillment_pick.chip_warehouse', ['value' => $warehouse?->name ?? $this->warehouseId]),
+                'action' => $warehouseCount > 1 ? 'clearWarehouseFilter' : null,
+            ];
+        }
+
+        if ($this->dateFrom !== '' || $this->dateTo !== '') {
+            $chips[] = [
+                'label' => __('fulfillment_pick.chip_date', ['from' => $this->dateFrom ?: '-', 'to' => $this->dateTo ?: '-']),
+                'action' => 'clearDateFilters',
+            ];
+        }
+
+        if ($this->shippingMethodId !== '') {
+            $method = ShippingMethod::find($this->shippingMethodId);
+            $chips[] = [
+                'label' => __('fulfillment_pick.chip_shipping', ['value' => $method?->name ?? $this->shippingMethodId]),
+                'action' => 'clearShippingMethodFilter',
+            ];
+        }
+
+        if ($this->tenantId !== '') {
+            $tenant = Tenant::find($this->tenantId);
+            $chips[] = [
+                'label' => __('fulfillment_pick.chip_tenant', ['value' => $tenant?->code ?? $this->tenantId]),
+                'action' => 'clearTenantFilter',
+            ];
+        }
+
+        return $chips;
     }
 
     private function warehouseOptions()

@@ -30,6 +30,23 @@
             <flux:input wire:model.live="dateTo" type="date" :label="__('fulfillment_pick.field_date_to')" />
             <flux:input wire:model.live.debounce.300ms="q" :label="__('common.search')" :placeholder="__('fulfillment_pick.search_placeholder')" />
         </div>
+
+        @if ($filterChips !== [])
+            <div class="filter-chip-row pick-filter-chips" data-testid="pick-summary-filter-chips">
+                @foreach ($filterChips as $chip)
+                    @if ($chip['action'])
+                        <button type="button" class="filter-chip" wire:click="{{ $chip['action'] }}">
+                            <span>{{ $chip['label'] }}</span>
+                            <strong>&times;</strong>
+                        </button>
+                    @else
+                        <span class="filter-chip">
+                            <span>{{ $chip['label'] }}</span>
+                        </span>
+                    @endif
+                @endforeach
+            </div>
+        @endif
     </section>
 
     <div class="print-heading">
@@ -49,7 +66,7 @@
             <div><span>{{ __('fulfillment_pick.summary_groups_included') }}</span><strong>{{ number_format($summary['groups_included']) }}</strong></div>
         </section>
 
-        <section class="table-shell flux-panel form-panel pick-table-panel">
+        <section class="table-shell flux-panel form-panel pick-table-panel screen-pick-table">
             <flux:table class="data-table pick-summary-table">
                 <flux:table.columns>
                     <flux:table.column>{{ __('fulfillment_pick.col_stock_item') }}</flux:table.column>
@@ -81,7 +98,7 @@
                                     @endif
                                 </div>
                             </flux:table.cell>
-                            <flux:table.cell>{{ implode(', ', $row['sku_codes']) ?: '-' }}</flux:table.cell>
+                            <flux:table.cell><span class="pick-sku-list">{{ implode(', ', $row['sku_codes']) ?: '-' }}</span></flux:table.cell>
                             <flux:table.cell><span class="pick-name">{{ $stockItem?->short_name ?: $stockItem?->name ?: collect($row['sku_names'])->first() ?: '-' }}</span></flux:table.cell>
                             <flux:table.cell>
                                 {{ $row['barcode'] ?: '-' }}
@@ -104,14 +121,19 @@
                                     @foreach ($groups->take(3) as $group)
                                         <a href="{{ route('fulfillment-groups.show', $group) }}" wire:navigate>{{ $group->reference_no }}</a>@if (! $loop->last), @endif
                                     @endforeach
+                                    @if ($groups->count() > 3)
+                                        <span>{{ __('fulfillment_pick.more_groups', ['count' => $groups->count() - 3]) }}</span>
+                                    @endif
                                 </small>
                             </flux:table.cell>
                             <flux:table.cell class="no-print">
                                 @php($firstGroup = $groups->first())
                                 @if ($firstGroup)
                                     <div class="pick-actions">
-                                        <flux:button href="{{ route('fulfillment-groups.index', ['search' => $firstGroup->reference_no]) }}" size="xs" variant="subtle" wire:navigate>{{ __('fulfillment_pick.view_groups') }}</flux:button>
-                                        <flux:button href="{{ route('fulfillment-groups.pack', $firstGroup) }}" size="xs" variant="primary" wire:navigate>{{ __('fulfillment_pick.pack_first_group') }}</flux:button>
+                                        @if ($groups->count() > 1)
+                                            <flux:button href="{{ route('fulfillment-groups.index', ['search' => $firstGroup->reference_no]) }}" size="xs" variant="subtle" wire:navigate>{{ __('fulfillment_pick.view_groups') }}</flux:button>
+                                        @endif
+                                        <flux:button href="{{ route('fulfillment-groups.pack', $firstGroup) }}" size="xs" variant="primary" wire:navigate>{{ __('fulfillment_pick.pack_first') }}</flux:button>
                                     </div>
                                 @endif
                             </flux:table.cell>
@@ -124,6 +146,40 @@
                 </flux:table.rows>
             </flux:table>
         </section>
+
+        <section class="print-pick-table" data-testid="pick-summary-print-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>{{ __('fulfillment_pick.print_col_location') }}</th>
+                        <th>{{ __('fulfillment_pick.col_stock_item') }}</th>
+                        <th>{{ __('fulfillment_pick.col_skus') }}</th>
+                        <th>{{ __('fulfillment_pick.print_col_product') }}</th>
+                        <th>{{ __('fulfillment_pick.col_barcode') }}</th>
+                        <th>{{ __('fulfillment_pick.print_col_pick_qty') }}</th>
+                        <th>{{ __('fulfillment_pick.print_col_notes') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($rows as $row)
+                        @php($stockItem = $row['stock_item'])
+                        <tr>
+                            <td>{{ $row['location_hint'] }}</td>
+                            <td>{{ $stockItem?->code ?: '-' }}</td>
+                            <td>{{ implode(', ', $row['sku_codes']) ?: '-' }}</td>
+                            <td>{{ $stockItem?->short_name ?: $stockItem?->name ?: collect($row['sku_names'])->first() ?: '-' }}</td>
+                            <td>{{ $row['barcode'] ?: '-' }}</td>
+                            <td>{{ number_format($row['required_qty']) }}</td>
+                            <td></td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7">{{ __('fulfillment_pick.empty_state') }}</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </section>
     @endif
 
     <style>
@@ -135,6 +191,14 @@
 
         .print-heading {
             display: none;
+        }
+
+        .print-pick-table {
+            display: none;
+        }
+
+        .pick-filter-chips {
+            margin-top: 12px;
         }
 
         .pick-summary-cards {
@@ -165,11 +229,17 @@
             font-size: 18px;
         }
 
-        .pick-name {
+        .pick-name,
+        .pick-sku-list {
+            display: block;
             max-width: 240px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+
+        .pick-sku-list {
+            max-width: 180px;
         }
 
         .pick-badges,
@@ -190,6 +260,9 @@
 
         .pick-diff.is-short {
             color: #b91c1c;
+            background: #fee2e2;
+            border-radius: 6px;
+            padding: 2px 6px;
         }
 
         .pick-diff.is-low {
@@ -209,6 +282,8 @@
 
         @media print {
             .no-print,
+            .screen-pick-table,
+            .pick-summary-cards,
             nav,
             header {
                 display: none !important;
@@ -218,6 +293,28 @@
                 display: grid;
                 gap: 4px;
                 margin-bottom: 12px;
+            }
+
+            .print-pick-table {
+                display: block;
+            }
+
+            .print-pick-table table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 11px;
+            }
+
+            .print-pick-table th,
+            .print-pick-table td {
+                border: 1px solid #111827;
+                padding: 5px 6px;
+                text-align: left;
+                vertical-align: top;
+            }
+
+            .print-pick-table th {
+                background: #f1f5f9;
             }
 
             .table-shell,

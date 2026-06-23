@@ -5,7 +5,7 @@
     $returnOrdersActive = request()->routeIs('return-orders.*');
     $outboundActive  = request()->routeIs('outbound.*');
     $salesActive     = request()->routeIs('sales.*');
-    $fulfillmentActive = request()->routeIs('fulfillment-groups.*');
+    $fulfillmentActive = request()->routeIs('fulfillment-groups.*', 'fulfillment.*');
     $issuesActive = request()->routeIs('issues.*');
     $setupActive     = request()->routeIs('setup.*');
 @endphp
@@ -108,13 +108,50 @@
             </a>
 
             {{-- Fulfillment --}}
-            <a
-                href="{{ route('fulfillment-groups.index') }}"
-                class="top-nav-btn {{ $fulfillmentActive ? 'is-active' : '' }}"
-                wire:navigate
+            <div
+                class="top-nav-item"
+                x-data="{ open: false }"
+                @click.outside="open = false"
+                @keydown.escape.window="open = false"
             >
-                {{ __('common.nav_fulfillment_groups') }}
-            </a>
+                <button
+                    type="button"
+                    class="top-nav-btn {{ $fulfillmentActive ? 'is-active' : '' }}"
+                    @click="open = !open"
+                    :aria-expanded="open"
+                >
+                    {{ __('common.nav_fulfillment_groups') }}
+                    <svg
+                        class="top-nav-chevron"
+                        :class="{ 'is-open': open }"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                    >
+                        <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+
+                <div class="top-nav-dropdown" x-show="open" x-cloak>
+                    <a
+                        href="{{ route('fulfillment-groups.index') }}"
+                        class="{{ request()->routeIs('fulfillment-groups.*') ? 'is-active' : '' }}"
+                        wire:navigate
+                        @click="open = false"
+                    >
+                        {{ __('common.nav_fulfillment_group_list') }}
+                    </a>
+                    <a
+                        href="{{ route('fulfillment.pick-summary') }}"
+                        class="{{ request()->routeIs('fulfillment.pick-summary') ? 'is-active' : '' }}"
+                        wire:navigate
+                        @click="open = false"
+                    >
+                        {{ __('common.nav_pick_summary') }}
+                    </a>
+                </div>
+            </div>
 
             {{-- Returns --}}
             <a
