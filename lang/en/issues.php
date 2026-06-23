@@ -67,6 +67,7 @@ return [
     'issue_updated' => 'Issue updated.',
     'lines_updated' => 'Issue lines updated.',
     'issue_read_only' => 'This issue is read-only in v1.',
+    'fulfillment_group_note' => 'Created from fulfillment group :reference.',
     'linked_issues_title' => 'Issues',
     'linked_issues_hint' => 'Issues linked to this sales order.',
     'validation_related_required' => 'Select at least one related order reference.',

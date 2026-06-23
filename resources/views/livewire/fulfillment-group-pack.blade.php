@@ -11,6 +11,9 @@
                 <flux:badge color="{{ $group->status === 'shipped' ? 'green' : ($group->status === 'cancelled' ? 'red' : 'blue') }}">
                     {{ __('fulfillment_groups.status_'.$group->status) }}
                 </flux:badge>
+                <flux:button href="{{ route('fulfillment-groups.issues.create', $group) }}" variant="outline" wire:navigate>
+                    {{ __('issues.btn_create') }}
+                </flux:button>
                 <flux:button href="{{ route('fulfillment-groups.show', $group) }}" variant="outline" wire:navigate>
                     {{ __('fulfillment_groups.btn_back') }}
                 </flux:button>
@@ -116,9 +119,17 @@
                 <flux:table.column align="end">{{ __('fulfillment_pack.scanned_qty') }}</flux:table.column>
                 <flux:table.column align="end">{{ __('fulfillment_pack.remaining_qty') }}</flux:table.column>
                 <flux:table.column>{{ __('fulfillment_groups.col_status') }}</flux:table.column>
+                <flux:table.column>{{ __('common.actions') }}</flux:table.column>
             </flux:table.columns>
             <flux:table.rows>
                 @foreach ($lines as $line)
+                    @php
+                        $issueQuery = array_filter([
+                            'sku_id' => $line['sku_id'],
+                            'stock_item_id' => $line['stock_item_id'],
+                            'qty' => max(1, (int) $line['remaining_qty']),
+                        ], fn ($value) => $value !== null && $value !== '');
+                    @endphp
                     <flux:table.row :key="$line['key']">
                         <flux:table.cell>
                             <strong>{{ $line['sku']?->sku ?: '-' }}</strong>
@@ -136,6 +147,16 @@
                             @if ($line['strict_only'])
                                 <flux:badge color="red">{{ __('fulfillment_pack.strict_scan') }}</flux:badge>
                             @endif
+                        </flux:table.cell>
+                        <flux:table.cell>
+                            <flux:button
+                                size="xs"
+                                variant="outline"
+                                href="{{ route('fulfillment-groups.issues.create', ['group' => $group] + $issueQuery) }}"
+                                wire:navigate
+                            >
+                                {{ __('issues.section_issue') }}
+                            </flux:button>
                         </flux:table.cell>
                     </flux:table.row>
                 @endforeach

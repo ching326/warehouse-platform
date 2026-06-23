@@ -33,6 +33,13 @@
             <flux:input wire:model="reportedBy" :label="__('issues.field_reported_by')" />
         </div>
 
+        @if ($selectedFulfillmentGroup)
+            <div class="issue-context">
+                <span>{{ __('issues.field_fulfillment_group') }}</span>
+                <strong>{{ $selectedFulfillmentGroup->reference_no }}</strong>
+            </div>
+        @endif
+
         <div class="issue-picker-grid">
             <div class="issue-picker">
                 <flux:input
@@ -107,7 +114,7 @@
             <textarea wire:model="note" rows="3"></textarea>
         </label>
 
-        @foreach (['tenantId', 'salesOrderId', 'outboundOrderId', 'issue_type', 'status', 'lines', 'manualLines', 'unknownIssue'] as $field)
+        @foreach (['tenantId', 'salesOrderId', 'outboundOrderId', 'fulfillmentGroupId', 'issue_type', 'status', 'lines', 'manualLines', 'unknownIssue'] as $field)
             @error($field) <p class="form-error">{{ $message }}</p> @enderror
         @endforeach
     </section>
@@ -218,6 +225,22 @@
             display: grid;
             gap: 8px;
             min-width: 0;
+        }
+
+        .issue-context {
+            display: inline-grid;
+            gap: 2px;
+            margin-top: 12px;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 8px 10px;
+            background: var(--surface);
+        }
+
+        .issue-context span {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
         }
 
         .issue-selected-order,

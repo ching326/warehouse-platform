@@ -127,6 +127,7 @@ Route::middleware('authenticated')->group(function (): void {
     Route::post('/fulfillment-groups/tracking-import', FulfillmentTrackingImportController::class)->name('fulfillment.tracking-import');
     Route::get('/fulfillment-groups/create', FulfillmentGroupCreate::class)->name('fulfillment-groups.create');
     Route::get('/fulfillment-groups/{group}/pack', FulfillmentGroupPack::class)->name('fulfillment-groups.pack');
+    Route::get('/fulfillment-groups/{group}/issues/create', IssueCreate::class)->name('fulfillment-groups.issues.create');
     Route::get('/fulfillment-groups/{group}', FulfillmentGroupDetail::class)->name('fulfillment-groups.show');
     Route::get('/issues', IssueIndex::class)->name('issues.index');
     Route::get('/issues/create', IssueCreate::class)->name('issues.create');

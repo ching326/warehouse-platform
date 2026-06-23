@@ -899,6 +899,35 @@ class FulfillmentGroupTest extends TestCase
         $this->actingAs($tenantUser)->get(route('fulfillment-groups.pack', $group))->assertForbidden();
     }
 
+    public function test_pack_page_shows_create_issue_link_with_group_context(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-ISSUE-LINK');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        $this->actingAs($this->internalUser())
+            ->get(route('fulfillment-groups.pack', $group))
+            ->assertOk()
+            ->assertSee(__('issues.btn_create'))
+            ->assertSee(route('fulfillment-groups.issues.create', $group), false);
+    }
+
+    public function test_pack_line_issue_link_includes_sku_stock_and_remaining_quantity_context(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-PACK-LINE-ISSUE-LINK');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        $this->actingAs($this->internalUser())
+            ->get(route('fulfillment-groups.pack', $group))
+            ->assertOk()
+            ->assertSee('sku_id='.$sku->id, false)
+            ->assertSee('stock_item_id='.$sku->stock_item_id, false)
+            ->assertSee('qty=3', false);
+    }
+
     public function test_pack_start_requires_warehouse_and_shipping_method_before_scan(): void
     {
         Livewire::actingAs($this->internalUser())

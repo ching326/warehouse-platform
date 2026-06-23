@@ -88,6 +88,11 @@ class FulfillmentGroup extends Model
         return $this->hasMany(FulfillmentGroupOrder::class);
     }
 
+    public function issues(): HasMany
+    {
+        return $this->hasMany(Issue::class);
+    }
+
     public static function buildReferenceNo(int $id, string $tenantCode): string
     {
         $tenantCode = strtoupper(trim($tenantCode));

@@ -4,10 +4,12 @@ namespace App\Livewire;
 
 use App\Models\Issue;
 use App\Models\IssueLine;
+use App\Models\FulfillmentGroup;
 use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\Sku;
+use App\Models\StockItem;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +30,8 @@ class IssueCreate extends Component
 
     public string $outboundOrderSearch = '';
 
+    public string $fulfillmentGroupId = '';
+
     public string $issueType = Issue::TYPE_MISSING;
 
     public string $status = Issue::STATUS_OPEN;
@@ -41,17 +45,24 @@ class IssueCreate extends Component
     public array $salesOrderLines = [];
 
     public array $manualLines = [
-        ['sku_id' => '', 'qty' => 1, 'condition' => IssueLine::CONDITION_UNKNOWN, 'action' => IssueLine::ACTION_INVESTIGATE, 'note' => ''],
+        ['sku_id' => '', 'stock_item_id' => '', 'qty' => 1, 'condition' => IssueLine::CONDITION_UNKNOWN, 'action' => IssueLine::ACTION_INVESTIGATE, 'note' => ''],
     ];
 
     private bool $allowedTenantIdsResolved = false;
 
     private array $allowedTenantIdsCache = [];
 
-    public function mount(?SalesOrder $order = null): void
+    public function mount(?SalesOrder $order = null, ?FulfillmentGroup $group = null): void
     {
         if (! $this->isInternalUser() && $this->allowedTenantIds() === []) {
             abort(403);
+        }
+
+        if ($group) {
+            $this->applyFulfillmentGroupContext($group);
+            $this->applyLineContextFromRequest();
+
+            return;
         }
 
         if ($order) {
@@ -77,6 +88,7 @@ class IssueCreate extends Component
         $this->salesOrderSearch = '';
         $this->outboundOrderId = '';
         $this->outboundOrderSearch = '';
+        $this->fulfillmentGroupId = '';
         $this->salesOrderLines = [];
     }
 
@@ -123,7 +135,7 @@ class IssueCreate extends Component
 
     public function addManualLine(): void
     {
-        $this->manualLines[] = ['sku_id' => '', 'qty' => 1, 'condition' => IssueLine::CONDITION_UNKNOWN, 'action' => IssueLine::ACTION_INVESTIGATE, 'note' => ''];
+        $this->manualLines[] = ['sku_id' => '', 'stock_item_id' => '', 'qty' => 1, 'condition' => IssueLine::CONDITION_UNKNOWN, 'action' => IssueLine::ACTION_INVESTIGATE, 'note' => ''];
     }
 
     public function removeManualLine(int $index): void
@@ -135,6 +147,7 @@ class IssueCreate extends Component
     public function save(): mixed
     {
         $tenantId = $this->validatedTenantId();
+        $fulfillmentGroup = $this->validatedFulfillmentGroup($tenantId);
         $salesOrder = $this->validatedSalesOrder($tenantId);
         $outboundOrder = $this->validatedOutboundOrder($tenantId);
 
@@ -154,7 +167,7 @@ class IssueCreate extends Component
 
         $linePayloads = $this->validatedLinePayloads($tenantId, $salesOrder);
 
-        if (($salesOrder || $outboundOrder) && $linePayloads === []) {
+        if (($salesOrder || ($outboundOrder && ! $fulfillmentGroup)) && $linePayloads === []) {
             throw ValidationException::withMessages(['lines' => __('issues.validation_lines_required')]);
         }
 
@@ -162,10 +175,11 @@ class IssueCreate extends Component
             throw ValidationException::withMessages(['unknownIssue' => __('issues.validation_unknown_issue_requires_note_or_line')]);
         }
 
-        $case = DB::transaction(function () use ($tenantId, $salesOrder, $outboundOrder, $linePayloads): Issue {
+        $case = DB::transaction(function () use ($tenantId, $fulfillmentGroup, $salesOrder, $outboundOrder, $linePayloads): Issue {
             $case = Issue::create([
                 'tenant_id' => $tenantId,
                 'sales_order_id' => $salesOrder?->id,
+                'fulfillment_group_id' => $fulfillmentGroup?->id,
                 'outbound_order_id' => $outboundOrder?->id,
                 'issue_no' => 'ISS-PENDING-'.Str::uuid(),
                 'issue_type' => $this->issueType,
@@ -202,6 +216,7 @@ class IssueCreate extends Component
                 ->get(['id', 'code', 'name']),
             'selectedSalesOrder' => $this->selectedSalesOrder(),
             'selectedOutboundOrder' => $this->selectedOutboundOrder(),
+            'selectedFulfillmentGroup' => $this->selectedFulfillmentGroup(),
             'salesOrderResults' => $this->salesOrderResults($tenantId),
             'outboundOrderResults' => $this->outboundOrderResults($tenantId),
             'skuOptions' => $this->skuOptions($tenantId),
@@ -268,6 +283,17 @@ class IssueCreate extends Component
             ->findOrFail((int) $this->salesOrderId);
     }
 
+    private function validatedFulfillmentGroup(int $tenantId): ?FulfillmentGroup
+    {
+        if ($this->fulfillmentGroupId === '') {
+            return null;
+        }
+
+        return FulfillmentGroup::query()
+            ->where('tenant_id', $tenantId)
+            ->findOrFail((int) $this->fulfillmentGroupId);
+    }
+
     private function validatedOutboundOrder(int $tenantId): ?OutboundOrder
     {
         if ($this->outboundOrderId === '') {
@@ -321,13 +347,20 @@ class IssueCreate extends Component
         }
 
         foreach ($this->manualLines as $line) {
-            if (($line['sku_id'] ?? '') === '') {
+            if (($line['sku_id'] ?? '') === '' && ($line['stock_item_id'] ?? '') === '') {
                 continue;
             }
 
-            $sku = Sku::query()
-                ->where('tenant_id', $tenantId)
-                ->findOrFail((int) $line['sku_id']);
+            $sku = ($line['sku_id'] ?? '') !== ''
+                ? Sku::query()
+                    ->where('tenant_id', $tenantId)
+                    ->findOrFail((int) $line['sku_id'])
+                : null;
+            $stockItem = ($line['stock_item_id'] ?? '') !== ''
+                ? StockItem::query()
+                    ->where('tenant_id', $tenantId)
+                    ->findOrFail((int) $line['stock_item_id'])
+                : null;
             $qty = (int) ($line['qty'] ?? 0);
 
             if ($qty < 1) {
@@ -340,8 +373,8 @@ class IssueCreate extends Component
 
             $payloads[] = [
                 'tenant_id' => $tenantId,
-                'sku_id' => $sku->id,
-                'stock_item_id' => $sku->stock_item_id,
+                'sku_id' => $sku?->id,
+                'stock_item_id' => $sku?->stock_item_id ?? $stockItem?->id,
                 'qty' => $qty,
                 'condition' => $line['condition'] ?? IssueLine::CONDITION_UNKNOWN,
                 'action' => $line['action'] ?? IssueLine::ACTION_INVESTIGATE,
@@ -373,6 +406,52 @@ class IssueCreate extends Component
             ->with(['warehouse:id,code,name', 'fulfillmentGroup.orders:id,platform_order_id'])
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->find((int) $this->outboundOrderId);
+    }
+
+    private function selectedFulfillmentGroup(): ?FulfillmentGroup
+    {
+        if ($this->fulfillmentGroupId === '') {
+            return null;
+        }
+
+        return FulfillmentGroup::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->find((int) $this->fulfillmentGroupId);
+    }
+
+    private function applyFulfillmentGroupContext(FulfillmentGroup $group): void
+    {
+        if (! in_array($group->tenant_id, $this->allowedTenantIds(), true)) {
+            abort(403);
+        }
+
+        $group->loadMissing('outboundOrder:id,tenant_id,fulfillment_group_id');
+
+        $this->tenantId = (string) $group->tenant_id;
+        $this->fulfillmentGroupId = (string) $group->id;
+        $this->outboundOrderId = $group->outboundOrder ? (string) $group->outboundOrder->id : '';
+        $this->note = __('issues.fulfillment_group_note', ['reference' => $group->reference_no]);
+    }
+
+    private function applyLineContextFromRequest(): void
+    {
+        $skuId = (string) request()->query('sku_id', '');
+        $stockItemId = (string) request()->query('stock_item_id', '');
+
+        if ($skuId === '' && $stockItemId === '') {
+            return;
+        }
+
+        $qty = max(1, (int) request()->query('qty', 1));
+
+        $this->manualLines = [[
+            'sku_id' => $skuId,
+            'stock_item_id' => $stockItemId,
+            'qty' => $qty,
+            'condition' => IssueLine::CONDITION_UNKNOWN,
+            'action' => IssueLine::ACTION_INVESTIGATE,
+            'note' => '',
+        ]];
     }
 
     private function salesOrderResults(?int $tenantId)
