@@ -581,7 +581,7 @@ class SalesOrderTest extends TestCase
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $order->refresh()->fulfillment_status);
     }
 
-    public function test_hold_succeeds_without_changing_fulfillment_status(): void
+    public function test_hold_succeeds_and_resets_fulfillment_status(): void
     {
         [, $shop, $sku] = $this->salesSku();
         $order = $this->createPersistedOrder($shop, $sku, [
@@ -594,7 +594,7 @@ class SalesOrderTest extends TestCase
 
         $order->refresh();
         $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $order->order_status);
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_READY, $order->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->fulfillment_status);
     }
 
     public function test_hold_blocked_when_in_group(): void

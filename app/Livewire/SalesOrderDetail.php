@@ -2,14 +2,17 @@
 
 namespace App\Livewire;
 
+use App\Models\FulfillmentGroup;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\ShippingMethod;
 use App\Models\Sku;
 use App\Models\Tenant;
+use App\Services\Fulfillment\GroupSalesOrdersService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use InvalidArgumentException;
 use Livewire\Component;
 
 class SalesOrderDetail extends Component
@@ -246,18 +249,47 @@ class SalesOrderDetail extends Component
     {
         $order = SalesOrder::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->with('fulfillmentGroupOrders.fulfillmentGroup')
             ->findOrFail($this->orderId);
 
         if (
             $order->order_status !== SalesOrder::ORDER_STATUS_PENDING
-            || ! $this->hasManualFulfillmentStatus($order)
+            || ! $this->canPutOnHold($order)
         ) {
             session()->flash('error', __('sales_orders.cannot_hold'));
 
             return;
         }
 
-        $order->update(['order_status' => SalesOrder::ORDER_STATUS_ON_HOLD]);
+        try {
+            app(GroupSalesOrdersService::class)->releaseOrderForHold($order);
+        } catch (InvalidArgumentException) {
+            session()->flash('error', __('sales_orders.cannot_hold'));
+
+            return;
+        }
+
+        $updated = SalesOrder::query()
+            ->whereKey($order->id)
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->where('order_status', SalesOrder::ORDER_STATUS_PENDING)
+            ->whereNull('courier_csv_exported_at')
+            ->whereIn('fulfillment_status', [
+                SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+                SalesOrder::FULFILLMENT_STATUS_READY,
+                SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+            ])
+            ->update([
+                'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
+                'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+            ]);
+
+        if ($updated === 0) {
+            session()->flash('error', __('sales_orders.cannot_hold'));
+
+            return;
+        }
+
         session()->flash('status', __('sales_orders.put_on_hold'));
     }
 
@@ -591,6 +623,24 @@ class SalesOrderDetail extends Component
             SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
             SalesOrder::FULFILLMENT_STATUS_READY,
         ], true);
+    }
+
+    private function canPutOnHold(SalesOrder $order): bool
+    {
+        if ($order->courier_csv_exported_at !== null) {
+            return false;
+        }
+
+        if ($this->hasManualFulfillmentStatus($order)) {
+            return true;
+        }
+
+        if ($order->fulfillment_status !== SalesOrder::FULFILLMENT_STATUS_IN_GROUP) {
+            return false;
+        }
+
+        return $order->fulfillmentGroupOrders
+            ->contains(fn ($pivot) => $pivot->fulfillmentGroup?->status === FulfillmentGroup::STATUS_RESERVED);
     }
 
     private function isLineShippable(SalesOrderLine $line, int $tenantId): bool

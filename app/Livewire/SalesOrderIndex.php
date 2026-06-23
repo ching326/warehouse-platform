@@ -262,21 +262,48 @@ class SalesOrderIndex extends Component
 
         $selectedIds = $this->normalizedSelectedIds();
 
-        $updated = SalesOrder::query()
+        $orders = SalesOrder::query()
             ->whereIn('id', $selectedIds)
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->where('order_status', SalesOrder::ORDER_STATUS_PENDING)
-            ->whereIn('fulfillment_status', [
-                SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
-                SalesOrder::FULFILLMENT_STATUS_READY,
-            ])
-            ->whereDoesntHave('fulfillmentGroupOrders', fn ($query) => $query
-                ->whereHas('fulfillmentGroup', fn ($group) => $group
-                    ->where('status', '!=', FulfillmentGroup::STATUS_CANCELLED)))
-            ->update([
-                'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
-                'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
-            ]);
+            ->whereNull('courier_csv_exported_at')
+            ->where(function ($query) {
+                $query->whereIn('fulfillment_status', [
+                    SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+                    SalesOrder::FULFILLMENT_STATUS_READY,
+                ])->orWhere(function ($query) {
+                    $query->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_IN_GROUP)
+                        ->whereHas('fulfillmentGroupOrders.fulfillmentGroup', fn ($group) => $group
+                            ->where('status', FulfillmentGroup::STATUS_RESERVED));
+                });
+            })
+            ->get(['id']);
+
+        $updated = 0;
+        $groupService = app(GroupSalesOrdersService::class);
+
+        foreach ($orders as $order) {
+            try {
+                $groupService->releaseOrderForHold($order);
+            } catch (InvalidArgumentException) {
+                continue;
+            }
+
+            $updated += SalesOrder::query()
+                ->whereKey($order->id)
+                ->whereIn('tenant_id', $this->allowedTenantIds())
+                ->where('order_status', SalesOrder::ORDER_STATUS_PENDING)
+                ->whereNull('courier_csv_exported_at')
+                ->whereIn('fulfillment_status', [
+                    SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+                    SalesOrder::FULFILLMENT_STATUS_READY,
+                    SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+                ])
+                ->update([
+                    'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
+                    'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+                ]);
+        }
 
         $this->finishBulk('sales_orders.bulk_hold_result', $updated, count($selectedIds));
     }

@@ -91,6 +91,87 @@ class GroupSalesOrdersService
             ->first();
     }
 
+    public function releaseOrderForHold(SalesOrder $order): void
+    {
+        DB::transaction(function () use ($order): void {
+            $order = SalesOrder::query()
+                ->with([
+                    'lines.sku.stockItem',
+                    'lines.sku.bundleComponents.componentStockItem',
+                ])
+                ->lockForUpdate()
+                ->findOrFail($order->id);
+
+            if ($order->courier_csv_exported_at !== null) {
+                throw new InvalidArgumentException(__('sales_orders.cannot_hold'));
+            }
+
+            $group = FulfillmentGroup::query()
+                ->where('status', FulfillmentGroup::STATUS_RESERVED)
+                ->whereHas('groupOrders', fn ($query) => $query->where('sales_order_id', $order->id))
+                ->with('outboundOrder')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $group) {
+                return;
+            }
+
+            [, $heldStockItems] = $this->aggregateLines(collect([$order]));
+
+            foreach ($heldStockItems as $stockItemId => $totalQty) {
+                $this->inventoryService->releaseReserve(
+                    tenantId: (int) $group->tenant_id,
+                    warehouseId: (int) $group->warehouse_id,
+                    stockItemId: (int) $stockItemId,
+                    quantity: (int) $totalQty,
+                    context: [
+                        'ref_type' => 'fulfillment_group',
+                        'ref_id' => (string) $group->id,
+                        'user_id' => Auth::id(),
+                    ],
+                );
+            }
+
+            $group->orders()->detach($order->id);
+
+            $outbound = $group->outboundOrder;
+            if ($outbound) {
+                $outbound->lines()->delete();
+            }
+
+            $remainingOrders = SalesOrder::query()
+                ->whereHas('fulfillmentGroupOrders', fn ($query) => $query->where('fulfillment_group_id', $group->id))
+                ->with([
+                    'lines.sku.stockItem',
+                    'lines.sku.bundleComponents.componentStockItem',
+                ])
+                ->lockForUpdate()
+                ->get();
+
+            if ($remainingOrders->isEmpty()) {
+                $group->update(['status' => FulfillmentGroup::STATUS_CANCELLED]);
+
+                if ($outbound) {
+                    $outbound->update([
+                        'status' => OutboundOrder::STATUS_CANCELLED,
+                        'cancelled_at' => now(),
+                        'cancelled_by_user_id' => Auth::id(),
+                    ]);
+                }
+
+                return;
+            }
+
+            if (! $outbound || $outbound->status !== OutboundOrder::STATUS_PENDING) {
+                throw new InvalidArgumentException(__('fulfillment_groups.group_not_joinable'));
+            }
+
+            [$bySkuAndItem] = $this->aggregateLines($remainingOrders);
+            $this->createOutboundLines($group, $outbound, $bySkuAndItem);
+        });
+    }
+
     private function createGroupFromOrders(int $tenantId, int $warehouseId, Collection $orders): FulfillmentGroup
     {
         $firstOrder = $orders->firstOrFail();
@@ -174,26 +255,7 @@ class GroupSalesOrdersService
             );
         }
 
-        foreach ($bySkuAndItem as $line) {
-            $outboundLine = $outbound->lines()->create([
-                'tenant_id' => (int) $group->tenant_id,
-                'sku_id' => $line['sku_id'],
-                'stock_item_id' => $line['stock_item_id'],
-                'qty' => $line['qty'],
-                'inventory_movement_id' => null,
-            ]);
-
-            foreach ($line['children'] as $childLine) {
-                $outbound->lines()->create([
-                    'parent_line_id' => $outboundLine->id,
-                    'tenant_id' => (int) $group->tenant_id,
-                    'sku_id' => $childLine['sku_id'],
-                    'stock_item_id' => $childLine['stock_item_id'],
-                    'qty' => $childLine['qty'],
-                    'inventory_movement_id' => null,
-                ]);
-            }
-        }
+        $this->createOutboundLines($group, $outbound, $bySkuAndItem);
 
         SalesOrder::query()
             ->whereIn('id', $orders->pluck('id')->all())
@@ -423,6 +485,30 @@ class GroupSalesOrdersService
         }
 
         return [$outboundLines, $byStockItem];
+    }
+
+    private function createOutboundLines(FulfillmentGroup $group, OutboundOrder $outbound, array $bySkuAndItem): void
+    {
+        foreach ($bySkuAndItem as $line) {
+            $outboundLine = $outbound->lines()->create([
+                'tenant_id' => (int) $group->tenant_id,
+                'sku_id' => $line['sku_id'],
+                'stock_item_id' => $line['stock_item_id'],
+                'qty' => $line['qty'],
+                'inventory_movement_id' => null,
+            ]);
+
+            foreach ($line['children'] as $childLine) {
+                $outbound->lines()->create([
+                    'parent_line_id' => $outboundLine->id,
+                    'tenant_id' => (int) $group->tenant_id,
+                    'sku_id' => $childLine['sku_id'],
+                    'stock_item_id' => $childLine['stock_item_id'],
+                    'qty' => $childLine['qty'],
+                    'inventory_movement_id' => null,
+                ]);
+            }
+        }
     }
 
     private function resolveGroupShippingMethodId(Collection $orders): ?int

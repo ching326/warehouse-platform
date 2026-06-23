@@ -2,8 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\SalesOrderDetail;
 use App\Livewire\SalesOrderIndex;
 use App\Models\FulfillmentGroup;
+use App\Models\InventoryBalance;
+use App\Models\InventoryMovement;
+use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\Shop;
@@ -13,6 +17,7 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Fulfillment\GroupSalesOrdersService;
 use App\Services\InventoryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -56,25 +61,147 @@ class SalesOrderIndexBulkTest extends TestCase
         $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $shipped->refresh()->order_status);
     }
 
-    public function test_bulk_hold_skips_orders_in_an_active_fulfillment_group(): void
+    public function test_bulk_hold_releases_not_printed_single_order_group(): void
     {
         [$tenant, $shop, $sku] = $this->salesSku('BULK-HOLD-GROUPED');
         $warehouse = Warehouse::factory()->create(['status' => 'active']);
         $order = $this->orderWithLines($shop, $sku, ['fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY]);
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $sku->stock_item_id, 10);
+        $group = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$order->id]);
+        $outbound = $group->outboundOrder()->firstOrFail();
 
-        $group = FulfillmentGroup::factory()->for($tenant)->for($warehouse)->create([
-            'status' => FulfillmentGroup::STATUS_RESERVED,
-        ]);
-        $group->orders()->attach($order->id);
+        $this->assertSame(1, $this->balance($tenant, $warehouse, $sku)->reserved_qty);
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
             ->set('selectedIds', [(string) $order->id])
-            ->call('bulkHold');
+            ->call('bulkHold')
+            ->assertSee(__('sales_orders.bulk_hold_result', ['updated' => 1, 'skipped' => 0]));
 
         $order->refresh();
-        $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $order->order_status);
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_READY, $order->fulfillment_status);
+        $group->refresh();
+        $outbound->refresh();
+        $balance = $this->balance($tenant, $warehouse, $sku);
+
+        $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $order->order_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->fulfillment_status);
+        $this->assertSame(FulfillmentGroup::STATUS_CANCELLED, $group->status);
+        $this->assertSame(OutboundOrder::STATUS_CANCELLED, $outbound->status);
+        $this->assertSame(0, $group->orders()->count());
+        $this->assertSame(0, $balance->reserved_qty);
+        $this->assertSame(10, $balance->available_qty);
+        $this->assertDatabaseHas('inventory_movements', [
+            'movement_type' => InventoryMovement::TYPE_RELEASE_RESERVE,
+            'tenant_id' => $tenant->id,
+            'warehouse_id' => $warehouse->id,
+            'stock_item_id' => $sku->stock_item_id,
+            'reserved_delta' => -1,
+            'available_delta' => 1,
+            'ref_type' => 'fulfillment_group',
+            'ref_id' => (string) $group->id,
+        ]);
+    }
+
+    public function test_bulk_hold_removes_one_order_from_not_printed_multi_order_group(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('BULK-HOLD-MULTI');
+        $warehouse = $this->warehouseWithStock($tenant, [$sku]);
+        $held = $this->orderWithLines($shop, $sku, ['fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY]);
+        $remaining = $this->orderWithLines($shop, $sku, [
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+            'platform_order_id' => 'BULK-HOLD-MULTI-REMAIN',
+        ]);
+        $remaining->lines()->firstOrFail()->update(['quantity' => 3]);
+        $group = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$held->id, $remaining->id]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $held->id])
+            ->call('bulkHold')
+            ->assertSee(__('sales_orders.bulk_hold_result', ['updated' => 1, 'skipped' => 0]));
+
+        $group->refresh();
+        $outbound = $group->outboundOrder()->with('lines')->firstOrFail();
+        $balance = $this->balance($tenant, $warehouse, $sku);
+
+        $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $held->refresh()->order_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $held->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $remaining->refresh()->fulfillment_status);
+        $this->assertSame(FulfillmentGroup::STATUS_RESERVED, $group->status);
+        $this->assertSame([$remaining->id], $group->orders()->pluck('sales_orders.id')->all());
+        $this->assertSame(1, $outbound->lines->count());
+        $this->assertSame(3, $outbound->lines->first()->qty);
+        $this->assertSame(3, $balance->reserved_qty);
+        $this->assertSame(97, $balance->available_qty);
+    }
+
+    public function test_bulk_hold_skips_printed_grouped_order_and_holds_not_printed_grouped_order(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('BULK-HOLD-MIXED');
+        $warehouse = $this->warehouseWithStock($tenant, [$sku]);
+        $printed = $this->orderWithLines($shop, $sku, [
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+            'platform_order_id' => 'BULK-HOLD-PRINTED',
+            'recipient_address_line1' => '1 Printed Street',
+            'courier_csv_exported_at' => now(),
+        ]);
+        $notPrinted = $this->orderWithLines($shop, $sku, [
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+            'platform_order_id' => 'BULK-HOLD-NOT-PRINTED',
+            'recipient_address_line1' => '2 Not Printed Street',
+        ]);
+        $printedGroup = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$printed->id]);
+        $notPrintedGroup = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$notPrinted->id]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $printed->id, (string) $notPrinted->id])
+            ->call('bulkHold')
+            ->assertSee(__('sales_orders.bulk_hold_result', ['updated' => 1, 'skipped' => 1]));
+
+        $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $printed->refresh()->order_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $printed->fulfillment_status);
+        $this->assertSame(FulfillmentGroup::STATUS_RESERVED, $printedGroup->refresh()->status);
+        $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $notPrinted->refresh()->order_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $notPrinted->fulfillment_status);
+        $this->assertSame(FulfillmentGroup::STATUS_CANCELLED, $notPrintedGroup->refresh()->status);
+    }
+
+    public function test_detail_hold_allows_not_printed_group_and_blocks_printed_group(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('DETAIL-HOLD-GROUPED');
+        $warehouse = $this->warehouseWithStock($tenant, [$sku]);
+        $allowed = $this->orderWithLines($shop, $sku, [
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+            'platform_order_id' => 'DETAIL-HOLD-ALLOWED',
+            'recipient_address_line1' => '1 Detail Hold Street',
+        ]);
+        $printed = $this->orderWithLines($shop, $sku, [
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+            'platform_order_id' => 'DETAIL-HOLD-PRINTED',
+            'recipient_address_line1' => '2 Detail Hold Street',
+            'courier_csv_exported_at' => now(),
+        ]);
+        $allowedGroup = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$allowed->id]);
+        $printedGroup = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$printed->id]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $allowed])
+            ->call('hold')
+            ->assertHasNoErrors();
+
+        $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $allowed->refresh()->order_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $allowed->fulfillment_status);
+        $this->assertSame(FulfillmentGroup::STATUS_CANCELLED, $allowedGroup->refresh()->status);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $printed])
+            ->call('hold')
+            ->assertSee(__('sales_orders.cannot_hold'));
+
+        $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $printed->refresh()->order_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $printed->fulfillment_status);
+        $this->assertSame(FulfillmentGroup::STATUS_RESERVED, $printedGroup->refresh()->status);
     }
 
     public function test_bulk_hold_skips_non_pending_orders(): void
@@ -460,6 +587,15 @@ class SalesOrderIndexBulkTest extends TestCase
         }
 
         return $warehouse;
+    }
+
+    private function balance(Tenant $tenant, Warehouse $warehouse, Sku $sku): InventoryBalance
+    {
+        return InventoryBalance::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('warehouse_id', $warehouse->id)
+            ->where('stock_item_id', $sku->stock_item_id)
+            ->firstOrFail();
     }
 
     private function internalUser(): User
