@@ -56,9 +56,9 @@ class FulfillmentPackService
     public function packLines(FulfillmentGroup $group): array
     {
         $group->loadMissing([
-            'orders.lines.sku.barcodeAliases',
-            'orders.lines.sku.stockItem.barcodeAliases',
-            'orders.lines.sku.bundleComponents.componentStockItem.barcodeAliases',
+            'orders.lines.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
+            'orders.lines.sku.stockItem.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
+            'orders.lines.sku.bundleComponents.componentStockItem.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
         ]);
 
         $lines = [];
@@ -115,10 +115,11 @@ class FulfillmentPackService
     public function packLinesWithProgress(FulfillmentGroup $group): array
     {
         $lines = $this->packLines($group);
+        $acceptedQuantities = $this->acceptedScanQuantitiesByLine($group);
 
         foreach ($lines as &$line) {
             $line['strict_only'] = $this->lineIsStrictOnly($line);
-            $line['scanned_qty'] = $this->acceptedScanQuantity($group, $line);
+            $line['scanned_qty'] = $acceptedQuantities[$this->scanQuantityKey($line['sku_id'], $line['stock_item_id'])] ?? 0;
             $line['remaining_qty'] = max(0, $line['required_qty'] - $line['scanned_qty']);
             $line['status'] = match (true) {
                 $line['scanned_qty'] <= 0 => 'not_started',
@@ -143,14 +144,7 @@ class FulfillmentPackService
      */
     public function acceptedScanQuantity(FulfillmentGroup $group, array $line): int
     {
-        return FulfillmentPackScan::query()
-            ->where('fulfillment_group_id', $group->id)
-            ->where('result', FulfillmentPackScan::RESULT_ACCEPTED)
-            ->when($line['sku_id'] !== null, fn ($query) => $query->where('sku_id', $line['sku_id']))
-            ->when($line['sku_id'] === null, fn ($query) => $query->whereNull('sku_id'))
-            ->when($line['stock_item_id'] !== null, fn ($query) => $query->where('stock_item_id', $line['stock_item_id']))
-            ->when($line['stock_item_id'] === null, fn ($query) => $query->whereNull('stock_item_id'))
-            ->sum('quantity');
+        return $this->acceptedScanQuantitiesByLine($group)[$this->scanQuantityKey($line['sku_id'], $line['stock_item_id'])] ?? 0;
     }
 
     /**
@@ -224,6 +218,28 @@ class FulfillmentPackService
             ->pluck('normalized_barcode')
             ->map(fn (string $barcode): string => $this->normalizeProductBarcode($barcode))
             ->all();
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function acceptedScanQuantitiesByLine(FulfillmentGroup $group): array
+    {
+        return FulfillmentPackScan::query()
+            ->where('fulfillment_group_id', $group->id)
+            ->where('result', FulfillmentPackScan::RESULT_ACCEPTED)
+            ->selectRaw('sku_id, stock_item_id, SUM(quantity) as scanned_qty')
+            ->groupBy('sku_id', 'stock_item_id')
+            ->get()
+            ->mapWithKeys(fn (FulfillmentPackScan $row): array => [
+                $this->scanQuantityKey($row->sku_id, $row->stock_item_id) => (int) $row->scanned_qty,
+            ])
+            ->all();
+    }
+
+    private function scanQuantityKey(?int $skuId, ?int $stockItemId): string
+    {
+        return 'sku:'.($skuId ?? 'null').':stock:'.($stockItemId ?? 'null');
     }
 
     /**

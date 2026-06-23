@@ -29,6 +29,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Courier\CourierExportService;
 use App\Services\Courier\TrackingImport\TrackingImportService;
+use App\Services\Fulfillment\FulfillmentPackService;
 use App\Services\InventoryService;
 use App\Support\CourierCarrier;
 use App\Support\TrackingNumber;
@@ -1318,6 +1319,90 @@ class FulfillmentGroupTest extends TestCase
             ->assertSee('3');
     }
 
+    public function test_virtual_bundle_component_pack_progress_sums_quantity_by_stock_item(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create();
+        $componentStock = StockItem::factory()->for($tenant)->create(['code' => $tenant->code.'-000003']);
+        $bundleSku = Sku::factory()->virtualBundle()->for($tenant)->for($shop)->create(['sku' => 'SKU-BUNDLE-PROGRESS']);
+        SkuBundleComponent::factory()
+            ->for($tenant)
+            ->for($bundleSku, 'bundleSku')
+            ->for($componentStock, 'componentStockItem')
+            ->create(['quantity' => 2]);
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $componentStock->id, 10);
+        $order = $this->readySalesOrder($tenant, $shop, $bundleSku, 2, 'SO-PACK-BUNDLE-PROGRESS');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        FulfillmentPackScan::create([
+            'tenant_id' => $tenant->id,
+            'fulfillment_group_id' => $group->id,
+            'sku_id' => null,
+            'stock_item_id' => $componentStock->id,
+            'barcode_scanned' => 'COMPONENT-QTY',
+            'normalized_barcode' => 'COMPONENT-QTY',
+            'result' => FulfillmentPackScan::RESULT_ACCEPTED,
+            'quantity' => 3,
+            'message' => 'Component quantity',
+            'scanned_by_user_id' => $this->internalUser()->id,
+        ]);
+
+        $line = collect(app(FulfillmentPackService::class)->packLinesWithProgress($group))->first();
+
+        $this->assertSame(null, $line['sku_id']);
+        $this->assertSame($componentStock->id, $line['stock_item_id']);
+        $this->assertSame(4, $line['required_qty']);
+        $this->assertSame(3, $line['scanned_qty']);
+        $this->assertSame(1, $line['remaining_qty']);
+        $this->assertSame('in_progress', $line['status']);
+    }
+
+    public function test_pack_lines_with_progress_uses_one_scan_quantity_query_for_multiple_lines(): void
+    {
+        [$tenant, $warehouse, $shop, $skuA] = $this->skuWithStock(20);
+        $stockItemB = StockItem::factory()->for($tenant)->create(['code' => $tenant->code.'-000010']);
+        $stockItemC = StockItem::factory()->for($tenant)->create(['code' => $tenant->code.'-000011']);
+        $skuB = Sku::factory()->for($tenant)->for($shop)->for($stockItemB)->create(['sku' => 'SKU-PERF-B']);
+        $skuC = Sku::factory()->for($tenant)->for($shop)->for($stockItemC)->create(['sku' => 'SKU-PERF-C']);
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $stockItemB->id, 20);
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $stockItemC->id, 20);
+        $orderA = $this->readySalesOrder($tenant, $shop, $skuA, 2, 'SO-PACK-PERF-A');
+        $orderB = $this->readySalesOrder($tenant, $shop, $skuB, 2, 'SO-PACK-PERF-B');
+        $orderC = $this->readySalesOrder($tenant, $shop, $skuC, 2, 'SO-PACK-PERF-C');
+        $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA, $orderB, $orderC]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        foreach ([$skuA, $skuB, $skuC] as $sku) {
+            FulfillmentPackScan::create([
+                'tenant_id' => $tenant->id,
+                'fulfillment_group_id' => $group->id,
+                'sku_id' => $sku->id,
+                'stock_item_id' => $sku->stock_item_id,
+                'barcode_scanned' => $sku->sku,
+                'normalized_barcode' => $sku->sku,
+                'result' => FulfillmentPackScan::RESULT_ACCEPTED,
+                'quantity' => 1,
+                'message' => 'Accepted',
+                'scanned_by_user_id' => $this->internalUser()->id,
+            ]);
+        }
+
+        $queries = [];
+        DB::listen(function (\Illuminate\Database\Events\QueryExecuted $query) use (&$queries): void {
+            if (str_contains($query->sql, 'fulfillment_pack_scans')) {
+                $queries[] = $query->sql;
+            }
+        });
+
+        $lines = app(FulfillmentPackService::class)->packLinesWithProgress($group);
+
+        $this->assertCount(3, $lines);
+        $this->assertSame([1, 1, 1], collect($lines)->pluck('scanned_qty')->all());
+        $this->assertCount(1, $queries);
+        $this->assertStringContainsString('group by', strtolower($queries[0]));
+    }
     public function test_accepted_scan_sets_last_scanned_line_key_and_marker(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
