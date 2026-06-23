@@ -28,6 +28,8 @@ class FulfillmentGroupPack extends Component
 
     public int $pendingQuantity = 1;
 
+    public ?string $lastScannedLineKey = null;
+
     private bool $allowedTenantIdsResolved = false;
 
     private array $allowedTenantIdsCache = [];
@@ -40,6 +42,7 @@ class FulfillmentGroupPack extends Component
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->findOrFail($group->id)
             ->id;
+        $this->lastScannedLineKey = null;
     }
 
     public function scan(FulfillmentPackService $service): void
@@ -102,6 +105,7 @@ class FulfillmentGroupPack extends Component
         if (! $matchedLine) {
             $message = __('fulfillment_pack.over_scan');
             $completedLine = $matchedLines->first();
+            $this->lastScannedLineKey = $completedLine['key'];
             $this->writeScan($group, [
                 'sku_id' => $completedLine['sku_id'],
                 'stock_item_id' => $completedLine['stock_item_id'],
@@ -130,7 +134,7 @@ class FulfillmentGroupPack extends Component
                 'strict_only' => false,
             ];
             $this->pendingQuantity = 1;
-            $this->feedbackType = 'success';
+            $this->feedbackType = 'prompt';
             $this->feedbackMessage = __('fulfillment_pack.quantity_prompt_message', [
                 'sku' => $display,
                 'remaining' => $matchedLine['remaining_qty'],
@@ -197,12 +201,14 @@ class FulfillmentGroupPack extends Component
             $quantity
         );
         $this->clearPendingQuantity();
+        $this->lastScannedLineKey = $line['key'];
         $this->focusScanner();
     }
 
     public function cancelPendingQuantity(): void
     {
         $this->clearPendingQuantity();
+        $this->lastScannedLineKey = null;
         $this->focusScanner();
     }
 
@@ -213,6 +219,7 @@ class FulfillmentGroupPack extends Component
         }
 
         $this->clearPendingQuantity();
+        $this->lastScannedLineKey = null;
         $this->focusScanner();
     }
 
@@ -223,7 +230,7 @@ class FulfillmentGroupPack extends Component
         $group = $this->loadGroup();
 
         if ($this->pendingQuantityScan !== null) {
-            $this->error(__('fulfillment_pack.confirm_or_cancel_quantity'));
+            $this->error(__('fulfillment_pack.confirm_quantity_before_shipping'));
 
             return;
         }
@@ -286,11 +293,13 @@ class FulfillmentGroupPack extends Component
         $group = $this->loadGroup();
         $lines = $service->packLinesWithProgress($group);
         $allComplete = $lines !== [] && collect($lines)->every(fn (array $line): bool => $line['remaining_qty'] <= 0);
+        $progress = $this->progressSummary($group, $lines);
 
         return view('livewire.fulfillment-group-pack', [
             'group' => $group,
             'lines' => $lines,
             'allComplete' => $allComplete,
+            'progress' => $progress,
             'readOnly' => $group->status !== FulfillmentGroup::STATUS_RESERVED,
         ])->layout('inventory', [
             'title' => __('fulfillment_pack.page_title'),
@@ -348,6 +357,7 @@ class FulfillmentGroupPack extends Component
 
         $this->feedbackType = 'success';
         $this->feedbackMessage = $message;
+        $this->lastScannedLineKey = $line['key'];
     }
 
     /**
@@ -362,6 +372,27 @@ class FulfillmentGroupPack extends Component
     {
         $this->pendingQuantityScan = null;
         $this->pendingQuantity = 1;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $lines
+     * @return array<string, int>
+     */
+    private function progressSummary(FulfillmentGroup $group, array $lines): array
+    {
+        $lineCollection = collect($lines);
+
+        return [
+            'lines_complete' => $lineCollection->filter(fn (array $line): bool => $line['remaining_qty'] <= 0)->count(),
+            'lines_total' => $lineCollection->count(),
+            'qty_scanned' => (int) $lineCollection->sum('scanned_qty'),
+            'qty_required' => (int) $lineCollection->sum('required_qty'),
+            'qty_remaining' => (int) $lineCollection->sum('remaining_qty'),
+            'exceptions' => FulfillmentPackScan::query()
+                ->where('fulfillment_group_id', $group->id)
+                ->where('result', '!=', FulfillmentPackScan::RESULT_ACCEPTED)
+                ->count(),
+        ];
     }
 
     private function error(string $message): void
