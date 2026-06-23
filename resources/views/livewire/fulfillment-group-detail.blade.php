@@ -21,6 +21,9 @@
                         {{ __('fulfillment_pack.page_title') }}
                     </flux:button>
                 @endif
+                <flux:button href="{{ route('fulfillment.pack-scans.index', ['fulfillment_group_id' => $group->id]) }}" size="xs" variant="outline" wire:navigate>
+                    {{ __('fulfillment_pack.scan_history_title') }}
+                </flux:button>
             </div>
         </div>
 
@@ -37,6 +40,54 @@
                 @endif
             </div>
         </div>
+    </section>
+
+    <section class="table-shell flux-panel form-panel">
+        <div class="form-panel-header">
+            <div>
+                <strong>{{ __('fulfillment_pack.scan_history_title') }}</strong>
+                <span>{{ __('fulfillment_pack.scan_history_recent_hint') }}</span>
+            </div>
+            <flux:button href="{{ route('fulfillment.pack-scans.index', ['fulfillment_group_id' => $group->id]) }}" variant="outline" wire:navigate>
+                {{ __('fulfillment_pack.view_all_scan_history') }}
+            </flux:button>
+        </div>
+
+        <flux:table class="data-table">
+            <flux:table.columns>
+                <flux:table.column>{{ __('fulfillment_pack.scan_time') }}</flux:table.column>
+                <flux:table.column>{{ __('fulfillment_pack.scan_result') }}</flux:table.column>
+                <flux:table.column>{{ __('fulfillment_pack.barcode') }}</flux:table.column>
+                <flux:table.column>{{ __('fulfillment_pack.matched_item') }}</flux:table.column>
+                <flux:table.column align="end">{{ __('fulfillment_pack.qty') }}</flux:table.column>
+                <flux:table.column>{{ __('fulfillment_pack.scanned_by') }}</flux:table.column>
+            </flux:table.columns>
+            <flux:table.rows>
+                @forelse ($group->packScans as $scan)
+                    <flux:table.row :key="$scan->id">
+                        <flux:table.cell>{{ $scan->created_at?->format('Y-m-d H:i:s') ?: '-' }}</flux:table.cell>
+                        <flux:table.cell>
+                            <flux:badge color="{{ $scan->result === 'accepted' ? 'green' : (in_array($scan->result, ['wrong_item', 'over_scan'], true) ? 'red' : 'amber') }}">
+                                {{ __('fulfillment_pack.scan_result_'.$scan->result) }}
+                            </flux:badge>
+                        </flux:table.cell>
+                        <flux:table.cell>{{ $scan->barcode_scanned }}</flux:table.cell>
+                        <flux:table.cell>
+                            <strong>{{ $scan->sku?->sku ?? $scan->stockItem?->code ?? '-' }}</strong>
+                            @if ($scan->stockItem)
+                                <span class="subtle">{{ $scan->stockItem->code }} / {{ $scan->stockItem->short_name ?: $scan->stockItem->name }}</span>
+                            @endif
+                        </flux:table.cell>
+                        <flux:table.cell align="end">{{ number_format($scan->quantity) }}</flux:table.cell>
+                        <flux:table.cell>{{ $scan->scannedBy?->name ?: '-' }}</flux:table.cell>
+                    </flux:table.row>
+                @empty
+                    <flux:table.row>
+                        <flux:table.cell colspan="6"><div class="empty-state">{{ __('fulfillment_pack.no_pack_scans') }}</div></flux:table.cell>
+                    </flux:table.row>
+                @endforelse
+            </flux:table.rows>
+        </flux:table>
     </section>
 
     <section class="table-shell flux-panel form-panel">

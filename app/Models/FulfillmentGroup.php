@@ -93,6 +93,11 @@ class FulfillmentGroup extends Model
         return $this->hasMany(Issue::class);
     }
 
+    public function packScans(): HasMany
+    {
+        return $this->hasMany(FulfillmentPackScan::class)->orderByDesc('created_at')->orderByDesc('id');
+    }
+
     public static function buildReferenceNo(int $id, string $tenantCode): string
     {
         $tenantCode = strtoupper(trim($tenantCode));

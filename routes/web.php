@@ -9,6 +9,7 @@ use App\Livewire\FulfillmentGroupCreate;
 use App\Livewire\FulfillmentGroupDetail;
 use App\Livewire\FulfillmentGroupIndex;
 use App\Livewire\FulfillmentGroupPack;
+use App\Livewire\FulfillmentPackScanIndex;
 use App\Livewire\FulfillmentPackStart;
 use App\Livewire\IssueCreate;
 use App\Livewire\IssueIndex;
@@ -124,6 +125,7 @@ Route::middleware('authenticated')->group(function (): void {
         ->name('marketplace-shipping-notice-batches.download');
     Route::get('/fulfillment-groups', FulfillmentGroupIndex::class)->name('fulfillment-groups.index');
     Route::get('/fulfillment/pack', FulfillmentPackStart::class)->name('fulfillment.pack.start');
+    Route::get('/fulfillment/pack-scans', FulfillmentPackScanIndex::class)->name('fulfillment.pack-scans.index');
     Route::post('/fulfillment-groups/tracking-import', FulfillmentTrackingImportController::class)->name('fulfillment.tracking-import');
     Route::get('/fulfillment-groups/create', FulfillmentGroupCreate::class)->name('fulfillment-groups.create');
     Route::get('/fulfillment-groups/{group}/pack', FulfillmentGroupPack::class)->name('fulfillment-groups.pack');

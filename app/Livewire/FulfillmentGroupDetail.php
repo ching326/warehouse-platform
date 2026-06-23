@@ -174,6 +174,9 @@ class FulfillmentGroupDetail extends Component
                 'warehouse:id,code,name',
                 'outboundOrder:id,fulfillment_group_id,ref,status',
                 'orders.lines.sku.stockItem',
+                'packScans' => fn ($query) => $query
+                    ->with(['sku:id,sku,name', 'stockItem:id,code,name,short_name', 'scannedBy:id,name'])
+                    ->limit(10),
             ])
             ->findOrFail($this->groupId);
 

@@ -37,6 +37,11 @@ class FulfillmentPackScan extends Model
         ];
     }
 
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
+
     public function fulfillmentGroup(): BelongsTo
     {
         return $this->belongsTo(FulfillmentGroup::class);
