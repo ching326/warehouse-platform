@@ -19,7 +19,7 @@ return [
     'nav_fulfillment_groups' => '發貨管理',
     'nav_issues' => '問題案件',
     'nav_setup' => '設定',
-    'nav_locations' => '儲位',
+    'nav_locations' => '庫位',
     'nav_tenants' => '客戶',
     'nav_warehouses' => '倉庫',
     'nav_shops' => '店舖',

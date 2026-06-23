@@ -19,7 +19,7 @@ return [
     'nav_fulfillment_groups' => '发货管理',
     'nav_issues' => '问题案件',
     'nav_setup' => '设置',
-    'nav_locations' => '储位',
+    'nav_locations' => '库位',
     'nav_tenants' => '客户',
     'nav_warehouses' => '仓库',
     'nav_shops' => '店铺',

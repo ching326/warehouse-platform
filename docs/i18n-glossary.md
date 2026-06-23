@@ -44,7 +44,7 @@ Rules:
 | Warehouse | 倉庫 | 倉庫 | 仓库 | done |
 | Shop | 店舗 | 店舖 | 店铺 | done |
 | Shipping Method | 配送方法 | 配送方式 | 配送方式 | done |
-| Location | ロケーション | 儲位 | 储位 | done |
+| Location | ロケーション | 庫位 | 库位 | done |
 | Packaging | 梱包資材 | 包裝材料 | 包装材料 | done |
 | Other Setting | その他の設定 | 其他設定 | 其他设置 | done |
 
@@ -140,7 +140,7 @@ ja 不明 / zh_TW 未知 / zh_CN 未知.
 
 ## Module lang files -- status
 
-- Translated (ja, zh_TW, zh_CN): inbound.php, outbound.php, fulfillment_groups.php.
+- Translated (ja, zh_TW, zh_CN): inbound.php, outbound.php, fulfillment_groups.php, setup.php.
 - Not yet translated (still hold English values): skus.php, fulfillment_pack.php, sales_orders.php,
-  return_orders.php, issues.php, locations.php, setup.php, shop.php, etc. Translate when each module
-  is done, applying this glossary for shared terms (Reserve = 引当 / 分配, Ship = 出荷 / 出貨, etc.).
+  return_orders.php, issues.php, locations.php, shop.php, etc. Translate when each module is done,
+  applying this glossary for shared terms (Reserve = 引当 / 分配, Ship = 出荷 / 出貨, etc.).
