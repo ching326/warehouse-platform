@@ -91,6 +91,20 @@ class FulfillmentPickSummaryTest extends TestCase
         }
     }
 
+    public function test_default_date_filters_use_jst_not_utc(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-24 00:30:00', 'Asia/Tokyo'));
+
+        try {
+            Livewire::actingAs($this->internalUser())
+                ->test(FulfillmentPickSummary::class)
+                ->assertSet('dateFrom', '2026-06-24')
+                ->assertSet('dateTo', '2026-06-24');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_reserved_group_appears_and_normal_sku_qty_aggregates(): void
     {
         [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-PICK-001', 'SKU-PICK-001');
@@ -271,6 +285,48 @@ class FulfillmentPickSummaryTest extends TestCase
         }
     }
 
+    public function test_jst_date_filter_includes_after_midnight_and_excludes_previous_jst_day(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-24 00:30:00', 'Asia/Tokyo'));
+
+        try {
+            [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-JST-TODAY', 'SKU-JST-TODAY');
+            $previousStockItem = StockItem::factory()->for($tenant)->create(['code' => 'STK-JST-PREV', 'name' => 'Previous JST stock']);
+            $previousSku = Sku::factory()->for($tenant)->for($shop)->for($previousStockItem)->create([
+                'sku_type' => 'single',
+                'sku' => 'SKU-JST-PREV',
+                'name' => 'Previous JST sku',
+            ]);
+            app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $previousStockItem->id, 50);
+
+            $todayOrder = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-JST-TODAY');
+            $previousOrder = $this->readySalesOrder($tenant, $shop, $previousSku, $method, 1, 'SO-JST-PREV', '2 JST Street');
+
+            $this->createGroup($tenant, $warehouse, $todayOrder->ship_together_key, [$todayOrder]);
+            $todayGroup = FulfillmentGroup::query()->latest('id')->firstOrFail();
+            DB::table('fulfillment_groups')->where('id', $todayGroup->id)->update([
+                'reference_no' => 'FG-JST-TODAY',
+                'created_at' => Carbon::parse('2026-06-24 00:30:00', 'Asia/Tokyo')->utc()->format('Y-m-d H:i:s'),
+            ]);
+
+            $this->createGroup($tenant, $warehouse, $previousOrder->ship_together_key, [$previousOrder]);
+            $previousGroup = FulfillmentGroup::query()->latest('id')->firstOrFail();
+            DB::table('fulfillment_groups')->where('id', $previousGroup->id)->update([
+                'reference_no' => 'FG-JST-PREV',
+                'created_at' => Carbon::parse('2026-06-23 23:30:00', 'Asia/Tokyo')->utc()->format('Y-m-d H:i:s'),
+            ]);
+
+            Livewire::actingAs($this->internalUser())
+                ->test(FulfillmentPickSummary::class)
+                ->set('dateFrom', '2026-06-24')
+                ->set('dateTo', '2026-06-24')
+                ->assertSee('STK-JST-TODAY')
+                ->assertDontSee('STK-JST-PREV');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_fulfillment_group_index_has_pick_summary_link(): void
     {
         Livewire::actingAs($this->internalUser())
@@ -310,7 +366,7 @@ class FulfillmentPickSummaryTest extends TestCase
 
     public function test_print_view_contains_pick_sheet_context_without_printing_actions(): void
     {
-        Carbon::setTestNow('2026-06-24 09:00:00');
+        Carbon::setTestNow(Carbon::parse('2026-06-24 09:00:00', 'Asia/Tokyo'));
 
         try {
             [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-PRINT-001', 'SKU-PRINT-001');
@@ -326,6 +382,24 @@ class FulfillmentPickSummaryTest extends TestCase
                 ->assertSee('Pick qty')
                 ->assertSee('Notes')
                 ->assertSee('screen-pick-table', false);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_print_generated_time_uses_jst(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-24 00:30:00', 'Asia/Tokyo'));
+
+        try {
+            [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-PRINT-JST', 'SKU-PRINT-JST');
+            $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-PRINT-JST');
+            $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+
+            Livewire::actingAs($this->internalUser())
+                ->test(FulfillmentPickSummary::class)
+                ->assertSee('Date: 2026-06-24 - 2026-06-24')
+                ->assertSee('Generated: 2026-06-24 00:30');
         } finally {
             Carbon::setTestNow();
         }

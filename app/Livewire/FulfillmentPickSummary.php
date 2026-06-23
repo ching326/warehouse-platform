@@ -43,8 +43,8 @@ class FulfillmentPickSummary extends Component
     public function mount(): void
     {
         $this->authorizeInternalUser();
-        $this->dateFrom = $this->dateFrom ?: today()->toDateString();
-        $this->dateTo = $this->dateTo ?: today()->toDateString();
+        $this->dateFrom = $this->dateFrom ?: now($this->warehouseTimezone())->toDateString();
+        $this->dateTo = $this->dateTo ?: now($this->warehouseTimezone())->toDateString();
 
         if ($this->warehouseId === '') {
             $activeWarehouseIds = Warehouse::query()
@@ -98,7 +98,7 @@ class FulfillmentPickSummary extends Component
             'summary' => $summary,
             'filterSummary' => $this->filterSummary(),
             'filterChips' => $this->filterChips(),
-            'generatedAt' => now()->format('Y-m-d H:i'),
+            'generatedAt' => now($this->warehouseTimezone())->format('Y-m-d H:i'),
         ])->layout('inventory', [
             'title' => __('fulfillment_pick.page_title'),
             'subtitle' => __('fulfillment_pick.page_subtitle'),
@@ -195,8 +195,8 @@ class FulfillmentPickSummary extends Component
             ->where('warehouse_id', (int) $this->warehouseId)
             ->when($this->shippingMethodId !== '', fn ($query) => $query->where('shipping_method_id', (int) $this->shippingMethodId))
             ->when($this->tenantId !== '' && in_array((int) $this->tenantId, $this->allowedTenantIds(), true), fn ($query) => $query->where('tenant_id', (int) $this->tenantId))
-            ->when($this->dateFrom !== '', fn ($query) => $query->whereDate('created_at', '>=', Carbon::parse($this->dateFrom)->toDateString()))
-            ->when($this->dateTo !== '', fn ($query) => $query->whereDate('created_at', '<=', Carbon::parse($this->dateTo)->toDateString()))
+            ->when($this->dateFrom !== '', fn ($query) => $query->where('created_at', '>=', Carbon::parse($this->dateFrom, $this->warehouseTimezone())->startOfDay()->utc()))
+            ->when($this->dateTo !== '', fn ($query) => $query->where('created_at', '<=', Carbon::parse($this->dateTo, $this->warehouseTimezone())->endOfDay()->utc()))
             ->orderBy('created_at')
             ->orderBy('id');
     }
@@ -342,9 +342,14 @@ class FulfillmentPickSummary extends Component
         $parts[] = __('fulfillment_pick.print_shipping_method', ['value' => $this->shippingMethodId ? (ShippingMethod::find($this->shippingMethodId)?->name ?? '-') : __('common.all_types')]);
         $parts[] = __('fulfillment_pick.print_tenant', ['value' => $this->tenantId ? (Tenant::find($this->tenantId)?->code ?? '-') : __('common.all_tenants')]);
         $parts[] = __('fulfillment_pick.print_date', ['from' => $this->dateFrom ?: '-', 'to' => $this->dateTo ?: '-']);
-        $parts[] = __('fulfillment_pick.print_generated', ['value' => now()->format('Y-m-d H:i')]);
+        $parts[] = __('fulfillment_pick.print_generated', ['value' => now($this->warehouseTimezone())->format('Y-m-d H:i')]);
 
         return implode(' / ', $parts);
+    }
+
+    private function warehouseTimezone(): string
+    {
+        return 'Asia/Tokyo';
     }
 
     private function filterChips(): array
