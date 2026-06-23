@@ -26,6 +26,10 @@ class InboundOrderCreate extends Component
 
     public string $expectedAt = '';
 
+    public string $expectedCartonCount = '';
+
+    public string $cartonMark = '';
+
     public string $note = '';
 
     public array $lines = [
@@ -69,12 +73,18 @@ class InboundOrderCreate extends Component
             $order = InboundOrder::create([
                 'tenant_id' => $tenantId,
                 'warehouse_id' => (int) $this->warehouseId,
-                'ref' => $this->nullableString($this->ref),
+                'ref' => $this->ref !== '' ? $this->nullableString($this->ref) : 'IB-PENDING-'.\Illuminate\Support\Str::uuid(),
                 'status' => InboundOrder::STATUS_PENDING,
                 'expected_at' => $this->nullableString($this->expectedAt),
+                'expected_carton_count' => $this->expectedCartonCount === '' ? null : (int) $this->expectedCartonCount,
+                'carton_mark' => $this->nullableString($this->cartonMark),
                 'note' => $this->nullableString($this->note),
                 'created_by_user_id' => Auth::id(),
             ]);
+
+            if ($this->ref === '') {
+                $order->update(['ref' => InboundOrder::buildRef($order->id, $order->tenant->code)]);
+            }
 
             foreach ($this->lines as $index => $lineInput) {
                 $sku = Sku::query()
@@ -124,6 +134,8 @@ class InboundOrderCreate extends Component
             'warehouse_id' => ['required', 'integer', Rule::exists('warehouses', 'id')],
             'ref' => ['nullable', 'string', 'max:255'],
             'expected_at' => ['nullable', 'date'],
+            'expected_carton_count' => ['nullable', 'integer', 'min:0'],
+            'carton_mark' => ['nullable', 'string', 'max:2000'],
             'note' => ['nullable', 'string', 'max:1000'],
             'lines' => [
                 'required',
@@ -150,6 +162,8 @@ class InboundOrderCreate extends Component
             'warehouse_id' => $this->warehouseId,
             'ref' => $this->ref,
             'expected_at' => $this->expectedAt,
+            'expected_carton_count' => $this->expectedCartonCount,
+            'carton_mark' => $this->cartonMark,
             'note' => $this->note,
             'lines' => $this->lines,
         ];

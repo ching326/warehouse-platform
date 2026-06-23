@@ -26,10 +26,25 @@
                     <strong>{{ $order->expected_at ? $order->expected_at->format('Y-m-d') : '-' }}</strong>
                 </div>
                 <div>
+                    <span>{{ __('inbound.field_expected_carton_count') }}</span>
+                    <strong>{{ $order->expected_carton_count !== null ? number_format($order->expected_carton_count) : '-' }}</strong>
+                </div>
+                <div>
                     <span>{{ __('inbound.col_status') }}</span>
                     <strong>{{ __('inbound.status_'.$order->status) }}</strong>
                 </div>
             </div>
+
+            <div class="form-grid three" style="margin-top: 14px;">
+                <flux:input
+                    wire:model="receivedCartonCount"
+                    type="number"
+                    min="0"
+                    step="1"
+                    :label="__('inbound.field_received_carton_count')"
+                />
+            </div>
+            @error('received_carton_count') <p class="form-error">{{ $message }}</p> @enderror
         </section>
 
         <section class="table-shell flux-panel form-panel">

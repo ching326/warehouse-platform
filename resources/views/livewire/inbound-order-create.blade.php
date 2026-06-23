@@ -31,20 +31,22 @@
                     @endforeach
                 </flux:select>
 
-                <div>
-                    <flux:input wire:model="ref" :label="__('inbound.field_ref')" />
-                    <span class="subtle">{{ __('inbound.field_ref_hint') }}</span>
-                </div>
-
                 <flux:input wire:model="expectedAt" type="date" :label="__('inbound.field_expected_at')" />
+
+                <flux:input wire:model="expectedCartonCount" type="number" min="0" step="1" :label="__('inbound.field_expected_carton_count')" />
             </div>
+
+            <label style="margin-top: 12px; display: block;">
+                <span>{{ __('inbound.field_carton_mark') }}</span>
+                <textarea wire:model="cartonMark" rows="2"></textarea>
+            </label>
 
             <label style="margin-top: 12px; display: block;">
                 <span>{{ __('inbound.field_note') }}</span>
                 <textarea wire:model="note" rows="3"></textarea>
             </label>
 
-            @foreach (['tenantId', 'tenant_id', 'warehouse_id', 'ref', 'expected_at', 'note'] as $field)
+            @foreach (['tenantId', 'tenant_id', 'warehouse_id', 'expected_at', 'expected_carton_count', 'carton_mark', 'note'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
         </section>

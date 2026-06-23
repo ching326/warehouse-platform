@@ -53,6 +53,14 @@
                 <span>{{ __('inbound.received_by') }}</span>
                 <strong>{{ $order->receivedBy?->name ?: '-' }}</strong>
             </div>
+            <div>
+                <span>{{ __('inbound.field_expected_carton_count') }}</span>
+                <strong>{{ $order->expected_carton_count !== null ? number_format($order->expected_carton_count) : '-' }}</strong>
+            </div>
+            <div>
+                <span>{{ __('inbound.field_received_carton_count') }}</span>
+                <strong>{{ $order->received_carton_count !== null ? number_format($order->received_carton_count) : '-' }}</strong>
+            </div>
         </div>
     </section>
 
@@ -124,6 +132,51 @@
                 <span>{{ __('inbound.field_note') }}</span>
                 <strong>{{ $order->note ?: '-' }}</strong>
             </div>
+            <div>
+                <span>{{ __('inbound.field_carton_mark') }}</span>
+                <strong>{{ $order->carton_mark ?: '-' }}</strong>
+            </div>
+        </div>
+    </section>
+
+    <section class="table-shell flux-panel form-panel">
+        <div class="form-panel-header">
+            <div>
+                <strong>{{ __('inbound.section_documents') }}</strong>
+                <span>{{ __('inbound.section_documents_hint') }}</span>
+            </div>
+        </div>
+
+        <div class="inbound-document-upload">
+            <label>
+                <span>{{ __('inbound.field_document') }}</span>
+                <input type="file" wire:model="document" accept=".pdf,.jpg,.jpeg,.png,.webp">
+            </label>
+            <flux:button type="button" variant="primary" wire:click="uploadDocument" wire:loading.attr="disabled" wire:target="document,uploadDocument">
+                {{ __('inbound.btn_upload_document') }}
+            </flux:button>
+        </div>
+        @error('document') <p class="form-error">{{ $message }}</p> @enderror
+
+        <div class="inbound-document-list">
+            @forelse ($order->mediaAssets as $asset)
+                <div class="inbound-document-row" wire:key="inbound-document-{{ $asset->id }}">
+                    <a href="{{ $asset->url() }}" target="_blank" rel="noopener">
+                        {{ $asset->file_name }}
+                    </a>
+                    <flux:button
+                        type="button"
+                        variant="danger"
+                        size="sm"
+                        wire:click="deleteDocument({{ $asset->id }})"
+                        wire:confirm="{{ __('inbound.confirm_delete_document') }}"
+                    >
+                        {{ __('inbound.btn_remove_line') }}
+                    </flux:button>
+                </div>
+            @empty
+                <span class="subtle">{{ __('inbound.no_documents') }}</span>
+            @endforelse
         </div>
     </section>
 
@@ -194,6 +247,33 @@
             color: var(--muted);
             font-size: 11px;
             font-weight: 600;
+        }
+
+        .inbound-document-upload {
+            display: flex;
+            align-items: end;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .inbound-document-upload label {
+            min-width: min(360px, 100%);
+        }
+
+        .inbound-document-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .inbound-document-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
         }
     </style>
 </div>

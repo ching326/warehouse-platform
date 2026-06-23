@@ -19,6 +19,8 @@ class InboundOrderReceive extends Component
 {
     public int $orderId;
 
+    public string $receivedCartonCount = '';
+
     public array $lineInputs = [];
 
     public function mount(InboundOrder $order): void
@@ -33,6 +35,9 @@ class InboundOrderReceive extends Component
 
         $this->orderId = $order->id;
         $order->load('lines');
+        $this->receivedCartonCount = $order->received_carton_count === null
+            ? ''
+            : (string) $order->received_carton_count;
 
         foreach ($order->lines as $line) {
             $remaining = $line->expected_qty - $line->received_qty;
@@ -66,6 +71,10 @@ class InboundOrderReceive extends Component
 
         try {
             DB::transaction(function () use ($order) {
+                $receivedCartonCount = $this->receivedCartonCount === ''
+                    ? null
+                    : (int) $this->receivedCartonCount;
+
                 foreach ($order->lines as $line) {
                     $remaining = $line->expected_qty - $line->received_qty;
 
@@ -127,6 +136,7 @@ class InboundOrderReceive extends Component
 
                 $order->update([
                     'status' => $newStatus,
+                    'received_carton_count' => $receivedCartonCount,
                     'received_at' => $allDone ? now() : $order->received_at,
                     'received_by_user_id' => $allDone ? Auth::id() : $order->received_by_user_id,
                 ]);
@@ -183,7 +193,12 @@ class InboundOrderReceive extends Component
             ];
         }
 
-        validator(['lineInputs' => $this->lineInputs], $rules)->validate();
+        $rules['received_carton_count'] = ['nullable', 'integer', 'min:0'];
+
+        validator([
+            'lineInputs' => $this->lineInputs,
+            'received_carton_count' => $this->receivedCartonCount,
+        ], $rules)->validate();
     }
     private function isInternalUser(): bool
     {

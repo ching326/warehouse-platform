@@ -2,16 +2,25 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\HandlesPrivateMediaAssets;
 use App\Models\InboundOrder;
+use App\Models\MediaAsset;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class InboundOrderDetail extends Component
 {
+    use HandlesPrivateMediaAssets;
+    use WithFileUploads;
+
     public int $orderId = 0;
+
+    public ?TemporaryUploadedFile $document = null;
 
     private bool $visibleTenantIdsResolved = false;
 
@@ -85,6 +94,42 @@ class InboundOrderDetail extends Component
         return in_array($order->status, [InboundOrder::STATUS_ARRIVED, InboundOrder::STATUS_PARTIALLY_RECEIVED], true);
     }
 
+    public function uploadDocument(): void
+    {
+        $order = $this->scopedOrderQuery()->findOrFail($this->orderId);
+
+        $this->validate([
+            'document' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
+        ]);
+
+        $this->createPrivateMediaAsset(
+            $order,
+            $this->document,
+            MediaAsset::MODEL_TYPE_INBOUND_ORDER,
+            'document',
+            'media/private/tenant-'.$order->tenant_id.'/inbound-orders/'.$order->id,
+            'inbound_order',
+        );
+
+        $this->document = null;
+        session()->flash('status', __('inbound.document_uploaded'));
+    }
+
+    public function deleteDocument(int $mediaAssetId): void
+    {
+        $order = $this->scopedOrderQuery()
+            ->with('mediaAssets')
+            ->findOrFail($this->orderId);
+        $asset = $order->mediaAssets->firstWhere('id', $mediaAssetId);
+
+        if (! $asset) {
+            abort(404);
+        }
+
+        $this->deletePrivateMediaAsset($asset, $order, 'inbound_order');
+        session()->flash('status', __('inbound.document_deleted'));
+    }
+
     public function render()
     {
         $order = $this->scopedOrderQuery()
@@ -98,6 +143,7 @@ class InboundOrderDetail extends Component
                 'lines.stockItem:id,code,name',
                 'lines.receipts.warehouseLocation:id,code,name',
                 'lines.receipts.receivedBy:id,name',
+                'mediaAssets',
             ])
             ->findOrFail($this->orderId);
 
@@ -141,5 +187,10 @@ class InboundOrderDetail extends Component
         }
 
         return $this->visibleTenantIdsCache = $user->activeTenantIds();
+    }
+
+    protected function privateMediaFileProperty(): string
+    {
+        return 'document';
     }
 }

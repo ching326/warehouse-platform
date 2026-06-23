@@ -36,6 +36,7 @@
                 <flux:table.column>{{ __('inbound.col_ref') }}</flux:table.column>
                 <flux:table.column>{{ __('inbound.col_tenant_warehouse') }}</flux:table.column>
                 <flux:table.column>{{ __('inbound.col_expected_at') }}</flux:table.column>
+                <flux:table.column>{{ __('inbound.col_cartons') }}</flux:table.column>
                 <flux:table.column align="center">{{ __('inbound.col_lines') }}</flux:table.column>
                 <flux:table.column>{{ __('inbound.col_status') }}</flux:table.column>
                 <flux:table.column>{{ __('inbound.col_actions') }}</flux:table.column>
@@ -55,10 +56,13 @@
                                 $shops->count() === 1 => $shops->first()->code.' - '.$shops->first()->name,
                                 default => $shops->first()->code.' +'.($shops->count() - 1),
                             };
+                            $cartonsLabel = $order->expected_carton_count !== null || $order->received_carton_count !== null
+                                ? number_format((int) ($order->received_carton_count ?? 0)).' / '.($order->expected_carton_count !== null ? number_format((int) $order->expected_carton_count) : '-')
+                                : '-';
                         @endphp
                         <flux:table.cell>
                             <a class="inbound-order-number-text" href="{{ route('inbound.show', $order) }}" wire:navigate>
-                                #{{ $order->id }} {{ $order->ref ?: '-' }}
+                                {{ $order->ref ?: '-' }}
                             </a>
                         </flux:table.cell>
                         <flux:table.cell>
@@ -68,6 +72,7 @@
                             </span>
                         </flux:table.cell>
                         <flux:table.cell>{{ $order->expected_at ? $order->expected_at->format('Y-m-d') : '-' }}</flux:table.cell>
+                        <flux:table.cell>{{ $cartonsLabel }}</flux:table.cell>
                         <flux:table.cell align="center">{{ number_format($order->lines_count) }}</flux:table.cell>
                         <flux:table.cell>
                             <flux:badge color="{{ $this->statusColor($order->status) }}">
@@ -99,7 +104,7 @@
                     </flux:table.row>
                 @empty
                     <flux:table.row>
-                        <flux:table.cell colspan="6">
+                        <flux:table.cell colspan="7">
                             <div class="empty-state">{{ __('inbound.empty_state') }}</div>
                         </flux:table.cell>
                     </flux:table.row>
