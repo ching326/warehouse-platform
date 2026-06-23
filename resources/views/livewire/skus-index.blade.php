@@ -135,9 +135,16 @@
                                 @endif
                             </flux:table.cell>
                             <flux:table.cell>
-                                <flux:button type="button" size="xs" variant="primary">
-                                    {{ __('skus.btn_edit') }}
-                                </flux:button>
+                                <div class="sku-row-actions">
+                                    <flux:button type="button" size="xs" variant="primary">
+                                        {{ __('skus.btn_edit') }}
+                                    </flux:button>
+                                    @if ($this->canImportAmazonImage($sku))
+                                        <flux:button type="button" size="xs" variant="subtle" wire:click="importAmazonImage({{ $sku->id }})">
+                                            {{ __('skus.fetch_amazon_image') }}
+                                        </flux:button>
+                                    @endif
+                                </div>
                             </flux:table.cell>
                         </flux:table.row>
                     @empty

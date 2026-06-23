@@ -1708,6 +1708,12 @@
                 padding-right: 0;
             }
 
+            .sku-row-actions {
+                display: inline-flex;
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+
             .sku-catalog-table th:nth-child(1),
             .sku-catalog-table td:nth-child(1) {
                 width: 64px;

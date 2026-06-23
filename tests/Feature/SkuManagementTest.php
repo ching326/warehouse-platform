@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Livewire\SkuCreate;
 use App\Livewire\SkusIndex;
+use App\Models\AmazonSpapiConnection;
 use App\Models\Carrier;
 use App\Models\MediaAsset;
 use App\Models\PackagingMaterial;
@@ -20,6 +21,7 @@ use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -764,6 +766,213 @@ class SkuManagementTest extends TestCase
         $this->assertSame(10, MediaAsset::count());
     }
 
+    public function test_import_amazon_image_creates_public_amazon_media_row(): void
+    {
+        Storage::fake('public');
+        $tenant = Tenant::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create(['platform' => 'amazon']);
+        $connection = $this->amazonConnection($shop);
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create([
+            'platform_product_id' => 'B000TEST01',
+        ]);
+        $imageUrl = 'https://m.media-amazon.com/images/I/main.jpg';
+        $this->fakeAmazonImageImport($connection, $imageUrl, UploadedFile::fake()->image('main.jpg', 70, 50));
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('importAmazonImage', $sku->id)
+            ->assertSee(__('skus.amazon_image_imported'));
+
+        $asset = MediaAsset::firstOrFail();
+
+        $this->assertSame($tenant->id, $asset->tenant_id);
+        $this->assertSame(MediaAsset::MODEL_TYPE_STOCK_ITEM, $asset->model_type);
+        $this->assertSame($stockItem->id, $asset->model_id);
+        $this->assertSame('amazon', $asset->type);
+        $this->assertSame('public', $asset->disk);
+        $this->assertSame($imageUrl, $asset->original_url);
+        $this->assertTrue($asset->is_primary);
+        $this->assertSame(70, $asset->width);
+        $this->assertSame(50, $asset->height);
+        Storage::disk('public')->assertExists($asset->path);
+    }
+
+    public function test_import_amazon_image_does_not_replace_existing_primary(): void
+    {
+        Storage::fake('public');
+        $tenant = Tenant::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create(['platform' => 'amazon']);
+        $connection = $this->amazonConnection($shop);
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create(['platform_product_id' => 'B000TEST02']);
+        $primary = $this->mediaAsset($stockItem, ['is_primary' => true, 'type' => 'main']);
+        $this->fakeAmazonImageImport($connection, 'https://m.media-amazon.com/images/I/second.jpg', UploadedFile::fake()->image('second.jpg'));
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('importAmazonImage', $sku->id)
+            ->assertSee(__('skus.amazon_image_imported'));
+
+        $this->assertTrue($primary->refresh()->is_primary);
+        $this->assertFalse(MediaAsset::where('type', 'amazon')->firstOrFail()->is_primary);
+    }
+
+    public function test_import_amazon_image_requires_asin_and_amazon_shop(): void
+    {
+        Storage::fake('public');
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $amazonShop = Shop::factory()->for($tenant)->create(['platform' => 'amazon']);
+        $manualShop = Shop::factory()->for($tenant)->create(['platform' => 'manual']);
+        $missingAsin = Sku::factory()->for($tenant)->for($amazonShop)->for($stockItem)->create(['platform_product_id' => null]);
+        $notAmazon = Sku::factory()->for($tenant)->for($manualShop)->for($stockItem)->create(['platform_product_id' => 'B000TEST03']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('importAmazonImage', $missingAsin->id)
+            ->assertSee(__('skus.amazon_image_requires_asin'))
+            ->call('importAmazonImage', $notAmazon->id)
+            ->assertSee(__('skus.amazon_image_requires_amazon_shop'));
+
+        $this->assertSame(0, MediaAsset::count());
+        $this->assertSame([], Storage::disk('public')->allFiles());
+    }
+
+    public function test_import_amazon_image_handles_api_error_without_orphan_file(): void
+    {
+        Storage::fake('public');
+        $tenant = Tenant::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create(['platform' => 'amazon']);
+        $this->amazonConnection($shop);
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create(['platform_product_id' => 'B000TEST04']);
+
+        Http::fake([
+            'https://api.amazon.com/auth/o2/token' => Http::response(['access_token' => 'token', 'expires_in' => 3600], 200),
+            'https://sellingpartnerapi-fe.amazon.com/catalog/2022-04-01/items/*' => Http::response(['errors' => [['message' => 'Catalog unavailable']]], 500),
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('importAmazonImage', $sku->id)
+            ->assertSee('Amazon image lookup failed');
+
+        $this->assertSame(0, MediaAsset::count());
+        $this->assertSame([], Storage::disk('public')->allFiles());
+    }
+
+    public function test_import_amazon_image_is_idempotent_for_same_original_url(): void
+    {
+        Storage::fake('public');
+        $tenant = Tenant::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create(['platform' => 'amazon']);
+        $connection = $this->amazonConnection($shop);
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create(['platform_product_id' => 'B000TEST05']);
+        $imageUrl = 'https://m.media-amazon.com/images/I/idempotent.jpg';
+        $this->fakeAmazonImageImport($connection, $imageUrl, UploadedFile::fake()->image('idempotent.jpg'));
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('importAmazonImage', $sku->id)
+            ->call('importAmazonImage', $sku->id)
+            ->assertSee(__('skus.amazon_image_already_imported'));
+
+        $this->assertSame(1, MediaAsset::where('type', 'amazon')->count());
+    }
+
+    public function test_import_amazon_image_replaces_previous_amazon_row_only(): void
+    {
+        Storage::fake('public');
+        $tenant = Tenant::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create(['platform' => 'amazon']);
+        $connection = $this->amazonConnection($shop);
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create(['platform_product_id' => 'B000TEST06']);
+        $userImage = $this->mediaAsset($stockItem, ['type' => 'main', 'file_name' => 'user.jpg']);
+        $oldAmazon = $this->mediaAsset($stockItem, [
+            'type' => 'amazon',
+            'original_url' => 'https://m.media-amazon.com/images/I/old.jpg',
+            'file_name' => 'old.jpg',
+        ]);
+        Storage::disk('public')->put($oldAmazon->path, 'old');
+        $this->fakeAmazonImageImport($connection, 'https://m.media-amazon.com/images/I/new.jpg', UploadedFile::fake()->image('new.jpg'));
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('importAmazonImage', $sku->id)
+            ->assertSee(__('skus.amazon_image_imported'));
+
+        $this->assertDatabaseHas('media_assets', ['id' => $userImage->id]);
+        $this->assertDatabaseMissing('media_assets', ['id' => $oldAmazon->id]);
+        $this->assertSame(1, MediaAsset::where('type', 'amazon')->count());
+        Storage::disk('public')->assertMissing($oldAmazon->path);
+    }
+
+    public function test_tenant_user_cannot_import_amazon_image_for_another_tenants_sku(): void
+    {
+        Storage::fake('public');
+        [, $user] = $this->tenantUser();
+        $otherTenant = Tenant::factory()->create();
+        $shop = Shop::factory()->for($otherTenant)->create(['platform' => 'amazon']);
+        $stockItem = StockItem::factory()->for($otherTenant)->create();
+        $sku = Sku::factory()->for($otherTenant)->for($shop)->for($stockItem)->create(['platform_product_id' => 'B000TEST07']);
+
+        Livewire::actingAs($user)
+            ->test(SkusIndex::class)
+            ->call('importAmazonImage', $sku->id)
+            ->assertNotFound();
+
+        $this->assertSame(0, MediaAsset::count());
+    }
+
+    public function test_virtual_bundle_sku_does_not_allow_amazon_image_import(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create(['platform' => 'amazon']);
+        $sku = Sku::factory()->virtualBundle()->for($tenant)->for($shop)->create([
+            'sku' => 'SKU-AMAZON-BUNDLE',
+            'platform_product_id' => 'B000TEST08',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->assertSee('SKU-AMAZON-BUNDLE')
+            ->assertDontSee(__('skus.fetch_amazon_image'))
+            ->call('importAmazonImage', $sku->id)
+            ->assertNotFound();
+    }
+
+    public function test_import_amazon_image_rejects_non_image_and_oversized_downloads(): void
+    {
+        Storage::fake('public');
+        $tenant = Tenant::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create(['platform' => 'amazon']);
+        $connection = $this->amazonConnection($shop);
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create(['platform_product_id' => 'B000TEST09']);
+
+        $this->fakeAmazonImageImport($connection, 'https://m.media-amazon.com/images/I/not-image.jpg', 'not image');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('importAmazonImage', $sku->id)
+            ->assertHasErrors(['amazonImage']);
+
+        $this->assertSame(0, MediaAsset::count());
+
+        $this->fakeAmazonImageImport($connection, 'https://m.media-amazon.com/images/I/large.jpg', str_repeat('x', 5 * 1024 * 1024 + 1));
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('importAmazonImage', $sku->id)
+            ->assertHasErrors(['amazonImage']);
+
+        $this->assertSame(0, MediaAsset::count());
+        $this->assertSame([], Storage::disk('public')->allFiles());
+    }
+
     public function test_logistics_view_renders_editable_fields_and_saves_stock_item_and_sku_defaults(): void
     {
         $tenant = Tenant::factory()->create();
@@ -1050,6 +1259,46 @@ class SkuManagementTest extends TestCase
             'name' => $name ?? str($code)->replace('_', ' ')->title()->toString(),
             'service_type' => 'parcel',
             'status' => $status,
+        ]);
+    }
+
+    private function amazonConnection(Shop $shop, array $attributes = []): AmazonSpapiConnection
+    {
+        return AmazonSpapiConnection::create(array_merge([
+            'tenant_id' => $shop->tenant_id,
+            'shop_id' => $shop->id,
+            'seller_id' => 'SELLER123',
+            'marketplace_id' => 'A1VC38T7YXB528',
+            'region' => 'fe',
+            'endpoint' => 'https://sellingpartnerapi-fe.amazon.com',
+            'lwa_client_id' => 'client-id',
+            'lwa_client_secret' => 'client-secret',
+            'refresh_token' => 'refresh-token',
+            'sync_enabled' => true,
+            'status' => AmazonSpapiConnection::STATUS_CONNECTED,
+        ], $attributes));
+    }
+
+    private function fakeAmazonImageImport(AmazonSpapiConnection $connection, string $imageUrl, UploadedFile|string $image): void
+    {
+        $bytes = $image instanceof UploadedFile
+            ? (string) file_get_contents($image->getRealPath())
+            : $image;
+
+        Http::fake([
+            'https://api.amazon.com/auth/o2/token' => Http::response(['access_token' => 'token', 'expires_in' => 3600], 200),
+            rtrim($connection->endpoint, '/').'/catalog/2022-04-01/items/*' => Http::response([
+                'images' => [[
+                    'marketplaceId' => $connection->marketplace_id,
+                    'images' => [[
+                        'variant' => 'MAIN',
+                        'link' => $imageUrl,
+                        'width' => 1000,
+                        'height' => 1000,
+                    ]],
+                ]],
+            ], 200),
+            $imageUrl => Http::response($bytes, 200, ['Content-Type' => 'image/jpeg']),
         ]);
     }
 

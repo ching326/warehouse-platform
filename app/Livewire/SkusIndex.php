@@ -11,10 +11,14 @@ use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\StockItem;
 use App\Models\Tenant;
+use App\Services\Amazon\AmazonSpapiApiException;
+use App\Services\Amazon\AmazonSpapiCatalogClient;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -395,6 +399,131 @@ class SkusIndex extends Component
             ->log('image deleted');
 
         $this->flashStatus(__('skus.image_deleted'));
+    }
+
+    public function importAmazonImage(int $skuId): void
+    {
+        $sku = $this->scopedSkuQuery()
+            ->with(['shop.amazonSpapiConnection', 'stockItem.primaryImage'])
+            ->find($skuId);
+
+        if (! $sku || ! $sku->stockItem || ! $this->tenantIsVisible((int) $sku->stockItem->tenant_id)) {
+            abort(404);
+        }
+
+        if ($sku->shop?->platform !== 'amazon') {
+            $this->flashError(__('skus.amazon_image_requires_amazon_shop'));
+
+            return;
+        }
+
+        $asin = trim((string) $sku->platform_product_id);
+
+        if ($asin === '') {
+            $this->flashError(__('skus.amazon_image_requires_asin'));
+
+            return;
+        }
+
+        $connection = $sku->shop->amazonSpapiConnection;
+
+        if (! $connection) {
+            $this->flashError(__('skus.amazon_image_requires_connection'));
+
+            return;
+        }
+
+        $stockItem = $sku->stockItem;
+        $existingAmazon = $stockItem->mediaAssets()
+            ->where('type', 'amazon')
+            ->first();
+        $imageCount = $stockItem->mediaAssets()->count();
+
+        if (! $existingAmazon && $imageCount >= 10) {
+            $this->flashError(__('skus.image_limit_reached'));
+
+            return;
+        }
+
+        try {
+            $imageUrl = app(AmazonSpapiCatalogClient::class)->getMainImageUrl($connection, $asin, $connection->marketplace_id);
+        } catch (AmazonSpapiApiException $exception) {
+            $this->flashError(__('skus.amazon_image_api_failed', ['message' => $exception->getMessage()]));
+
+            return;
+        }
+
+        if (! $imageUrl) {
+            $this->flashError(__('skus.amazon_image_not_found'));
+
+            return;
+        }
+
+        if ($existingAmazon && $existingAmazon->original_url === $imageUrl) {
+            $this->flashStatus(__('skus.amazon_image_already_imported'));
+
+            return;
+        }
+
+        try {
+            $download = $this->downloadAmazonImage($imageUrl);
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (\Throwable) {
+            $this->flashError(__('skus.amazon_image_download_failed'));
+
+            return;
+        }
+
+        $fileName = Str::uuid()->toString().'.'.$download['extension'];
+        $path = 'product-images/tenant-'.$stockItem->tenant_id.'/stock-items/'.$stockItem->id.'/'.$fileName;
+        $shouldBePrimary = ! $stockItem->mediaAssets()->where('is_primary', true)->exists();
+
+        Storage::disk('public')->put($path, $download['bytes']);
+
+        $asset = DB::transaction(function () use ($stockItem, $existingAmazon, $imageUrl, $download, $path, $shouldBePrimary) {
+            if ($existingAmazon) {
+                $existingAmazon->delete();
+            }
+
+            if ($shouldBePrimary) {
+                $this->clearPrimaryImages($stockItem->id);
+            }
+
+            return MediaAsset::create([
+                'tenant_id' => $stockItem->tenant_id,
+                'model_type' => MediaAsset::MODEL_TYPE_STOCK_ITEM,
+                'model_id' => $stockItem->id,
+                'type' => 'amazon',
+                'disk' => 'public',
+                'path' => $path,
+                'original_url' => $imageUrl,
+                'file_name' => basename(parse_url($imageUrl, PHP_URL_PATH) ?: $path),
+                'mime_type' => $download['mime_type'],
+                'size_bytes' => strlen($download['bytes']),
+                'width' => $download['width'],
+                'height' => $download['height'],
+                'sort_order' => $this->nextImageSortOrder($stockItem->id),
+                'is_primary' => $shouldBePrimary,
+                'uploaded_by_user_id' => Auth::id(),
+            ]);
+        });
+
+        if ($existingAmazon) {
+            Storage::disk($existingAmazon->disk)->delete($existingAmazon->path);
+        }
+
+        activity('stock_item')
+            ->performedOn($stockItem)
+            ->causedBy(Auth::user())
+            ->withProperties([
+                'media_asset_id' => $asset->id,
+                'asin' => $asin,
+                'original_url' => $imageUrl,
+            ])
+            ->log('amazon image imported');
+
+        $this->flashStatus(__('skus.amazon_image_imported'));
     }
 
     public function render()
@@ -901,6 +1030,61 @@ class SkusIndex extends Component
         return $asset->url();
     }
 
+    public function canImportAmazonImage(Sku $sku): bool
+    {
+        return $sku->stock_item_id !== null
+            && $sku->shop?->platform === 'amazon'
+            && filled($sku->platform_product_id);
+    }
+
+    private function downloadAmazonImage(string $url): array
+    {
+        if (! str_starts_with(strtolower($url), 'https://')) {
+            throw ValidationException::withMessages(['amazonImage' => __('skus.amazon_image_download_failed')]);
+        }
+
+        try {
+            $response = Http::timeout(15)->get($url);
+        } catch (ConnectionException $exception) {
+            throw ValidationException::withMessages(['amazonImage' => __('skus.amazon_image_download_failed')]);
+        }
+
+        if ($response->failed()) {
+            throw ValidationException::withMessages(['amazonImage' => __('skus.amazon_image_download_failed')]);
+        }
+
+        $bytes = $response->body();
+
+        if (strlen($bytes) > 5 * 1024 * 1024) {
+            throw ValidationException::withMessages(['amazonImage' => __('skus.amazon_image_too_large')]);
+        }
+
+        $size = @getimagesizefromstring($bytes);
+
+        if (! $size || ! isset($size['mime'])) {
+            throw ValidationException::withMessages(['amazonImage' => __('skus.amazon_image_not_image')]);
+        }
+
+        $extension = match ($size['mime']) {
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            default => null,
+        };
+
+        if ($extension === null) {
+            throw ValidationException::withMessages(['amazonImage' => __('skus.amazon_image_not_image')]);
+        }
+
+        return [
+            'bytes' => $bytes,
+            'extension' => $extension,
+            'mime_type' => $size['mime'],
+            'width' => $size[0] ?? null,
+            'height' => $size[1] ?? null,
+        ];
+    }
+
     private function nullableString(string $value): ?string
     {
         $value = trim($value);
@@ -923,6 +1107,11 @@ class SkusIndex extends Component
     private function flashStatus(string $message): void
     {
         session()->flash('status', $message);
+    }
+
+    private function flashError(string $message): void
+    {
+        session()->flash('error', $message);
     }
 
     private function draftValue(mixed $value): string
