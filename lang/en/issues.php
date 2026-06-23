@@ -20,6 +20,7 @@ return [
     'field_condition' => 'Condition',
     'field_action' => 'Planned action',
     'field_sku' => 'SKU',
+    'field_stock_item' => 'Stock item',
     'field_created_by' => 'Created by',
     'all_types' => 'All types',
     'all_statuses' => 'All statuses',

@@ -180,6 +180,7 @@
         </div>
 
         @foreach ($manualLines as $index => $line)
+            @php($stockItem = ($line['sku_id'] ?? '') === '' ? $manualLineStockItems->get((int) ($line['stock_item_id'] ?? 0)) : null)
             <div class="line-row">
                 <flux:select wire:model="manualLines.{{ $index }}.sku_id" :label="__('issues.field_sku')">
                     <flux:select.option value="">{{ __('issues.select_sku') }}</flux:select.option>
@@ -187,6 +188,13 @@
                         <flux:select.option value="{{ $sku->id }}">{{ $sku->sku }} - {{ $sku->name }} / {{ $sku->stockItem?->code ?? __('common.sku_types.virtual_bundle') }}</flux:select.option>
                     @endforeach
                 </flux:select>
+                @if ($stockItem)
+                    <div class="issue-stock-context">
+                        <span>{{ __('issues.field_stock_item') }}</span>
+                        <strong>{{ $stockItem->code }}</strong>
+                        <small>{{ $stockItem->short_name ?: $stockItem->name }}</small>
+                    </div>
+                @endif
                 <flux:input wire:model="manualLines.{{ $index }}.qty" type="number" min="1" step="1" :label="__('issues.field_qty')" />
                 <flux:select wire:model="manualLines.{{ $index }}.condition" :label="__('issues.field_condition')">
                     @foreach ($conditions as $value => $label)
@@ -238,6 +246,23 @@
         }
 
         .issue-context span {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .issue-stock-context {
+            display: grid;
+            gap: 2px;
+            align-self: end;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 7px 9px;
+            background: var(--surface);
+        }
+
+        .issue-stock-context span,
+        .issue-stock-context small {
             color: var(--muted);
             font-size: 12px;
             font-weight: 700;

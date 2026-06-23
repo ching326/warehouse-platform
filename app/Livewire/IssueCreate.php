@@ -217,6 +217,7 @@ class IssueCreate extends Component
             'selectedSalesOrder' => $this->selectedSalesOrder(),
             'selectedOutboundOrder' => $this->selectedOutboundOrder(),
             'selectedFulfillmentGroup' => $this->selectedFulfillmentGroup(),
+            'manualLineStockItems' => $this->manualLineStockItems($tenantId),
             'salesOrderResults' => $this->salesOrderResults($tenantId),
             'outboundOrderResults' => $this->outboundOrderResults($tenantId),
             'skuOptions' => $this->skuOptions($tenantId),
@@ -520,6 +521,27 @@ class IssueCreate extends Component
             ->orderBy('sku')
             ->limit(200)
             ->get(['id', 'tenant_id', 'stock_item_id', 'sku', 'name']);
+    }
+
+    private function manualLineStockItems(?int $tenantId)
+    {
+        $stockItemIds = collect($this->manualLines)
+            ->pluck('stock_item_id')
+            ->filter(fn ($id): bool => (int) $id > 0)
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($tenantId === null || $stockItemIds->isEmpty()) {
+            return collect();
+        }
+
+        return StockItem::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->where('tenant_id', $tenantId)
+            ->whereIn('id', $stockItemIds)
+            ->get(['id', 'code', 'name', 'short_name'])
+            ->keyBy('id');
     }
 
     private function isInternalUser(): bool

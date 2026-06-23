@@ -131,6 +131,23 @@ class IssueTest extends TestCase
         $this->assertSame(3, $caseLine->qty);
     }
 
+    public function test_stock_item_only_pack_issue_context_is_visible_on_create_page(): void
+    {
+        [$group, , $sku] = $this->fulfillmentGroupForIssue(quantity: 2);
+        $stockItem = $sku->stockItem;
+
+        Livewire::withQueryParams([
+            'stock_item_id' => $stockItem->id,
+            'qty' => 2,
+        ])
+            ->actingAs($this->internalUser())
+            ->test(IssueCreate::class, ['group' => $group])
+            ->assertSet('manualLines.0.sku_id', '')
+            ->assertSet('manualLines.0.stock_item_id', (string) $stockItem->id)
+            ->assertSee(__('issues.field_stock_item'))
+            ->assertSee($stockItem->code);
+    }
+
     public function test_create_issue_from_pack_page_does_not_change_inventory_or_group_status(): void
     {
         [$group, , $sku, $warehouse] = $this->fulfillmentGroupForIssue(quantity: 2, onHand: 8);
