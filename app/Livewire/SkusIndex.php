@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Livewire\Concerns\HasEnumLabels;
+use App\Models\BarcodeAlias;
 use App\Models\MediaAsset;
 use App\Models\PackagingMaterial;
 use App\Models\ProductType;
@@ -66,6 +67,18 @@ class SkusIndex extends Component
     public string $stockImageType = 'main';
 
     public bool $stockImageIsPrimary = false;
+
+    public ?int $managingAliasSkuId = null;
+
+    public string $aliasTarget = BarcodeAlias::MODEL_TYPE_SKU;
+
+    public string $aliasBarcode = '';
+
+    public string $aliasBarcodeType = 'unknown';
+
+    public string $aliasLabel = '';
+
+    public bool $aliasIsActive = true;
 
     private const VIEW_DETAILED = 'detailed';
     private const VIEW_CATALOG = 'catalog';
@@ -243,6 +256,105 @@ class SkusIndex extends Component
         $this->resetValidation();
         $this->resetImageForm();
         $this->managingStockItemId = null;
+    }
+
+    public function openAliasPanel(int $skuId): void
+    {
+        $sku = $this->scopedSkuQuery()
+            ->with('stockItem')
+            ->find($skuId);
+
+        if (! $sku) {
+            abort(404);
+        }
+
+        $this->resetValidation();
+        $this->resetAliasForm();
+        $this->managingAliasSkuId = $sku->id;
+    }
+
+    public function closeAliasPanel(): void
+    {
+        $this->resetValidation();
+        $this->resetAliasForm();
+        $this->managingAliasSkuId = null;
+    }
+
+    public function createBarcodeAlias(): void
+    {
+        $sku = $this->managedAliasSku();
+        $target = $this->aliasTarget;
+
+        if ($target === BarcodeAlias::MODEL_TYPE_STOCK_ITEM && ! $sku->stockItem) {
+            abort(404);
+        }
+
+        $modelId = $target === BarcodeAlias::MODEL_TYPE_STOCK_ITEM
+            ? (int) $sku->stockItem->id
+            : (int) $sku->id;
+        $tenantId = (int) $sku->tenant_id;
+        $normalized = BarcodeAlias::normalize($this->aliasBarcode);
+
+        validator([
+            'aliasBarcode' => $this->aliasBarcode,
+            'aliasTarget' => $target,
+            'aliasBarcodeType' => $this->aliasBarcodeType,
+            'aliasLabel' => $this->aliasLabel,
+            'normalized_barcode' => $normalized,
+        ], [
+            'aliasBarcode' => ['required', 'string', 'max:255'],
+            'aliasTarget' => ['required', Rule::in([BarcodeAlias::MODEL_TYPE_SKU, BarcodeAlias::MODEL_TYPE_STOCK_ITEM])],
+            'aliasBarcodeType' => ['required', Rule::in(BarcodeAlias::BARCODE_TYPES)],
+            'aliasLabel' => ['nullable', 'string', 'max:255'],
+            'normalized_barcode' => [
+                'required',
+                Rule::unique('barcode_aliases', 'normalized_barcode')->where('tenant_id', $tenantId),
+            ],
+        ])->validate();
+
+        BarcodeAlias::create([
+            'tenant_id' => $tenantId,
+            'model_type' => $target,
+            'model_id' => $modelId,
+            'barcode' => trim($this->aliasBarcode),
+            'normalized_barcode' => $normalized,
+            'barcode_type' => $this->aliasBarcodeType,
+            'label' => $this->nullableString($this->aliasLabel),
+            'is_active' => $this->aliasIsActive,
+        ]);
+
+        $this->resetAliasForm();
+        $this->flashStatus(__('skus.alias_created'));
+    }
+
+    public function deactivateBarcodeAlias(int $aliasId): void
+    {
+        $sku = $this->managedAliasSku();
+        $stockItemId = $sku->stockItem ? (int) $sku->stockItem->id : null;
+
+        $alias = BarcodeAlias::query()
+            ->where('tenant_id', $sku->tenant_id)
+            ->where(function ($query) use ($sku, $stockItemId): void {
+                $query
+                    ->where(function ($query) use ($sku): void {
+                        $query
+                            ->where('model_type', BarcodeAlias::MODEL_TYPE_SKU)
+                            ->where('model_id', $sku->id);
+                    })
+                    ->when($stockItemId !== null, fn ($query) => $query->orWhere(function ($query) use ($stockItemId): void {
+                        $query
+                            ->where('model_type', BarcodeAlias::MODEL_TYPE_STOCK_ITEM)
+                            ->where('model_id', $stockItemId);
+                    }));
+            })
+            ->find($aliasId);
+
+        if (! $alias) {
+            abort(404);
+        }
+
+        $alias->update(['is_active' => false]);
+        $this->flashStatus(__('skus.alias_deactivated'));
     }
 
     public function uploadStockImage(): void
@@ -551,6 +663,7 @@ class SkusIndex extends Component
             'shippingMethods' => $this->shippingMethodOptions($skus->getCollection()),
             'canSaveDefaultView' => Auth::check(),
             'managedStockItem' => $this->managedStockItemForView(),
+            'managedAliasSku' => $this->managedAliasSkuForView(),
         ])->layout('inventory', [
             'title' => __('skus.page_title'),
             'subtitle' => __('skus.page_subtitle'),
@@ -565,7 +678,9 @@ class SkusIndex extends Component
             ->with([
                 'tenant:id,code,name',
                 'shop:id,tenant_id,code,name,platform,marketplace',
+                'barcodeAliases',
                 'stockItem:id,tenant_id,code,name,short_name,brand,model_number,variation_code,color,size,barcode,product_type,weight_value,weight_unit,length_value,width_value,height_value,dimension_unit',
+                'stockItem.barcodeAliases',
                 'stockItem.primaryImage:id,tenant_id,model_type,model_id,type,disk,path,file_name,is_primary,sort_order',
                 'bundleComponents' => fn ($query) => $query->with('componentStockItem:id,tenant_id,code,name')->orderBy('id'),
                 'defaultPackagingMaterial:id,code,name,type',
@@ -977,6 +1092,38 @@ class SkusIndex extends Component
             ->find($this->managingStockItemId);
     }
 
+    private function managedAliasSku(): Sku
+    {
+        if (! $this->managingAliasSkuId) {
+            abort(404);
+        }
+
+        $sku = $this->scopedSkuQuery()
+            ->with('stockItem')
+            ->find($this->managingAliasSkuId);
+
+        if (! $sku) {
+            abort(404);
+        }
+
+        if ($sku->stockItem && ((int) $sku->stockItem->tenant_id !== (int) $sku->tenant_id || ! $this->tenantIsVisible((int) $sku->stockItem->tenant_id))) {
+            abort(404);
+        }
+
+        return $sku;
+    }
+
+    private function managedAliasSkuForView(): ?Sku
+    {
+        if (! $this->managingAliasSkuId) {
+            return null;
+        }
+
+        return $this->scopedSkuQuery()
+            ->with(['stockItem.barcodeAliases', 'barcodeAliases'])
+            ->find($this->managingAliasSkuId);
+    }
+
     private function clearPrimaryImages(int $stockItemId): void
     {
         MediaAsset::query()
@@ -1008,6 +1155,22 @@ class SkusIndex extends Component
         $this->stockImage = null;
         $this->stockImageType = 'main';
         $this->stockImageIsPrimary = false;
+    }
+
+    private function resetAliasForm(): void
+    {
+        $this->aliasTarget = BarcodeAlias::MODEL_TYPE_SKU;
+        $this->aliasBarcode = '';
+        $this->aliasBarcodeType = 'unknown';
+        $this->aliasLabel = '';
+        $this->aliasIsActive = true;
+    }
+
+    public function barcodeAliasTypeOptions(): array
+    {
+        return collect(BarcodeAlias::BARCODE_TYPES)
+            ->mapWithKeys(fn (string $type): array => [$type => __('common.barcode_types.'.$type)])
+            ->all();
     }
 
     public function imageTypeOptions(): array

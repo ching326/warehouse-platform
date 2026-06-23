@@ -99,6 +99,12 @@ class StockItem extends Model
         return $this->hasMany(SkuBundleComponent::class, 'component_stock_item_id');
     }
 
+    public function barcodeAliases(): HasMany
+    {
+        return $this->hasMany(BarcodeAlias::class, 'model_id')
+            ->where('model_type', BarcodeAlias::MODEL_TYPE_STOCK_ITEM);
+    }
+
     public function inventoryBalances(): HasMany
     {
         return $this->hasMany(InventoryBalance::class);

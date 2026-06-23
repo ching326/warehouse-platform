@@ -73,4 +73,10 @@ class Sku extends Model
         return $this->hasMany(SkuBundleComponent::class, 'bundle_sku_id');
     }
 
+    public function barcodeAliases(): HasMany
+    {
+        return $this->hasMany(BarcodeAlias::class, 'model_id')
+            ->where('model_type', BarcodeAlias::MODEL_TYPE_SKU);
+    }
+
 }

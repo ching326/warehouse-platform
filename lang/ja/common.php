@@ -76,5 +76,10 @@ return [
         'jan' => 'JAN',
         'ean' => 'EAN',
         'upc' => 'UPC',
+        'fnsku' => 'FNSKU',
+        'platform_label' => 'Platform label',
+        'internal_label' => 'Internal label',
+        'supplier_label' => 'Supplier label',
+        'other' => 'Other',
     ],
 ];

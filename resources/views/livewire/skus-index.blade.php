@@ -1,5 +1,6 @@
 <div class="skus-page">
     @php($managedStockItem = $managedStockItem ?? null)
+    @php($managedAliasSku = $managedAliasSku ?? null)
 
     <section class="table-shell flux-panel">
         <div class="sku-page-actions">
@@ -144,6 +145,9 @@
                                             {{ __('skus.fetch_amazon_image') }}
                                         </flux:button>
                                     @endif
+                                    <flux:button type="button" size="xs" variant="subtle" wire:click="openAliasPanel({{ $sku->id }})">
+                                        {{ __('skus.manage_aliases') }}
+                                    </flux:button>
                                 </div>
                             </flux:table.cell>
                         </flux:table.row>
@@ -363,5 +367,146 @@
                 </section>
             </div>
         @endif
+
+        @if ($managedAliasSku)
+            <div class="image-panel-backdrop">
+                <section class="image-panel flux-panel" aria-label="{{ __('skus.manage_aliases') }}">
+                    <div class="image-panel-header">
+                        <div>
+                            <strong>{{ __('skus.manage_aliases') }}</strong>
+                            <span>{{ $managedAliasSku->sku }} - {{ $managedAliasSku->name }}</span>
+                        </div>
+                        <flux:button type="button" size="sm" variant="subtle" wire:click="closeAliasPanel">{{ __('skus.btn_cancel') }}</flux:button>
+                    </div>
+
+                    <form class="alias-form" wire:submit="createBarcodeAlias">
+                        <flux:select wire:model="aliasTarget" :label="__('skus.alias_target')">
+                            <flux:select.option value="sku">{{ __('skus.alias_target_sku') }}</flux:select.option>
+                            @if ($managedAliasSku->stockItem)
+                                <flux:select.option value="stock_item">{{ __('skus.alias_target_stock_item') }}</flux:select.option>
+                            @endif
+                        </flux:select>
+                        <flux:input wire:model="aliasBarcode" required :label="__('skus.alias_barcode')" />
+                        <flux:select wire:model="aliasBarcodeType" :label="__('skus.alias_barcode_type')">
+                            @foreach ($this->barcodeAliasTypeOptions() as $type => $label)
+                                <flux:select.option value="{{ $type }}">{{ $label }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
+                        <flux:input wire:model="aliasLabel" :label="__('skus.alias_label')" />
+                        <label class="default-view-toggle alias-active-toggle">
+                            <input type="checkbox" wire:model="aliasIsActive">
+                            <span>{{ __('skus.alias_active') }}</span>
+                        </label>
+                        <flux:button type="submit" variant="primary">{{ __('skus.alias_add') }}</flux:button>
+                    </form>
+
+                    @foreach (['aliasBarcode', 'aliasTarget', 'aliasBarcodeType', 'aliasLabel', 'normalized_barcode'] as $field)
+                        @error($field)
+                            <span class="field-error">{{ $message }}</span>
+                        @enderror
+                    @endforeach
+
+                    <div class="alias-list">
+                        <div class="alias-list-group">
+                            <strong>{{ __('skus.alias_target_sku') }}</strong>
+                            @forelse ($managedAliasSku->barcodeAliases as $alias)
+                                <article class="alias-list-item" wire:key="sku-alias-{{ $alias->id }}">
+                                    <div>
+                                        <strong>{{ $alias->barcode }}</strong>
+                                        <span>{{ $this->barcodeAliasTypeOptions()[$alias->barcode_type] ?? $alias->barcode_type }} @if ($alias->label) / {{ $alias->label }} @endif</span>
+                                        <small>{{ $alias->normalized_barcode }}</small>
+                                    </div>
+                                    <flux:badge color="{{ $alias->is_active ? 'green' : 'zinc' }}">
+                                        {{ $alias->is_active ? __('skus.alias_active') : __('skus.alias_inactive') }}
+                                    </flux:badge>
+                                    <flux:button type="button" size="xs" variant="danger" wire:click="deactivateBarcodeAlias({{ $alias->id }})" :disabled="! $alias->is_active">
+                                        {{ __('skus.alias_deactivate') }}
+                                    </flux:button>
+                                </article>
+                            @empty
+                                <div class="empty-state">{{ __('skus.no_aliases') }}</div>
+                            @endforelse
+                        </div>
+
+                        @if ($managedAliasSku->stockItem)
+                            <div class="alias-list-group">
+                                <strong>{{ __('skus.alias_target_stock_item') }} / {{ $managedAliasSku->stockItem->code }}</strong>
+                                @forelse ($managedAliasSku->stockItem->barcodeAliases as $alias)
+                                    <article class="alias-list-item" wire:key="stock-alias-{{ $alias->id }}">
+                                        <div>
+                                            <strong>{{ $alias->barcode }}</strong>
+                                            <span>{{ $this->barcodeAliasTypeOptions()[$alias->barcode_type] ?? $alias->barcode_type }} @if ($alias->label) / {{ $alias->label }} @endif</span>
+                                            <small>{{ $alias->normalized_barcode }}</small>
+                                        </div>
+                                        <flux:badge color="{{ $alias->is_active ? 'green' : 'zinc' }}">
+                                            {{ $alias->is_active ? __('skus.alias_active') : __('skus.alias_inactive') }}
+                                        </flux:badge>
+                                        <flux:button type="button" size="xs" variant="danger" wire:click="deactivateBarcodeAlias({{ $alias->id }})" :disabled="! $alias->is_active">
+                                            {{ __('skus.alias_deactivate') }}
+                                        </flux:button>
+                                    </article>
+                                @empty
+                                    <div class="empty-state">{{ __('skus.no_aliases') }}</div>
+                                @endforelse
+                            </div>
+                        @endif
+                    </div>
+                </section>
+            </div>
+        @endif
     </section>
+
+    <style>
+        .alias-form {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            align-items: end;
+        }
+
+        .alias-active-toggle {
+            align-self: center;
+        }
+
+        .alias-list {
+            display: grid;
+            gap: 16px;
+            margin-top: 18px;
+        }
+
+        .alias-list-group {
+            display: grid;
+            gap: 8px;
+        }
+
+        .alias-list-item {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto auto;
+            gap: 10px;
+            align-items: center;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px 12px;
+            background: #fff;
+        }
+
+        .alias-list-item div {
+            display: grid;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .alias-list-item span,
+        .alias-list-item small {
+            color: #64748b;
+            overflow-wrap: anywhere;
+        }
+
+        @media (max-width: 760px) {
+            .alias-form,
+            .alias-list-item {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </div>

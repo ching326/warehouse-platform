@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Livewire\SkuCreate;
 use App\Livewire\SkusIndex;
 use App\Models\AmazonSpapiConnection;
+use App\Models\BarcodeAlias;
 use App\Models\Carrier;
 use App\Models\MediaAsset;
 use App\Models\PackagingMaterial;
@@ -126,6 +127,132 @@ class SkuManagementTest extends TestCase
             ->assertHasErrors(['existing_stock_item_id']);
 
         $this->assertDatabaseMissing('skus', ['sku' => 'SKU-CROSS-LINK']);
+    }
+
+    public function test_can_create_active_sku_barcode_alias(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($stockItem)->create(['sku' => 'SKU-ALIAS-UI']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openAliasPanel', $sku->id)
+            ->set('aliasTarget', BarcodeAlias::MODEL_TYPE_SKU)
+            ->set('aliasBarcode', ' 49-0123 4567894 ')
+            ->set('aliasBarcodeType', 'jan')
+            ->set('aliasLabel', 'Old package barcode')
+            ->call('createBarcodeAlias')
+            ->assertSee(__('skus.alias_created'));
+
+        $this->assertDatabaseHas('barcode_aliases', [
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_SKU,
+            'model_id' => $sku->id,
+            'barcode' => '49-0123 4567894',
+            'normalized_barcode' => '4901234567894',
+            'barcode_type' => 'jan',
+            'label' => 'Old package barcode',
+            'is_active' => true,
+        ]);
+    }
+
+    public function test_can_create_active_stock_item_barcode_alias(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($stockItem)->create(['sku' => 'SKU-STOCK-ALIAS-UI']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openAliasPanel', $sku->id)
+            ->set('aliasTarget', BarcodeAlias::MODEL_TYPE_STOCK_ITEM)
+            ->set('aliasBarcode', 'x00abc123')
+            ->set('aliasBarcodeType', 'fnsku')
+            ->call('createBarcodeAlias');
+
+        $this->assertDatabaseHas('barcode_aliases', [
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
+            'model_id' => $stockItem->id,
+            'barcode' => 'x00abc123',
+            'normalized_barcode' => 'X00ABC123',
+            'barcode_type' => 'fnsku',
+            'is_active' => true,
+        ]);
+    }
+
+    public function test_duplicate_normalized_barcode_in_same_tenant_is_rejected(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $firstStockItem = StockItem::factory()->for($tenant)->create();
+        $secondStockItem = StockItem::factory()->for($tenant)->create();
+        $firstSku = Sku::factory()->for($tenant)->for($firstStockItem)->create();
+        $secondSku = Sku::factory()->for($tenant)->for($secondStockItem)->create();
+
+        BarcodeAlias::create([
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_SKU,
+            'model_id' => $firstSku->id,
+            'barcode' => '49-0123',
+            'normalized_barcode' => '490123',
+            'barcode_type' => 'jan',
+            'is_active' => true,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openAliasPanel', $secondSku->id)
+            ->set('aliasBarcode', '49 0123')
+            ->call('createBarcodeAlias')
+            ->assertHasErrors(['normalized_barcode']);
+    }
+
+    public function test_same_normalized_barcode_across_different_tenants_is_allowed(): void
+    {
+        $firstTenant = Tenant::factory()->create();
+        $secondTenant = Tenant::factory()->create();
+        $firstStockItem = StockItem::factory()->for($firstTenant)->create();
+        $secondStockItem = StockItem::factory()->for($secondTenant)->create();
+        $firstSku = Sku::factory()->for($firstTenant)->for($firstStockItem)->create();
+        $secondSku = Sku::factory()->for($secondTenant)->for($secondStockItem)->create();
+
+        BarcodeAlias::create([
+            'tenant_id' => $firstTenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_SKU,
+            'model_id' => $firstSku->id,
+            'barcode' => '49-0123',
+            'normalized_barcode' => '490123',
+            'barcode_type' => 'jan',
+            'is_active' => true,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openAliasPanel', $secondSku->id)
+            ->set('aliasBarcode', '49 0123')
+            ->call('createBarcodeAlias')
+            ->assertHasNoErrors();
+
+        $this->assertSame(2, BarcodeAlias::where('normalized_barcode', '490123')->count());
+    }
+
+    public function test_tenant_user_cannot_create_alias_for_another_tenant_sku(): void
+    {
+        [, $user] = $this->tenantUser();
+        $otherTenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($otherTenant)->create();
+        $sku = Sku::factory()->for($otherTenant)->for($stockItem)->create();
+
+        Livewire::actingAs($user)
+            ->test(SkusIndex::class)
+            ->call('openAliasPanel', $sku->id)
+            ->assertNotFound();
+
+        $this->assertDatabaseMissing('barcode_aliases', [
+            'tenant_id' => $otherTenant->id,
+            'model_id' => $sku->id,
+        ]);
     }
 
     public function test_duplicate_sku_is_rejected_for_nullable_shop_scope(): void

@@ -10,6 +10,7 @@ use App\Livewire\FulfillmentGroupPack;
 use App\Livewire\FulfillmentPackStart;
 use App\Livewire\OutboundOrderDetail;
 use App\Livewire\OutboundOrderShip;
+use App\Models\BarcodeAlias;
 use App\Models\CourierExportBatch;
 use App\Models\FulfillmentGroup;
 use App\Models\FulfillmentPackScan;
@@ -1175,6 +1176,121 @@ class FulfillmentGroupTest extends TestCase
             ->assertSee('2');
     }
 
+    public function test_inactive_alias_does_not_match_pack_scan(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-INACTIVE-ALIAS');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'INACTIVE-ALIAS', false);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->set('barcode', 'INACTIVE-ALIAS')
+            ->call('scan')
+            ->assertSee('Barcode does not match this shipment.');
+
+        $this->assertSame(0, FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->count());
+    }
+
+    public function test_sku_alias_matches_pack_scan(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-SKU-ALIAS');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'SKU ALIAS-001');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->set('barcode', 'sku-alias001')
+            ->call('scan')
+            ->assertSee('Ready to mark shipped.');
+
+        $this->assertDatabaseHas('fulfillment_pack_scans', [
+            'fulfillment_group_id' => $group->id,
+            'sku_id' => $sku->id,
+            'stock_item_id' => $sku->stock_item_id,
+            'barcode_scanned' => 'sku-alias001',
+            'normalized_barcode' => 'SKUALIAS001',
+            'result' => FulfillmentPackScan::RESULT_ACCEPTED,
+        ]);
+    }
+
+    public function test_stock_item_alias_matches_pack_scan(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-STOCK-ALIAS');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_STOCK_ITEM, $sku->stock_item_id, 'STOCK ALIAS-001');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->set('barcode', 'stock-alias001')
+            ->call('scan')
+            ->assertSee('Ready to mark shipped.');
+
+        $this->assertSame(1, FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->count());
+    }
+
+    public function test_virtual_bundle_component_stock_item_alias_matches_pack_scan(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create();
+        $componentStock = StockItem::factory()->for($tenant)->create(['code' => $tenant->code.'-000002']);
+        $bundleSku = Sku::factory()->virtualBundle()->for($tenant)->for($shop)->create(['sku' => 'SKU-BUNDLE-ALIAS']);
+        SkuBundleComponent::factory()
+            ->for($tenant)
+            ->for($bundleSku, 'bundleSku')
+            ->for($componentStock, 'componentStockItem')
+            ->create(['quantity' => 1]);
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $componentStock->id, 10);
+        $order = $this->readySalesOrder($tenant, $shop, $bundleSku, 1, 'SO-PACK-COMPONENT-ALIAS');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_STOCK_ITEM, $componentStock->id, 'COMPONENT ALIAS-001');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->set('barcode', 'component-alias001')
+            ->call('scan')
+            ->assertSee('Ready to mark shipped.');
+
+        $this->assertDatabaseHas('fulfillment_pack_scans', [
+            'fulfillment_group_id' => $group->id,
+            'sku_id' => null,
+            'stock_item_id' => $componentStock->id,
+            'result' => FulfillmentPackScan::RESULT_ACCEPTED,
+        ]);
+    }
+
+    public function test_existing_direct_sku_barcode_stock_barcode_and_sku_code_scans_still_work(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $sku->update(['barcode' => 'DIRECT-SKU-BAR', 'sku' => 'DIRECT-SKU-CODE']);
+        $sku->stockItem->update(['barcode' => 'DIRECT-STOCK-BAR']);
+        $first = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-DIRECT-1');
+        $second = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-DIRECT-2');
+        $third = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-DIRECT-3');
+        $this->createGroup($tenant, $warehouse, $first->ship_together_key, [$first, $second, $third]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupPack::class, ['group' => $group])
+            ->set('packMode', 'strict')
+            ->set('barcode', 'direct-sku-bar')
+            ->call('scan')
+            ->set('barcode', 'direct-stock-bar')
+            ->call('scan')
+            ->set('barcode', 'direct-sku-code')
+            ->call('scan')
+            ->assertSee('Ready to mark shipped.');
+
+        $this->assertSame(3, FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->count());
+    }
+
     public function test_pack_progress_sums_scan_quantity(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
@@ -1677,6 +1793,19 @@ class FulfillmentGroupTest extends TestCase
         app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $stockItem->id, $onHand);
 
         return [$tenant, $warehouse, $shop, $sku];
+    }
+
+    private function createBarcodeAlias(Tenant $tenant, string $modelType, int $modelId, string $barcode, bool $isActive = true): BarcodeAlias
+    {
+        return BarcodeAlias::create([
+            'tenant_id' => $tenant->id,
+            'model_type' => $modelType,
+            'model_id' => $modelId,
+            'barcode' => $barcode,
+            'normalized_barcode' => BarcodeAlias::normalize($barcode),
+            'barcode_type' => 'other',
+            'is_active' => $isActive,
+        ]);
     }
 
     private function readySalesOrder(

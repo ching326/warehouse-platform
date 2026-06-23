@@ -2,6 +2,7 @@
 
 namespace App\Services\Fulfillment;
 
+use App\Models\BarcodeAlias;
 use App\Models\FulfillmentGroup;
 use App\Models\FulfillmentPackScan;
 use App\Models\SalesOrderLine;
@@ -13,7 +14,7 @@ class FulfillmentPackService
 {
     public function normalizeProductBarcode(string $value): string
     {
-        return trim($value);
+        return BarcodeAlias::normalize($value);
     }
 
     /**
@@ -55,8 +56,9 @@ class FulfillmentPackService
     public function packLines(FulfillmentGroup $group): array
     {
         $group->loadMissing([
-            'orders.lines.sku.stockItem',
-            'orders.lines.sku.bundleComponents.componentStockItem',
+            'orders.lines.sku.barcodeAliases',
+            'orders.lines.sku.stockItem.barcodeAliases',
+            'orders.lines.sku.bundleComponents.componentStockItem.barcodeAliases',
         ]);
 
         $lines = [];
@@ -196,7 +198,32 @@ class FulfillmentPackService
             }
         }
 
+        foreach ($this->activeAliasBarcodes($sku?->barcodeAliases) as $alias) {
+            if ($alias === $normalizedScan) {
+                return true;
+            }
+        }
+
+        foreach ($this->activeAliasBarcodes($stockItem?->barcodeAliases) as $alias) {
+            if ($alias === $normalizedScan) {
+                return true;
+            }
+        }
+
         return false;
+    }
+
+    private function activeAliasBarcodes(?Collection $aliases): array
+    {
+        if (! $aliases) {
+            return [];
+        }
+
+        return $aliases
+            ->filter(fn (BarcodeAlias $alias): bool => $alias->is_active)
+            ->pluck('normalized_barcode')
+            ->map(fn (string $barcode): string => $this->normalizeProductBarcode($barcode))
+            ->all();
     }
 
     /**
