@@ -21,7 +21,7 @@ class OutboundOrderShip extends Component
 
     public string $packageCount = '';
 
-    public string $packageWeightG = '';
+    public string $packageWeightKg = '';
 
     public string $shipNote = '';
 
@@ -66,7 +66,7 @@ class OutboundOrderShip extends Component
                 'shipping_method' => $this->shippingMethod,
                 'tracking_no' => $this->trackingNo,
                 'package_count' => $this->packageCount,
-                'package_weight_g' => $this->packageWeightG,
+                'package_weight_g' => $this->packageWeightKg === '' ? null : (int) round(((float) $this->packageWeightKg) * 1000),
                 'ship_note' => $this->shipNote,
             ]);
         } catch (InvalidArgumentException $exception) {
@@ -107,14 +107,14 @@ class OutboundOrderShip extends Component
             'shipping_method' => $this->shippingMethod,
             'tracking_no' => $this->trackingNo,
             'package_count' => $this->packageCount,
-            'package_weight_g' => $this->packageWeightG,
+            'package_weight_kg' => $this->packageWeightKg,
             'ship_note' => $this->shipNote,
         ], [
             'courier' => ['nullable', 'string', 'max:100'],
             'shipping_method' => ['nullable', 'string', 'max:100'],
             'tracking_no' => ['nullable', 'string', 'max:255'],
             'package_count' => ['nullable', 'integer', 'min:1'],
-            'package_weight_g' => ['nullable', 'integer', 'min:1'],
+            'package_weight_kg' => ['nullable', 'numeric', 'min:0'],
             'ship_note' => ['nullable', 'string', 'max:1000'],
         ])->validate();
     }

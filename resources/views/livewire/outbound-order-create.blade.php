@@ -41,22 +41,16 @@
                         </flux:select.option>
                     @endforeach
                 </flux:select>
-
-                <flux:input wire:model="expectedShipAt" type="date" :label="__('outbound.field_expected_ship_at')" />
             </div>
 
             <div class="form-grid form-grid-spaced">
-                <div>
-                    <flux:input wire:model="ref" :label="__('outbound.field_ref')" />
-                    <span class="subtle">{{ __('outbound.field_ref_hint') }}</span>
-                </div>
                 <label class="form-grid-wide">
                     <span>{{ __('outbound.field_note') }}</span>
                     <textarea wire:model="note" rows="3"></textarea>
                 </label>
             </div>
 
-            @foreach (['tenantId', 'tenant_id', 'warehouse_id', 'ref', 'expected_ship_at', 'shipping_method', 'note'] as $field)
+            @foreach (['tenantId', 'tenant_id', 'warehouse_id', 'ref', 'shipping_method', 'note'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
         </section>

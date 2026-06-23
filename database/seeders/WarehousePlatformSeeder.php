@@ -813,7 +813,6 @@ class WarehousePlatformSeeder extends Seeder
                         'warehouse_id' => $warehouse->id,
                         'ref' => "OB-{$tenant->code}-{$warehouse->code}-".str_pad($i + 1, 3, '0', STR_PAD_LEFT),
                         'status' => $isShipped ? OutboundOrder::STATUS_SHIPPED : OutboundOrder::STATUS_PENDING,
-                        'expected_ship_at' => now()->addDays(rand(1, 14)),
                         'note' => rand(0, 2) === 0 ? 'Handle with care' : '',
                         'recipient_name' => $this->randomRecipientName($tenant->code, $i),
                         'recipient_phone' => $this->randomPhone(['JP', 'TH', 'SG'][($tenantIdx + $i) % 3]),

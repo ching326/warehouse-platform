@@ -63,14 +63,14 @@
                 <flux:input wire:model="courier" :label="__('outbound.field_courier')" />
                 <flux:input wire:model="trackingNo" :label="__('outbound.field_tracking_no')" />
                 <flux:input wire:model="packageCount" type="number" min="1" step="1" :label="__('outbound.field_package_count')" />
-                <flux:input wire:model="packageWeightG" type="number" min="1" step="1" :label="__('outbound.field_package_weight_g')" />
+                <flux:input wire:model="packageWeightKg" type="number" min="0" step="0.01" :label="__('outbound.field_package_weight_kg')" />
                 <label class="form-grid-wide">
                     <span>{{ __('outbound.field_ship_note') }}</span>
                     <textarea wire:model="shipNote" rows="3"></textarea>
                 </label>
             </div>
 
-            @foreach (['shipping_method', 'courier', 'tracking_no', 'package_count', 'package_weight_g', 'ship_note'] as $field)
+            @foreach (['shipping_method', 'courier', 'tracking_no', 'package_count', 'package_weight_kg', 'ship_note'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
         </section>

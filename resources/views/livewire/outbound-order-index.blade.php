@@ -32,7 +32,7 @@
             <flux:table.columns>
                 <flux:table.column>{{ __('outbound.col_ref') }}</flux:table.column>
                 <flux:table.column>{{ __('outbound.col_tenant_warehouse') }}</flux:table.column>
-                <flux:table.column>{{ __('outbound.col_expected_ship_at') }}</flux:table.column>
+                <flux:table.column>{{ __('outbound.col_shipped_at') }}</flux:table.column>
                 <flux:table.column>{{ __('outbound.col_lines') }}</flux:table.column>
                 <flux:table.column>{{ __('outbound.col_status') }}</flux:table.column>
                 <flux:table.column>{{ __('outbound.col_actions') }}</flux:table.column>
@@ -44,7 +44,7 @@
                         @php($shop = $order->fulfillmentGroup?->orders->first()?->shop)
                         <flux:table.cell>
                             <a class="outbound-order-number-link" href="{{ route('outbound.show', $order) }}" wire:navigate>
-                                #{{ $order->id }} {{ $order->ref ?: '-' }}
+                                {{ $order->ref ?: '-' }}
                             </a>
                         </flux:table.cell>
                         <flux:table.cell>
@@ -53,7 +53,7 @@
                                 <span class="outbound-inline-muted">{{ $shop ? $shop->code.' - '.$shop->name : '-' }}</span>
                             </span>
                         </flux:table.cell>
-                        <flux:table.cell>{{ $order->expected_ship_at ? $order->expected_ship_at->format('Y-m-d') : '-' }}</flux:table.cell>
+                        <flux:table.cell>{{ $order->shipped_at ? $order->shipped_at->format('Y-m-d H:i') : '-' }}</flux:table.cell>
                         <flux:table.cell>
                             @foreach ($order->parentLines as $line)
                                 <span class="subtle">{{ $line->sku->sku }} x{{ number_format($line->qty) }}</span>

@@ -29,8 +29,6 @@ class OutboundOrderCreate extends Component
 
     public string $ref = '';
 
-    public string $expectedShipAt = '';
-
     public string $note = '';
 
     public string $skuSearch = '';
@@ -94,9 +92,8 @@ class OutboundOrderCreate extends Component
             $order = OutboundOrder::create([
                 'tenant_id' => $tenantId,
                 'warehouse_id' => (int) $this->warehouseId,
-                'ref' => $this->nullableString($this->ref),
+                'ref' => $this->ref !== '' ? $this->nullableString($this->ref) : 'OB-PENDING-'.\Illuminate\Support\Str::uuid(),
                 'status' => OutboundOrder::STATUS_PENDING,
-                'expected_ship_at' => $this->nullableString($this->expectedShipAt),
                 'note' => $this->nullableString($this->note),
                 'recipient_name' => $this->nullableString($this->recipientName),
                 'recipient_phone' => $this->nullableString($this->recipientPhone),
@@ -109,6 +106,10 @@ class OutboundOrderCreate extends Component
                 'shipping_method' => $this->nullableString($this->shippingMethod),
                 'created_by_user_id' => Auth::id(),
             ]);
+
+            if ($this->ref === '') {
+                $order->update(['ref' => OutboundOrder::buildRef($order->id, $order->tenant->code)]);
+            }
 
             foreach ($this->lines as $index => $lineInput) {
                 $sku = Sku::query()
@@ -264,7 +265,6 @@ class OutboundOrderCreate extends Component
             'tenant_id' => ['required', 'integer'],
             'warehouse_id' => ['required', 'integer', Rule::exists('warehouses', 'id')->where('status', 'active')],
             'ref' => ['nullable', 'string', 'max:255'],
-            'expected_ship_at' => ['nullable', 'date'],
             'note' => ['nullable', 'string', 'max:1000'],
             'recipient_name' => ['nullable', 'string', 'max:255'],
             'recipient_phone' => ['nullable', 'string', 'max:50'],
@@ -299,7 +299,6 @@ class OutboundOrderCreate extends Component
             'tenant_id' => $this->tenantId,
             'warehouse_id' => $this->warehouseId,
             'ref' => $this->ref,
-            'expected_ship_at' => $this->expectedShipAt,
             'note' => $this->note,
             'recipient_name' => $this->recipientName,
             'recipient_phone' => $this->recipientPhone,

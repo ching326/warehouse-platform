@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonInterface;
 use Database\Factories\OutboundOrderFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,6 +14,16 @@ class OutboundOrder extends Model
     /** @use HasFactory<OutboundOrderFactory> */
     use HasFactory;
 
+    public static function buildRef(int $id, string $tenantCode, ?CarbonInterface $date = null): string
+    {
+        $date ??= now('Asia/Tokyo');
+        $tenantCode = strtoupper(trim($tenantCode));
+        $tenantCode = preg_replace('/[^A-Z0-9]+/', '', $tenantCode) ?? '';
+        $tenantCode = $tenantCode !== '' ? $tenantCode : 'TENANT';
+
+        return 'OB-'.$tenantCode.'-'.$date->format('ymd').'-'.str_pad((string) $id, 3, '0', STR_PAD_LEFT);
+    }
+
     public const STATUS_PENDING = 'pending';
     public const STATUS_SHIPPED = 'shipped';
     public const STATUS_CANCELLED = 'cancelled';
@@ -23,7 +34,6 @@ class OutboundOrder extends Model
         'warehouse_id',
         'ref',
         'status',
-        'expected_ship_at',
         'note',
         'recipient_name',
         'recipient_phone',
@@ -49,7 +59,6 @@ class OutboundOrder extends Model
     protected function casts(): array
     {
         return [
-            'expected_ship_at' => 'date',
             'shipped_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'package_count' => 'integer',

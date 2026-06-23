@@ -26,8 +26,8 @@
                 <strong>{{ $order->warehouse->code }} - {{ $order->warehouse->name }}</strong>
             </div>
             <div>
-                <span>{{ __('outbound.field_expected_ship_at') }}</span>
-                <strong>{{ $order->expected_ship_at ? $order->expected_ship_at->format('Y-m-d') : '-' }}</strong>
+                <span>{{ __('outbound.col_shipped_at') }}</span>
+                <strong>{{ $order->shipped_at ? $order->shipped_at->format('Y-m-d H:i') : '-' }}</strong>
             </div>
             <div>
                 <span>{{ __('outbound.field_note') }}</span>

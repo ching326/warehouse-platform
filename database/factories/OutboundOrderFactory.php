@@ -20,7 +20,6 @@ class OutboundOrderFactory extends Factory
             'warehouse_id' => Warehouse::factory(),
             'ref' => fake()->optional()->bothify('OB-####'),
             'status' => OutboundOrder::STATUS_PENDING,
-            'expected_ship_at' => fake()->optional()->dateTimeBetween('now', '+14 days'),
             'note' => fake()->optional()->sentence(),
             'created_by_user_id' => User::factory(),
         ];

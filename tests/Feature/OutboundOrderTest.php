@@ -515,6 +515,38 @@ class OutboundOrderTest extends TestCase
         return [$tenant, $warehouse, $bundleSku, $componentA, $componentB];
     }
 
+    public function test_build_ref_uses_tenant_code_date_and_sequence(): void
+    {
+        $ref = OutboundOrder::buildRef(7, 'acme', \Carbon\CarbonImmutable::create(2026, 6, 23, 0, 0, 0, 'Asia/Tokyo'));
+
+        $this->assertSame('OB-ACME-260623-007', $ref);
+    }
+
+    public function test_manual_outbound_without_ref_gets_generated_ob_reference(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(20);
+
+        $this->createOrder($tenant, $warehouse, $sku, qty: 1, ref: '');
+
+        $order = OutboundOrder::firstOrFail();
+        $tenantCode = preg_replace('/[^A-Z0-9]+/', '', strtoupper($tenant->code));
+        $this->assertMatchesRegularExpression('/^OB-'.preg_quote($tenantCode, '/').'-\d{6}-\d{3,}$/', $order->ref);
+    }
+
+    public function test_ship_stores_total_weight_in_grams_from_kg_input(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
+        $this->createOrder($tenant, $warehouse, $sku, qty: 1, ref: 'OB-KG');
+        $order = OutboundOrder::where('ref', 'OB-KG')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderShip::class, ['order' => $order])
+            ->set('packageWeightKg', '2.5')
+            ->call('save');
+
+        $this->assertSame(2500, $order->refresh()->package_weight_g);
+    }
+
     private function createOrder(
         Tenant $tenant,
         Warehouse $warehouse,
