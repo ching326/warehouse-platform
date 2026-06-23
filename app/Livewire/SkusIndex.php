@@ -1044,13 +1044,21 @@ class SkusIndex extends Component
         }
 
         try {
-            $response = Http::timeout(15)->get($url);
+            $response = Http::timeout(15)
+                ->withOptions(['allow_redirects' => false])
+                ->get($url);
         } catch (ConnectionException $exception) {
             throw ValidationException::withMessages(['amazonImage' => __('skus.amazon_image_download_failed')]);
         }
 
-        if ($response->failed()) {
+        if (! $response->successful()) {
             throw ValidationException::withMessages(['amazonImage' => __('skus.amazon_image_download_failed')]);
+        }
+
+        $contentLength = trim((string) $response->header('Content-Length'));
+
+        if ($contentLength !== '' && ctype_digit($contentLength) && (int) $contentLength > 5 * 1024 * 1024) {
+            throw ValidationException::withMessages(['amazonImage' => __('skus.amazon_image_too_large')]);
         }
 
         $bytes = $response->body();

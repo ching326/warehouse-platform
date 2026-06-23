@@ -970,6 +970,55 @@ class SkuManagementTest extends TestCase
             ->assertHasErrors(['amazonImage']);
 
         $this->assertSame(0, MediaAsset::count());
+
+        $redirectUrl = 'https://m.media-amazon.com/images/I/redirect.jpg';
+        Http::fake([
+            'https://api.amazon.com/auth/o2/token' => Http::response(['access_token' => 'token', 'expires_in' => 3600], 200),
+            rtrim($connection->endpoint, '/').'/catalog/2022-04-01/items/*' => Http::response([
+                'images' => [[
+                    'marketplaceId' => $connection->marketplace_id,
+                    'images' => [[
+                        'variant' => 'MAIN',
+                        'link' => $redirectUrl,
+                        'width' => 1000,
+                        'height' => 1000,
+                    ]],
+                ]],
+            ], 200),
+            $redirectUrl => Http::response('', 302, ['Location' => 'https://example.test/redirected.jpg']),
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('importAmazonImage', $sku->id)
+            ->assertHasErrors(['amazonImage']);
+
+        $this->assertSame(0, MediaAsset::count());
+
+        $lengthUrl = 'https://m.media-amazon.com/images/I/header-large.jpg';
+        $smallImage = UploadedFile::fake()->image('small.jpg');
+        Http::fake([
+            'https://api.amazon.com/auth/o2/token' => Http::response(['access_token' => 'token', 'expires_in' => 3600], 200),
+            rtrim($connection->endpoint, '/').'/catalog/2022-04-01/items/*' => Http::response([
+                'images' => [[
+                    'marketplaceId' => $connection->marketplace_id,
+                    'images' => [[
+                        'variant' => 'MAIN',
+                        'link' => $lengthUrl,
+                        'width' => 1000,
+                        'height' => 1000,
+                    ]],
+                ]],
+            ], 200),
+            $lengthUrl => Http::response((string) file_get_contents($smallImage->getRealPath()), 200, ['Content-Length' => (string) (5 * 1024 * 1024 + 1)]),
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('importAmazonImage', $sku->id)
+            ->assertHasErrors(['amazonImage']);
+
+        $this->assertSame(0, MediaAsset::count());
         $this->assertSame([], Storage::disk('public')->allFiles());
     }
 
