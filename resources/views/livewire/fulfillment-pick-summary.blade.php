@@ -57,7 +57,7 @@
                     <flux:table.column>{{ __('fulfillment_pick.col_product_name') }}</flux:table.column>
                     <flux:table.column>{{ __('fulfillment_pick.col_barcode') }}</flux:table.column>
                     <flux:table.column align="end">{{ __('fulfillment_pick.col_required_qty') }}</flux:table.column>
-                    <flux:table.column align="end">{{ __('fulfillment_pick.col_available_qty') }}</flux:table.column>
+                    <flux:table.column align="end">{{ __('fulfillment_pick.col_pickable_qty') }}</flux:table.column>
                     <flux:table.column align="end">{{ __('fulfillment_pick.col_difference') }}</flux:table.column>
                     <flux:table.column>{{ __('fulfillment_pick.col_location_hint') }}</flux:table.column>
                     <flux:table.column>{{ __('fulfillment_pick.col_groups_orders') }}</flux:table.column>
@@ -90,7 +90,7 @@
                                 @endif
                             </flux:table.cell>
                             <flux:table.cell align="end">{{ number_format($row['required_qty']) }}</flux:table.cell>
-                            <flux:table.cell align="end">{{ number_format($row['available_qty']) }}</flux:table.cell>
+                            <flux:table.cell align="end">{{ number_format($row['pickable_qty']) }}</flux:table.cell>
                             <flux:table.cell align="end">
                                 <span @class(['pick-diff', 'is-short' => $row['difference'] < 0, 'is-low' => $row['difference'] >= 0 && $row['difference'] <= 2, 'is-enough' => $row['difference'] > 2])>
                                     {{ number_format($row['difference']) }}

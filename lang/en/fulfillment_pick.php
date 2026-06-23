@@ -21,7 +21,7 @@ return [
     'col_product_name' => 'Product name',
     'col_barcode' => 'Barcode',
     'col_required_qty' => 'Required qty',
-    'col_available_qty' => 'Available qty',
+    'col_pickable_qty' => 'Pickable',
     'col_difference' => 'Difference',
     'col_location_hint' => 'Location hint',
     'col_groups_orders' => 'Groups / Orders',

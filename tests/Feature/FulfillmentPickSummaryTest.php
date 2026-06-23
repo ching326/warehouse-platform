@@ -110,29 +110,48 @@ class FulfillmentPickSummaryTest extends TestCase
             ->assertSee('6');
     }
 
-    public function test_available_qty_and_shortage_are_detected(): void
+    public function test_reserved_stock_is_counted_as_pickable(): void
     {
-        [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-PICK-SHORT', 'SKU-PICK-SHORT');
-        InventoryBalance::query()
-            ->where('tenant_id', $tenant->id)
-            ->where('warehouse_id', $warehouse->id)
-            ->where('stock_item_id', $sku->stock_item_id)
-            ->update([
-                'on_hand_qty' => 5,
-                'reserved_qty' => 2,
-                'hold_qty' => 1,
-                'damaged_qty' => 0,
-                'available_qty' => 2,
-            ]);
-        $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 4, 'SO-PICK-SHORT');
+        [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-RESERVED-FIVE', 'SKU-RESERVED-FIVE');
+        $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 5, 'SO-PICK-RESERVED-STOCK');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $this->setBalance($tenant, $warehouse, $sku->stockItem, onHand: 5, reserved: 5, available: 0);
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPickSummary::class)
             ->set('warehouseId', (string) $warehouse->id)
-            ->assertSee('Shortage rows')
-            ->assertSee('2')
-            ->assertSee('-2');
+            ->assertSee('Pickable')
+            ->assertDontSee('Available qty')
+            ->assertSeeInOrder(['Required qty', '5', 'Shortage rows', '0'])
+            ->assertSeeInOrder(['STK-RESERVED-FIVE', 'SKU-RESERVED-FIVE', '5', '5', '0']);
+    }
+
+    public function test_hold_stock_is_not_pickable(): void
+    {
+        [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-HOLD-FIVE', 'SKU-HOLD-FIVE');
+        $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 5, 'SO-PICK-HOLD');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $this->setBalance($tenant, $warehouse, $sku->stockItem, onHand: 5, reserved: 5, hold: 2, available: 0);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPickSummary::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->assertSeeInOrder(['Shortage rows', '1'])
+            ->assertSeeInOrder(['STK-HOLD-FIVE', 'SKU-HOLD-FIVE', '5', '3', '-2']);
+    }
+
+    public function test_damaged_stock_is_not_pickable(): void
+    {
+        [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-DAMAGED-FIVE', 'SKU-DAMAGED-FIVE');
+        $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 5, 'SO-PICK-DAMAGED');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $this->setBalance($tenant, $warehouse, $sku->stockItem, onHand: 5, reserved: 5, damaged: 1, available: 0);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPickSummary::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->assertSeeInOrder(['Shortage rows', '1'])
+            ->assertSeeInOrder(['STK-DAMAGED-FIVE', 'SKU-DAMAGED-FIVE', '5', '4', '-1']);
     }
 
     public function test_search_matches_stock_item_name_and_sku_code(): void
@@ -172,19 +191,9 @@ class FulfillmentPickSummaryTest extends TestCase
     public function test_summary_cards_reflect_filtered_rows(): void
     {
         [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-PICK-SUM', 'SKU-PICK-SUM');
-        InventoryBalance::query()
-            ->where('tenant_id', $tenant->id)
-            ->where('warehouse_id', $warehouse->id)
-            ->where('stock_item_id', $sku->stock_item_id)
-            ->update([
-                'on_hand_qty' => 1,
-                'reserved_qty' => 0,
-                'hold_qty' => 0,
-                'damaged_qty' => 0,
-                'available_qty' => 1,
-            ]);
         $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 3, 'SO-PICK-SUM');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $this->setBalance($tenant, $warehouse, $sku->stockItem, onHand: 1, reserved: 0, available: 1);
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPickSummary::class)
@@ -258,6 +267,29 @@ class FulfillmentPickSummaryTest extends TestCase
             ->set('shipKey', $shipKey)
             ->set('selectedOrderIds', collect($orders)->pluck('id')->map(fn ($id) => (string) $id)->all())
             ->call('save');
+    }
+
+    private function setBalance(
+        Tenant $tenant,
+        Warehouse $warehouse,
+        StockItem $stockItem,
+        int $onHand,
+        int $reserved = 0,
+        int $hold = 0,
+        int $damaged = 0,
+        int $available = 0,
+    ): void {
+        InventoryBalance::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('warehouse_id', $warehouse->id)
+            ->where('stock_item_id', $stockItem->id)
+            ->update([
+                'on_hand_qty' => $onHand,
+                'reserved_qty' => $reserved,
+                'hold_qty' => $hold,
+                'damaged_qty' => $damaged,
+                'available_qty' => $available,
+            ]);
     }
 
     private function shippingMethod(string $code): ShippingMethod

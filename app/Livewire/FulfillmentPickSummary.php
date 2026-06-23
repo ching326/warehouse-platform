@@ -104,7 +104,7 @@ class FulfillmentPickSummary extends Component
                     'alias_count' => $this->aliasCount($line),
                     'is_strict' => $packService->lineIsStrictOnly($line),
                     'location_hint' => '-',
-                    'available_qty' => 0,
+                    'pickable_qty' => 0,
                     'difference' => 0,
                 ];
 
@@ -132,16 +132,16 @@ class FulfillmentPickSummary extends Component
         }
 
         $stockItemIds = $rows->pluck('stock_item_id')->filter()->unique()->values();
-        $balances = $this->balanceMap($stockItemIds);
+        $pickableQuantities = $this->pickableQuantityMap($stockItemIds);
         $locations = $this->locationHints($stockItemIds);
 
         return $rows
-            ->map(function (array $row) use ($balances, $locations): array {
+            ->map(function (array $row) use ($pickableQuantities, $locations): array {
                 $stockItemId = $row['stock_item_id'];
-                $available = $stockItemId ? ($balances[$stockItemId] ?? 0) : 0;
+                $pickable = $stockItemId ? ($pickableQuantities[$stockItemId] ?? 0) : 0;
 
-                $row['available_qty'] = $available;
-                $row['difference'] = $available - (int) $row['required_qty'];
+                $row['pickable_qty'] = $pickable;
+                $row['difference'] = $pickable - (int) $row['required_qty'];
                 $row['location_hint'] = $stockItemId ? ($locations[$stockItemId] ?? '-') : '-';
 
                 return $row;
@@ -168,7 +168,7 @@ class FulfillmentPickSummary extends Component
      * @param  Collection<int, int>  $stockItemIds
      * @return array<int, int>
      */
-    private function balanceMap(Collection $stockItemIds): array
+    private function pickableQuantityMap(Collection $stockItemIds): array
     {
         if ($stockItemIds->isEmpty()) {
             return [];
@@ -179,7 +179,7 @@ class FulfillmentPickSummary extends Component
             ->whereIn('stock_item_id', $stockItemIds)
             ->get()
             ->mapWithKeys(fn (InventoryBalance $balance): array => [
-                $balance->stock_item_id => max(0, (int) $balance->on_hand_qty - (int) $balance->reserved_qty - (int) $balance->hold_qty - (int) $balance->damaged_qty),
+                $balance->stock_item_id => max(0, (int) $balance->on_hand_qty - (int) $balance->hold_qty - (int) $balance->damaged_qty),
             ])
             ->all();
     }
@@ -239,7 +239,7 @@ class FulfillmentPickSummary extends Component
         return [
             'pick_rows' => $rows->count(),
             'required_qty' => (int) $rows->sum('required_qty'),
-            'shortage_rows' => $rows->filter(fn (array $row): bool => $row['available_qty'] < $row['required_qty'])->count(),
+            'shortage_rows' => $rows->filter(fn (array $row): bool => $row['pickable_qty'] < $row['required_qty'])->count(),
             'groups_included' => $rows->flatMap(fn (array $row): array => array_keys($row['groups']))->unique()->count(),
         ];
     }
