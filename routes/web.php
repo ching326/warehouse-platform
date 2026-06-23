@@ -9,6 +9,7 @@ use App\Livewire\FulfillmentGroupCreate;
 use App\Livewire\FulfillmentGroupDetail;
 use App\Livewire\FulfillmentGroupIndex;
 use App\Livewire\FulfillmentGroupPack;
+use App\Livewire\FulfillmentPickSummary;
 use App\Livewire\FulfillmentPackScanIndex;
 use App\Livewire\FulfillmentPackStart;
 use App\Livewire\IssueCreate;
@@ -124,6 +125,7 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/marketplace-shipping-notice-batches/{batch}/download', MarketplaceShippingNoticeDownloadController::class)
         ->name('marketplace-shipping-notice-batches.download');
     Route::get('/fulfillment-groups', FulfillmentGroupIndex::class)->name('fulfillment-groups.index');
+    Route::get('/fulfillment/pick-summary', FulfillmentPickSummary::class)->name('fulfillment.pick-summary');
     Route::get('/fulfillment/pack', FulfillmentPackStart::class)->name('fulfillment.pack.start');
     Route::get('/fulfillment/pack-scans', FulfillmentPackScanIndex::class)->name('fulfillment.pack-scans.index');
     Route::post('/fulfillment-groups/tracking-import', FulfillmentTrackingImportController::class)->name('fulfillment.tracking-import');
@@ -157,5 +159,4 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/setup/other-settings', OtherSettings::class)->name('setup.other-settings');
     Route::get('/stock-adjustments/create', StockAdjustmentCreate::class)->name('stock-adjustments.create');
 });
-
 
