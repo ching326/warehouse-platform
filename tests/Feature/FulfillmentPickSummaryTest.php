@@ -96,10 +96,64 @@ class FulfillmentPickSummaryTest extends TestCase
         Carbon::setTestNow(Carbon::parse('2026-06-24 00:30:00', 'Asia/Tokyo'));
 
         try {
+            $warehouse = Warehouse::factory()->create([
+                'country_code' => 'JP',
+                'timezone' => 'Asia/Tokyo',
+                'status' => 'active',
+            ]);
+
             Livewire::actingAs($this->internalUser())
                 ->test(FulfillmentPickSummary::class)
+                ->assertSet('warehouseId', (string) $warehouse->id)
                 ->assertSet('dateFrom', '2026-06-24')
                 ->assertSet('dateTo', '2026-06-24');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_us_warehouse_default_date_uses_warehouse_timezone(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-24 00:30:00', 'Asia/Tokyo'));
+
+        try {
+            $warehouse = Warehouse::factory()->create([
+                'country_code' => 'US',
+                'timezone' => 'America/Los_Angeles',
+                'status' => 'active',
+            ]);
+
+            Livewire::actingAs($this->internalUser())
+                ->test(FulfillmentPickSummary::class)
+                ->assertSet('warehouseId', (string) $warehouse->id)
+                ->assertSet('dateFrom', '2026-06-23')
+                ->assertSet('dateTo', '2026-06-23');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_explicit_date_query_params_are_preserved(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-24 00:30:00', 'Asia/Tokyo'));
+
+        try {
+            $warehouse = Warehouse::factory()->create([
+                'country_code' => 'US',
+                'timezone' => 'America/Los_Angeles',
+                'status' => 'active',
+            ]);
+
+            Livewire::withQueryParams([
+                'warehouse_id' => (string) $warehouse->id,
+                'date_from' => '2026-06-20',
+                'date_to' => '2026-06-21',
+            ])
+                ->actingAs($this->internalUser())
+                ->test(FulfillmentPickSummary::class)
+                ->assertSet('warehouseId', (string) $warehouse->id)
+                ->assertSet('dateFrom', '2026-06-20')
+                ->assertSet('dateTo', '2026-06-21');
         } finally {
             Carbon::setTestNow();
         }
@@ -327,6 +381,76 @@ class FulfillmentPickSummaryTest extends TestCase
         }
     }
 
+    public function test_us_warehouse_date_filter_uses_us_day_boundaries(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-24 00:30:00', 'Asia/Tokyo'));
+
+        try {
+            [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-US-TODAY', 'SKU-US-TODAY');
+            $warehouse->update([
+                'country_code' => 'US',
+                'timezone' => 'America/Los_Angeles',
+            ]);
+            $nextStockItem = StockItem::factory()->for($tenant)->create(['code' => 'STK-US-NEXT', 'name' => 'Next US stock']);
+            $nextSku = Sku::factory()->for($tenant)->for($shop)->for($nextStockItem)->create([
+                'sku_type' => 'single',
+                'sku' => 'SKU-US-NEXT',
+                'name' => 'Next US sku',
+            ]);
+            app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $nextStockItem->id, 50);
+
+            $todayOrder = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-US-TODAY');
+            $nextOrder = $this->readySalesOrder($tenant, $shop, $nextSku, $method, 1, 'SO-US-NEXT', '2 US Street');
+
+            $this->createGroup($tenant, $warehouse, $todayOrder->ship_together_key, [$todayOrder]);
+            $todayGroup = FulfillmentGroup::query()->latest('id')->firstOrFail();
+            DB::table('fulfillment_groups')->where('id', $todayGroup->id)->update([
+                'reference_no' => 'FG-US-TODAY',
+                'created_at' => Carbon::parse('2026-06-23 23:30:00', 'America/Los_Angeles')->utc()->format('Y-m-d H:i:s'),
+            ]);
+
+            $this->createGroup($tenant, $warehouse, $nextOrder->ship_together_key, [$nextOrder]);
+            $nextGroup = FulfillmentGroup::query()->latest('id')->firstOrFail();
+            DB::table('fulfillment_groups')->where('id', $nextGroup->id)->update([
+                'reference_no' => 'FG-US-NEXT',
+                'created_at' => Carbon::parse('2026-06-24 00:30:00', 'America/Los_Angeles')->utc()->format('Y-m-d H:i:s'),
+            ]);
+
+            Livewire::withQueryParams([
+                'warehouse_id' => (string) $warehouse->id,
+                'date_from' => '2026-06-23',
+                'date_to' => '2026-06-23',
+            ])
+                ->actingAs($this->internalUser())
+                ->test(FulfillmentPickSummary::class)
+                ->assertSee('STK-US-TODAY')
+                ->assertDontSee('STK-US-NEXT');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_invalid_warehouse_timezone_falls_back_safely(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-24 00:30:00', 'Asia/Tokyo'));
+
+        try {
+            $warehouse = Warehouse::factory()->create([
+                'timezone' => 'Not/A_Timezone',
+                'status' => 'active',
+            ]);
+
+            Livewire::actingAs($this->internalUser())
+                ->test(FulfillmentPickSummary::class)
+                ->assertSet('warehouseId', (string) $warehouse->id)
+                ->assertSet('dateFrom', '2026-06-24')
+                ->assertSet('dateTo', '2026-06-24')
+                ->assertSee('Pick rows');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_fulfillment_group_index_has_pick_summary_link(): void
     {
         Livewire::actingAs($this->internalUser())
@@ -338,7 +462,10 @@ class FulfillmentPickSummaryTest extends TestCase
     public function test_pick_summary_link_carries_supported_filters(): void
     {
         $tenant = Tenant::factory()->create();
-        $warehouse = Warehouse::factory()->create();
+        $warehouse = Warehouse::factory()->create([
+            'country_code' => 'JP',
+            'timezone' => 'Asia/Tokyo',
+        ]);
         $method = $this->shippingMethod('pick_link_method');
 
         $component = Livewire::actingAs($this->internalUser())
@@ -445,7 +572,10 @@ class FulfillmentPickSummaryTest extends TestCase
     private function stationSku(string $stockCode, string $skuCode): array
     {
         $tenant = Tenant::factory()->create();
-        $warehouse = Warehouse::factory()->create();
+        $warehouse = Warehouse::factory()->create([
+            'country_code' => 'JP',
+            'timezone' => 'Asia/Tokyo',
+        ]);
         $shop = Shop::factory()->for($tenant)->create();
         $method = $this->shippingMethod('pick_method');
         $stockItem = StockItem::factory()->for($tenant)->create(['code' => $stockCode, 'name' => $stockCode.' name']);

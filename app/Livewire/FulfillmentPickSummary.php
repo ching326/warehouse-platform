@@ -40,11 +40,13 @@ class FulfillmentPickSummary extends Component
 
     private array $allowedTenantIdsCache = [];
 
+    private ?Warehouse $selectedWarehouseCache = null;
+
+    private ?string $selectedWarehouseCacheKey = null;
+
     public function mount(): void
     {
         $this->authorizeInternalUser();
-        $this->dateFrom = $this->dateFrom ?: now($this->warehouseTimezone())->toDateString();
-        $this->dateTo = $this->dateTo ?: now($this->warehouseTimezone())->toDateString();
 
         if ($this->warehouseId === '') {
             $activeWarehouseIds = Warehouse::query()
@@ -55,6 +57,10 @@ class FulfillmentPickSummary extends Component
                 $this->warehouseId = (string) $activeWarehouseIds->first();
             }
         }
+
+        $today = now($this->warehouseTimezone())->toDateString();
+        $this->dateFrom = $this->dateFrom ?: $today;
+        $this->dateTo = $this->dateTo ?: $today;
     }
 
     public function clearWarehouseFilter(): void
@@ -349,7 +355,42 @@ class FulfillmentPickSummary extends Component
 
     private function warehouseTimezone(): string
     {
-        return 'Asia/Tokyo';
+        $timezone = $this->selectedWarehouse()?->timezone;
+
+        if (! is_string($timezone) || trim($timezone) === '') {
+            return 'Asia/Tokyo';
+        }
+
+        $timezone = trim($timezone);
+
+        try {
+            new \DateTimeZone($timezone);
+        } catch (\Throwable) {
+            return 'Asia/Tokyo';
+        }
+
+        return $timezone;
+    }
+
+    private function selectedWarehouse(): ?Warehouse
+    {
+        if ($this->warehouseId === '') {
+            $this->selectedWarehouseCache = null;
+            $this->selectedWarehouseCacheKey = null;
+
+            return null;
+        }
+
+        if ($this->selectedWarehouseCacheKey === $this->warehouseId) {
+            return $this->selectedWarehouseCache;
+        }
+
+        $this->selectedWarehouseCacheKey = $this->warehouseId;
+        $this->selectedWarehouseCache = Warehouse::query()
+            ->whereKey((int) $this->warehouseId)
+            ->first(['id', 'timezone']);
+
+        return $this->selectedWarehouseCache;
     }
 
     private function filterChips(): array
