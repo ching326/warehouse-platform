@@ -28,11 +28,11 @@ Rules:
 | Inventory Record (Movements) | 在庫履歴 | 庫存記錄 | 库存记录 | done |
 | Stock Adjustment | 在庫調整 | 庫存調整 | 库存调整 | done |
 | SKU | SKU | SKU | SKU | done |
-| Inbound | 入庫 | 入庫 | 入库 | done |
+| Inbound | 入庫 | 進倉 | 入库 | done |
 | Return | 返品 | 退貨 | 退货 | done |
-| Outbound | 出庫 | 出庫 | 出库 | done |
+| Outbound | 出庫 | 出倉 | 出库 | done |
 | Sales Order | 注文管理 | 訂單管理 | 订单管理 | done |
-| Fulfillment | (not translated) | (not translated) | (not translated) | open |
+| Fulfillment | 出荷管理 | 發貨管理 | 发货管理 | done |
 | Issue | 問題案件 | 問題案件 | 问题案件 | done |
 | Setup | 設定 | 設定 | 设置 | done |
 
@@ -104,11 +104,43 @@ sales_orders.php.
 
 - Tenant: using 荷主 (ja) / 客戶 (zh). Alternative: テナント / 租戶. Confirm.
 - Sales Order: using 訂單管理 (zh) to mirror 注文管理 (ja). Alternative: 銷售訂單 (closer to the literal English). Confirm.
-- Fulfillment: not translated yet, falls back to English. Decide later.
 - Shipped (order status): 出荷済み vs 出庫済み. Confirm when doing sales_orders.php.
 
-## Not yet translated (future module rounds)
+Decided: Inbound / Outbound / Fulfillment are split by origin (platform sales order vs manual),
+not by quantity; the names reflect the typical case. Fulfillment = ja 出荷管理 / zh_TW 發貨管理 /
+zh_CN 发货管理 (ship to customer); Outbound = 出庫 / 出倉 / 出库 (stock leaving the warehouse, e.g.
+B2B / transfers); Inbound = 入庫 / 進倉 / 入库. zh_TW uses 進倉 / 出倉; ja and zh_CN use 入庫 / 出庫.
 
-- `common.movement_types` (Receive / Reserve / Ship / Hold / ...) -- inventory module round.
-- `common.sku_types` (Single / Virtual bundle / Physical bundle) -- SKU module round.
-- `common.barcode_types` (JAN / EAN / UPC) -- mostly proper nouns, likely kept as-is.
+## Inventory movement types (common.movement_types) -- done
+
+| en | ja | zh_TW | zh_CN |
+|---|---|---|---|
+| Opening Balance | 期首在庫 | 期初庫存 | 期初库存 |
+| Receive | 入庫 | 入庫 | 入库 |
+| Reserve | 引当 | 分配 | 分配 |
+| Release Reserve | 引当解除 | 解除分配 | 解除分配 |
+| Ship | 出荷 | 出貨 | 出货 |
+| Hold | 保留 | 暫扣 | 挂起 |
+| Release Hold | 保留解除 | 解除暫扣 | 解挂 |
+| Mark Damaged | 破損計上 | 標記破損 | 标记破损 |
+| Adjust | 在庫調整 | 庫存調整 | 库存调整 |
+
+## SKU types (common.sku_types) -- done
+
+| en | ja | zh_TW | zh_CN |
+|---|---|---|---|
+| Single | 単品 | 單品 | 单品 |
+| Virtual bundle | 仮想セット | 虛擬組合 | 虚拟组合 |
+| Physical bundle | 実物セット | 實物組合 | 实物组合 |
+
+## Barcode types (common.barcode_types) -- done
+
+JAN / EAN / UPC are kept as-is (international standards) in all locales. Only Unknown is translated:
+ja 不明 / zh_TW 未知 / zh_CN 未知.
+
+## Module lang files -- status
+
+- Translated (ja, zh_TW, zh_CN): inbound.php, outbound.php.
+- Not yet translated (still hold English values): skus.php, fulfillment_pack.php, sales_orders.php,
+  return_orders.php, etc. Translate when each module is done, applying this glossary for shared terms
+  (Reserve = 引当 / 分配, Ship = 出荷 / 出貨, etc.).
