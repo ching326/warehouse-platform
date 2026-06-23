@@ -42,6 +42,76 @@
         </form>
     </section>
 
+    @if ($filtersReady)
+        <section class="table-shell flux-panel form-panel pack-queue-panel">
+            <div class="pack-station-summary">
+                <div><span>{{ __('fulfillment_pack.queue_waiting_groups') }}</span><strong>{{ number_format($summary['waiting_groups'] ?? 0) }}</strong></div>
+                <div><span>{{ __('fulfillment_pack.queue_waiting_orders') }}</span><strong>{{ number_format($summary['waiting_orders'] ?? 0) }}</strong></div>
+                <div><span>{{ __('fulfillment_pack.queue_required_qty_page') }}</span><strong>{{ number_format($summary['required_qty_page'] ?? 0) }}</strong></div>
+                <div><span>{{ __('fulfillment_pack.queue_exceptions_today') }}</span><strong>{{ number_format($summary['exception_scans_today'] ?? 0) }}</strong></div>
+            </div>
+
+            <div class="pack-queue-toolbar">
+                <flux:input
+                    wire:model.live.debounce.300ms="queueSearch"
+                    :label="__('fulfillment_pack.queue_search_label')"
+                    :placeholder="__('fulfillment_pack.queue_search_placeholder')"
+                />
+            </div>
+
+            <flux:table :paginate="$queue" class="data-table pack-queue-table">
+                <flux:table.columns>
+                    <flux:table.column>{{ __('fulfillment_pack.queue_ref') }}</flux:table.column>
+                    <flux:table.column>{{ __('fulfillment_pack.queue_tenant') }}</flux:table.column>
+                    <flux:table.column>{{ __('fulfillment_pack.queue_recipient') }}</flux:table.column>
+                    <flux:table.column>{{ __('fulfillment_pack.queue_tracking') }}</flux:table.column>
+                    <flux:table.column>{{ __('fulfillment_pack.queue_orders') }}</flux:table.column>
+                    <flux:table.column align="end">{{ __('fulfillment_pack.queue_qty') }}</flux:table.column>
+                    <flux:table.column>{{ __('fulfillment_pack.queue_progress') }}</flux:table.column>
+                    <flux:table.column>{{ __('fulfillment_pack.queue_action') }}</flux:table.column>
+                </flux:table.columns>
+
+                <flux:table.rows>
+                    @forelse ($queue as $group)
+                        @php($progress = $queueProgress[$group->id] ?? ['required_qty' => 0, 'scanned_qty' => 0])
+                        @php($orders = $group->orders->pluck('platform_order_id')->filter()->values())
+                        <flux:table.row :key="$group->id">
+                            <flux:table.cell>
+                                <a href="{{ route('fulfillment-groups.pack', $group) }}" wire:navigate><strong>{{ $group->reference_no }}</strong></a>
+                            </flux:table.cell>
+                            <flux:table.cell>{{ $group->tenant?->code ?: '-' }}</flux:table.cell>
+                            <flux:table.cell>{{ $group->recipient_name ?: '-' }}</flux:table.cell>
+                            <flux:table.cell>{{ $group->tracking_no ?: $group->outboundOrder?->tracking_no ?: $group->groupOrders->pluck('tracking_no')->filter()->first() ?: '-' }}</flux:table.cell>
+                            <flux:table.cell>
+                                @if ($orders->isNotEmpty())
+                                    {{ $orders->take(2)->implode(', ') }}
+                                    @if ($orders->count() > 2)
+                                        <span class="pack-order-more">+{{ $orders->count() - 2 }}</span>
+                                    @endif
+                                @else
+                                    -
+                                @endif
+                            </flux:table.cell>
+                            <flux:table.cell align="end">{{ number_format($progress['required_qty']) }}</flux:table.cell>
+                            <flux:table.cell>{{ number_format($progress['scanned_qty']) }} / {{ number_format($progress['required_qty']) }}</flux:table.cell>
+                            <flux:table.cell>
+                                <flux:button href="{{ route('fulfillment-groups.pack', $group) }}" size="xs" variant="primary" wire:navigate>
+                                    {{ __('fulfillment_pack.queue_pack') }}
+                                </flux:button>
+                            </flux:table.cell>
+                        </flux:table.row>
+                    @empty
+                        <flux:table.row>
+                            <flux:table.cell colspan="8">
+                                <div class="empty-state">{{ __('fulfillment_pack.queue_empty') }}</div>
+                            </flux:table.cell>
+                        </flux:table.row>
+                    @endforelse
+                </flux:table.rows>
+            </flux:table>
+        </section>
+    @endif
+
     <style>
         .pack-start-panel {
             max-width: 760px;
@@ -89,8 +159,65 @@
             border: 1px solid transparent;
         }
 
+        .pack-queue-panel {
+            margin-top: 16px;
+        }
+
+        .pack-station-summary {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .pack-station-summary > div {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px 12px;
+            background: #fff;
+        }
+
+        .pack-station-summary span {
+            display: block;
+            color: #475569;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .pack-station-summary strong {
+            display: block;
+            margin-top: 2px;
+            color: #0f172a;
+            font-size: 18px;
+        }
+
+        .pack-queue-toolbar {
+            max-width: 360px;
+            margin-bottom: 12px;
+        }
+
+        .pack-queue-table a {
+            color: #1d4ed8;
+            text-decoration: none;
+        }
+
+        .pack-order-more {
+            color: #475569;
+            font-weight: 700;
+        }
+
         @media (max-width: 720px) {
             .pack-station-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .pack-station-summary {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 520px) {
+            .pack-station-summary {
                 grid-template-columns: 1fr;
             }
         }
