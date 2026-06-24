@@ -109,13 +109,22 @@ class GroupSalesOrdersService
 
             if (
                 $order->order_status !== SalesOrder::ORDER_STATUS_PENDING
-                || $order->courier_csv_exported_at !== null
                 || ! in_array($order->fulfillment_status, [
                     SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
                     SalesOrder::FULFILLMENT_STATUS_READY,
                     SalesOrder::FULFILLMENT_STATUS_ARRANGED,
                 ], true)
             ) {
+                return false;
+            }
+
+            $activeOutbound = OutboundOrder::query()
+                ->where('status', '!=', OutboundOrder::STATUS_CANCELLED)
+                ->whereHas('salesOrders', fn ($query) => $query->where('sales_orders.id', $order->id))
+                ->lockForUpdate()
+                ->first();
+
+            if ($activeOutbound?->courier_csv_exported_at !== null) {
                 return false;
             }
 

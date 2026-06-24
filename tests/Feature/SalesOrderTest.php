@@ -17,6 +17,7 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Fulfillment\GroupSalesOrdersService;
 use App\Services\InventoryService;
 use App\Support\SalesOrderFilters;
 use Carbon\Carbon;
@@ -1762,17 +1763,32 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString('class="tracking-readonly"', $html);
     }
 
-    public function test_sales_order_index_shows_printed_date_when_courier_csv_exported(): void
+    public function test_sales_order_pages_show_packing_chip_when_active_outbound_is_printed(): void
     {
-        [, $shop, $sku] = $this->salesSku();
-        $this->createPersistedOrder($shop, $sku, [
-            'platform_order_id' => 'PRINTED-ORDER',
-            'courier_csv_exported_at' => '2026-06-18 10:00:00',
+        [$tenant, $shop, $sku] = $this->salesSku();
+        $warehouse = Warehouse::factory()->create(['status' => 'active']);
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $sku->stock_item_id, 10);
+        $printed = $this->createPersistedOrder($shop, $sku, [
+            'platform_order_id' => 'PACKING-ORDER',
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
         ]);
+        $notGrouped = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'NOT-PACKING-ORDER']);
+        $group = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$printed->id]);
+        $group->outboundOrder()->firstOrFail()->update(['courier_csv_exported_at' => '2026-06-18 10:00:00']);
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
-            ->assertSee('Printed: 2026-06-18');
+            ->assertSee('PACKING-ORDER')
+            ->assertSee(__('sales_orders.label_packing'))
+            ->assertSee('NOT-PACKING-ORDER');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $printed])
+            ->assertSee(__('sales_orders.label_packing'));
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $notGrouped])
+            ->assertDontSee(__('sales_orders.label_packing'));
     }
 
     public function test_sales_order_index_has_no_view_action_column(): void

@@ -266,7 +266,7 @@ class SalesOrderIndex extends Component
             ->whereIn('id', $selectedIds)
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->where('order_status', SalesOrder::ORDER_STATUS_PENDING)
-            ->whereNull('courier_csv_exported_at')
+            ->whereDoesntHave('activeOutboundOrders', fn ($query) => $query->whereNotNull('outbound_orders.courier_csv_exported_at'))
             ->where(function ($query) {
                 $query->whereIn('fulfillment_status', [
                     SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
@@ -564,7 +564,7 @@ class SalesOrderIndex extends Component
         $shops = $this->shopOptions();
 
         $orders = SalesOrder::query()
-            ->with(['shop.tenant', 'shippingMethod.carrier', 'lines.sku.stockItem'])
+            ->with(['shop.tenant', 'shippingMethod.carrier', 'lines.sku.stockItem', 'activeOutboundOrders'])
             ->tap(fn ($query) => $this->filterWarning
                 ? $query->whereRaw('1 = 0')
                 : SalesOrderFilters::applyToOrderQuery($query, $filters))

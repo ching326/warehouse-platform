@@ -6,6 +6,7 @@ use Database\Factories\SalesOrderFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\Activitylog\LogOptions;
@@ -148,6 +149,32 @@ class SalesOrder extends Model
     public function fulfillmentGroupOrders(): HasMany
     {
         return $this->hasMany(FulfillmentGroupOrder::class);
+    }
+
+    public function outboundOrders(): BelongsToMany
+    {
+        return $this->belongsToMany(OutboundOrder::class, 'outbound_order_sales_order')
+            ->withPivot('arranged_at');
+    }
+
+    public function activeOutboundOrders(): BelongsToMany
+    {
+        return $this->outboundOrders()
+            ->where('outbound_orders.status', '!=', OutboundOrder::STATUS_CANCELLED);
+    }
+
+    public function activeOutboundOrder(): ?OutboundOrder
+    {
+        if ($this->relationLoaded('activeOutboundOrders')) {
+            return $this->activeOutboundOrders->first();
+        }
+
+        return $this->activeOutboundOrders()->first();
+    }
+
+    public function isPacking(): bool
+    {
+        return $this->activeOutboundOrder()?->courier_csv_exported_at !== null;
     }
 
     public function activeFulfillmentGroupOrder(): HasOne

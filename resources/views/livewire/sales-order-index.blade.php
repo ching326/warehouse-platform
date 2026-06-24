@@ -567,10 +567,8 @@
                             </flux:table.cell>
                             <flux:table.cell class="so-created-cell">
                                 <strong>{{ $order->order_date?->format('Y-m-d') ?? $order->created_at->format('Y-m-d') }}</strong>
-                                @if ($order->courier_csv_exported_at)
-                                    <span class="subtle">
-                                        {{ __('sales_orders.printed_date_label') }} {{ $order->courier_csv_exported_at->timezone('Asia/Tokyo')->format('Y-m-d') }}
-                                    </span>
+                                @if ($order->isPacking())
+                                    <flux:badge color="amber">{{ __('sales_orders.label_packing') }}</flux:badge>
                                 @endif
                             </flux:table.cell>
                             <flux:table.cell class="so-note-cell">

@@ -246,6 +246,7 @@ return [
     'chip_order_date' => 'Order Date',
     'chip_others' => 'Others',
     'printed_date_label' => 'Printed:',
+    'label_packing' => 'Packing',
     'tracking_no_placeholder' => 'Tracking no.',
     'tracking_unsaved' => 'Unsaved',
     'shipping_method_unset' => 'Not set',

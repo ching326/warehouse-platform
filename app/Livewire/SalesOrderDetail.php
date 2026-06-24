@@ -249,7 +249,7 @@ class SalesOrderDetail extends Component
     {
         $order = SalesOrder::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->with('fulfillmentGroupOrders.fulfillmentGroup')
+            ->with(['activeOutboundOrders', 'fulfillmentGroupOrders.fulfillmentGroup'])
             ->findOrFail($this->orderId);
 
         if (
@@ -504,7 +504,7 @@ class SalesOrderDetail extends Component
     {
         $order = SalesOrder::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->with(['shop.tenant', 'shippingMethod.carrier', 'lines.sku.stockItem', 'createdBy', 'issues.lines'])
+            ->with(['shop.tenant', 'shippingMethod.carrier', 'lines.sku.stockItem', 'createdBy', 'issues.lines', 'activeOutboundOrders'])
             ->findOrFail($this->orderId);
 
         $relatedOrders = collect();
@@ -612,7 +612,7 @@ class SalesOrderDetail extends Component
 
     private function canPutOnHold(SalesOrder $order): bool
     {
-        if ($order->courier_csv_exported_at !== null) {
+        if ($order->isPacking()) {
             return false;
         }
 

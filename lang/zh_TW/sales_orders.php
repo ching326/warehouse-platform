@@ -246,6 +246,7 @@ return [
     'chip_order_date' => '訂單日期',
     'chip_others' => '其他',
     'printed_date_label' => '列印:',
+    'label_packing' => '包裝中',
     'tracking_no_placeholder' => '追蹤號碼',
     'tracking_unsaved' => '未儲存',
     'shipping_method_unset' => '未設定',

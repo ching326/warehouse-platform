@@ -18,6 +18,9 @@
                 <flux:badge color="{{ $this->fulfillmentStatusColor($order->fulfillment_status) }}">
                     {{ $this->fulfillmentStatusLabel($order->fulfillment_status) }}
                 </flux:badge>
+                @if ($order->isPacking())
+                    <flux:badge color="amber">{{ __('sales_orders.label_packing') }}</flux:badge>
+                @endif
             </div>
         </div>
 
