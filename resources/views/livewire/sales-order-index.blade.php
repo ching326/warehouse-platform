@@ -27,41 +27,61 @@
         </div>
     @endif
     @if ($showReadyCombinePrompt)
-        <div class="active-filter-row">
-            <div>
-                <strong>{{ __('sales_orders.ready_combine_title') }}</strong>
-                <div class="subtle">
-                    {{ __('sales_orders.ready_combine_message') }}
-                    @if ($pendingReadySuggestionCount > 0)
-                        {{ __('sales_orders.ready_unfulfilled_suggestion', ['count' => $pendingReadySuggestionCount]) }}
+        <div class="tracking-import-backdrop" wire:key="sales-order-ready-combine-modal">
+            <section class="tracking-import-modal flux-panel">
+                <header class="tracking-import-header">
+                    <div>
+                        <h2>{{ __('sales_orders.ready_combine_title') }}</h2>
+                        <p>
+                            {{ __('sales_orders.ready_combine_message') }}
+                            @if ($pendingReadySuggestionCount > 0)
+                                {{ __('sales_orders.ready_unfulfilled_suggestion', ['count' => $pendingReadySuggestionCount]) }}
+                            @endif
+                        </p>
+                    </div>
+                    <flux:button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        icon="x-mark"
+                        inset
+                        :aria-label="__('sales_orders.btn_cancel_edit')"
+                        wire:click="cancelReadyCombine"
+                    >
+                    </flux:button>
+                </header>
+
+                <div class="ready-combine-body">
+                    @if ($readyWarehouseOptions->count() > 1)
+                        <flux:select wire:model.live="readyWarehouseId" :label="__('fulfillment_groups.field_warehouse')">
+                            <flux:select.option value="">{{ __('fulfillment_groups.select_warehouse') }}</flux:select.option>
+                            @foreach ($readyWarehouseOptions as $warehouse)
+                                <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} / {{ $warehouse->name }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
+                    @else
+                        <div>
+                            <span class="subtle">{{ __('fulfillment_groups.field_warehouse') }}</span>
+                            <strong>{{ $readyWarehouseOptions->first()?->code }} / {{ $readyWarehouseOptions->first()?->name }}</strong>
+                        </div>
                     @endif
                 </div>
-            </div>
 
-            @if ($readyWarehouseOptions->count() > 1)
-                <flux:select wire:model.live="readyWarehouseId" :label="__('fulfillment_groups.field_warehouse')">
-                    <flux:select.option value="">{{ __('fulfillment_groups.select_warehouse') }}</flux:select.option>
-                    @foreach ($readyWarehouseOptions as $warehouse)
-                        <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} / {{ $warehouse->name }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-            @endif
-
-            @if ($pendingReadyJoinableGroupCount > 0 || $pendingReadyCombineCandidateCount > 0)
-                <flux:button type="button" size="sm" variant="primary" wire:click="confirmReadyCombine">
-                    {{ __('sales_orders.ready_combine_confirm') }}
-                </flux:button>
-            @else
-                <flux:button type="button" size="sm" variant="primary" wire:click="confirmReadyCombine">
-                    {{ __('sales_orders.ready_arrange_confirm') }}
-                </flux:button>
-            @endif
-            <flux:button type="button" size="sm" variant="outline" wire:click="declineReadyCombine">
-                {{ __('sales_orders.ready_combine_decline') }}
-            </flux:button>
-            <flux:button type="button" size="sm" variant="ghost" wire:click="cancelReadyCombine">
-                {{ __('sales_orders.btn_cancel_edit') }}
-            </flux:button>
+                <footer class="tracking-import-footer ready-combine-footer">
+                    @if ($pendingReadyJoinableGroupCount > 0 || $pendingReadyCombineCandidateCount > 0)
+                        <flux:button type="button" variant="primary" class="ready-combine-action" wire:click="confirmReadyCombine">
+                            {{ __('sales_orders.ready_combine_confirm') }}
+                        </flux:button>
+                    @else
+                        <flux:button type="button" variant="primary" class="ready-combine-action" wire:click="confirmReadyCombine">
+                            {{ __('sales_orders.ready_arrange_confirm') }}
+                        </flux:button>
+                    @endif
+                    <flux:button type="button" variant="primary" class="ready-combine-action" wire:click="declineReadyCombine">
+                        {{ __('sales_orders.ready_combine_decline') }}
+                    </flux:button>
+                </footer>
+            </section>
         </div>
     @endif
 <section class="table-shell flux-panel">
@@ -235,14 +255,6 @@
                         {{ __('sales_orders.other_multi_item') }}
                     </label>
                     <small class="filter-helper">{{ __('sales_orders.other_multi_item_hint') }}</small>
-                    <label>
-                        <input type="checkbox" wire:click="toggleOtherFilter('{{ \App\Support\SalesOrderFilters::OTHER_PRINTED }}')" @checked(in_array(\App\Support\SalesOrderFilters::OTHER_PRINTED, (array) $othersFilter, true))>
-                        {{ __('sales_orders.other_printed') }}
-                    </label>
-                    <label>
-                        <input type="checkbox" wire:click="toggleOtherFilter('{{ \App\Support\SalesOrderFilters::OTHER_NOT_PRINTED }}')" @checked(in_array(\App\Support\SalesOrderFilters::OTHER_NOT_PRINTED, (array) $othersFilter, true))>
-                        {{ __('sales_orders.other_not_printed') }}
-                    </label>
                 </div>
             </details>
 
@@ -506,12 +518,12 @@
                                     <div class="so-item-line">
                                         <div class="so-sku-line">
                                             @if ($line->quantity > 1)
-                                                <strong class="danger-text">{{ $line->quantity }}</strong>
+                                                <strong class="danger-text so-sku-qty">{{ $line->quantity }}</strong>
                                             @else
-                                                <span class="subtle">{{ $line->quantity }}</span>
+                                                <span class="subtle so-sku-qty">{{ $line->quantity }}</span>
                                             @endif
-                                            <span class="subtle">x</span>
-                                            <strong>{{ $skuCode }}</strong>
+                                            <span class="subtle so-sku-x">x</span>
+                                            <strong class="so-sku-code" title="{{ $skuCode }}">{{ $skuCode }}</strong>
                                         </div>
                                         @if ($skuLabel !== '')
                                             <span class="subtle so-sku-label" title="{{ $skuLabel }}">{{ $skuLabel }}</span>

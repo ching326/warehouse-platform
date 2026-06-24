@@ -1108,8 +1108,8 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString(__('sales_orders.filter_order_date'), $html);
         $this->assertStringContainsString(__('sales_orders.filter_others'), $html);
         $this->assertStringContainsString(__('sales_orders.other_multi_item'), $html);
-        $this->assertStringContainsString(__('sales_orders.other_printed'), $html);
-        $this->assertStringContainsString(__('sales_orders.other_not_printed'), $html);
+        $this->assertStringNotContainsString(__('sales_orders.other_printed'), $html);
+        $this->assertStringNotContainsString(__('sales_orders.other_not_printed'), $html);
         $this->assertStringNotContainsString('<strong>'.__('sales_orders.all_platforms').'</strong>', $html);
         $this->assertStringNotContainsString('<strong>'.__('sales_orders.all_shops').'</strong>', $html);
         $this->assertStringNotContainsString('<strong>'.__('sales_orders.all_fulfillment_status').'</strong>', $html);
