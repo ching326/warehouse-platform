@@ -2,9 +2,9 @@
 
 namespace App\Livewire;
 
-use App\Models\FulfillmentGroup;
 use App\Models\InboundReceipt;
 use App\Models\InventoryBalance;
+use App\Models\OutboundOrder;
 use App\Models\ReturnOrderLine;
 use App\Models\ShippingMethod;
 use App\Models\Tenant;
@@ -116,28 +116,19 @@ class FulfillmentPickSummary extends Component
      */
     private function pickRows(FulfillmentPackService $packService): Collection
     {
-        $groups = $this->groupQuery()
+        $outbounds = $this->outboundQuery()
             ->with([
                 'tenant:id,code,name',
-                'orders:id,platform_order_id',
-                'orders.lines.sku.barcodeAliases',
-                'orders.lines.sku.stockItem.barcodeAliases',
-                'orders.lines.sku.bundleComponents.componentStockItem.barcodeAliases',
-                'outboundOrder:id,fulfillment_group_id',
-                'outboundOrder.leafLines.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
-                'outboundOrder.leafLines.stockItem.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
-                'outboundOrder.leafLines.parentLine.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
+                'salesOrders:id,platform_order_id',
+                'leafLines.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
+                'leafLines.stockItem.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
+                'leafLines.parentLine.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
             ])
             ->get();
 
         $rows = [];
 
-        foreach ($groups as $group) {
-            $outbound = $group->outboundOrder;
-            if (! $outbound) {
-                continue;
-            }
-
+        foreach ($outbounds as $outbound) {
             foreach ($packService->packLines($outbound) as $line) {
                 $stockItem = $line['stock_item'];
                 $sku = $line['sku'];
@@ -150,7 +141,7 @@ class FulfillmentPickSummary extends Component
                     'sku_codes' => [],
                     'sku_names' => [],
                     'required_qty' => 0,
-                    'groups' => [],
+                    'outbounds' => [],
                     'orders' => [],
                     'barcode' => $stockItem?->barcode ?: $sku?->barcode,
                     'alias_count' => $this->aliasCount($line),
@@ -168,9 +159,9 @@ class FulfillmentPickSummary extends Component
                 }
 
                 $rows[$key]['required_qty'] += (int) $line['required_qty'];
-                $rows[$key]['groups'][$group->id] = $group;
+                $rows[$key]['outbounds'][$outbound->id] = $outbound;
 
-                foreach ($group->orders as $order) {
+                foreach ($outbound->salesOrders as $order) {
                     $rows[$key]['orders'][$order->id] = $order;
                 }
             }
@@ -218,11 +209,12 @@ class FulfillmentPickSummary extends Component
         ];
     }
 
-    private function groupQuery()
+    private function outboundQuery()
     {
-        return FulfillmentGroup::query()
+        return OutboundOrder::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->where('status', FulfillmentGroup::STATUS_RESERVED)
+            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+            ->where('status', OutboundOrder::STATUS_PENDING)
             ->where('warehouse_id', (int) $this->warehouseId)
             ->when($this->shippingMethodId !== '', fn ($query) => $query->where('shipping_method_id', (int) $this->shippingMethodId))
             ->when($this->tenantId !== '' && in_array((int) $this->tenantId, $this->allowedTenantIds(), true), fn ($query) => $query->where('tenant_id', (int) $this->tenantId))
@@ -308,7 +300,7 @@ class FulfillmentPickSummary extends Component
             'pick_rows' => $rows->count(),
             'required_qty' => (int) $rows->sum('required_qty'),
             'shortage_rows' => $rows->filter(fn (array $row): bool => $row['pickable_qty'] < $row['required_qty'])->count(),
-            'groups_included' => $rows->flatMap(fn (array $row): array => array_keys($row['groups']))->unique()->count(),
+            'groups_included' => $rows->flatMap(fn (array $row): array => array_keys($row['outbounds']))->unique()->count(),
         ];
     }
 
@@ -324,8 +316,8 @@ class FulfillmentPickSummary extends Component
             $row['barcode'],
         ];
 
-        foreach ($row['groups'] as $group) {
-            $values[] = $group->reference_no;
+        foreach ($row['outbounds'] as $outbound) {
+            $values[] = $outbound->ref;
         }
 
         foreach ($row['orders'] as $order) {

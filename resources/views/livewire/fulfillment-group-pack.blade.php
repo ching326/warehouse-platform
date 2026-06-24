@@ -2,7 +2,7 @@
     <x-flash-toast />
 
     @php
-        $reference = $order->fulfillmentGroup?->reference_no ?? $order->ref;
+        $reference = $order->ref;
         $statusKey = match ($order->status) {
             \App\Models\OutboundOrder::STATUS_SHIPPED => 'shipped',
             \App\Models\OutboundOrder::STATUS_CANCELLED => 'cancelled',
@@ -20,14 +20,9 @@
                 <flux:badge color="{{ $order->status === \App\Models\OutboundOrder::STATUS_SHIPPED ? 'green' : ($order->status === \App\Models\OutboundOrder::STATUS_CANCELLED ? 'red' : 'blue') }}">
                     {{ __('fulfillment_groups.status_'.$statusKey) }}
                 </flux:badge>
-                @if ($group)
-                    <flux:button href="{{ route('fulfillment-groups.issues.create', $group) }}" variant="outline" wire:navigate>
-                        {{ __('issues.btn_create') }}
-                    </flux:button>
-                    <flux:button href="{{ route('fulfillment.pack-scans.index', ['fulfillment_group_id' => $group->id]) }}" variant="outline" wire:navigate>
-                        {{ __('fulfillment_pack.scan_history_title') }}
-                    </flux:button>
-                @endif
+                <flux:button href="{{ route('fulfillment.pack-scans.index', ['outbound_order_id' => $order->id]) }}" variant="outline" wire:navigate>
+                    {{ __('fulfillment_pack.scan_history_title') }}
+                </flux:button>
                 <flux:button href="{{ route('outbound.show', $order) }}" variant="outline" wire:navigate>
                     {{ __('fulfillment_groups.btn_back') }}
                 </flux:button>
@@ -37,8 +32,8 @@
         <div class="form-grid three">
             <div><span class="subtle">{{ __('fulfillment_groups.col_status') }}</span><strong>{{ __('fulfillment_groups.status_'.$statusKey) }}</strong></div>
             <div><span class="subtle">{{ __('fulfillment_groups.field_recipient_name') }}</span><strong>{{ $order->recipient_name ?: '-' }}</strong></div>
-            <div><span class="subtle">{{ __('fulfillment_groups.field_tracking_no') }}</span><strong>{{ $order->tracking_no ?: $group?->tracking_no ?: '-' }}</strong></div>
-            <div><span class="subtle">{{ __('fulfillment_groups.col_shipping') }}</span><strong>{{ $order->shippingMethod?->name ?: $order->shipping_method ?: $group?->courier ?: '-' }}</strong></div>
+            <div><span class="subtle">{{ __('fulfillment_groups.field_tracking_no') }}</span><strong>{{ $order->tracking_no ?: '-' }}</strong></div>
+            <div><span class="subtle">{{ __('fulfillment_groups.col_shipping') }}</span><strong>{{ $order->shippingMethod?->name ?: '-' }}</strong></div>
             <div><span class="subtle">{{ __('fulfillment_groups.col_orders') }}</span><strong>{{ number_format($order->salesOrders->count()) }}</strong></div>
             <div><span class="subtle">{{ __('fulfillment_pack.overall_progress') }}</span><strong>{{ number_format($progress['qty_scanned']) }} / {{ number_format($progress['qty_required']) }} {{ __('fulfillment_pack.scanned_short') }}</strong></div>
         </div>
@@ -142,17 +137,9 @@
                 <flux:table.column align="end">{{ __('fulfillment_pack.scanned_qty') }}</flux:table.column>
                 <flux:table.column align="end">{{ __('fulfillment_pack.remaining_qty') }}</flux:table.column>
                 <flux:table.column>{{ __('fulfillment_groups.col_status') }}</flux:table.column>
-                <flux:table.column>{{ __('common.actions') }}</flux:table.column>
             </flux:table.columns>
             <flux:table.rows>
                 @foreach ($lines as $line)
-                    @php
-                        $issueQuery = array_filter([
-                            'sku_id' => $line['sku_id'],
-                            'stock_item_id' => $line['stock_item_id'],
-                            'qty' => max(1, (int) $line['remaining_qty']),
-                        ], fn ($value) => $value !== null && $value !== '');
-                    @endphp
                     <flux:table.row
                         :key="$line['key']"
                         @class([
@@ -184,18 +171,6 @@
                             </flux:badge>
                             @if ($line['strict_only'])
                                 <flux:badge color="red">{{ __('fulfillment_pack.strict_scan') }}</flux:badge>
-                            @endif
-                        </flux:table.cell>
-                        <flux:table.cell>
-                            @if ($group)
-                                <flux:button
-                                    size="xs"
-                                    variant="outline"
-                                    href="{{ route('fulfillment-groups.issues.create', ['group' => $group] + $issueQuery) }}"
-                                    wire:navigate
-                                >
-                                    {{ __('issues.section_issue') }}
-                                </flux:button>
                             @endif
                         </flux:table.cell>
                     </flux:table.row>

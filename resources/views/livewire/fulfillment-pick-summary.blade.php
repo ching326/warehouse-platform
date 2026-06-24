@@ -84,7 +84,7 @@
                 <flux:table.rows>
                     @forelse ($rows as $row)
                         @php($stockItem = $row['stock_item'])
-                        @php($groups = collect($row['groups']))
+                        @php($outbounds = collect($row['outbounds']))
                         @php($orders = collect($row['orders']))
                         @php($locationHint = $row['location_hint'])
                         @php($previousLocation = $loop->first ? null : ($rows->get($loop->index - 1)['location_hint'] ?? null))
@@ -119,27 +119,25 @@
                             </flux:table.cell>
                             <flux:table.cell><span class="pick-location-badge">{{ $displayLocation }}</span></flux:table.cell>
                             <flux:table.cell>
-                                <strong>{{ trans_choice('fulfillment_pick.group_count', $groups->count(), ['count' => $groups->count()]) }}</strong>
+                                <strong>{{ trans_choice('fulfillment_pick.group_count', $outbounds->count(), ['count' => $outbounds->count()]) }}</strong>
                                 <span>{{ trans_choice('fulfillment_pick.order_count', $orders->count(), ['count' => $orders->count()]) }}</span>
                                 <small>
-                                    @foreach ($groups->take(3) as $group)
-                                        <a href="{{ route('outbound.show', $group->outboundOrder) }}" wire:navigate>{{ $group->reference_no }}</a>@if (! $loop->last), @endif
+                                    @foreach ($outbounds->take(3) as $outbound)
+                                        <a href="{{ route('outbound.show', $outbound) }}" wire:navigate>{{ $outbound->ref }}</a>@if (! $loop->last), @endif
                                     @endforeach
-                                    @if ($groups->count() > 3)
-                                        <span>{{ __('fulfillment_pick.more_groups', ['count' => $groups->count() - 3]) }}</span>
+                                    @if ($outbounds->count() > 3)
+                                        <span>{{ __('fulfillment_pick.more_groups', ['count' => $outbounds->count() - 3]) }}</span>
                                     @endif
                                 </small>
                             </flux:table.cell>
                             <flux:table.cell class="no-print">
-                                @php($firstGroup = $groups->first())
-                                @if ($firstGroup)
+                                @php($firstOutbound = $outbounds->first())
+                                @if ($firstOutbound)
                                     <div class="pick-actions">
-                                        @if ($groups->count() > 1)
-                                            <flux:button href="{{ route('fulfillment-groups.index', ['search' => $firstGroup->reference_no]) }}" size="xs" variant="subtle" wire:navigate>{{ __('fulfillment_pick.view_groups') }}</flux:button>
+                                        @if ($outbounds->count() > 1)
+                                            <flux:button href="{{ route('fulfillment-groups.index', ['search' => $firstOutbound->ref]) }}" size="xs" variant="subtle" wire:navigate>{{ __('fulfillment_pick.view_groups') }}</flux:button>
                                         @endif
-                                        @if ($firstGroup->outboundOrder)
-                                            <flux:button href="{{ route('outbound.pack', $firstGroup->outboundOrder) }}" size="xs" variant="primary" wire:navigate>{{ __('fulfillment_pick.pack_first') }}</flux:button>
-                                        @endif
+                                        <flux:button href="{{ route('outbound.pack', $firstOutbound) }}" size="xs" variant="primary" wire:navigate>{{ __('fulfillment_pick.pack_first') }}</flux:button>
                                     </div>
                                 @endif
                             </flux:table.cell>

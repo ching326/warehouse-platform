@@ -19,7 +19,7 @@
                 </flux:select>
 
                 <flux:input wire:model.live.debounce.300ms="search" :label="__('common.search')" :placeholder="__('fulfillment_pack.scan_history_search_placeholder')" />
-                <flux:input wire:model.live.debounce.300ms="fulfillmentGroupId" type="number" min="1" :label="__('issues.field_fulfillment_group')" />
+                <flux:input wire:model.live.debounce.300ms="outboundOrderId" type="number" min="1" :label="__('outbound.col_ref')" />
                 <flux:input wire:model.live.debounce.300ms="scannedByUserId" type="number" min="1" :label="__('fulfillment_pack.scanned_by')" />
                 <flux:input wire:model.live="dateFrom" type="date" :label="__('fulfillment_pack.date_from')" />
                 <flux:input wire:model.live="dateTo" type="date" :label="__('fulfillment_pack.date_to')" />
@@ -36,7 +36,7 @@
         <flux:table :paginate="$scans" class="data-table pack-scan-table">
             <flux:table.columns>
                 <flux:table.column>{{ __('fulfillment_pack.scan_time') }}</flux:table.column>
-                <flux:table.column>{{ __('issues.field_fulfillment_group') }}</flux:table.column>
+                <flux:table.column>{{ __('outbound.col_ref') }}</flux:table.column>
                 <flux:table.column>{{ __('issues.field_sales_order') }}</flux:table.column>
                 <flux:table.column>{{ __('fulfillment_pack.scan_result') }}</flux:table.column>
                 <flux:table.column>{{ __('fulfillment_pack.barcode') }}</flux:table.column>
@@ -50,10 +50,8 @@
                     <flux:table.row :key="$scan->id">
                         <flux:table.cell>{{ $scan->created_at?->format('Y-m-d H:i:s') ?: '-' }}</flux:table.cell>
                         <flux:table.cell>
-                            @if ($scan->fulfillmentGroup?->outboundOrder)
-                                <a href="{{ route('outbound.show', $scan->fulfillmentGroup->outboundOrder) }}" wire:navigate><strong>{{ $scan->fulfillmentGroup->reference_no }}</strong></a>
-                            @elseif ($scan->fulfillmentGroup)
-                                <strong>{{ $scan->fulfillmentGroup->reference_no }}</strong>
+                            @if ($scan->outboundOrder)
+                                <a href="{{ route('outbound.show', $scan->outboundOrder) }}" wire:navigate><strong>{{ $scan->outboundOrder->ref }}</strong></a>
                             @else
                                 <span class="muted-dash">-</span>
                             @endif

@@ -18,8 +18,8 @@ class FulfillmentPackScanIndex extends Component
     #[Url(as: 'tenant_id', except: '')]
     public string $tenantId = '';
 
-    #[Url(as: 'fulfillment_group_id', except: '')]
-    public string $fulfillmentGroupId = '';
+    #[Url(as: 'outbound_order_id', except: '')]
+    public string $outboundOrderId = '';
 
     #[Url(as: 'result', except: '')]
     public string $result = '';
@@ -49,7 +49,7 @@ class FulfillmentPackScanIndex extends Component
 
     public function updated($property): void
     {
-        if (in_array($property, ['tenantId', 'fulfillmentGroupId', 'result', 'scannedByUserId', 'dateFrom', 'dateTo', 'search'], true)) {
+        if (in_array($property, ['tenantId', 'outboundOrderId', 'result', 'scannedByUserId', 'dateFrom', 'dateTo', 'search'], true)) {
             $this->resetPage();
         }
     }
@@ -63,7 +63,7 @@ class FulfillmentPackScanIndex extends Component
             'scans' => (clone $query)
                 ->with([
                     'tenant:id,code,name',
-                    'fulfillmentGroup:id,reference_no',
+                    'outboundOrder:id,ref',
                     'salesOrder:id,platform_order_id',
                     'sku:id,sku,name',
                     'stockItem:id,code,name,short_name',
@@ -91,7 +91,7 @@ class FulfillmentPackScanIndex extends Component
         return FulfillmentPackScan::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->when($this->tenantId !== '', fn ($query) => $query->where('tenant_id', (int) $this->tenantId))
-            ->when($this->fulfillmentGroupId !== '', fn ($query) => $query->where('fulfillment_group_id', (int) $this->fulfillmentGroupId))
+            ->when($this->outboundOrderId !== '', fn ($query) => $query->where('outbound_order_id', (int) $this->outboundOrderId))
             ->when($this->result !== '', fn ($query) => $query->where('result', $this->result))
             ->when($this->scannedByUserId !== '', fn ($query) => $query->where('scanned_by_user_id', (int) $this->scannedByUserId))
             ->when($this->dateFrom !== '', fn ($query) => $query->where('created_at', '>=', Carbon::parse($this->dateFrom)->startOfDay()))
@@ -103,7 +103,7 @@ class FulfillmentPackScanIndex extends Component
                     ->where('barcode_scanned', 'like', $like)
                     ->orWhere('normalized_barcode', 'like', $like)
                     ->orWhere('message', 'like', $like)
-                    ->orWhereHas('fulfillmentGroup', fn ($query) => $query->where('reference_no', 'like', $like))
+                    ->orWhereHas('outboundOrder', fn ($query) => $query->where('ref', 'like', $like))
                     ->orWhereHas('salesOrder', fn ($query) => $query->where('platform_order_id', 'like', $like))
                     ->orWhereHas('sku', fn ($query) => $query->where('sku', 'like', $like))
                     ->orWhereHas('stockItem', fn ($query) => $query

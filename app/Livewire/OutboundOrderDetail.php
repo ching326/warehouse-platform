@@ -5,13 +5,14 @@ namespace App\Livewire;
 use App\Models\OutboundOrder;
 use App\Models\ShippingMethod;
 use App\Models\Tenant;
-use App\Models\User;
 use App\Services\Courier\CourierExportService;
 use App\Services\InventoryService;
 use App\Support\CourierCarrier;
+use App\Support\TrackingNumber;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 use RuntimeException;
 
@@ -118,7 +119,6 @@ class OutboundOrderDetail extends Component
         ];
 
         $order->update($data);
-        $order->fulfillmentGroup?->update($data);
 
         $this->editingRecipient = false;
         session()->flash('status', __('fulfillment_groups.recipient_updated'));
@@ -149,22 +149,16 @@ class OutboundOrderDetail extends Component
             'tracking_no' => $this->trackingNo,
             'note' => $this->note,
         ], [
-            'shipping_method_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::exists('shipping_methods', 'id')->where('status', 'active')],
+            'shipping_method_id' => ['nullable', 'integer', Rule::exists('shipping_methods', 'id')->where('status', 'active')],
             'courier' => ['nullable', 'string', 'max:100'],
             'tracking_no' => ['nullable', 'string', 'max:255'],
             'note' => ['nullable', 'string', 'max:2000'],
         ])->validate();
 
         $methodId = $this->shippingMethodId !== '' ? (int) $this->shippingMethodId : null;
-        $trackingNo = \App\Support\TrackingNumber::normalize($this->trackingNo);
+        $trackingNo = TrackingNumber::normalize($this->trackingNo);
 
         $order->update([
-            'shipping_method_id' => $methodId,
-            'courier' => $this->nullableString($this->courier),
-            'tracking_no' => $trackingNo,
-            'note' => $this->nullableString($this->note),
-        ]);
-        $order->fulfillmentGroup?->update([
             'shipping_method_id' => $methodId,
             'courier' => $this->nullableString($this->courier),
             'tracking_no' => $trackingNo,
@@ -299,9 +293,9 @@ class OutboundOrderDetail extends Component
                 'parentLines.childLines.stockItem:id,code,name',
                 'salesOrders:id,platform_order_id,recipient_name,recipient_city,fulfillment_status',
                 'salesOrders.lines:id,sales_order_id',
-                'fulfillmentGroup:id,reference_no,status',
-                'fulfillmentGroup.packScans' => fn ($query) => $query
+                'packScans' => fn ($query) => $query
                     ->with(['sku:id,sku,name', 'stockItem:id,code,name,short_name', 'scannedBy:id,name'])
+                    ->latest('id')
                     ->limit(10),
             ])
             ->findOrFail($this->orderId);
@@ -391,7 +385,7 @@ class OutboundOrderDetail extends Component
 
     private function loadPendingOrder(): OutboundOrder
     {
-        $order = $this->scopedOrderQuery()->with('fulfillmentGroup')->findOrFail($this->orderId);
+        $order = $this->scopedOrderQuery()->findOrFail($this->orderId);
 
         if ($order->status !== OutboundOrder::STATUS_PENDING) {
             abort(403);

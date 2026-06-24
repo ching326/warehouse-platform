@@ -39,7 +39,7 @@ class FulfillmentGroupPack extends Component
         $this->authorizeInternalUser();
 
         $this->outboundOrderId = OutboundOrder::query()
-            ->whereNotNull('fulfillment_group_id')
+            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->findOrFail($order->id)
             ->id;
@@ -252,7 +252,7 @@ class FulfillmentGroupPack extends Component
         try {
             DB::transaction(function () use ($order, $packService, $shipService): void {
                 $lockedOrder = OutboundOrder::query()
-                    ->whereNotNull('fulfillment_group_id')
+                    ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
                     ->whereIn('tenant_id', $this->allowedTenantIds())
                     ->whereKey($order->id)
                     ->with('shippingMethod:id,name')
@@ -264,8 +264,8 @@ class FulfillmentGroupPack extends Component
                 }
 
                 $shipService->ship($lockedOrder, [
-                    'courier' => $lockedOrder->courier ?? $lockedOrder->fulfillmentGroup?->courier,
-                    'tracking_no' => $lockedOrder->tracking_no ?? $lockedOrder->fulfillmentGroup?->tracking_no,
+                    'courier' => $lockedOrder->courier,
+                    'tracking_no' => $lockedOrder->tracking_no,
                 ]);
             });
         } catch (InvalidArgumentException $exception) {
@@ -287,11 +287,10 @@ class FulfillmentGroupPack extends Component
         $allComplete = $lines !== [] && collect($lines)->every(fn (array $line): bool => $line['remaining_qty'] <= 0);
         $progress = $this->progressSummary($order, $lines);
 
-        $reference = $order->fulfillmentGroup?->reference_no ?? $order->ref;
+        $reference = $order->ref;
 
         return view('livewire.fulfillment-group-pack', [
             'order' => $order,
-            'group' => $order->fulfillmentGroup,
             'lines' => $lines,
             'allComplete' => $allComplete,
             'progress' => $progress,
@@ -305,12 +304,11 @@ class FulfillmentGroupPack extends Component
     private function loadOrder(): OutboundOrder
     {
         return OutboundOrder::query()
-            ->whereNotNull('fulfillment_group_id')
+            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->with([
                 'tenant:id,code,name',
                 'shippingMethod:id,name',
-                'fulfillmentGroup:id,reference_no,status,tracking_no,courier,shipping_method_id',
                 'leafLines.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
                 'leafLines.stockItem.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
                 'leafLines.parentLine.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
@@ -327,7 +325,6 @@ class FulfillmentGroupPack extends Component
         FulfillmentPackScan::create($data + [
             'tenant_id' => $order->tenant_id,
             'outbound_order_id' => $order->id,
-            'fulfillment_group_id' => $order->fulfillment_group_id,
             'quantity' => 1,
             'scanned_by_user_id' => Auth::id(),
         ]);

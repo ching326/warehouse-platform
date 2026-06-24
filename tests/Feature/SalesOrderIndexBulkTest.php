@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Livewire\SalesOrderDetail;
 use App\Livewire\SalesOrderIndex;
-use App\Models\FulfillmentGroup;
 use App\Models\InventoryBalance;
 use App\Models\InventoryMovement;
 use App\Models\OutboundOrder;
@@ -68,7 +67,7 @@ class SalesOrderIndexBulkTest extends TestCase
         $order = $this->orderWithLines($shop, $sku, ['fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY]);
         app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $sku->stock_item_id, 10);
         $group = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$order->id]);
-        $outbound = $group->outboundOrder()->firstOrFail();
+        $outbound = $group;
 
         $this->assertSame(1, $this->balance($tenant, $warehouse, $sku)->reserved_qty);
 
@@ -85,9 +84,9 @@ class SalesOrderIndexBulkTest extends TestCase
 
         $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $order->order_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->fulfillment_status);
-        $this->assertSame(FulfillmentGroup::STATUS_CANCELLED, $group->status);
+        $this->assertSame(OutboundOrder::STATUS_CANCELLED, $group->status);
         $this->assertSame(OutboundOrder::STATUS_CANCELLED, $outbound->status);
-        $this->assertSame(0, $group->orders()->count());
+        $this->assertSame(0, $group->salesOrders()->count());
         $this->assertSame(0, $outbound->salesOrders()->count());
         $this->assertSame(0, $balance->reserved_qty);
         $this->assertSame(10, $balance->available_qty);
@@ -98,7 +97,7 @@ class SalesOrderIndexBulkTest extends TestCase
             'stock_item_id' => $sku->stock_item_id,
             'reserved_delta' => -1,
             'available_delta' => 1,
-            'ref_type' => 'fulfillment_group',
+            'ref_type' => 'outbound_order',
             'ref_id' => (string) $group->id,
         ]);
     }
@@ -122,14 +121,14 @@ class SalesOrderIndexBulkTest extends TestCase
             ->assertSee(__('sales_orders.bulk_hold_result', ['updated' => 1, 'skipped' => 0]));
 
         $group->refresh();
-        $outbound = $group->outboundOrder()->with('lines')->firstOrFail();
+        $outbound = $group->fresh()->load('lines');
         $balance = $this->balance($tenant, $warehouse, $sku);
 
         $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $held->refresh()->order_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $held->fulfillment_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $remaining->refresh()->fulfillment_status);
-        $this->assertSame(FulfillmentGroup::STATUS_RESERVED, $group->status);
-        $this->assertSame([$remaining->id], $group->orders()->pluck('sales_orders.id')->all());
+        $this->assertSame(OutboundOrder::STATUS_PENDING, $group->status);
+        $this->assertSame([$remaining->id], $group->salesOrders()->pluck('sales_orders.id')->all());
         $this->assertSame([$remaining->id], $outbound->salesOrders()->pluck('sales_orders.id')->all());
         $this->assertSame(1, $outbound->lines->count());
         $this->assertSame(3, $outbound->lines->first()->qty);
@@ -153,7 +152,7 @@ class SalesOrderIndexBulkTest extends TestCase
         ]);
         $printedGroup = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$printed->id]);
         $notPrintedGroup = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$notPrinted->id]);
-        $printedGroup->outboundOrder()->firstOrFail()->update(['courier_csv_exported_at' => now()]);
+        $printedGroup->update(['courier_csv_exported_at' => now()]);
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
@@ -163,10 +162,10 @@ class SalesOrderIndexBulkTest extends TestCase
 
         $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $printed->refresh()->order_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $printed->fulfillment_status);
-        $this->assertSame(FulfillmentGroup::STATUS_RESERVED, $printedGroup->refresh()->status);
+        $this->assertSame(OutboundOrder::STATUS_PENDING, $printedGroup->refresh()->status);
         $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $notPrinted->refresh()->order_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $notPrinted->fulfillment_status);
-        $this->assertSame(FulfillmentGroup::STATUS_CANCELLED, $notPrintedGroup->refresh()->status);
+        $this->assertSame(OutboundOrder::STATUS_CANCELLED, $notPrintedGroup->refresh()->status);
     }
 
     public function test_detail_hold_allows_not_printed_group_and_blocks_printed_group(): void
@@ -185,7 +184,7 @@ class SalesOrderIndexBulkTest extends TestCase
         ]);
         $allowedGroup = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$allowed->id]);
         $printedGroup = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$printed->id]);
-        $printedGroup->outboundOrder()->firstOrFail()->update(['courier_csv_exported_at' => now()]);
+        $printedGroup->update(['courier_csv_exported_at' => now()]);
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderDetail::class, ['order' => $allowed])
@@ -194,7 +193,7 @@ class SalesOrderIndexBulkTest extends TestCase
 
         $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $allowed->refresh()->order_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $allowed->fulfillment_status);
-        $this->assertSame(FulfillmentGroup::STATUS_CANCELLED, $allowedGroup->refresh()->status);
+        $this->assertSame(OutboundOrder::STATUS_CANCELLED, $allowedGroup->refresh()->status);
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderDetail::class, ['order' => $printed])
@@ -203,7 +202,7 @@ class SalesOrderIndexBulkTest extends TestCase
 
         $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $printed->refresh()->order_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $printed->fulfillment_status);
-        $this->assertSame(FulfillmentGroup::STATUS_RESERVED, $printedGroup->refresh()->status);
+        $this->assertSame(OutboundOrder::STATUS_PENDING, $printedGroup->refresh()->status);
     }
 
     public function test_bulk_hold_skips_non_pending_orders(): void
@@ -314,10 +313,10 @@ class SalesOrderIndexBulkTest extends TestCase
             ->assertSee(__('sales_orders.bulk_ready_result', ['updated' => 1, 'skipped' => 0]));
 
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $order->refresh()->fulfillment_status);
-        $this->assertDatabaseHas('fulfillment_group_orders', [
+        $this->assertDatabaseHas('outbound_order_sales_order', [
             'sales_order_id' => $order->id,
         ]);
-        $this->assertNotNull($order->fulfillmentGroupOrders()->firstOrFail()->arranged_at);
+        $this->assertNotNull($order->outboundOrders()->firstOrFail()->pivot->arranged_at);
         $this->assertDatabaseHas('inventory_balances', [
             'tenant_id' => $tenant->id,
             'warehouse_id' => $warehouse->id,
@@ -362,7 +361,7 @@ class SalesOrderIndexBulkTest extends TestCase
             ->call('confirmReadyCombine')
             ->assertSet('showReadyCombinePrompt', false);
 
-        $this->assertSame(1, FulfillmentGroup::count());
+        $this->assertSame(1, OutboundOrder::where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)->count());
         $this->assertSame(
             [SalesOrder::FULFILLMENT_STATUS_ARRANGED, SalesOrder::FULFILLMENT_STATUS_ARRANGED],
             SalesOrder::whereKey([$orderA->id, $orderB->id])->orderBy('id')->pluck('fulfillment_status')->all(),
@@ -384,7 +383,7 @@ class SalesOrderIndexBulkTest extends TestCase
             ->call('declineReadyCombine')
             ->assertSet('showReadyCombinePrompt', false);
 
-        $this->assertSame(2, FulfillmentGroup::count());
+        $this->assertSame(2, OutboundOrder::where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)->count());
         $this->assertSame(2, SalesOrder::whereIn('id', [$orderA->id, $orderB->id])
             ->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_ARRANGED)
             ->count());
@@ -395,7 +394,7 @@ class SalesOrderIndexBulkTest extends TestCase
         [$tenant, $shop, $sku] = $this->salesSku('BULK-JOIN');
         $warehouse = $this->warehouseWithStock($tenant, [$sku]);
         $grouped = $this->orderWithLines($shop, $sku, ['fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY]);
-        $group = app(\App\Services\Fulfillment\GroupSalesOrdersService::class)
+        $group = app(GroupSalesOrdersService::class)
             ->singleOrderGroup($tenant->id, $warehouse->id, $grouped->id);
         $newOrder = $this->orderWithLines($shop, $sku);
 
@@ -407,11 +406,11 @@ class SalesOrderIndexBulkTest extends TestCase
             ->assertSet('pendingReadyJoinableGroupCount', 1)
             ->call('confirmReadyCombine');
 
-        $this->assertSame(1, FulfillmentGroup::count());
-        $this->assertSame([$grouped->id, $newOrder->id], $group->refresh()->orders()->orderBy('sales_orders.id')->pluck('sales_orders.id')->all());
+        $this->assertSame(1, OutboundOrder::where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)->count());
+        $this->assertSame([$grouped->id, $newOrder->id], $group->refresh()->salesOrders()->orderBy('sales_orders.id')->pluck('sales_orders.id')->all());
         $this->assertSame(
             [$grouped->id, $newOrder->id],
-            $group->outboundOrder()->firstOrFail()->salesOrders()->orderBy('sales_orders.id')->pluck('sales_orders.id')->all(),
+            $group->salesOrders()->orderBy('sales_orders.id')->pluck('sales_orders.id')->all(),
         );
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $newOrder->refresh()->fulfillment_status);
     }
@@ -431,7 +430,7 @@ class SalesOrderIndexBulkTest extends TestCase
 
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $readyNow->refresh()->fulfillment_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $notSelected->refresh()->fulfillment_status);
-        $this->assertSame(1, FulfillmentGroup::count());
+        $this->assertSame(1, OutboundOrder::where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)->count());
     }
 
     public function test_bulk_mark_ready_requires_warehouse_selection_when_multiple_active_warehouses_exist(): void
@@ -468,7 +467,7 @@ class SalesOrderIndexBulkTest extends TestCase
             ->set('selectedIds', [(string) $orderA->id, (string) $orderB->id])
             ->call('bulkMarkReady');
 
-        $this->assertSame(2, FulfillmentGroup::count());
+        $this->assertSame(2, OutboundOrder::where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)->count());
 
         $shopA->update(['consolidation_mode' => Shop::CONSOLIDATION_CROSS_SHOP]);
         $shopB->update(['consolidation_mode' => Shop::CONSOLIDATION_CROSS_SHOP]);
@@ -482,8 +481,8 @@ class SalesOrderIndexBulkTest extends TestCase
             ->assertSet('showReadyCombinePrompt', true)
             ->call('confirmReadyCombine');
 
-        $this->assertSame(2, FulfillmentGroup::count());
-        $this->assertSame(1, FulfillmentGroup::whereHas('orders', fn ($query) => $query
+        $this->assertSame(2, OutboundOrder::where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)->count());
+        $this->assertSame(1, OutboundOrder::where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)->whereHas('salesOrders', fn ($query) => $query
             ->whereIn('sales_orders.id', [$crossOrderA->id, $crossOrderB->id]))->count());
     }
 

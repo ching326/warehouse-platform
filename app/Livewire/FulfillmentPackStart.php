@@ -4,12 +4,14 @@ namespace App\Livewire;
 
 use App\Models\FulfillmentPackScan;
 use App\Models\OutboundOrder;
+use App\Models\SalesOrder;
 use App\Models\ShippingMethod;
 use App\Models\Tenant;
 use App\Models\Warehouse;
 use App\Services\Fulfillment\FulfillmentPackService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -179,7 +181,7 @@ class FulfillmentPackStart extends Component
     private function queueQuery(): Builder
     {
         return OutboundOrder::query()
-            ->whereNotNull('fulfillment_group_id')
+            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->where('status', OutboundOrder::STATUS_PENDING)
             ->where('warehouse_id', (int) $this->warehouseId)
@@ -193,7 +195,6 @@ class FulfillmentPackStart extends Component
                         ->orWhere('outbound_orders.tracking_no', 'like', $like)
                         ->orWhere('outbound_orders.recipient_name', 'like', $like)
                         ->orWhere('outbound_orders.recipient_phone', 'like', $like)
-                        ->orWhereHas('fulfillmentGroup', fn (Builder $q) => $q->where('fulfillment_groups.reference_no', 'like', $like))
                         ->orWhereHas('salesOrders', function (Builder $q) use ($like): void {
                             $q->where('sales_orders.tracking_no', 'like', $like)
                                 ->orWhere('sales_orders.platform_order_id', 'like', $like);
@@ -214,10 +215,10 @@ class FulfillmentPackStart extends Component
 
         return [
             'waiting_groups' => (clone $this->queueQuery())->count(),
-            'waiting_orders' => \App\Models\SalesOrder::query()
+            'waiting_orders' => SalesOrder::query()
                 ->whereIn(
                     'id',
-                    \Illuminate\Support\Facades\DB::table('outbound_order_sales_order')
+                    DB::table('outbound_order_sales_order')
                         ->whereIn('outbound_order_id', $queueIds)
                         ->select('sales_order_id')
                 )

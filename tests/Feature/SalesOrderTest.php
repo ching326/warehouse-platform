@@ -1773,8 +1773,8 @@ class SalesOrderTest extends TestCase
             'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
         ]);
         $notGrouped = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'NOT-PACKING-ORDER']);
-        $group = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$printed->id]);
-        $group->outboundOrder()->firstOrFail()->update(['courier_csv_exported_at' => '2026-06-18 10:00:00']);
+        $outbound = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$printed->id]);
+        $outbound->update(['courier_csv_exported_at' => '2026-06-18 10:00:00']);
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)

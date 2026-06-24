@@ -26,20 +26,31 @@ class OutboundOrder extends Model
     }
 
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_SHIPPED = 'shipped';
+
     public const STATUS_CANCELLED = 'cancelled';
 
     public const SHIP_MODE_PARCEL = 'parcel';
+
     public const SHIP_MODE_BULK = 'bulk';
 
     public const REASON_CUSTOMER_ORDER = 'customer_order';
+
     public const REASON_RE_SHIP = 're_ship';
+
     public const REASON_REPLACEMENT = 'replacement';
+
     public const REASON_GIFT = 'gift';
+
     public const REASON_FBA = 'fba';
+
     public const REASON_RETURN_TO_TENANT = 'return_to_tenant';
+
     public const REASON_B2B = 'b2b';
+
     public const REASON_SAMPLE = 'sample';
+
     public const REASON_OTHER = 'other';
 
     protected $fillable = [
@@ -144,6 +155,11 @@ class OutboundOrder extends Model
     public function lines(): HasMany
     {
         return $this->hasMany(OutboundOrderLine::class)->orderBy('id');
+    }
+
+    public function packScans(): HasMany
+    {
+        return $this->hasMany(FulfillmentPackScan::class);
     }
 
     public function parentLines(): HasMany

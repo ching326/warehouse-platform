@@ -171,7 +171,6 @@ class FulfillmentGroupIndex extends Component
 
         $order = $this->scopedOrderQuery()
             ->whereKey($orderId)
-            ->with('fulfillmentGroup:id')
             ->first();
 
         if (! $order) {
@@ -179,7 +178,6 @@ class FulfillmentGroupIndex extends Component
         }
 
         $order->update(['note' => $note]);
-        $order->fulfillmentGroup?->update(['note' => $note]);
 
         $this->noteDrafts[$orderId] = $note ?? '';
     }
@@ -201,7 +199,6 @@ class FulfillmentGroupIndex extends Component
 
         $order = $this->scopedOrderQuery()
             ->whereKey($orderId)
-            ->with('fulfillmentGroup:id')
             ->first();
 
         if (! $order) {
@@ -209,7 +206,6 @@ class FulfillmentGroupIndex extends Component
         }
 
         $order->update(['shipping_method_id' => $methodId]);
-        $order->fulfillmentGroup?->update(['shipping_method_id' => $methodId]);
     }
 
     public function updateTracking(int $orderId, string $value): void
@@ -218,7 +214,7 @@ class FulfillmentGroupIndex extends Component
 
         $order = $this->scopedOrderQuery()
             ->whereKey($orderId)
-            ->with(['salesOrders:id', 'fulfillmentGroup:id'])
+            ->with(['salesOrders:id'])
             ->first();
 
         if (! $order) {
@@ -227,7 +223,6 @@ class FulfillmentGroupIndex extends Component
 
         DB::transaction(function () use ($order, $trackingNo) {
             $order->update(['tracking_no' => $trackingNo]);
-            $order->fulfillmentGroup?->groupOrders()->update(['tracking_no' => $trackingNo]);
 
             SalesOrder::query()
                 ->whereIn('id', $order->salesOrders->pluck('id'))
@@ -347,12 +342,11 @@ class FulfillmentGroupIndex extends Component
     public function render()
     {
         $orders = $this->scopedOrderQuery()
-            ->whereNotNull('fulfillment_group_id')
+            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
             ->with([
                 'tenant:id,code,name',
                 'warehouse:id,code,name',
                 'shippingMethod:id,name',
-                'fulfillmentGroup:id,reference_no,status',
                 'salesOrders:id,shop_id,platform_order_id',
                 'salesOrders.shop:id,name',
                 'salesOrders.lines:id,sales_order_id,sku_id,quantity',
@@ -534,7 +528,7 @@ class FulfillmentGroupIndex extends Component
     {
         return $this->scopedOrderQuery()
             ->whereIn('id', $this->normalizedSelectedIds())
-            ->whereNotNull('fulfillment_group_id')
+            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->unique()

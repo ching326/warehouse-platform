@@ -75,7 +75,7 @@
                     @forelse ($queue as $outbound)
                         @php
                             $progress = $queueProgress[$outbound->id] ?? ['required_qty' => 0, 'scanned_qty' => 0];
-                            $reference = $outbound->fulfillmentGroup?->reference_no ?? $outbound->ref;
+                            $reference = $outbound->ref;
                             $orderIds = $outbound->salesOrders->pluck('platform_order_id')->filter()->values();
                         @endphp
                         <flux:table.row :key="$outbound->id">
@@ -84,7 +84,7 @@
                             </flux:table.cell>
                             <flux:table.cell>{{ $outbound->tenant?->code ?: '-' }}</flux:table.cell>
                             <flux:table.cell>{{ $outbound->recipient_name ?: '-' }}</flux:table.cell>
-                            <flux:table.cell>{{ $outbound->tracking_no ?: $outbound->fulfillmentGroup?->tracking_no ?: '-' }}</flux:table.cell>
+                            <flux:table.cell>{{ $outbound->tracking_no ?: '-' }}</flux:table.cell>
                             <flux:table.cell>
                                 @if ($orderIds->isNotEmpty())
                                     {{ $orderIds->take(2)->implode(', ') }}

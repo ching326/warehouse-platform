@@ -42,7 +42,7 @@
             <flux:table.rows>
                 @forelse ($orders as $order)
                     <flux:table.row :key="$order->id">
-                        @php($shop = $order->fulfillmentGroup?->orders->first()?->shop)
+                        @php($shop = $order->salesOrders->first()?->shop)
                         <flux:table.cell>
                             <a class="outbound-order-number-link" href="{{ route('outbound.show', $order) }}" wire:navigate>
                                 {{ $order->ref ?: '-' }}

@@ -72,9 +72,8 @@ class OutboundOrderIndex extends Component
             ->with([
                 'tenant:id,code,name',
                 'warehouse:id,code,name',
-                'fulfillmentGroup:id',
-                'fulfillmentGroup.orders:id,shop_id',
-                'fulfillmentGroup.orders.shop:id,code,name',
+                'salesOrders:id,shop_id',
+                'salesOrders.shop:id,code,name',
                 'parentLines.sku:id,sku,sku_type',
             ])
             ->orderByDesc('created_at')
@@ -98,6 +97,7 @@ class OutboundOrderIndex extends Component
             'pageWide' => true,
         ]);
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();

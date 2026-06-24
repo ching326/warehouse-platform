@@ -22,13 +22,13 @@
                 <flux:badge color="{{ $this->statusColor($order->status) }}">
                     {{ $this->statusLabel($order->status) }}
                 </flux:badge>
-                @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->fulfillmentGroup)
+                @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->reason === \App\Models\OutboundOrder::REASON_CUSTOMER_ORDER)
                     <flux:button href="{{ route('outbound.pack', $order) }}" size="xs" variant="primary" wire:navigate>
                         {{ __('fulfillment_pack.page_title') }}
                     </flux:button>
                 @endif
-                @if ($order->fulfillmentGroup)
-                    <flux:button href="{{ route('fulfillment.pack-scans.index', ['fulfillment_group_id' => $order->fulfillmentGroup->id]) }}" size="xs" variant="outline" wire:navigate>
+                @if ($order->packScans->isNotEmpty())
+                    <flux:button href="{{ route('fulfillment.pack-scans.index', ['outbound_order_id' => $order->id]) }}" size="xs" variant="outline" wire:navigate>
                         {{ __('fulfillment_pack.scan_history_title') }}
                     </flux:button>
                 @endif
@@ -333,14 +333,14 @@
         </section>
     @endif
 
-    @if ($order->fulfillmentGroup && $order->fulfillmentGroup->packScans->isNotEmpty())
+    @if ($order->packScans->isNotEmpty())
         <section class="table-shell flux-panel form-panel">
             <div class="form-panel-header">
                 <div>
                     <strong>{{ __('fulfillment_pack.scan_history_title') }}</strong>
                     <span>{{ __('fulfillment_pack.scan_history_recent_hint') }}</span>
                 </div>
-                <flux:button href="{{ route('fulfillment.pack-scans.index', ['fulfillment_group_id' => $order->fulfillmentGroup->id]) }}" variant="outline" wire:navigate>
+                <flux:button href="{{ route('fulfillment.pack-scans.index', ['outbound_order_id' => $order->id]) }}" variant="outline" wire:navigate>
                     {{ __('fulfillment_pack.view_all_scan_history') }}
                 </flux:button>
             </div>
@@ -355,7 +355,7 @@
                     <flux:table.column>{{ __('fulfillment_pack.scanned_by') }}</flux:table.column>
                 </flux:table.columns>
                 <flux:table.rows>
-                    @foreach ($order->fulfillmentGroup->packScans as $scan)
+                    @foreach ($order->packScans as $scan)
                         <flux:table.row :key="$scan->id">
                             <flux:table.cell>{{ $scan->created_at?->format('Y-m-d H:i:s') ?: '-' }}</flux:table.cell>
                             <flux:table.cell>

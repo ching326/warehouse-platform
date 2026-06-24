@@ -2,9 +2,7 @@
 
 namespace App\Services\Outbound;
 
-use App\Models\FulfillmentGroup;
 use App\Models\OutboundOrder;
-use App\Models\SalesOrder;
 use App\Services\InventoryService;
 use App\Support\TrackingNumber;
 use Illuminate\Support\Facades\Auth;
@@ -62,40 +60,8 @@ class ShipOutboundOrderService
                 'ship_note' => $this->nullableString($input['ship_note'] ?? null),
             ]);
 
-            if ($lockedOrder->fulfillment_group_id === null) {
-                return;
-            }
-
-            $group = FulfillmentGroup::query()
-                ->whereKey($lockedOrder->fulfillment_group_id)
-                ->lockForUpdate()
-                ->first();
-
-            if (! $group) {
-                return;
-            }
-
-            $group->update([
-                'status' => FulfillmentGroup::STATUS_SHIPPED,
-                'shipped_at' => $shippedAt,
-                'shipped_by_user_id' => Auth::id(),
-            ]);
-
-            $groupOrders = $group->groupOrders()->get(['id', 'sales_order_id']);
-            $group->groupOrders()->update([
-                'tracking_no' => $trackingNo,
-                'courier' => $courier,
-                'shipped_at' => $shippedAt,
-            ]);
-
-            SalesOrder::query()
-                ->whereIn('id', $groupOrders->pluck('sales_order_id'))
-                ->update([
-                    'tracking_no' => $trackingNo,
-                    'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_SHIPPED,
-                    'order_status' => SalesOrder::ORDER_STATUS_COMPLETED,
-                    'shipped_at' => $shippedAt,
-                ]);
+            // Linked sales orders (if any) are back-written by OutboundOrderObserver
+            // on the status change to shipped.
         });
     }
 

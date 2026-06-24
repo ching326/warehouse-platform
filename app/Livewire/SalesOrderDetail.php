@@ -2,7 +2,7 @@
 
 namespace App\Livewire;
 
-use App\Models\FulfillmentGroup;
+use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\ShippingMethod;
@@ -249,7 +249,7 @@ class SalesOrderDetail extends Component
     {
         $order = SalesOrder::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->with(['activeOutboundOrders', 'fulfillmentGroupOrders.fulfillmentGroup'])
+            ->with(['activeOutboundOrders'])
             ->findOrFail($this->orderId);
 
         if (
@@ -536,6 +536,7 @@ class SalesOrderDetail extends Component
             'subtitle' => $order->platform_order_id ?? "#{$order->id}",
         ]);
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();
@@ -624,8 +625,9 @@ class SalesOrderDetail extends Component
             return false;
         }
 
-        return $order->fulfillmentGroupOrders
-            ->contains(fn ($pivot) => $pivot->fulfillmentGroup?->status === FulfillmentGroup::STATUS_RESERVED);
+        return $order->activeOutboundOrders
+            ->contains(fn ($outbound) => $outbound->reason === OutboundOrder::REASON_CUSTOMER_ORDER
+                && $outbound->status === OutboundOrder::STATUS_PENDING);
     }
 
     private function isLineShippable(SalesOrderLine $line, int $tenantId): bool

@@ -56,7 +56,7 @@ class FulfillmentGroupCreate extends Component
         $this->validateInput($tenantId);
 
         try {
-            $group = app(GroupSalesOrdersService::class)->createGroup(
+            $outbound = app(GroupSalesOrdersService::class)->createGroup(
                 tenantId: $tenantId,
                 warehouseId: (int) $this->warehouseId,
                 salesOrderIds: $this->selectedOrderIds,
@@ -69,7 +69,7 @@ class FulfillmentGroupCreate extends Component
 
         session()->flash('status', __('fulfillment_groups.group_created'));
 
-        return redirect()->route('outbound.show', $group->outboundOrder);
+        return redirect()->route('outbound.show', $outbound);
     }
 
     public function render()
@@ -173,6 +173,7 @@ class FulfillmentGroupCreate extends Component
 
         return $tenantId;
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();

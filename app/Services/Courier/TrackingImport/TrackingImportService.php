@@ -49,8 +49,6 @@ class TrackingImportService
                     ->whereKey($outboundOrders->first()->id)
                     ->with([
                         'salesOrders:id,tenant_id,platform_order_id,tracking_no',
-                        'fulfillmentGroup:id,reference_no',
-                        'fulfillmentGroup.groupOrders:id,fulfillment_group_id,sales_order_id,tracking_no',
                     ])
                     ->lockForUpdate()
                     ->first();
@@ -72,7 +70,6 @@ class TrackingImportService
                 }
 
                 $outbound->update(['tracking_no' => $newTrackingNo]);
-                $outbound->fulfillmentGroup?->groupOrders()->update(['tracking_no' => $newTrackingNo]);
 
                 SalesOrder::query()
                     ->whereIn('id', $outbound->salesOrders->pluck('id'))
@@ -90,8 +87,6 @@ class TrackingImportService
                             'row_no' => $row['row_no'],
                             'outbound_order_id' => $outbound->id,
                             'outbound_order_ref' => $outbound->ref,
-                            'fulfillment_group_id' => $outbound->fulfillmentGroup?->id,
-                            'fulfillment_group_reference_no' => $outbound->fulfillmentGroup?->reference_no,
                         ])
                         ->log('tracking_imported');
                 }
@@ -108,8 +103,6 @@ class TrackingImportService
                             'row_no' => $row['row_no'],
                             'outbound_order_id' => $outbound->id,
                             'outbound_order_ref' => $outbound->ref,
-                            'fulfillment_group_id' => $outbound->fulfillmentGroup?->id,
-                            'fulfillment_group_reference_no' => $outbound->fulfillmentGroup?->reference_no,
                         ])
                         ->log('tracking_imported');
                 }

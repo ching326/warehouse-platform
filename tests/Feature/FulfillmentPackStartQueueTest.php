@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Livewire\FulfillmentGroupCreate;
 use App\Livewire\FulfillmentPackStart;
 use App\Models\Carrier;
-use App\Models\FulfillmentGroup;
 use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
@@ -39,13 +38,13 @@ class FulfillmentPackStartQueueTest extends TestCase
         [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku();
         $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 2, 'SO-QUEUE-SHOW');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
-        $group = FulfillmentGroup::firstOrFail();
+        $group = OutboundOrder::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPackStart::class)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shippingMethodId', (string) $method->id)
-            ->assertSee($group->reference_no)
+            ->assertSee($group->ref)
             ->assertSee('SO-QUEUE-SHOW')
             ->assertSee('0 / 2');
     }
@@ -57,23 +56,21 @@ class FulfillmentPackStartQueueTest extends TestCase
         $shippedOrder = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-QUEUE-SHIPPED', '2 Shipped Street');
         $cancelledOrder = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-QUEUE-CANCELLED', '3 Cancelled Street');
         $this->createGroup($tenant, $warehouse, $reservedOrder->ship_together_key, [$reservedOrder]);
-        $reserved = FulfillmentGroup::query()->latest('id')->firstOrFail();
+        $reserved = OutboundOrder::query()->latest('id')->firstOrFail();
         $this->createGroup($tenant, $warehouse, $shippedOrder->ship_together_key, [$shippedOrder]);
-        $shipped = FulfillmentGroup::query()->latest('id')->firstOrFail();
-        $shipped->update(['status' => FulfillmentGroup::STATUS_SHIPPED]);
-        $shipped->outboundOrder->update(['status' => OutboundOrder::STATUS_SHIPPED]);
+        $shipped = OutboundOrder::query()->latest('id')->firstOrFail();
+        $shipped->update(['status' => OutboundOrder::STATUS_SHIPPED]);
         $this->createGroup($tenant, $warehouse, $cancelledOrder->ship_together_key, [$cancelledOrder]);
-        $cancelled = FulfillmentGroup::query()->latest('id')->firstOrFail();
-        $cancelled->update(['status' => FulfillmentGroup::STATUS_CANCELLED]);
-        $cancelled->outboundOrder->update(['status' => OutboundOrder::STATUS_CANCELLED]);
+        $cancelled = OutboundOrder::query()->latest('id')->firstOrFail();
+        $cancelled->update(['status' => OutboundOrder::STATUS_CANCELLED]);
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPackStart::class)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shippingMethodId', (string) $method->id)
-            ->assertSee($reserved->reference_no)
-            ->assertDontSee($shipped->reference_no)
-            ->assertDontSee($cancelled->reference_no);
+            ->assertSee($reserved->ref)
+            ->assertDontSee($shipped->ref)
+            ->assertDontSee($cancelled->ref);
     }
 
     public function test_queue_does_not_show_other_warehouse_or_shipping_method(): void
@@ -85,7 +82,7 @@ class FulfillmentPackStartQueueTest extends TestCase
         $otherWarehouseOrder = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-QUEUE-WAREHOUSE', '2 Other Warehouse');
         $otherMethodOrder = $this->readySalesOrder($tenant, $shop, $sku, $otherMethod, 1, 'SO-QUEUE-METHOD', '3 Other Method');
         $this->createGroup($tenant, $warehouse, $shownOrder->ship_together_key, [$shownOrder]);
-        $shown = FulfillmentGroup::query()->latest('id')->firstOrFail();
+        $shown = OutboundOrder::query()->latest('id')->firstOrFail();
         $this->createGroup($tenant, $otherWarehouse, $otherWarehouseOrder->ship_together_key, [$otherWarehouseOrder]);
         $this->createGroup($tenant, $warehouse, $otherMethodOrder->ship_together_key, [$otherMethodOrder]);
 
@@ -93,7 +90,7 @@ class FulfillmentPackStartQueueTest extends TestCase
             ->test(FulfillmentPackStart::class)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shippingMethodId', (string) $method->id)
-            ->assertSee($shown->reference_no)
+            ->assertSee($shown->ref)
             ->assertSee('SO-QUEUE-STATION')
             ->assertDontSee('SO-QUEUE-WAREHOUSE')
             ->assertDontSee('SO-QUEUE-METHOD');
@@ -106,27 +103,27 @@ class FulfillmentPackStartQueueTest extends TestCase
         $secondOrder = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-QUEUE-SEARCH-2', '2 Search Street');
         $thirdOrder = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-QUEUE-SEARCH-3', '3 Search Street');
         $this->createGroup($tenant, $warehouse, $firstOrder->ship_together_key, [$firstOrder]);
-        $first = FulfillmentGroup::query()->latest('id')->firstOrFail();
+        $first = OutboundOrder::query()->latest('id')->firstOrFail();
         $this->createGroup($tenant, $warehouse, $secondOrder->ship_together_key, [$secondOrder]);
-        $second = FulfillmentGroup::query()->latest('id')->firstOrFail();
+        $second = OutboundOrder::query()->latest('id')->firstOrFail();
         $this->createGroup($tenant, $warehouse, $thirdOrder->ship_together_key, [$thirdOrder]);
-        $third = FulfillmentGroup::query()->latest('id')->firstOrFail();
+        $third = OutboundOrder::query()->latest('id')->firstOrFail();
         $third->update(['tracking_no' => 'TRACK-QUEUE-SEARCH']);
-        $third->outboundOrder->update(['tracking_no' => 'TRACK-QUEUE-SEARCH']);
+        $third->update(['tracking_no' => 'TRACK-QUEUE-SEARCH']);
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPackStart::class)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shippingMethodId', (string) $method->id)
-            ->set('queueSearch', $first->reference_no)
-            ->assertSee($first->reference_no)
-            ->assertDontSee($second->reference_no)
+            ->set('queueSearch', $first->ref)
+            ->assertSee($first->ref)
+            ->assertDontSee($second->ref)
             ->set('queueSearch', 'SO-QUEUE-SEARCH-2')
-            ->assertSee($second->reference_no)
-            ->assertDontSee($first->reference_no)
+            ->assertSee($second->ref)
+            ->assertDontSee($first->ref)
             ->set('queueSearch', 'TRACK-QUEUE-SEARCH')
-            ->assertSee($third->reference_no)
-            ->assertDontSee($first->reference_no);
+            ->assertSee($third->ref)
+            ->assertDontSee($first->ref);
     }
 
     public function test_queue_pack_link_points_to_pack_screen(): void
@@ -134,13 +131,13 @@ class FulfillmentPackStartQueueTest extends TestCase
         [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku();
         $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-QUEUE-LINK');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
-        $group = FulfillmentGroup::firstOrFail();
+        $group = OutboundOrder::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPackStart::class)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shippingMethodId', (string) $method->id)
-            ->assertSee(route('outbound.pack', $group->outboundOrder), false);
+            ->assertSee(route('outbound.pack', $group), false);
     }
 
     public function test_tenant_user_cannot_access_pack_start_page(): void

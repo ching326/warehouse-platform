@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Livewire\FulfillmentPackScanIndex;
-use App\Models\FulfillmentGroup;
 use App\Models\FulfillmentPackScan;
 use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
@@ -29,7 +28,7 @@ class FulfillmentPackScanHistoryTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPackScanIndex::class)
             ->assertSee('SCAN-HISTORY-001')
-            ->assertSee($scan->fulfillmentGroup->reference_no);
+            ->assertSee($scan->outboundOrder->ref);
     }
 
     public function test_tenant_user_only_sees_own_tenant_scans(): void
@@ -54,9 +53,9 @@ class FulfillmentPackScanHistoryTest extends TestCase
     {
         [$tenant, $user] = $this->tenantUser();
         $this->packScanFixture($tenant, barcode: 'OWN-SCAN-002');
-        [, $otherGroup] = $this->packScanFixture(Tenant::factory()->create(), barcode: 'OTHER-SCAN-002');
+        [, $otherOutbound] = $this->packScanFixture(Tenant::factory()->create(), barcode: 'OTHER-SCAN-002');
 
-        Livewire::withQueryParams(['fulfillment_group_id' => $otherGroup->id])
+        Livewire::withQueryParams(['outbound_order_id' => $otherOutbound->id])
             ->actingAs($user)
             ->test(FulfillmentPackScanIndex::class)
             ->assertDontSee('OTHER-SCAN-002')
@@ -66,10 +65,10 @@ class FulfillmentPackScanHistoryTest extends TestCase
 
     public function test_fulfillment_group_filter_works(): void
     {
-        [, $group] = $this->packScanFixture(barcode: 'GROUP-FILTER-IN');
+        [, $outbound] = $this->packScanFixture(barcode: 'GROUP-FILTER-IN');
         $this->packScanFixture(barcode: 'GROUP-FILTER-OUT');
 
-        Livewire::withQueryParams(['fulfillment_group_id' => $group->id])
+        Livewire::withQueryParams(['outbound_order_id' => $outbound->id])
             ->actingAs($this->internalUser())
             ->test(FulfillmentPackScanIndex::class)
             ->assertSee('GROUP-FILTER-IN')
@@ -96,14 +95,14 @@ class FulfillmentPackScanHistoryTest extends TestCase
 
     public function test_search_matches_barcode_group_reference_sku_and_stock_item(): void
     {
-        [, $group, , $sku, $stockItem] = $this->packScanFixture(
+        [, $outbound, , $sku, $stockItem] = $this->packScanFixture(
             barcode: 'BARCODE-SEARCH-001',
             skuCode: 'SKU-SEARCH-001',
             stockCode: 'STOCK-SEARCH-001',
             stockName: 'Searchable Stock Item',
         );
 
-        foreach (['BARCODE-SEARCH-001', $group->reference_no, 'SKU-SEARCH-001', 'STOCK-SEARCH-001', 'Searchable Stock Item'] as $term) {
+        foreach (['BARCODE-SEARCH-001', $outbound->ref, 'SKU-SEARCH-001', 'STOCK-SEARCH-001', 'Searchable Stock Item'] as $term) {
             Livewire::withQueryParams(['q' => $term])
                 ->actingAs($this->internalUser())
                 ->test(FulfillmentPackScanIndex::class)
@@ -145,25 +144,25 @@ class FulfillmentPackScanHistoryTest extends TestCase
 
     public function test_fulfillment_group_detail_shows_latest_scan_history(): void
     {
-        [, $group] = $this->packScanFixture(barcode: 'GROUP-DETAIL-SCAN');
+        [, $outbound] = $this->packScanFixture(barcode: 'GROUP-DETAIL-SCAN');
 
         $this->actingAs($this->internalUser())
-            ->get(route('outbound.show', $group->outboundOrder))
+            ->get(route('outbound.show', $outbound))
             ->assertOk()
             ->assertSee('Scan History')
             ->assertSee('GROUP-DETAIL-SCAN')
-            ->assertSee(route('fulfillment.pack-scans.index', ['fulfillment_group_id' => $group->id]), false);
+            ->assertSee(route('fulfillment.pack-scans.index', ['outbound_order_id' => $outbound->id]), false);
     }
 
     public function test_pack_page_has_scan_history_link(): void
     {
-        [, $group] = $this->packScanFixture(barcode: 'PACK-PAGE-HISTORY');
+        [, $outbound] = $this->packScanFixture(barcode: 'PACK-PAGE-HISTORY');
 
         $this->actingAs($this->internalUser())
-            ->get(route('outbound.pack', $group->outboundOrder))
+            ->get(route('outbound.pack', $outbound))
             ->assertOk()
             ->assertSee('Scan History')
-            ->assertSee(route('fulfillment.pack-scans.index', ['fulfillment_group_id' => $group->id]), false);
+            ->assertSee(route('fulfillment.pack-scans.index', ['outbound_order_id' => $outbound->id]), false);
     }
 
     private function packScanFixture(
@@ -190,20 +189,16 @@ class FulfillmentPackScanHistoryTest extends TestCase
         $order = SalesOrder::factory()->for($tenant)->for($shop)->create([
             'platform_order_id' => 'SO-'.$barcode,
         ]);
-        $group = FulfillmentGroup::factory()
-            ->for($tenant)
-            ->for($warehouse)
-            ->create();
-        OutboundOrder::factory()->create([
-            'fulfillment_group_id' => $group->id,
+        $outbound = OutboundOrder::factory()->create([
             'tenant_id' => $tenant->id,
             'warehouse_id' => $warehouse->id,
-            'ref' => $group->reference_no,
+            'reason' => OutboundOrder::REASON_CUSTOMER_ORDER,
+            'ref' => 'OB-'.$barcode,
         ]);
         $user = $this->internalUser();
         $scan = FulfillmentPackScan::create([
             'tenant_id' => $tenant->id,
-            'fulfillment_group_id' => $group->id,
+            'outbound_order_id' => $outbound->id,
             'sales_order_id' => $order->id,
             'sku_id' => $sku->id,
             'stock_item_id' => $stockItem->id,
@@ -219,7 +214,7 @@ class FulfillmentPackScanHistoryTest extends TestCase
             $scan->forceFill(['created_at' => $createdAt])->save();
         }
 
-        return [$tenant, $group, $order, $sku, $stockItem, $scan->refresh(), $user];
+        return [$tenant, $outbound, $order, $sku, $stockItem, $scan->refresh(), $user];
     }
 
     private function internalUser(): User

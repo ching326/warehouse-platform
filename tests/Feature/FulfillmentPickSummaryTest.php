@@ -6,9 +6,9 @@ use App\Livewire\FulfillmentGroupCreate;
 use App\Livewire\FulfillmentGroupIndex;
 use App\Livewire\FulfillmentPickSummary;
 use App\Models\Carrier;
-use App\Models\FulfillmentGroup;
 use App\Models\InboundReceipt;
 use App\Models\InventoryBalance;
+use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\ShippingMethod;
@@ -167,14 +167,14 @@ class FulfillmentPickSummaryTest extends TestCase
         $first = $this->readySalesOrder($tenant, $shop, $sku, $method, 2, 'SO-PICK-001');
         $second = $this->readySalesOrder($tenant, $shop, $sku, $method, 3, 'SO-PICK-002');
         $this->createGroup($tenant, $warehouse, $first->ship_together_key, [$first, $second]);
-        $group = FulfillmentGroup::firstOrFail();
+        $group = OutboundOrder::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPickSummary::class)
             ->set('warehouseId', (string) $warehouse->id)
             ->assertSee('STK-PICK-001')
             ->assertSee('SKU-PICK-001')
-            ->assertSee($group->reference_no)
+            ->assertSee($group->ref)
             ->assertSee('5');
     }
 
@@ -185,16 +185,16 @@ class FulfillmentPickSummaryTest extends TestCase
         $shippedOrder = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-PICK-SHIPPED', '2 Status Street');
         $cancelledOrder = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-PICK-CANCELLED', '3 Status Street');
         $this->createGroup($tenant, $warehouse, $reservedOrder->ship_together_key, [$reservedOrder]);
-        $reserved = FulfillmentGroup::query()->latest('id')->firstOrFail();
+        $reserved = OutboundOrder::query()->latest('id')->firstOrFail();
         $this->createGroup($tenant, $warehouse, $shippedOrder->ship_together_key, [$shippedOrder]);
-        FulfillmentGroup::query()->latest('id')->firstOrFail()->update(['status' => FulfillmentGroup::STATUS_SHIPPED]);
+        OutboundOrder::query()->latest('id')->firstOrFail()->update(['status' => OutboundOrder::STATUS_SHIPPED]);
         $this->createGroup($tenant, $warehouse, $cancelledOrder->ship_together_key, [$cancelledOrder]);
-        FulfillmentGroup::query()->latest('id')->firstOrFail()->update(['status' => FulfillmentGroup::STATUS_CANCELLED]);
+        OutboundOrder::query()->latest('id')->firstOrFail()->update(['status' => OutboundOrder::STATUS_CANCELLED]);
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPickSummary::class)
             ->set('warehouseId', (string) $warehouse->id)
-            ->assertSee($reserved->reference_no)
+            ->assertSee($reserved->ref)
             ->assertDontSee('SO-PICK-SHIPPED')
             ->assertDontSee('SO-PICK-CANCELLED');
     }
@@ -292,13 +292,13 @@ class FulfillmentPickSummaryTest extends TestCase
         $shownOrder = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-PICK-WH-SHOWN');
         $hiddenOrder = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-PICK-WH-HIDDEN', '2 Warehouse Street');
         $this->createGroup($tenant, $warehouse, $shownOrder->ship_together_key, [$shownOrder]);
-        $shown = FulfillmentGroup::query()->latest('id')->firstOrFail();
+        $shown = OutboundOrder::query()->latest('id')->firstOrFail();
         $this->createGroup($tenant, $otherWarehouse, $hiddenOrder->ship_together_key, [$hiddenOrder]);
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPickSummary::class)
             ->set('warehouseId', (string) $warehouse->id)
-            ->assertSee($shown->reference_no)
+            ->assertSee($shown->ref)
             ->assertDontSee('SO-PICK-WH-HIDDEN');
     }
 
@@ -318,11 +318,11 @@ class FulfillmentPickSummaryTest extends TestCase
             $todayOrder = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-PICK-TODAY');
             $oldOrder = $this->readySalesOrder($tenant, $shop, $oldSku, $method, 1, 'SO-PICK-OLD', '2 Date Street');
             $this->createGroup($tenant, $warehouse, $todayOrder->ship_together_key, [$todayOrder]);
-            $todayGroup = FulfillmentGroup::query()->latest('id')->firstOrFail();
-            DB::table('fulfillment_groups')->where('id', $todayGroup->id)->update(['reference_no' => 'FG-TODAY', 'created_at' => '2026-06-24 08:00:00']);
+            $todayGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+            DB::table('outbound_orders')->where('id', $todayGroup->id)->update(['ref' => 'FG-TODAY', 'created_at' => '2026-06-24 08:00:00']);
             $this->createGroup($tenant, $warehouse, $oldOrder->ship_together_key, [$oldOrder]);
-            $oldGroup = FulfillmentGroup::query()->latest('id')->firstOrFail();
-            DB::table('fulfillment_groups')->where('id', $oldGroup->id)->update(['reference_no' => 'FG-OLD', 'created_at' => '2026-06-23 08:00:00']);
+            $oldGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+            DB::table('outbound_orders')->where('id', $oldGroup->id)->update(['ref' => 'FG-OLD', 'created_at' => '2026-06-23 08:00:00']);
 
             Livewire::actingAs($this->internalUser())
                 ->test(FulfillmentPickSummary::class)
@@ -359,16 +359,16 @@ class FulfillmentPickSummaryTest extends TestCase
             $previousOrder = $this->readySalesOrder($tenant, $shop, $previousSku, $method, 1, 'SO-JST-PREV', '2 JST Street');
 
             $this->createGroup($tenant, $warehouse, $todayOrder->ship_together_key, [$todayOrder]);
-            $todayGroup = FulfillmentGroup::query()->latest('id')->firstOrFail();
-            DB::table('fulfillment_groups')->where('id', $todayGroup->id)->update([
-                'reference_no' => 'FG-JST-TODAY',
+            $todayGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+            DB::table('outbound_orders')->where('id', $todayGroup->id)->update([
+                'ref' => 'FG-JST-TODAY',
                 'created_at' => Carbon::parse('2026-06-24 00:30:00', 'Asia/Tokyo')->utc()->format('Y-m-d H:i:s'),
             ]);
 
             $this->createGroup($tenant, $warehouse, $previousOrder->ship_together_key, [$previousOrder]);
-            $previousGroup = FulfillmentGroup::query()->latest('id')->firstOrFail();
-            DB::table('fulfillment_groups')->where('id', $previousGroup->id)->update([
-                'reference_no' => 'FG-JST-PREV',
+            $previousGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+            DB::table('outbound_orders')->where('id', $previousGroup->id)->update([
+                'ref' => 'FG-JST-PREV',
                 'created_at' => Carbon::parse('2026-06-23 23:30:00', 'Asia/Tokyo')->utc()->format('Y-m-d H:i:s'),
             ]);
 
@@ -405,16 +405,16 @@ class FulfillmentPickSummaryTest extends TestCase
             $nextOrder = $this->readySalesOrder($tenant, $shop, $nextSku, $method, 1, 'SO-US-NEXT', '2 US Street');
 
             $this->createGroup($tenant, $warehouse, $todayOrder->ship_together_key, [$todayOrder]);
-            $todayGroup = FulfillmentGroup::query()->latest('id')->firstOrFail();
-            DB::table('fulfillment_groups')->where('id', $todayGroup->id)->update([
-                'reference_no' => 'FG-US-TODAY',
+            $todayGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+            DB::table('outbound_orders')->where('id', $todayGroup->id)->update([
+                'ref' => 'FG-US-TODAY',
                 'created_at' => Carbon::parse('2026-06-23 23:30:00', 'America/Los_Angeles')->utc()->format('Y-m-d H:i:s'),
             ]);
 
             $this->createGroup($tenant, $warehouse, $nextOrder->ship_together_key, [$nextOrder]);
-            $nextGroup = FulfillmentGroup::query()->latest('id')->firstOrFail();
-            DB::table('fulfillment_groups')->where('id', $nextGroup->id)->update([
-                'reference_no' => 'FG-US-NEXT',
+            $nextGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+            DB::table('outbound_orders')->where('id', $nextGroup->id)->update([
+                'ref' => 'FG-US-NEXT',
                 'created_at' => Carbon::parse('2026-06-24 00:30:00', 'America/Los_Angeles')->utc()->format('Y-m-d H:i:s'),
             ]);
 

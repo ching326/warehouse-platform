@@ -2,11 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\SalesOrderImport;
-use App\Livewire\SalesOrderDetail;
-use App\Livewire\SalesOrderIndex;
 use App\Livewire\FulfillmentGroupCreate;
-use App\Models\FulfillmentGroup;
+use App\Livewire\SalesOrderCreate;
+use App\Livewire\SalesOrderDetail;
+use App\Livewire\SalesOrderImport;
+use App\Livewire\SalesOrderIndex;
 use App\Models\InventoryBalance;
 use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
@@ -241,7 +241,7 @@ class SalesOrderImportTest extends TestCase
         $sku->update(['default_shipping_method_id' => $method->id]);
 
         Livewire::actingAs($this->internalUser())
-            ->test(\App\Livewire\SalesOrderCreate::class)
+            ->test(SalesOrderCreate::class)
             ->set('shopId', (string) $shop->id)
             ->set('platformOrderId', 'SO-MANUAL-NO-AUTO')
             ->set('recipientCountryCode', 'JP')
@@ -586,7 +586,6 @@ class SalesOrderImportTest extends TestCase
             ->call('save')
             ->assertHasErrors(['selectedOrderIds']);
 
-        $this->assertSame(0, FulfillmentGroup::count());
         $this->assertSame(0, OutboundOrder::count());
         $this->assertSame(0, $this->balance($tenant, $warehouse, $sku->stockItem)->reserved_qty);
     }

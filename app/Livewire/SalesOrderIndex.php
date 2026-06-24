@@ -2,7 +2,7 @@
 
 namespace App\Livewire;
 
-use App\Models\FulfillmentGroup;
+use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\ShippingMethod;
@@ -273,8 +273,9 @@ class SalesOrderIndex extends Component
                     SalesOrder::FULFILLMENT_STATUS_READY,
                 ])->orWhere(function ($query) {
                     $query->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_ARRANGED)
-                        ->whereHas('fulfillmentGroupOrders.fulfillmentGroup', fn ($group) => $group
-                            ->where('status', FulfillmentGroup::STATUS_RESERVED));
+                        ->whereHas('activeOutboundOrders', fn ($outbound) => $outbound
+                            ->where('outbound_orders.reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+                            ->where('outbound_orders.status', OutboundOrder::STATUS_PENDING));
                 });
             })
             ->get(['id']);
@@ -502,7 +503,7 @@ class SalesOrderIndex extends Component
                 platform: $platform,
                 allowedTenantIds: $this->allowedTenantIds(),
             );
-        } catch (\InvalidArgumentException) {
+        } catch (InvalidArgumentException) {
             session()->flash('error', __('sales_orders.marketplace_notice_export_wrong_platform', ['platform' => ucfirst($platform)]));
 
             return null;
@@ -826,9 +827,9 @@ class SalesOrderIndex extends Component
 
             if ($warehouseId > 0) {
                 foreach ($keyOrders as $order) {
-                    $group = $service->joinableGroupFor($order, $warehouseId);
+                    $joinable = $service->joinableGroupFor($order, $warehouseId);
 
-                    if ($group && $service->canCombineOrders($group->orders->concat(collect([$order])))) {
+                    if ($joinable && $service->canCombineOrders($joinable->salesOrders->concat(collect([$order])))) {
                         $this->pendingReadyJoinableGroupCount++;
                         break;
                     }
@@ -904,10 +905,10 @@ class SalesOrderIndex extends Component
         $firstOrder = $orders->firstOrFail();
 
         if ($combine) {
-            $joinableGroup = $service->joinableGroupFor($firstOrder, $warehouseId);
+            $joinableOutbound = $service->joinableGroupFor($firstOrder, $warehouseId);
 
-            if ($joinableGroup && $service->canCombineOrders($joinableGroup->orders->concat($orders))) {
-                $service->joinGroup($joinableGroup, $orders->pluck('id')->all());
+            if ($joinableOutbound && $service->canCombineOrders($joinableOutbound->salesOrders->concat($orders))) {
+                $service->joinGroup($joinableOutbound, $orders->pluck('id')->all());
 
                 return;
             }
@@ -1036,6 +1037,7 @@ class SalesOrderIndex extends Component
             'q' => $this->search ?: null,
         ];
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();
