@@ -5,7 +5,6 @@ namespace App\Services\Fulfillment;
 use App\Models\BarcodeAlias;
 use App\Models\FulfillmentGroup;
 use App\Models\FulfillmentPackScan;
-use App\Models\SalesOrderLine;
 use App\Models\Sku;
 use App\Support\TrackingNumber;
 use Illuminate\Support\Collection;
@@ -56,54 +55,45 @@ class FulfillmentPackService
     public function packLines(FulfillmentGroup $group): array
     {
         $group->loadMissing([
-            'orders.lines.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
-            'orders.lines.sku.stockItem.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
-            'orders.lines.sku.bundleComponents.componentStockItem.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
+            'outboundOrder.leafLines.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
+            'outboundOrder.leafLines.stockItem.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
+            'outboundOrder.leafLines.parentLine.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
         ]);
 
         $lines = [];
 
-        foreach ($group->orders as $order) {
-            foreach ($order->lines as $orderLine) {
-                if ($orderLine->line_status !== SalesOrderLine::STATUS_READY || ! $orderLine->sku) {
-                    continue;
-                }
+        foreach ($group->outboundOrder?->leafLines ?? [] as $outboundLine) {
+            $stockItem = $outboundLine->stockItem;
 
-                $sku = $orderLine->sku;
+            if ($outboundLine->parent_line_id !== null) {
+                $sku = $outboundLine->parentLine?->sku ?? $outboundLine->sku;
+                $key = 'component:'.$outboundLine->stock_item_id;
 
-                if ($sku->sku_type === 'virtual_bundle') {
-                    foreach ($sku->bundleComponents as $component) {
-                        if (! $component->componentStockItem) {
-                            continue;
-                        }
-
-                        $key = 'component:'.$component->component_stock_item_id;
-                        $lines[$key] ??= [
-                            'key' => $key,
-                            'sku' => $sku,
-                            'sku_id' => null,
-                            'stock_item' => $component->componentStockItem,
-                            'stock_item_id' => $component->component_stock_item_id,
-                            'required_qty' => 0,
-                        ];
-                        $lines[$key]['required_qty'] += $orderLine->quantity * $component->quantity;
-                    }
-
-                    continue;
-                }
-
-                $stockItem = $sku->stockItem;
-                $key = 'sku:'.$sku->id.':stock:'.($stockItem?->id ?? 'none');
                 $lines[$key] ??= [
                     'key' => $key,
                     'sku' => $sku,
-                    'sku_id' => $sku->id,
+                    'sku_id' => null,
                     'stock_item' => $stockItem,
-                    'stock_item_id' => $stockItem?->id,
+                    'stock_item_id' => $outboundLine->stock_item_id,
                     'required_qty' => 0,
                 ];
-                $lines[$key]['required_qty'] += $orderLine->quantity;
+                $lines[$key]['required_qty'] += (int) $outboundLine->qty;
+
+                continue;
             }
+
+            $sku = $outboundLine->sku;
+            $key = 'sku:'.$outboundLine->sku_id.':stock:'.$outboundLine->stock_item_id;
+
+            $lines[$key] ??= [
+                'key' => $key,
+                'sku' => $sku,
+                'sku_id' => $outboundLine->sku_id,
+                'stock_item' => $stockItem,
+                'stock_item_id' => $outboundLine->stock_item_id,
+                'required_qty' => 0,
+            ];
+            $lines[$key]['required_qty'] += (int) $outboundLine->qty;
         }
 
         return array_values($lines);

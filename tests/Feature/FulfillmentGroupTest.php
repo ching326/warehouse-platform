@@ -1884,6 +1884,62 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame(2, FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_BLOCKED_STATUS)->count());
     }
 
+    public function test_pack_lines_are_built_from_outbound_leaf_lines_for_single_skus(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $orderA = $this->readySalesOrder($tenant, $shop, $sku, 2, 'SO-PACK-OUTBOUND-A');
+        $orderB = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-PACK-OUTBOUND-B');
+        $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA, $orderB]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        SalesOrderLine::query()->whereIn('sales_order_id', [$orderA->id, $orderB->id])->update([
+            'line_status' => SalesOrderLine::STATUS_CANCELLED,
+        ]);
+
+        $lines = app(FulfillmentPackService::class)->packLines($group);
+
+        $this->assertCount(1, $lines);
+        $this->assertSame('sku:'.$sku->id.':stock:'.$sku->stock_item_id, $lines[0]['key']);
+        $this->assertSame($sku->id, $lines[0]['sku_id']);
+        $this->assertSame($sku->stock_item_id, $lines[0]['stock_item_id']);
+        $this->assertSame(5, $lines[0]['required_qty']);
+    }
+
+    public function test_pack_lines_preserve_virtual_bundle_component_identity_from_outbound_lines(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create();
+        $component = StockItem::factory()->for($tenant)->create(['code' => $tenant->code.'-000004']);
+        $bundle = Sku::factory()->virtualBundle()->for($tenant)->for($shop)->create([
+            'sku' => 'BUNDLE-OUTBOUND',
+            'barcode' => 'BUNDLE-BAR-OUTBOUND',
+        ]);
+        SkuBundleComponent::factory()
+            ->for($tenant)
+            ->for($bundle, 'bundleSku')
+            ->for($component, 'componentStockItem')
+            ->create(['quantity' => 2]);
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $component->id, 10);
+        $order = $this->readySalesOrder($tenant, $shop, $bundle, 3, 'SO-PACK-BUNDLE-OUTBOUND');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+
+        SalesOrderLine::query()->where('sales_order_id', $order->id)->update([
+            'line_status' => SalesOrderLine::STATUS_CANCELLED,
+        ]);
+
+        $service = app(FulfillmentPackService::class);
+        $lines = $service->packLines($group);
+
+        $this->assertCount(1, $lines);
+        $this->assertSame('component:'.$component->id, $lines[0]['key']);
+        $this->assertNull($lines[0]['sku_id']);
+        $this->assertSame($component->id, $lines[0]['stock_item_id']);
+        $this->assertSame(6, $lines[0]['required_qty']);
+        $this->assertTrue($service->lineMatchesScan($lines[0], $service->normalizeProductBarcode('BUNDLE-BAR-OUTBOUND')));
+    }
+
     public function test_virtual_bundle_pack_lines_scan_component_stock_items(): void
     {
         $tenant = Tenant::factory()->create();
