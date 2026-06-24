@@ -11,6 +11,7 @@ return [
     'nav_inbound' => 'Inbound',
     'nav_return_orders' => 'Return',
     'nav_outbound' => 'Outbound',
+    'nav_outbound_orders' => 'Outbound orders',
     'nav_sales_orders' => 'Sales Order',
     'nav_fulfillment_groups' => 'Fulfillment',
     'nav_fulfillment_group_list' => 'Fulfillment Groups',

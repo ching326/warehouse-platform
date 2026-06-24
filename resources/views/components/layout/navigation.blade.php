@@ -90,24 +90,6 @@
             </a>
 
             {{-- Outbound --}}
-            <a
-                href="{{ route('outbound.index') }}"
-                class="top-nav-btn {{ $outboundActive ? 'is-active' : '' }}"
-                wire:navigate
-            >
-                {{ __('common.nav_outbound') }}
-            </a>
-
-            {{-- Sales Orders --}}
-            <a
-                href="{{ route('sales.orders.index') }}"
-                class="top-nav-btn {{ $salesActive ? 'is-active' : '' }}"
-                wire:navigate
-            >
-                {{ __('common.nav_sales_orders') }}
-            </a>
-
-            {{-- Fulfillment --}}
             <div
                 class="top-nav-item"
                 x-data="{ open: false }"
@@ -116,11 +98,11 @@
             >
                 <button
                     type="button"
-                    class="top-nav-btn {{ $fulfillmentActive ? 'is-active' : '' }}"
+                    class="top-nav-btn {{ $outboundActive || $fulfillmentActive ? 'is-active' : '' }}"
                     @click="open = !open"
                     :aria-expanded="open"
                 >
-                    {{ __('common.nav_fulfillment_groups') }}
+                    {{ __('common.nav_outbound') }}
                     <svg
                         class="top-nav-chevron"
                         :class="{ 'is-open': open }"
@@ -134,6 +116,14 @@
                 </button>
 
                 <div class="top-nav-dropdown" x-show="open" x-cloak>
+                    <a
+                        href="{{ route('outbound.index') }}"
+                        class="{{ request()->routeIs('outbound.*') ? 'is-active' : '' }}"
+                        wire:navigate
+                        @click="open = false"
+                    >
+                        {{ __('common.nav_outbound_orders') }}
+                    </a>
                     <a
                         href="{{ route('fulfillment-groups.index') }}"
                         class="{{ request()->routeIs('fulfillment-groups.*') ? 'is-active' : '' }}"
@@ -152,6 +142,15 @@
                     </a>
                 </div>
             </div>
+
+            {{-- Sales Orders --}}
+            <a
+                href="{{ route('sales.orders.index') }}"
+                class="top-nav-btn {{ $salesActive ? 'is-active' : '' }}"
+                wire:navigate
+            >
+                {{ __('common.nav_sales_orders') }}
+            </a>
 
             {{-- Returns --}}
             <a

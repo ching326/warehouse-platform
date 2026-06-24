@@ -15,6 +15,7 @@ return [
     'nav_inbound' => '入庫',
     'nav_return_orders' => '返品',
     'nav_outbound' => '出庫',
+    'nav_outbound_orders' => '出庫オーダー',
     'nav_sales_orders' => '注文管理',
     'nav_fulfillment_groups' => '出荷管理',
     'nav_issues' => '問題案件',

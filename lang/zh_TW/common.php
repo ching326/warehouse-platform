@@ -15,6 +15,7 @@ return [
     'nav_inbound' => '進倉',
     'nav_return_orders' => '退貨',
     'nav_outbound' => '出倉',
+    'nav_outbound_orders' => '出倉訂單',
     'nav_sales_orders' => '訂單管理',
     'nav_fulfillment_groups' => '發貨管理',
     'nav_issues' => '問題案件',
