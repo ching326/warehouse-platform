@@ -7,6 +7,7 @@ use Database\Factories\OutboundOrderFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class OutboundOrder extends Model
@@ -28,8 +29,26 @@ class OutboundOrder extends Model
     public const STATUS_SHIPPED = 'shipped';
     public const STATUS_CANCELLED = 'cancelled';
 
+    public const SHIP_MODE_PARCEL = 'parcel';
+    public const SHIP_MODE_BULK = 'bulk';
+
+    public const REASON_CUSTOMER_ORDER = 'customer_order';
+    public const REASON_RE_SHIP = 're_ship';
+    public const REASON_REPLACEMENT = 'replacement';
+    public const REASON_GIFT = 'gift';
+    public const REASON_FBA = 'fba';
+    public const REASON_RETURN_TO_TENANT = 'return_to_tenant';
+    public const REASON_B2B = 'b2b';
+    public const REASON_SAMPLE = 'sample';
+    public const REASON_OTHER = 'other';
+
     protected $fillable = [
         'fulfillment_group_id',
+        'reason',
+        'ship_mode',
+        'source_sales_order_id',
+        'courier_csv_exported_at',
+        'shipping_method_id',
         'tenant_id',
         'warehouse_id',
         'ref',
@@ -61,6 +80,7 @@ class OutboundOrder extends Model
         return [
             'shipped_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'courier_csv_exported_at' => 'datetime',
             'package_count' => 'integer',
             'package_weight_g' => 'integer',
         ];
@@ -79,6 +99,22 @@ class OutboundOrder extends Model
     public function fulfillmentGroup(): BelongsTo
     {
         return $this->belongsTo(FulfillmentGroup::class);
+    }
+
+    public function sourceSalesOrder(): BelongsTo
+    {
+        return $this->belongsTo(SalesOrder::class, 'source_sales_order_id');
+    }
+
+    public function shippingMethod(): BelongsTo
+    {
+        return $this->belongsTo(ShippingMethod::class);
+    }
+
+    public function salesOrders(): BelongsToMany
+    {
+        return $this->belongsToMany(SalesOrder::class, 'outbound_order_sales_order')
+            ->withPivot('arranged_at');
     }
 
     public function createdBy(): BelongsTo

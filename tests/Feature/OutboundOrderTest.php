@@ -6,10 +6,13 @@ use App\Livewire\OutboundOrderCreate;
 use App\Livewire\OutboundOrderDetail;
 use App\Livewire\OutboundOrderIndex;
 use App\Livewire\OutboundOrderShip;
+use App\Models\Carrier;
+use App\Models\FulfillmentGroup;
 use App\Models\InventoryBalance;
 use App\Models\InventoryMovement;
 use App\Models\OutboundOrder;
 use App\Models\OutboundOrderLine;
+use App\Models\SalesOrder;
 use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
@@ -20,14 +23,106 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\InventoryService;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Tests\TestCase;
 
 class OutboundOrderTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_unified_shipping_schema_fields_exist(): void
+    {
+        foreach ([
+            'reason',
+            'ship_mode',
+            'source_sales_order_id',
+            'courier_csv_exported_at',
+            'shipping_method_id',
+        ] as $column) {
+            $this->assertTrue(Schema::hasColumn('outbound_orders', $column));
+        }
+
+        $this->assertTrue(Schema::hasTable('outbound_order_sales_order'));
+        $this->assertTrue(Schema::hasColumn('outbound_order_sales_order', 'outbound_order_id'));
+        $this->assertTrue(Schema::hasColumn('outbound_order_sales_order', 'sales_order_id'));
+        $this->assertTrue(Schema::hasColumn('outbound_order_sales_order', 'arranged_at'));
+    }
+
+    public function test_unified_shipping_model_casts_and_relations_resolve(): void
+    {
+        [$tenant, $warehouse] = [Tenant::factory()->create(), Warehouse::factory()->create()];
+        $shop = Shop::factory()->for($tenant)->create();
+        $salesOrder = SalesOrder::factory()->for($tenant)->for($shop)->create();
+        $linkedSalesOrder = SalesOrder::factory()->for($tenant)->for($shop)->create();
+        $carrier = Carrier::create([
+            'code' => 'phase1-carrier',
+            'name' => 'Phase 1 Carrier',
+            'country_code' => 'JP',
+            'status' => 'active',
+        ]);
+        $shippingMethod = ShippingMethod::create([
+            'carrier_id' => $carrier->id,
+            'code' => 'phase1-method',
+            'name' => 'Phase 1 Method',
+            'service_type' => 'parcel',
+            'status' => 'active',
+        ]);
+        $exportedAt = CarbonImmutable::create(2026, 6, 24, 12, 0, 0, 'UTC');
+        $arrangedAt = CarbonImmutable::create(2026, 6, 24, 13, 0, 0, 'UTC');
+
+        $order = OutboundOrder::factory()
+            ->for($tenant)
+            ->for($warehouse)
+            ->create([
+                'source_sales_order_id' => $salesOrder->id,
+                'shipping_method_id' => $shippingMethod->id,
+                'courier_csv_exported_at' => $exportedAt,
+            ]);
+
+        $order->salesOrders()->attach($linkedSalesOrder->id, ['arranged_at' => $arrangedAt]);
+
+        $order->refresh();
+        $this->assertInstanceOf(CarbonInterface::class, $order->courier_csv_exported_at);
+        $this->assertTrue($order->sourceSalesOrder->is($salesOrder));
+        $this->assertTrue($order->shippingMethod->is($shippingMethod));
+        $this->assertTrue($order->salesOrders->first()->is($linkedSalesOrder));
+        $this->assertSame($arrangedAt->toDateTimeString(), (string) $order->salesOrders->first()->pivot->arranged_at);
+    }
+
+    public function test_unified_shipping_backfill_sets_grouped_outbound_reason_and_ship_mode(): void
+    {
+        [$tenant, $warehouse] = [Tenant::factory()->create(), Warehouse::factory()->create()];
+        $group = FulfillmentGroup::factory()->for($tenant)->for($warehouse)->create();
+        $grouped = OutboundOrder::factory()
+            ->for($tenant)
+            ->for($warehouse)
+            ->create([
+                'fulfillment_group_id' => $group->id,
+                'reason' => null,
+                'ship_mode' => OutboundOrder::SHIP_MODE_BULK,
+            ]);
+        $manual = OutboundOrder::factory()
+            ->for($tenant)
+            ->for($warehouse)
+            ->create([
+                'fulfillment_group_id' => null,
+                'reason' => null,
+                'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
+            ]);
+
+        $migration = require database_path('migrations/2026_06_24_000004_add_unified_shipping_fields_to_outbound_orders_table.php');
+        $migration->up();
+
+        $this->assertSame(OutboundOrder::REASON_CUSTOMER_ORDER, $grouped->refresh()->reason);
+        $this->assertSame(OutboundOrder::SHIP_MODE_PARCEL, $grouped->ship_mode);
+        $this->assertNull($manual->refresh()->reason);
+        $this->assertSame(OutboundOrder::SHIP_MODE_PARCEL, $manual->ship_mode);
+    }
 
     public function test_create_single_sku_order_reserves_stock(): void
     {
