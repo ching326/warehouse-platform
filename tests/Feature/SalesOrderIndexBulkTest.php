@@ -46,7 +46,7 @@ class SalesOrderIndexBulkTest extends TestCase
         }
     }
 
-    public function test_bulk_hold_skips_in_group_and_shipped_orders(): void
+    public function test_bulk_hold_skips_in_group_without_reserved_group_and_shipped_orders(): void
     {
         [, $shop, $sku] = $this->salesSku('BULK-HOLD-SKIP');
         $inGroup = $this->orderWithLines($shop, $sku, ['fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_IN_GROUP]);

@@ -262,29 +262,14 @@ class SalesOrderDetail extends Component
         }
 
         try {
-            app(GroupSalesOrdersService::class)->releaseOrderForHold($order);
+            $held = app(GroupSalesOrdersService::class)->releaseOrderForHold($order);
         } catch (InvalidArgumentException) {
             session()->flash('error', __('sales_orders.cannot_hold'));
 
             return;
         }
 
-        $updated = SalesOrder::query()
-            ->whereKey($order->id)
-            ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->where('order_status', SalesOrder::ORDER_STATUS_PENDING)
-            ->whereNull('courier_csv_exported_at')
-            ->whereIn('fulfillment_status', [
-                SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
-                SalesOrder::FULFILLMENT_STATUS_READY,
-                SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
-            ])
-            ->update([
-                'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
-                'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
-            ]);
-
-        if ($updated === 0) {
+        if (! $held) {
             session()->flash('error', __('sales_orders.cannot_hold'));
 
             return;

@@ -91,9 +91,14 @@ class GroupSalesOrdersService
             ->first();
     }
 
-    public function releaseOrderForHold(SalesOrder $order): void
+    /**
+     * Put a sales order on hold, clawing it back out of any reserved fulfillment group
+     * (release reservation, detach, rebuild or cancel the outbound order) in one transaction.
+     * Returns true if the order was held, false if it was not eligible.
+     */
+    public function releaseOrderForHold(SalesOrder $order): bool
     {
-        DB::transaction(function () use ($order): void {
+        return DB::transaction(function () use ($order): bool {
             $order = SalesOrder::query()
                 ->with([
                     'lines.sku.stockItem',
@@ -102,8 +107,16 @@ class GroupSalesOrdersService
                 ->lockForUpdate()
                 ->findOrFail($order->id);
 
-            if ($order->courier_csv_exported_at !== null) {
-                throw new InvalidArgumentException(__('sales_orders.cannot_hold'));
+            if (
+                $order->order_status !== SalesOrder::ORDER_STATUS_PENDING
+                || $order->courier_csv_exported_at !== null
+                || ! in_array($order->fulfillment_status, [
+                    SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+                    SalesOrder::FULFILLMENT_STATUS_READY,
+                    SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+                ], true)
+            ) {
+                return false;
             }
 
             $group = FulfillmentGroup::query()
@@ -113,62 +126,65 @@ class GroupSalesOrdersService
                 ->lockForUpdate()
                 ->first();
 
-            if (! $group) {
-                return;
-            }
+            if ($group) {
+                [, $heldStockItems] = $this->aggregateLines(collect([$order]));
 
-            [, $heldStockItems] = $this->aggregateLines(collect([$order]));
-
-            foreach ($heldStockItems as $stockItemId => $totalQty) {
-                $this->inventoryService->releaseReserve(
-                    tenantId: (int) $group->tenant_id,
-                    warehouseId: (int) $group->warehouse_id,
-                    stockItemId: (int) $stockItemId,
-                    quantity: (int) $totalQty,
-                    context: [
-                        'ref_type' => 'fulfillment_group',
-                        'ref_id' => (string) $group->id,
-                        'user_id' => Auth::id(),
-                    ],
-                );
-            }
-
-            $group->orders()->detach($order->id);
-
-            $outbound = $group->outboundOrder;
-            if ($outbound) {
-                $outbound->lines()->delete();
-            }
-
-            $remainingOrders = SalesOrder::query()
-                ->whereHas('fulfillmentGroupOrders', fn ($query) => $query->where('fulfillment_group_id', $group->id))
-                ->with([
-                    'lines.sku.stockItem',
-                    'lines.sku.bundleComponents.componentStockItem',
-                ])
-                ->lockForUpdate()
-                ->get();
-
-            if ($remainingOrders->isEmpty()) {
-                $group->update(['status' => FulfillmentGroup::STATUS_CANCELLED]);
-
-                if ($outbound) {
-                    $outbound->update([
-                        'status' => OutboundOrder::STATUS_CANCELLED,
-                        'cancelled_at' => now(),
-                        'cancelled_by_user_id' => Auth::id(),
-                    ]);
+                foreach ($heldStockItems as $stockItemId => $totalQty) {
+                    $this->inventoryService->releaseReserve(
+                        tenantId: (int) $group->tenant_id,
+                        warehouseId: (int) $group->warehouse_id,
+                        stockItemId: (int) $stockItemId,
+                        quantity: (int) $totalQty,
+                        context: [
+                            'ref_type' => 'fulfillment_group',
+                            'ref_id' => (string) $group->id,
+                            'user_id' => Auth::id(),
+                        ],
+                    );
                 }
 
-                return;
+                $group->orders()->detach($order->id);
+
+                $outbound = $group->outboundOrder;
+                if ($outbound) {
+                    $outbound->lines()->delete();
+                }
+
+                $remainingOrders = SalesOrder::query()
+                    ->whereHas('fulfillmentGroupOrders', fn ($query) => $query->where('fulfillment_group_id', $group->id))
+                    ->with([
+                        'lines.sku.stockItem',
+                        'lines.sku.bundleComponents.componentStockItem',
+                    ])
+                    ->lockForUpdate()
+                    ->get();
+
+                if ($remainingOrders->isEmpty()) {
+                    $group->update(['status' => FulfillmentGroup::STATUS_CANCELLED]);
+
+                    if ($outbound) {
+                        $outbound->update([
+                            'status' => OutboundOrder::STATUS_CANCELLED,
+                            'cancelled_at' => now(),
+                            'cancelled_by_user_id' => Auth::id(),
+                        ]);
+                    }
+                } else {
+                    if (! $outbound || $outbound->status !== OutboundOrder::STATUS_PENDING) {
+                        throw new InvalidArgumentException(__('fulfillment_groups.group_not_joinable'));
+                    }
+
+                    [$bySkuAndItem] = $this->aggregateLines($remainingOrders);
+                    $this->createOutboundLines($group, $outbound, $bySkuAndItem);
+                }
             }
 
-            if (! $outbound || $outbound->status !== OutboundOrder::STATUS_PENDING) {
-                throw new InvalidArgumentException(__('fulfillment_groups.group_not_joinable'));
-            }
+            $order->update([
+                'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
+                'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+            ]);
 
-            [$bySkuAndItem] = $this->aggregateLines($remainingOrders);
-            $this->createOutboundLines($group, $outbound, $bySkuAndItem);
+            return true;
         });
     }
 

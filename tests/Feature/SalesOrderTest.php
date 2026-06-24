@@ -597,7 +597,7 @@ class SalesOrderTest extends TestCase
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->fulfillment_status);
     }
 
-    public function test_hold_blocked_when_in_group(): void
+    public function test_hold_blocked_when_in_group_without_reserved_group(): void
     {
         [, $shop, $sku] = $this->salesSku();
         $order = $this->createPersistedOrder($shop, $sku, [
