@@ -69,7 +69,7 @@ class FulfillmentGroupIndex extends Component
 
     public ?string $pendingCourierExportCarrier = null;
 
-    public array $pendingCourierExportGroupIds = [];
+    public array $pendingCourierExportOrderIds = [];
 
     public ?string $pendingExportWarning = null;
 
@@ -288,7 +288,7 @@ class FulfillmentGroupIndex extends Component
     public function validateCourierExport(string $carrier): mixed
     {
         $this->pendingCourierExportCarrier = null;
-        $this->pendingCourierExportGroupIds = [];
+        $this->pendingCourierExportOrderIds = [];
         $this->pendingExportWarning = null;
 
         if ($this->selectedIds === []) {
@@ -297,10 +297,10 @@ class FulfillmentGroupIndex extends Component
             return null;
         }
 
-        $groupIds = $this->selectedGroupIds();
+        $outboundOrderIds = $this->selectedOutboundOrderIds();
         $carrier = $this->normalizeCourierCarrier($carrier);
-        $result = app(CourierExportService::class)->validateGroupExport(
-            fulfillmentGroupIds: $groupIds,
+        $result = app(CourierExportService::class)->validateOrderExport(
+            outboundOrderIds: $outboundOrderIds,
             carrier: $carrier,
             allowedTenantIds: $this->allowedTenantIds(),
         );
@@ -313,26 +313,26 @@ class FulfillmentGroupIndex extends Component
 
         if ($result->requiresConfirmation) {
             $this->pendingCourierExportCarrier = $carrier;
-            $this->pendingCourierExportGroupIds = $groupIds;
+            $this->pendingCourierExportOrderIds = $outboundOrderIds;
             $this->pendingExportWarning = $this->reExportWarning($result->alreadyExportedOrderIds);
 
             return null;
         }
 
-        return $this->performCourierExport($carrier, confirmedReExport: false, groupIds: $groupIds);
+        return $this->performCourierExport($carrier, confirmedReExport: false, outboundOrderIds: $outboundOrderIds);
     }
 
     public function confirmCourierExport(): mixed
     {
-        if ($this->pendingCourierExportCarrier === null || $this->pendingCourierExportGroupIds === []) {
+        if ($this->pendingCourierExportCarrier === null || $this->pendingCourierExportOrderIds === []) {
             return null;
         }
 
         $carrier = $this->pendingCourierExportCarrier;
-        $groupIds = $this->pendingCourierExportGroupIds;
+        $outboundOrderIds = $this->pendingCourierExportOrderIds;
         $this->clearPendingExport();
 
-        return $this->performCourierExport($carrier, confirmedReExport: true, groupIds: $groupIds);
+        return $this->performCourierExport($carrier, confirmedReExport: true, outboundOrderIds: $outboundOrderIds);
     }
 
     public function openTrackingImportModal(): void
@@ -454,11 +454,11 @@ class FulfillmentGroupIndex extends Component
         ];
     }
 
-    private function performCourierExport(string $carrier, bool $confirmedReExport, ?array $groupIds = null): mixed
+    private function performCourierExport(string $carrier, bool $confirmedReExport, ?array $outboundOrderIds = null): mixed
     {
         try {
-            $batch = app(CourierExportService::class)->exportGroups(
-                fulfillmentGroupIds: $groupIds ?? $this->selectedGroupIds(),
+            $batch = app(CourierExportService::class)->exportOrders(
+                outboundOrderIds: $outboundOrderIds ?? $this->selectedOutboundOrderIds(),
                 carrier: $carrier,
                 allowedTenantIds: $this->allowedTenantIds(),
                 user: Auth::user(),
@@ -472,7 +472,7 @@ class FulfillmentGroupIndex extends Component
 
         $this->selectedIds = [];
         $this->pendingCourierExportCarrier = null;
-        $this->pendingCourierExportGroupIds = [];
+        $this->pendingCourierExportOrderIds = [];
 
         return redirect()->route('courier-export-batches.download', $batch);
     }
@@ -500,22 +500,22 @@ class FulfillmentGroupIndex extends Component
         return implode("\n", $parts ?: [$result['message']]);
     }
 
-    private function reExportWarning(array $groupIds): string
+    private function reExportWarning(array $outboundOrderIds): string
     {
-        $references = \App\Models\FulfillmentGroup::query()
-            ->whereIn('id', $groupIds)
+        $refs = OutboundOrder::query()
+            ->whereIn('id', $outboundOrderIds)
             ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->orderBy('reference_no')
-            ->pluck('reference_no')
+            ->orderBy('ref')
+            ->pluck('ref')
             ->all();
 
-        return __('fulfillment_groups.courier_export_reexport_warning')."\n".implode("\n", $references);
+        return __('fulfillment_groups.courier_export_reexport_warning')."\n".implode("\n", $refs);
     }
 
     private function clearPendingExport(): void
     {
         $this->pendingCourierExportCarrier = null;
-        $this->pendingCourierExportGroupIds = [];
+        $this->pendingCourierExportOrderIds = [];
         $this->pendingExportWarning = null;
 
         session()->forget('warning');
@@ -531,18 +531,12 @@ class FulfillmentGroupIndex extends Component
             ->all();
     }
 
-    /**
-     * Map the selected OutboundOrder ids to their fulfillment group ids for the
-     * (still group-keyed) courier export service.
-     *
-     * @return array<int, int>
-     */
-    private function selectedGroupIds(): array
+    private function selectedOutboundOrderIds(): array
     {
         return $this->scopedOrderQuery()
             ->whereIn('id', $this->normalizedSelectedIds())
             ->whereNotNull('fulfillment_group_id')
-            ->pluck('fulfillment_group_id')
+            ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->unique()
             ->values()

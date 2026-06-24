@@ -15,6 +15,7 @@ use App\Models\FulfillmentGroup;
 use App\Models\FulfillmentPackScan;
 use App\Models\InventoryBalance;
 use App\Models\OutboundOrder;
+use App\Models\OutboundOrderLine;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\ShippingMethod;
@@ -715,8 +716,8 @@ class FulfillmentGroupTest extends TestCase
         $outbound = $group->outboundOrder()->firstOrFail();
         $outbound->update(['shipping_method_id' => $method->id]);
 
-        $batch = app(CourierExportService::class)->exportGroups(
-            fulfillmentGroupIds: [$group->id],
+        $batch = app(CourierExportService::class)->exportOrders(
+            outboundOrderIds: [$outbound->id],
             carrier: CourierCarrier::YAMATO,
             allowedTenantIds: [$tenant->id],
             user: $this->internalUser(),
@@ -764,10 +765,11 @@ class FulfillmentGroupTest extends TestCase
             'reference_no' => 'FG-LONG-0613-0659033902',
             'shipping_method_id' => $method->id,
         ]);
-        $group->outboundOrder()->firstOrFail()->update(['shipping_method_id' => $method->id]);
+        $outbound = $group->outboundOrder()->firstOrFail();
+        $outbound->update(['shipping_method_id' => $method->id, 'ref' => 'FG-LONG-0613-0659033902']);
 
-        $batch = app(CourierExportService::class)->exportGroups(
-            fulfillmentGroupIds: [$group->id],
+        $batch = app(CourierExportService::class)->exportOrders(
+            outboundOrderIds: [$outbound->id],
             carrier: CourierCarrier::SAGAWA,
             allowedTenantIds: [$tenant->id],
             user: $this->internalUser(),
@@ -789,16 +791,17 @@ class FulfillmentGroupTest extends TestCase
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $group = FulfillmentGroup::firstOrFail();
         $group->update(['shipping_method_id' => $method->id]);
-        $group->outboundOrder()->firstOrFail()->update(['shipping_method_id' => $method->id]);
+        $outbound = $group->outboundOrder()->firstOrFail();
+        $outbound->update(['shipping_method_id' => $method->id]);
 
-        $result = app(CourierExportService::class)->validateGroupExport(
-            fulfillmentGroupIds: [$group->id],
+        $result = app(CourierExportService::class)->validateOrderExport(
+            outboundOrderIds: [$outbound->id],
             carrier: CourierCarrier::YAMATO,
             allowedTenantIds: [$tenant->id],
         );
 
         $this->assertFalse($result->ok);
-        $this->assertSame([$group->id], $result->wrongCarrierOrderIds);
+        $this->assertSame([$outbound->id], $result->wrongCarrierOrderIds);
         $this->assertNull($order->refresh()->courier_csv_exported_at);
     }
 
@@ -817,37 +820,37 @@ class FulfillmentGroupTest extends TestCase
             'courier_csv_exported_at' => now(),
         ]);
 
-        $result = app(CourierExportService::class)->validateGroupExport(
-            fulfillmentGroupIds: [$group->id],
+        $result = app(CourierExportService::class)->validateOrderExport(
+            outboundOrderIds: [$outbound->id],
             carrier: CourierCarrier::YAMATO,
             allowedTenantIds: [$tenant->id],
         );
 
         $this->assertTrue($result->requiresConfirmation);
-        $this->assertSame([$group->id], $result->alreadyExportedOrderIds);
+        $this->assertSame([$outbound->id], $result->alreadyExportedOrderIds);
         $this->assertNull($order->refresh()->courier_csv_exported_at);
 
         $outbound->update(['courier_csv_exported_at' => null]);
         $method->update(['supports_courier_csv' => false]);
 
-        $result = app(CourierExportService::class)->validateGroupExport(
-            fulfillmentGroupIds: [$group->id],
+        $result = app(CourierExportService::class)->validateOrderExport(
+            outboundOrderIds: [$outbound->id],
             carrier: CourierCarrier::YAMATO,
             allowedTenantIds: [$tenant->id],
         );
 
-        $this->assertSame([$group->id], $result->unsupportedCourierOrderIds);
+        $this->assertSame([$outbound->id], $result->unsupportedCourierOrderIds);
 
         $method->update(['supports_courier_csv' => true]);
         $outbound->lines()->delete();
 
-        $result = app(CourierExportService::class)->validateGroupExport(
-            fulfillmentGroupIds: [$group->id],
+        $result = app(CourierExportService::class)->validateOrderExport(
+            outboundOrderIds: [$outbound->id],
             carrier: CourierCarrier::YAMATO,
             allowedTenantIds: [$tenant->id],
         );
 
-        $this->assertSame([$group->id], $result->noReadyLinesOrderIds);
+        $this->assertSame([$outbound->id], $result->noReadyLinesOrderIds);
     }
 
     public function test_fulfillment_index_courier_export_redirects_to_download(): void
@@ -870,6 +873,71 @@ class FulfillmentGroupTest extends TestCase
             ->assertRedirect(route('courier-export-batches.download', CourierExportBatch::firstOrFail()));
 
         $this->assertNotNull($order->refresh()->courier_csv_exported_at);
+    }
+
+    public function test_manual_outbound_without_group_can_be_exported_end_to_end(): void
+    {
+        Storage::fake('local');
+        $tenant = Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create(['code' => $tenant->code.'-MANUAL-001']);
+        $sku = Sku::factory()->for($tenant)->for(Shop::factory()->for($tenant)->create())->for($stockItem)->create(['sku_type' => 'single']);
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+
+        $outbound = OutboundOrder::factory()->create([
+            'tenant_id' => $tenant->id,
+            'warehouse_id' => $warehouse->id,
+            'fulfillment_group_id' => null,
+            'ref' => 'OB-MANUAL-EXPORT-001',
+            'reason' => OutboundOrder::REASON_REPLACEMENT,
+            'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
+            'shipping_method_id' => $method->id,
+            'status' => OutboundOrder::STATUS_PENDING,
+            'recipient_name' => 'Manual Recipient',
+            'recipient_phone' => '09012345678',
+            'recipient_country_code' => 'JP',
+            'recipient_postal_code' => '1000001',
+            'recipient_state' => 'Tokyo',
+            'recipient_city' => 'Chiyoda',
+            'recipient_address_line1' => '1 Manual Street',
+            'recipient_address_line2' => null,
+        ]);
+
+        OutboundOrderLine::factory()->for($outbound, 'order')->for($sku)->for($stockItem)->for($tenant)->create(['qty' => 2]);
+
+        $result = app(CourierExportService::class)->validateOrderExport(
+            outboundOrderIds: [$outbound->id],
+            carrier: CourierCarrier::YAMATO,
+            allowedTenantIds: [$tenant->id],
+        );
+
+        $this->assertTrue($result->ok);
+        $this->assertSame([$outbound->id], $result->validOrderIds);
+
+        $batch = app(CourierExportService::class)->exportOrders(
+            outboundOrderIds: [$outbound->id],
+            carrier: CourierCarrier::YAMATO,
+            allowedTenantIds: [$tenant->id],
+            user: $this->internalUser(),
+        );
+
+        $csv = mb_convert_encoding(Storage::disk($batch->disk)->get($batch->path), 'UTF-8', 'SJIS-win');
+        $lines = array_values(array_filter(preg_split('/\r\n/', $csv) ?: []));
+
+        $this->assertSame(2, count($lines));
+        $this->assertStringContainsString('OB-MANUAL-EXPORT-001', $csv);
+        $this->assertNotNull($outbound->refresh()->courier_csv_exported_at);
+        $this->assertDatabaseHas('courier_export_batches', [
+            'id' => $batch->id,
+            'carrier' => CourierCarrier::YAMATO,
+            'order_count' => 1,
+        ]);
+        $this->assertDatabaseHas('courier_export_batch_orders', [
+            'courier_export_batch_id' => $batch->id,
+            'sales_order_id' => null,
+            'outbound_order_id' => $outbound->id,
+            'platform_order_id' => 'OB-MANUAL-EXPORT-001',
+        ]);
     }
 
     public function test_fulfillment_tracking_import_matches_group_reference_and_syncs_member_orders(): void
