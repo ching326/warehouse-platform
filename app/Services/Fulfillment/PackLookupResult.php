@@ -2,18 +2,18 @@
 
 namespace App\Services\Fulfillment;
 
-use App\Models\FulfillmentGroup;
+use App\Models\OutboundOrder;
 
 class PackLookupResult
 {
     public function __construct(
         public readonly string $status,
-        public readonly ?FulfillmentGroup $group = null,
+        public readonly ?OutboundOrder $order = null,
     ) {}
 
-    public static function found(FulfillmentGroup $group): self
+    public static function found(OutboundOrder $order): self
     {
-        return new self('found', $group);
+        return new self('found', $order);
     }
 
     public static function notFound(): self
@@ -26,13 +26,13 @@ class PackLookupResult
         return new self('multiple');
     }
 
-    public static function alreadyShipped(FulfillmentGroup $group): self
+    public static function alreadyShipped(OutboundOrder $order): self
     {
-        return new self('already_shipped', $group);
+        return new self('already_shipped', $order);
     }
 
-    public static function cancelled(FulfillmentGroup $group): self
+    public static function cancelled(OutboundOrder $order): self
     {
-        return new self('cancelled', $group);
+        return new self('cancelled', $order);
     }
 }

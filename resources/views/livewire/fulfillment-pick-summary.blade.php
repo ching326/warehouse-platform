@@ -137,7 +137,9 @@
                                         @if ($groups->count() > 1)
                                             <flux:button href="{{ route('fulfillment-groups.index', ['search' => $firstGroup->reference_no]) }}" size="xs" variant="subtle" wire:navigate>{{ __('fulfillment_pick.view_groups') }}</flux:button>
                                         @endif
-                                        <flux:button href="{{ route('fulfillment-groups.pack', $firstGroup) }}" size="xs" variant="primary" wire:navigate>{{ __('fulfillment_pick.pack_first') }}</flux:button>
+                                        @if ($firstGroup->outboundOrder)
+                                            <flux:button href="{{ route('outbound.pack', $firstGroup->outboundOrder) }}" size="xs" variant="primary" wire:navigate>{{ __('fulfillment_pick.pack_first') }}</flux:button>
+                                        @endif
                                     </div>
                                 @endif
                             </flux:table.cell>

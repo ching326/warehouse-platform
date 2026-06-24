@@ -10,12 +10,12 @@
                 <flux:badge color="{{ $this->statusColor($order->status) }}">
                     {{ $this->statusLabel($order->status) }}
                 </flux:badge>
+                @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->fulfillmentGroup)
+                    <flux:button href="{{ route('outbound.pack', $order) }}" size="xs" variant="primary" wire:navigate>
+                        {{ __('fulfillment_pack.page_title') }}
+                    </flux:button>
+                @endif
                 @if ($order->fulfillmentGroup)
-                    @if ($order->fulfillmentGroup->status === 'reserved')
-                        <flux:button href="{{ route('fulfillment-groups.pack', $order->fulfillmentGroup) }}" size="xs" variant="primary" wire:navigate>
-                            {{ __('fulfillment_pack.page_title') }}
-                        </flux:button>
-                    @endif
                     <flux:button href="{{ route('fulfillment.pack-scans.index', ['fulfillment_group_id' => $order->fulfillmentGroup->id]) }}" size="xs" variant="outline" wire:navigate>
                         {{ __('fulfillment_pack.scan_history_title') }}
                     </flux:button>

@@ -72,21 +72,24 @@
                 </flux:table.columns>
 
                 <flux:table.rows>
-                    @forelse ($queue as $group)
-                        @php($progress = $queueProgress[$group->id] ?? ['required_qty' => 0, 'scanned_qty' => 0])
-                        @php($orders = $group->orders->pluck('platform_order_id')->filter()->values())
-                        <flux:table.row :key="$group->id">
+                    @forelse ($queue as $outbound)
+                        @php
+                            $progress = $queueProgress[$outbound->id] ?? ['required_qty' => 0, 'scanned_qty' => 0];
+                            $reference = $outbound->fulfillmentGroup?->reference_no ?? $outbound->ref;
+                            $orderIds = $outbound->salesOrders->pluck('platform_order_id')->filter()->values();
+                        @endphp
+                        <flux:table.row :key="$outbound->id">
                             <flux:table.cell>
-                                <a href="{{ route('fulfillment-groups.pack', $group) }}" wire:navigate><strong>{{ $group->reference_no }}</strong></a>
+                                <a href="{{ route('outbound.pack', $outbound) }}" wire:navigate><strong>{{ $reference }}</strong></a>
                             </flux:table.cell>
-                            <flux:table.cell>{{ $group->tenant?->code ?: '-' }}</flux:table.cell>
-                            <flux:table.cell>{{ $group->recipient_name ?: '-' }}</flux:table.cell>
-                            <flux:table.cell>{{ $group->tracking_no ?: $group->outboundOrder?->tracking_no ?: $group->groupOrders->pluck('tracking_no')->filter()->first() ?: '-' }}</flux:table.cell>
+                            <flux:table.cell>{{ $outbound->tenant?->code ?: '-' }}</flux:table.cell>
+                            <flux:table.cell>{{ $outbound->recipient_name ?: '-' }}</flux:table.cell>
+                            <flux:table.cell>{{ $outbound->tracking_no ?: $outbound->fulfillmentGroup?->tracking_no ?: '-' }}</flux:table.cell>
                             <flux:table.cell>
-                                @if ($orders->isNotEmpty())
-                                    {{ $orders->take(2)->implode(', ') }}
-                                    @if ($orders->count() > 2)
-                                        <span class="pack-order-more">+{{ $orders->count() - 2 }}</span>
+                                @if ($orderIds->isNotEmpty())
+                                    {{ $orderIds->take(2)->implode(', ') }}
+                                    @if ($orderIds->count() > 2)
+                                        <span class="pack-order-more">+{{ $orderIds->count() - 2 }}</span>
                                     @endif
                                 @else
                                     -
@@ -95,7 +98,7 @@
                             <flux:table.cell align="end">{{ number_format($progress['required_qty']) }}</flux:table.cell>
                             <flux:table.cell>{{ number_format($progress['scanned_qty']) }} / {{ number_format($progress['required_qty']) }}</flux:table.cell>
                             <flux:table.cell>
-                                <flux:button href="{{ route('fulfillment-groups.pack', $group) }}" size="xs" variant="primary" wire:navigate>
+                                <flux:button href="{{ route('outbound.pack', $outbound) }}" size="xs" variant="primary" wire:navigate>
                                     {{ __('fulfillment_pack.queue_pack') }}
                                 </flux:button>
                             </flux:table.cell>

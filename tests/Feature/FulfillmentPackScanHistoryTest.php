@@ -160,7 +160,7 @@ class FulfillmentPackScanHistoryTest extends TestCase
         [, $group] = $this->packScanFixture(barcode: 'PACK-PAGE-HISTORY');
 
         $this->actingAs($this->internalUser())
-            ->get(route('fulfillment-groups.pack', $group))
+            ->get(route('outbound.pack', $group->outboundOrder))
             ->assertOk()
             ->assertSee('Scan History')
             ->assertSee(route('fulfillment.pack-scans.index', ['fulfillment_group_id' => $group->id]), false);

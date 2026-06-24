@@ -462,9 +462,9 @@
                         </flux:table.cell>
 
                         <flux:table.cell>
-                            @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->fulfillmentGroup)
+                            @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING)
                                 <div class="fg-row-action">
-                                    <flux:button href="{{ route('fulfillment-groups.pack', $order->fulfillmentGroup) }}" size="sm" variant="primary" class="fg-scan-pack-button" wire:navigate>
+                                    <flux:button href="{{ route('outbound.pack', $order) }}" size="sm" variant="primary" class="fg-scan-pack-button" wire:navigate>
                                         {{ __('fulfillment_pack.page_title') }}
                                     </flux:button>
                                 </div>

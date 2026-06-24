@@ -18,6 +18,7 @@ class FulfillmentPackScan extends Model
     protected $fillable = [
         'tenant_id',
         'fulfillment_group_id',
+        'outbound_order_id',
         'fulfillment_group_order_id',
         'sales_order_id',
         'sku_id',
@@ -45,6 +46,11 @@ class FulfillmentPackScan extends Model
     public function fulfillmentGroup(): BelongsTo
     {
         return $this->belongsTo(FulfillmentGroup::class);
+    }
+
+    public function outboundOrder(): BelongsTo
+    {
+        return $this->belongsTo(OutboundOrder::class);
     }
 
     public function fulfillmentGroupOrder(): BelongsTo

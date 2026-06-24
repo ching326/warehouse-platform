@@ -123,13 +123,22 @@ class FulfillmentPickSummary extends Component
                 'orders.lines.sku.barcodeAliases',
                 'orders.lines.sku.stockItem.barcodeAliases',
                 'orders.lines.sku.bundleComponents.componentStockItem.barcodeAliases',
+                'outboundOrder:id,fulfillment_group_id',
+                'outboundOrder.leafLines.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
+                'outboundOrder.leafLines.stockItem.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
+                'outboundOrder.leafLines.parentLine.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
             ])
             ->get();
 
         $rows = [];
 
         foreach ($groups as $group) {
-            foreach ($packService->packLines($group) as $line) {
+            $outbound = $group->outboundOrder;
+            if (! $outbound) {
+                continue;
+            }
+
+            foreach ($packService->packLines($outbound) as $line) {
                 $stockItem = $line['stock_item'];
                 $sku = $line['sku'];
                 $key = 'sku:'.($line['sku_id'] ?? 'null').':stock:'.($line['stock_item_id'] ?? 'null');

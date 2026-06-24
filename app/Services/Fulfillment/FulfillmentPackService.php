@@ -3,8 +3,8 @@
 namespace App\Services\Fulfillment;
 
 use App\Models\BarcodeAlias;
-use App\Models\FulfillmentGroup;
 use App\Models\FulfillmentPackScan;
+use App\Models\OutboundOrder;
 use App\Models\Sku;
 use App\Support\TrackingNumber;
 use Illuminate\Support\Collection;
@@ -19,30 +19,29 @@ class FulfillmentPackService
     /**
      * @param  list<int>  $allowedTenantIds
      */
-    public function findGroupForTrackingNo(
+    public function findOrderForTrackingNo(
         ?string $trackingNo,
         array $allowedTenantIds,
         int $warehouseId,
         int $shippingMethodId,
-    ): PackLookupResult
-    {
+    ): PackLookupResult {
         $trackingNo = TrackingNumber::normalize($trackingNo);
 
         if ($trackingNo === null || $allowedTenantIds === [] || $warehouseId <= 0 || $shippingMethodId <= 0) {
             return PackLookupResult::notFound();
         }
 
-        $candidates = FulfillmentGroup::query()
+        $candidates = OutboundOrder::query()
+            ->whereNotNull('fulfillment_group_id')
             ->whereIn('tenant_id', $allowedTenantIds)
-            ->where('status', FulfillmentGroup::STATUS_RESERVED)
+            ->where('status', OutboundOrder::STATUS_PENDING)
             ->where('warehouse_id', $warehouseId)
             ->where('shipping_method_id', $shippingMethodId)
             ->where(function ($query) use ($trackingNo): void {
                 $query
-                    ->where('fulfillment_groups.tracking_no', $trackingNo)
-                    ->orWhereHas('groupOrders', fn ($groupOrder) => $groupOrder->where('fulfillment_group_orders.tracking_no', $trackingNo))
-                    ->orWhereHas('orders', fn ($order) => $order->where('sales_orders.tracking_no', $trackingNo))
-                    ->orWhereHas('outboundOrder', fn ($outbound) => $outbound->where('outbound_orders.tracking_no', $trackingNo));
+                    ->where('outbound_orders.tracking_no', $trackingNo)
+                    ->orWhere('outbound_orders.ref', $trackingNo)
+                    ->orWhereHas('salesOrders', fn ($q) => $q->where('sales_orders.tracking_no', $trackingNo));
             })
             ->get();
 
@@ -52,17 +51,17 @@ class FulfillmentPackService
     /**
      * @return list<array<string, mixed>>
      */
-    public function packLines(FulfillmentGroup $group): array
+    public function packLines(OutboundOrder $order): array
     {
-        $group->loadMissing([
-            'outboundOrder.leafLines.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
-            'outboundOrder.leafLines.stockItem.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
-            'outboundOrder.leafLines.parentLine.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
+        $order->loadMissing([
+            'leafLines.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
+            'leafLines.stockItem.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
+            'leafLines.parentLine.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
         ]);
 
         $lines = [];
 
-        foreach ($group->outboundOrder?->leafLines ?? [] as $outboundLine) {
+        foreach ($order->leafLines as $outboundLine) {
             $stockItem = $outboundLine->stockItem;
 
             if ($outboundLine->parent_line_id !== null) {
@@ -102,10 +101,10 @@ class FulfillmentPackService
     /**
      * @return list<array<string, mixed>>
      */
-    public function packLinesWithProgress(FulfillmentGroup $group): array
+    public function packLinesWithProgress(OutboundOrder $order): array
     {
-        $lines = $this->packLines($group);
-        $acceptedQuantities = $this->acceptedScanQuantitiesByLine($group);
+        $lines = $this->packLines($order);
+        $acceptedQuantities = $this->acceptedScanQuantitiesByLine($order);
 
         foreach ($lines as &$line) {
             $line['strict_only'] = $this->lineIsStrictOnly($line);
@@ -124,17 +123,17 @@ class FulfillmentPackService
     /**
      * @param  array<string, mixed>  $line
      */
-    public function acceptedScanCount(FulfillmentGroup $group, array $line): int
+    public function acceptedScanCount(OutboundOrder $order, array $line): int
     {
-        return $this->acceptedScanQuantity($group, $line);
+        return $this->acceptedScanQuantity($order, $line);
     }
 
     /**
      * @param  array<string, mixed>  $line
      */
-    public function acceptedScanQuantity(FulfillmentGroup $group, array $line): int
+    public function acceptedScanQuantity(OutboundOrder $order, array $line): int
     {
-        return $this->acceptedScanQuantitiesByLine($group)[$this->scanQuantityKey($line['sku_id'], $line['stock_item_id'])] ?? 0;
+        return $this->acceptedScanQuantitiesByLine($order)[$this->scanQuantityKey($line['sku_id'], $line['stock_item_id'])] ?? 0;
     }
 
     /**
@@ -154,9 +153,9 @@ class FulfillmentPackService
             || in_array((string) $stockItem->product_type, ['food', 'is_battery', 'with_battery'], true);
     }
 
-    public function allLinesComplete(FulfillmentGroup $group): bool
+    public function allLinesComplete(OutboundOrder $order): bool
     {
-        $lines = $this->packLinesWithProgress($group);
+        $lines = $this->packLinesWithProgress($order);
 
         return $lines !== [] && collect($lines)->every(fn (array $line): bool => $line['remaining_qty'] <= 0);
     }
@@ -213,10 +212,10 @@ class FulfillmentPackService
     /**
      * @return array<string, int>
      */
-    private function acceptedScanQuantitiesByLine(FulfillmentGroup $group): array
+    private function acceptedScanQuantitiesByLine(OutboundOrder $order): array
     {
         return FulfillmentPackScan::query()
-            ->where('fulfillment_group_id', $group->id)
+            ->where('outbound_order_id', $order->id)
             ->where('result', FulfillmentPackScan::RESULT_ACCEPTED)
             ->selectRaw('sku_id, stock_item_id, SUM(quantity) as scanned_qty')
             ->groupBy('sku_id', 'stock_item_id')
@@ -233,31 +232,30 @@ class FulfillmentPackService
     }
 
     /**
-     * @param  Collection<int, FulfillmentGroup>  $candidates
+     * @param  Collection<int, OutboundOrder>  $candidates
      */
     private function resultFromCandidates(Collection $candidates): PackLookupResult
     {
-        $groups = $candidates->unique('id')->values();
+        $orders = $candidates->unique('id')->values();
 
-        if ($groups->isEmpty()) {
+        if ($orders->isEmpty()) {
             return PackLookupResult::notFound();
         }
 
-        if ($groups->count() > 1) {
+        if ($orders->count() > 1) {
             return PackLookupResult::multiple();
         }
 
-        $group = $groups->first();
+        $order = $orders->first();
 
-        if ($group->status === FulfillmentGroup::STATUS_SHIPPED) {
-            return PackLookupResult::alreadyShipped($group);
+        if ($order->status === OutboundOrder::STATUS_SHIPPED) {
+            return PackLookupResult::alreadyShipped($order);
         }
 
-        if ($group->status === FulfillmentGroup::STATUS_CANCELLED) {
-            return PackLookupResult::cancelled($group);
+        if ($order->status === OutboundOrder::STATUS_CANCELLED) {
+            return PackLookupResult::cancelled($order);
         }
 
-        return PackLookupResult::found($group);
+        return PackLookupResult::found($order);
     }
-
 }

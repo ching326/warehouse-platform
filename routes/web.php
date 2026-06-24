@@ -112,6 +112,7 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/outbound', OutboundOrderIndex::class)->name('outbound.index');
     Route::get('/outbound/create', OutboundOrderCreate::class)->name('outbound.create');
     Route::get('/outbound/{order}/ship', OutboundOrderShip::class)->name('outbound.ship');
+    Route::get('/outbound/{order}/pack', FulfillmentGroupPack::class)->name('outbound.pack');
     Route::get('/outbound/{order}', OutboundOrderDetail::class)->name('outbound.show');
     Route::get('/sales-orders', SalesOrderIndex::class)->name('sales.orders.index');
     Route::get('/sales-orders/create', SalesOrderCreate::class)->name('sales.orders.create');
@@ -129,7 +130,6 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/fulfillment/pack-scans', FulfillmentPackScanIndex::class)->name('fulfillment.pack-scans.index');
     Route::post('/fulfillment-groups/tracking-import', FulfillmentTrackingImportController::class)->name('fulfillment.tracking-import');
     Route::get('/fulfillment-groups/create', FulfillmentGroupCreate::class)->name('fulfillment-groups.create');
-    Route::get('/fulfillment-groups/{group}/pack', FulfillmentGroupPack::class)->name('fulfillment-groups.pack');
     Route::get('/fulfillment-groups/{group}/issues/create', IssueCreate::class)->name('fulfillment-groups.issues.create');
     Route::get('/issues', IssueIndex::class)->name('issues.index');
     Route::get('/issues/create', IssueCreate::class)->name('issues.create');

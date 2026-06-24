@@ -6,6 +6,7 @@ use App\Livewire\FulfillmentGroupCreate;
 use App\Livewire\FulfillmentPackStart;
 use App\Models\Carrier;
 use App\Models\FulfillmentGroup;
+use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\ShippingMethod;
@@ -60,9 +61,11 @@ class FulfillmentPackStartQueueTest extends TestCase
         $this->createGroup($tenant, $warehouse, $shippedOrder->ship_together_key, [$shippedOrder]);
         $shipped = FulfillmentGroup::query()->latest('id')->firstOrFail();
         $shipped->update(['status' => FulfillmentGroup::STATUS_SHIPPED]);
+        $shipped->outboundOrder->update(['status' => OutboundOrder::STATUS_SHIPPED]);
         $this->createGroup($tenant, $warehouse, $cancelledOrder->ship_together_key, [$cancelledOrder]);
         $cancelled = FulfillmentGroup::query()->latest('id')->firstOrFail();
         $cancelled->update(['status' => FulfillmentGroup::STATUS_CANCELLED]);
+        $cancelled->outboundOrder->update(['status' => OutboundOrder::STATUS_CANCELLED]);
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPackStart::class)
@@ -109,6 +112,7 @@ class FulfillmentPackStartQueueTest extends TestCase
         $this->createGroup($tenant, $warehouse, $thirdOrder->ship_together_key, [$thirdOrder]);
         $third = FulfillmentGroup::query()->latest('id')->firstOrFail();
         $third->update(['tracking_no' => 'TRACK-QUEUE-SEARCH']);
+        $third->outboundOrder->update(['tracking_no' => 'TRACK-QUEUE-SEARCH']);
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPackStart::class)
@@ -136,7 +140,7 @@ class FulfillmentPackStartQueueTest extends TestCase
             ->test(FulfillmentPackStart::class)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shippingMethodId', (string) $method->id)
-            ->assertSee(route('fulfillment-groups.pack', $group), false);
+            ->assertSee(route('outbound.pack', $group->outboundOrder), false);
     }
 
     public function test_tenant_user_cannot_access_pack_start_page(): void

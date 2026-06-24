@@ -2,9 +2,8 @@
 
 namespace App\Livewire;
 
-use App\Models\FulfillmentGroup;
-use App\Models\FulfillmentGroupOrder;
 use App\Models\FulfillmentPackScan;
+use App\Models\OutboundOrder;
 use App\Models\ShippingMethod;
 use App\Models\Tenant;
 use App\Models\Warehouse;
@@ -60,7 +59,7 @@ class FulfillmentPackStart extends Component
             return null;
         }
 
-        $result = $service->findGroupForTrackingNo(
+        $result = $service->findOrderForTrackingNo(
             trackingNo: $this->scan,
             allowedTenantIds: $this->allowedTenantIds(),
             warehouseId: (int) $this->warehouseId,
@@ -68,8 +67,8 @@ class FulfillmentPackStart extends Component
         );
         $this->scan = '';
 
-        if ($result->status === 'found' && $result->group) {
-            return $this->redirectRoute('fulfillment-groups.pack', $result->group, navigate: true);
+        if ($result->status === 'found' && $result->order) {
+            return $this->redirectRoute('outbound.pack', $result->order, navigate: true);
         }
 
         $this->message = match ($result->status) {
@@ -112,15 +111,14 @@ class FulfillmentPackStart extends Component
             $queue = $this->queueQuery()
                 ->with([
                     'tenant:id,code,name',
-                    'orders:id,platform_order_id,tracking_no',
-                    'groupOrders:id,fulfillment_group_id,sales_order_id,tracking_no',
-                    'outboundOrder:id,fulfillment_group_id,tracking_no',
+                    'salesOrders:id,platform_order_id,tracking_no',
+                    'fulfillmentGroup:id,reference_no,tracking_no',
                 ])
                 ->paginate(25);
 
-            foreach ($queue->getCollection() as $group) {
-                $lines = $service->packLinesWithProgress($group);
-                $queueProgress[$group->id] = [
+            foreach ($queue->getCollection() as $order) {
+                $lines = $service->packLinesWithProgress($order);
+                $queueProgress[$order->id] = [
                     'required_qty' => (int) collect($lines)->sum('required_qty'),
                     'scanned_qty' => (int) collect($lines)->sum('scanned_qty'),
                 ];
@@ -180,9 +178,10 @@ class FulfillmentPackStart extends Component
 
     private function queueQuery(): Builder
     {
-        return FulfillmentGroup::query()
+        return OutboundOrder::query()
+            ->whereNotNull('fulfillment_group_id')
             ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->where('status', FulfillmentGroup::STATUS_RESERVED)
+            ->where('status', OutboundOrder::STATUS_PENDING)
             ->where('warehouse_id', (int) $this->warehouseId)
             ->where('shipping_method_id', (int) $this->shippingMethodId)
             ->when(trim($this->queueSearch) !== '', function (Builder $query): void {
@@ -190,21 +189,19 @@ class FulfillmentPackStart extends Component
 
                 $query->where(function (Builder $query) use ($like): void {
                     $query
-                        ->where('fulfillment_groups.reference_no', 'like', $like)
-                        ->orWhere('fulfillment_groups.tracking_no', 'like', $like)
-                        ->orWhere('fulfillment_groups.recipient_name', 'like', $like)
-                        ->orWhere('fulfillment_groups.recipient_phone', 'like', $like)
-                        ->orWhereHas('outboundOrder', fn (Builder $query) => $query->where('outbound_orders.tracking_no', 'like', $like))
-                        ->orWhereHas('groupOrders', fn (Builder $query) => $query->where('fulfillment_group_orders.tracking_no', 'like', $like))
-                        ->orWhereHas('orders', function (Builder $query) use ($like): void {
-                            $query
-                                ->where('sales_orders.tracking_no', 'like', $like)
+                        ->where('outbound_orders.ref', 'like', $like)
+                        ->orWhere('outbound_orders.tracking_no', 'like', $like)
+                        ->orWhere('outbound_orders.recipient_name', 'like', $like)
+                        ->orWhere('outbound_orders.recipient_phone', 'like', $like)
+                        ->orWhereHas('fulfillmentGroup', fn (Builder $q) => $q->where('fulfillment_groups.reference_no', 'like', $like))
+                        ->orWhereHas('salesOrders', function (Builder $q) use ($like): void {
+                            $q->where('sales_orders.tracking_no', 'like', $like)
                                 ->orWhere('sales_orders.platform_order_id', 'like', $like);
                         });
                 });
             })
-            ->orderBy('created_at')
-            ->orderBy('id');
+            ->orderBy('outbound_orders.created_at')
+            ->orderBy('outbound_orders.id');
     }
 
     /**
@@ -213,16 +210,21 @@ class FulfillmentPackStart extends Component
      */
     private function stationSummary(array $queueProgress): array
     {
-        $groupIds = $this->queueIdSubquery();
+        $queueIds = $this->queueIdSubquery();
 
         return [
             'waiting_groups' => (clone $this->queueQuery())->count(),
-            'waiting_orders' => FulfillmentGroupOrder::query()
-                ->whereIn('fulfillment_group_id', $groupIds)
+            'waiting_orders' => \App\Models\SalesOrder::query()
+                ->whereIn(
+                    'id',
+                    \Illuminate\Support\Facades\DB::table('outbound_order_sales_order')
+                        ->whereIn('outbound_order_id', $queueIds)
+                        ->select('sales_order_id')
+                )
                 ->count(),
             'required_qty_page' => (int) collect($queueProgress)->sum('required_qty'),
             'exception_scans_today' => FulfillmentPackScan::query()
-                ->whereIn('fulfillment_group_id', $this->queueIdSubquery())
+                ->whereIn('outbound_order_id', $queueIds)
                 ->where('result', '!=', FulfillmentPackScan::RESULT_ACCEPTED)
                 ->whereDate('created_at', today())
                 ->count(),
@@ -232,7 +234,7 @@ class FulfillmentPackStart extends Component
     private function queueIdSubquery(): Builder
     {
         return (clone $this->queueQuery())
-            ->select('fulfillment_groups.id')
+            ->select('outbound_orders.id')
             ->reorder();
     }
 

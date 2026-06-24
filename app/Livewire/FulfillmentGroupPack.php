@@ -2,8 +2,8 @@
 
 namespace App\Livewire;
 
-use App\Models\FulfillmentGroup;
 use App\Models\FulfillmentPackScan;
+use App\Models\OutboundOrder;
 use App\Models\Tenant;
 use App\Services\Fulfillment\FulfillmentPackService;
 use App\Services\Outbound\ShipOutboundOrderService;
@@ -14,7 +14,7 @@ use Livewire\Component;
 
 class FulfillmentGroupPack extends Component
 {
-    public int $groupId = 0;
+    public int $outboundOrderId = 0;
 
     public string $barcode = '';
 
@@ -34,14 +34,16 @@ class FulfillmentGroupPack extends Component
 
     private array $allowedTenantIdsCache = [];
 
-    public function mount(FulfillmentGroup $group): void
+    public function mount(OutboundOrder $order): void
     {
         $this->authorizeInternalUser();
 
-        $this->groupId = FulfillmentGroup::query()
+        $this->outboundOrderId = OutboundOrder::query()
+            ->whereNotNull('fulfillment_group_id')
             ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->findOrFail($group->id)
+            ->findOrFail($order->id)
             ->id;
+
         $this->lastScannedLineKey = null;
     }
 
@@ -53,7 +55,7 @@ class FulfillmentGroupPack extends Component
             $this->clearPendingQuantity();
         }
 
-        $group = $this->loadGroup();
+        $order = $this->loadOrder();
         $barcodeScanned = $this->barcode;
         $normalized = $service->normalizeProductBarcode($barcodeScanned);
         $this->barcode = '';
@@ -64,16 +66,16 @@ class FulfillmentGroupPack extends Component
             return;
         }
 
-        if ($group->status !== FulfillmentGroup::STATUS_RESERVED) {
-            $this->writeScan($group, [
+        if ($order->status !== OutboundOrder::STATUS_PENDING) {
+            $this->writeScan($order, [
                 'barcode_scanned' => $barcodeScanned,
                 'normalized_barcode' => $normalized,
                 'result' => FulfillmentPackScan::RESULT_BLOCKED_STATUS,
-                'message' => $group->status === FulfillmentGroup::STATUS_SHIPPED
+                'message' => $order->status === OutboundOrder::STATUS_SHIPPED
                     ? __('fulfillment_pack.already_shipped')
                     : __('fulfillment_pack.cancelled_group'),
             ]);
-            $this->error($group->status === FulfillmentGroup::STATUS_SHIPPED
+            $this->error($order->status === OutboundOrder::STATUS_SHIPPED
                 ? __('fulfillment_pack.already_shipped')
                 : __('fulfillment_pack.cancelled_group'));
             $this->focusScanner();
@@ -81,14 +83,14 @@ class FulfillmentGroupPack extends Component
             return;
         }
 
-        $lines = $service->packLinesWithProgress($group);
+        $lines = $service->packLinesWithProgress($order);
         $matchedLines = collect($lines)
             ->filter(fn (array $line): bool => $service->lineMatchesScan($line, $normalized))
             ->values();
 
         if ($matchedLines->isEmpty()) {
             $message = __('fulfillment_pack.wrong_item');
-            $this->writeScan($group, [
+            $this->writeScan($order, [
                 'barcode_scanned' => $barcodeScanned,
                 'normalized_barcode' => $normalized,
                 'result' => FulfillmentPackScan::RESULT_WRONG_ITEM,
@@ -106,7 +108,7 @@ class FulfillmentGroupPack extends Component
             $message = __('fulfillment_pack.over_scan');
             $completedLine = $matchedLines->first();
             $this->lastScannedLineKey = $completedLine['key'];
-            $this->writeScan($group, [
+            $this->writeScan($order, [
                 'sku_id' => $completedLine['sku_id'],
                 'stock_item_id' => $completedLine['stock_item_id'],
                 'barcode_scanned' => $barcodeScanned,
@@ -144,7 +146,7 @@ class FulfillmentGroupPack extends Component
             return;
         }
 
-        $this->acceptScan($group, $matchedLine, $barcodeScanned, $normalized, 1);
+        $this->acceptScan($order, $matchedLine, $barcodeScanned, $normalized, 1);
         $this->focusScanner();
     }
 
@@ -158,15 +160,15 @@ class FulfillmentGroupPack extends Component
             return;
         }
 
-        $group = $this->loadGroup();
+        $order = $this->loadOrder();
         $pending = $this->pendingQuantityScan;
 
-        if ($group->status !== FulfillmentGroup::STATUS_RESERVED) {
-            $message = $group->status === FulfillmentGroup::STATUS_SHIPPED
+        if ($order->status !== OutboundOrder::STATUS_PENDING) {
+            $message = $order->status === OutboundOrder::STATUS_SHIPPED
                 ? __('fulfillment_pack.already_shipped')
                 : __('fulfillment_pack.cancelled_group');
 
-            $this->writeScan($group, [
+            $this->writeScan($order, [
                 'barcode_scanned' => (string) $pending['barcode_scanned'],
                 'normalized_barcode' => (string) $pending['normalized_barcode'],
                 'result' => FulfillmentPackScan::RESULT_BLOCKED_STATUS,
@@ -179,7 +181,7 @@ class FulfillmentGroupPack extends Component
             return;
         }
 
-        $line = collect($service->packLinesWithProgress($group))
+        $line = collect($service->packLinesWithProgress($order))
             ->first(fn (array $line): bool => $line['key'] === $pending['line_key']);
 
         if (! $line || $line['remaining_qty'] <= 0) {
@@ -194,7 +196,7 @@ class FulfillmentGroupPack extends Component
         $quantity = min($quantity, (int) $line['remaining_qty']);
 
         $this->acceptScan(
-            $group,
+            $order,
             $line,
             (string) $pending['barcode_scanned'],
             (string) $pending['normalized_barcode'],
@@ -227,7 +229,7 @@ class FulfillmentGroupPack extends Component
     {
         $this->authorizeInternalUser();
 
-        $group = $this->loadGroup();
+        $order = $this->loadOrder();
 
         if ($this->pendingQuantityScan !== null) {
             $this->error(__('fulfillment_pack.confirm_quantity_before_shipping'));
@@ -235,45 +237,36 @@ class FulfillmentGroupPack extends Component
             return;
         }
 
-        if ($group->status !== FulfillmentGroup::STATUS_RESERVED) {
+        if ($order->status !== OutboundOrder::STATUS_PENDING) {
             $this->error(__('fulfillment_pack.already_shipped'));
 
             return;
         }
 
-        if (! $packService->allLinesComplete($group)) {
+        if (! $packService->allLinesComplete($order)) {
             $this->error(__('fulfillment_pack.scan_all_before_shipping'));
 
             return;
         }
 
-        if (! $group->outboundOrder) {
-            $this->error(__('fulfillment_pack.outbound_missing'));
-
-            return;
-        }
-
         try {
-            DB::transaction(function () use ($group, $packService, $shipService): void {
-                $lockedGroup = FulfillmentGroup::query()
+            DB::transaction(function () use ($order, $packService, $shipService): void {
+                $lockedOrder = OutboundOrder::query()
+                    ->whereNotNull('fulfillment_group_id')
                     ->whereIn('tenant_id', $this->allowedTenantIds())
-                    ->whereKey($group->id)
-                    ->with('outboundOrder')
+                    ->whereKey($order->id)
+                    ->with('shippingMethod:id,name')
                     ->lockForUpdate()
                     ->firstOrFail();
 
-                if ($lockedGroup->status !== FulfillmentGroup::STATUS_RESERVED || ! $packService->allLinesComplete($lockedGroup)) {
+                if ($lockedOrder->status !== OutboundOrder::STATUS_PENDING || ! $packService->allLinesComplete($lockedOrder)) {
                     throw new InvalidArgumentException(__('fulfillment_pack.scan_all_before_shipping'));
                 }
 
-                if (! $lockedGroup->outboundOrder) {
-                    throw new InvalidArgumentException(__('fulfillment_pack.outbound_missing'));
-                }
-
-                $shipService->ship($lockedGroup->outboundOrder, [
-                    'courier' => $lockedGroup->courier,
-                    'shipping_method' => $lockedGroup->shippingMethod?->name,
-                    'tracking_no' => $lockedGroup->tracking_no,
+                $shipService->ship($lockedOrder, [
+                    'courier' => $lockedOrder->courier ?? $lockedOrder->fulfillmentGroup?->courier,
+                    'shipping_method' => $lockedOrder->shippingMethod?->name ?? $lockedOrder->shipping_method ?? $lockedOrder->fulfillmentGroup?->shippingMethod?->name,
+                    'tracking_no' => $lockedOrder->tracking_no ?? $lockedOrder->fulfillmentGroup?->tracking_no,
                 ]);
             });
         } catch (InvalidArgumentException $exception) {
@@ -283,53 +276,59 @@ class FulfillmentGroupPack extends Component
         }
 
         session()->flash('status', __('fulfillment_pack.pack_complete'));
-        $this->redirectRoute('outbound.show', $group->outboundOrder, navigate: true);
+        $this->redirectRoute('outbound.show', $order, navigate: true);
     }
 
     public function render(FulfillmentPackService $service)
     {
         $this->authorizeInternalUser();
 
-        $group = $this->loadGroup();
-        $lines = $service->packLinesWithProgress($group);
+        $order = $this->loadOrder();
+        $lines = $service->packLinesWithProgress($order);
         $allComplete = $lines !== [] && collect($lines)->every(fn (array $line): bool => $line['remaining_qty'] <= 0);
-        $progress = $this->progressSummary($group, $lines);
+        $progress = $this->progressSummary($order, $lines);
+
+        $reference = $order->fulfillmentGroup?->reference_no ?? $order->ref;
 
         return view('livewire.fulfillment-group-pack', [
-            'group' => $group,
+            'order' => $order,
+            'group' => $order->fulfillmentGroup,
             'lines' => $lines,
             'allComplete' => $allComplete,
             'progress' => $progress,
-            'readOnly' => $group->status !== FulfillmentGroup::STATUS_RESERVED,
+            'readOnly' => $order->status !== OutboundOrder::STATUS_PENDING,
         ])->layout('inventory', [
             'title' => __('fulfillment_pack.page_title'),
-            'subtitle' => $group->reference_no,
+            'subtitle' => $reference,
         ]);
     }
 
-    private function loadGroup(): FulfillmentGroup
+    private function loadOrder(): OutboundOrder
     {
-        return FulfillmentGroup::query()
+        return OutboundOrder::query()
+            ->whereNotNull('fulfillment_group_id')
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->with([
                 'tenant:id,code,name',
                 'shippingMethod:id,name',
-                'outboundOrder:id,fulfillment_group_id,status,tracking_no',
-                'groupOrders.salesOrder.lines.sku.stockItem',
-                'orders.lines.sku.stockItem',
-                'orders.lines.sku.bundleComponents.componentStockItem',
+                'fulfillmentGroup:id,reference_no,status,tracking_no,courier,shipping_method_id',
+                'leafLines.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
+                'leafLines.stockItem.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
+                'leafLines.parentLine.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
+                'salesOrders:id',
             ])
-            ->findOrFail($this->groupId);
+            ->findOrFail($this->outboundOrderId);
     }
 
     /**
      * @param  array<string, mixed>  $data
      */
-    private function writeScan(FulfillmentGroup $group, array $data): void
+    private function writeScan(OutboundOrder $order, array $data): void
     {
         FulfillmentPackScan::create($data + [
-            'tenant_id' => $group->tenant_id,
-            'fulfillment_group_id' => $group->id,
+            'tenant_id' => $order->tenant_id,
+            'outbound_order_id' => $order->id,
+            'fulfillment_group_id' => $order->fulfillment_group_id,
             'quantity' => 1,
             'scanned_by_user_id' => Auth::id(),
         ]);
@@ -338,14 +337,14 @@ class FulfillmentGroupPack extends Component
     /**
      * @param  array<string, mixed>  $line
      */
-    private function acceptScan(FulfillmentGroup $group, array $line, string $barcodeScanned, string $normalized, int $quantity): void
+    private function acceptScan(OutboundOrder $order, array $line, string $barcodeScanned, string $normalized, int $quantity): void
     {
         $display = $this->lineDisplay($line, $normalized);
         $message = $quantity > 1
             ? __('fulfillment_pack.scanned_quantity_message', ['sku' => $display, 'quantity' => $quantity])
             : __('fulfillment_pack.scanned_message', ['sku' => $display]);
 
-        $this->writeScan($group, [
+        $this->writeScan($order, [
             'sku_id' => $line['sku_id'],
             'stock_item_id' => $line['stock_item_id'],
             'barcode_scanned' => $barcodeScanned,
@@ -378,7 +377,7 @@ class FulfillmentGroupPack extends Component
      * @param  list<array<string, mixed>>  $lines
      * @return array<string, int>
      */
-    private function progressSummary(FulfillmentGroup $group, array $lines): array
+    private function progressSummary(OutboundOrder $order, array $lines): array
     {
         $lineCollection = collect($lines);
 
@@ -389,7 +388,7 @@ class FulfillmentGroupPack extends Component
             'qty_required' => (int) $lineCollection->sum('required_qty'),
             'qty_remaining' => (int) $lineCollection->sum('remaining_qty'),
             'exceptions' => FulfillmentPackScan::query()
-                ->where('fulfillment_group_id', $group->id)
+                ->where('outbound_order_id', $order->id)
                 ->where('result', '!=', FulfillmentPackScan::RESULT_ACCEPTED)
                 ->count(),
         ];

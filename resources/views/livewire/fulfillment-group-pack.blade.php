@@ -1,34 +1,45 @@
 <div class="fulfillment-group-pack-page">
     <x-flash-toast />
 
+    @php
+        $reference = $order->fulfillmentGroup?->reference_no ?? $order->ref;
+        $statusKey = match ($order->status) {
+            \App\Models\OutboundOrder::STATUS_SHIPPED => 'shipped',
+            \App\Models\OutboundOrder::STATUS_CANCELLED => 'cancelled',
+            default => 'reserved',
+        };
+    @endphp
+
     <section class="table-shell flux-panel form-panel pack-station-header">
         <div class="form-panel-header">
             <div>
-                <strong>{{ $group->reference_no }}</strong>
-                <span>{{ $group->tenant->code }} / {{ $group->recipient_name ?: '-' }}</span>
+                <strong>{{ $reference }}</strong>
+                <span>{{ $order->tenant->code }} / {{ $order->recipient_name ?: '-' }}</span>
             </div>
             <div class="active-filter-row">
-                <flux:badge color="{{ $group->status === 'shipped' ? 'green' : ($group->status === 'cancelled' ? 'red' : 'blue') }}">
-                    {{ __('fulfillment_groups.status_'.$group->status) }}
+                <flux:badge color="{{ $order->status === \App\Models\OutboundOrder::STATUS_SHIPPED ? 'green' : ($order->status === \App\Models\OutboundOrder::STATUS_CANCELLED ? 'red' : 'blue') }}">
+                    {{ __('fulfillment_groups.status_'.$statusKey) }}
                 </flux:badge>
-                <flux:button href="{{ route('fulfillment-groups.issues.create', $group) }}" variant="outline" wire:navigate>
-                    {{ __('issues.btn_create') }}
-                </flux:button>
-                <flux:button href="{{ route('fulfillment.pack-scans.index', ['fulfillment_group_id' => $group->id]) }}" variant="outline" wire:navigate>
-                    {{ __('fulfillment_pack.scan_history_title') }}
-                </flux:button>
-                <flux:button href="{{ route('outbound.show', $group->outboundOrder) }}" variant="outline" wire:navigate>
+                @if ($group)
+                    <flux:button href="{{ route('fulfillment-groups.issues.create', $group) }}" variant="outline" wire:navigate>
+                        {{ __('issues.btn_create') }}
+                    </flux:button>
+                    <flux:button href="{{ route('fulfillment.pack-scans.index', ['fulfillment_group_id' => $group->id]) }}" variant="outline" wire:navigate>
+                        {{ __('fulfillment_pack.scan_history_title') }}
+                    </flux:button>
+                @endif
+                <flux:button href="{{ route('outbound.show', $order) }}" variant="outline" wire:navigate>
                     {{ __('fulfillment_groups.btn_back') }}
                 </flux:button>
             </div>
         </div>
 
         <div class="form-grid three">
-            <div><span class="subtle">{{ __('fulfillment_groups.col_status') }}</span><strong>{{ __('fulfillment_groups.status_'.$group->status) }}</strong></div>
-            <div><span class="subtle">{{ __('fulfillment_groups.field_recipient_name') }}</span><strong>{{ $group->recipient_name ?: '-' }}</strong></div>
-            <div><span class="subtle">{{ __('fulfillment_groups.field_tracking_no') }}</span><strong>{{ $group->tracking_no ?: $group->outboundOrder?->tracking_no ?: '-' }}</strong></div>
-            <div><span class="subtle">{{ __('fulfillment_groups.col_shipping') }}</span><strong>{{ $group->shippingMethod?->name ?: $group->courier ?: '-' }}</strong></div>
-            <div><span class="subtle">{{ __('fulfillment_groups.col_orders') }}</span><strong>{{ number_format($group->orders->count()) }}</strong></div>
+            <div><span class="subtle">{{ __('fulfillment_groups.col_status') }}</span><strong>{{ __('fulfillment_groups.status_'.$statusKey) }}</strong></div>
+            <div><span class="subtle">{{ __('fulfillment_groups.field_recipient_name') }}</span><strong>{{ $order->recipient_name ?: '-' }}</strong></div>
+            <div><span class="subtle">{{ __('fulfillment_groups.field_tracking_no') }}</span><strong>{{ $order->tracking_no ?: $group?->tracking_no ?: '-' }}</strong></div>
+            <div><span class="subtle">{{ __('fulfillment_groups.col_shipping') }}</span><strong>{{ $order->shippingMethod?->name ?: $order->shipping_method ?: $group?->courier ?: '-' }}</strong></div>
+            <div><span class="subtle">{{ __('fulfillment_groups.col_orders') }}</span><strong>{{ number_format($order->salesOrders->count()) }}</strong></div>
             <div><span class="subtle">{{ __('fulfillment_pack.overall_progress') }}</span><strong>{{ number_format($progress['qty_scanned']) }} / {{ number_format($progress['qty_required']) }} {{ __('fulfillment_pack.scanned_short') }}</strong></div>
         </div>
     </section>
@@ -103,7 +114,7 @@
         <div class="pack-feedback {{ $feedbackMessage ? $feedbackType : 'idle' }}">
             @if ($feedbackMessage)
                 {{ $feedbackMessage }}
-            @elseif ($readOnly && $group->status === 'shipped')
+            @elseif ($readOnly && $order->status === \App\Models\OutboundOrder::STATUS_SHIPPED)
                 {{ __('fulfillment_pack.already_shipped') }}
             @elseif ($readOnly)
                 {{ __('fulfillment_pack.cancelled_group') }}
@@ -176,14 +187,16 @@
                             @endif
                         </flux:table.cell>
                         <flux:table.cell>
-                            <flux:button
-                                size="xs"
-                                variant="outline"
-                                href="{{ route('fulfillment-groups.issues.create', ['group' => $group] + $issueQuery) }}"
-                                wire:navigate
-                            >
-                                {{ __('issues.section_issue') }}
-                            </flux:button>
+                            @if ($group)
+                                <flux:button
+                                    size="xs"
+                                    variant="outline"
+                                    href="{{ route('fulfillment-groups.issues.create', ['group' => $group] + $issueQuery) }}"
+                                    wire:navigate
+                                >
+                                    {{ __('issues.section_issue') }}
+                                </flux:button>
+                            @endif
                         </flux:table.cell>
                     </flux:table.row>
                 @endforeach
