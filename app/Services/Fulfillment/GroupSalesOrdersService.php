@@ -83,9 +83,8 @@ class GroupSalesOrdersService
             ->where('warehouse_id', $warehouseId)
             ->where('ship_together_key', $order->ship_together_key)
             ->where('status', FulfillmentGroup::STATUS_RESERVED)
-            ->whereDoesntHave('orders', fn ($query) => $query
-                ->whereNotNull('courier_csv_exported_at')
-                ->orWhere('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_SHIPPED))
+            ->whereDoesntHave('outboundOrder', fn ($query) => $query->whereNotNull('courier_csv_exported_at'))
+            ->whereDoesntHave('orders', fn ($query) => $query->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_SHIPPED))
             ->with('orders.shop')
             ->orderBy('id')
             ->first();
@@ -367,7 +366,7 @@ class GroupSalesOrdersService
             throw new InvalidArgumentException(__('fulfillment_groups.group_not_joinable'));
         }
 
-        if ($group->orders()->whereNotNull('courier_csv_exported_at')->exists()) {
+        if ($group->outboundOrder()->whereNotNull('courier_csv_exported_at')->exists()) {
             throw new InvalidArgumentException(__('fulfillment_groups.group_not_joinable'));
         }
     }

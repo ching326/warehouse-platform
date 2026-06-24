@@ -32,6 +32,7 @@ use App\Services\Courier\TrackingImport\TrackingImportService;
 use App\Services\Fulfillment\FulfillmentPackService;
 use App\Services\InventoryService;
 use App\Support\CourierCarrier;
+use App\Support\SalesOrderFilters;
 use App\Support\TrackingNumber;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -366,7 +367,7 @@ class FulfillmentGroupTest extends TestCase
         $orderA = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-JOIN-BLOCK-A');
         $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA]);
         $group = FulfillmentGroup::firstOrFail();
-        $orderA->update(['courier_csv_exported_at' => now()]);
+        $group->outboundOrder()->firstOrFail()->update(['courier_csv_exported_at' => now()]);
         $orderB = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-JOIN-BLOCK-B');
 
         $this->expectException(\InvalidArgumentException::class);
@@ -523,6 +524,38 @@ class FulfillmentGroupTest extends TestCase
             ->assertSee('503-2780983-9214242')
             ->assertDontSee('+1')
             ->assertDontSee($hiddenGroup->reference_no);
+    }
+
+    public function test_fulfillment_index_printed_filters_and_added_cell_use_outbound_flag(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $printedOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-PRINTED');
+        $notPrintedOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-NOT-PRINTED', '2 Not Printed Street');
+        $this->createGroup($tenant, $warehouse, $printedOrder->ship_together_key, [$printedOrder]);
+        $printedGroup = FulfillmentGroup::query()->latest('id')->firstOrFail();
+        $printedGroup->outboundOrder()->firstOrFail()->update(['courier_csv_exported_at' => '2026-06-18 10:00:00']);
+        $this->createGroup($tenant, $warehouse, $notPrintedOrder->ship_together_key, [$notPrintedOrder]);
+        $notPrintedGroup = FulfillmentGroup::query()->latest('id')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupIndex::class)
+            ->set('printWaiting', true)
+            ->assertDontSee($printedGroup->reference_no)
+            ->assertSee($notPrintedGroup->reference_no);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupIndex::class)
+            ->set('othersFilter', [SalesOrderFilters::OTHER_PRINTED])
+            ->assertSee($printedGroup->reference_no)
+            ->assertSee(__('fulfillment_groups.printed_at', ['time' => '06-18 10:00']))
+            ->assertDontSee($notPrintedGroup->reference_no);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupIndex::class)
+            ->set('othersFilter', [SalesOrderFilters::OTHER_NOT_PRINTED])
+            ->assertSee($notPrintedGroup->reference_no)
+            ->assertSee(__('fulfillment_groups.not_printed'))
+            ->assertDontSee($printedGroup->reference_no);
     }
 
     public function test_detailed_toggle_shows_sku_lines_and_full_address(): void

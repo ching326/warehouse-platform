@@ -344,9 +344,9 @@ class FulfillmentGroupIndex extends Component
                 'tenant:id,code,name',
                 'warehouse:id,code,name',
                 'shippingMethod:id,name',
-                'outboundOrder:id,fulfillment_group_id,shipping_method',
+                'outboundOrder:id,fulfillment_group_id,shipping_method,courier_csv_exported_at',
                 'groupOrders:id,fulfillment_group_id,sales_order_id,tracking_no,arranged_at,shipped_at',
-                'groupOrders.salesOrder:id,shop_id,platform_order_id,courier_csv_exported_at,shipping_method',
+                'groupOrders.salesOrder:id,shop_id,platform_order_id,shipping_method',
                 'groupOrders.salesOrder.shop:id,name',
                 'groupOrders.salesOrder.lines:id,sales_order_id,sku_id,quantity',
             ])
@@ -362,11 +362,11 @@ class FulfillmentGroupIndex extends Component
             ->when($this->warehouseId !== '', fn ($query) => $query->where('warehouse_id', (int) $this->warehouseId))
             ->when($this->statusesFilter !== [], fn ($query) => $query->whereIn('status', $this->statusesFilter))
             ->when($this->printWaiting, fn ($query) => $query
-                ->whereHas('groupOrders.salesOrder', fn ($sub) => $sub->whereNull('courier_csv_exported_at')))
+                ->whereHas('outboundOrder', fn ($sub) => $sub->whereNull('courier_csv_exported_at')))
             ->when(in_array(SalesOrderFilters::OTHER_PRINTED, $this->othersFilter, true), fn ($query) => $query
-                ->whereHas('groupOrders.salesOrder', fn ($sub) => $sub->whereNotNull('courier_csv_exported_at')))
+                ->whereHas('outboundOrder', fn ($sub) => $sub->whereNotNull('courier_csv_exported_at')))
             ->when(in_array(SalesOrderFilters::OTHER_NOT_PRINTED, $this->othersFilter, true), fn ($query) => $query
-                ->whereHas('groupOrders.salesOrder', fn ($sub) => $sub->whereNull('courier_csv_exported_at')))
+                ->whereHas('outboundOrder', fn ($sub) => $sub->whereNull('courier_csv_exported_at')))
             ->when($this->shippingMethodsFilter !== [], function ($query) {
                 $query->where(function ($inner) {
                     $methodIds = array_values(array_filter(

@@ -326,10 +326,7 @@
                             ? (int) $go->salesOrder->lines->sum('quantity')
                             : 0);
                         $arranged = $members->pluck('arranged_at')->filter()->min();
-                        $printed = $members
-                            ->map(fn ($go) => $go->salesOrder?->courier_csv_exported_at)
-                            ->filter()
-                            ->min();
+                        $printed = $group->outboundOrder?->courier_csv_exported_at;
                     @endphp
                     <flux:table.row :key="$group->id">
                         <flux:table.cell class="fg-col-select">
