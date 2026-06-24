@@ -50,7 +50,7 @@ class WarehousePlatformSeeder extends Seeder
         $this->seedInventory(app(InventoryService::class), $tenants, $warehouses, $stockItems);
         $this->seedSalesOrders($tenants, $shops, $skus, $users, $shippingMethods);
         $this->seedInboundOrders($tenants, $warehouses, $skus, $users);
-        $this->seedOutboundOrders($tenants, $warehouses, $skus, $users);
+        $this->seedOutboundOrders($tenants, $warehouses, $skus, $users, $shippingMethods);
     }
 
     private function seedShippingMethods(): array
@@ -789,10 +789,13 @@ class WarehousePlatformSeeder extends Seeder
         }
     }
 
-    private function seedOutboundOrders(array $tenants, array $warehouses, array $skus, array $users): void
+    private function seedOutboundOrders(array $tenants, array $warehouses, array $skus, array $users, array $shippingMethods): void
     {
         $createdByUser = $users[array_key_first($users)] ?? User::first();
-        $shippingMethods = ['standard', 'express', 'overnight', 'economy'];
+        $courierMethods = array_values(array_filter(
+            $shippingMethods,
+            fn (ShippingMethod $method): bool => $method->supports_courier_csv,
+        ));
         $couriers = ['FedEx', 'DHL', 'UPS', 'Local Delivery'];
 
         foreach ($tenants as $tenantIdx => $tenant) {
@@ -803,12 +806,14 @@ class WarehousePlatformSeeder extends Seeder
 
             foreach ($warehouses as $warehouseIdx => $warehouse) {
                 for ($i = 0; $i < 3; $i++) {
-                    $shippingMethod = $shippingMethods[($tenantIdx + $warehouseIdx + $i) % count($shippingMethods)];
+                    $shippingMethod = $courierMethods[($tenantIdx + $warehouseIdx + $i) % count($courierMethods)];
                     $courier = $couriers[($tenantIdx + $warehouseIdx + $i) % count($couriers)];
                     $isShipped = rand(0, 1) === 1;
 
                     $outbound = OutboundOrder::create([
                         'fulfillment_group_id' => null,
+                        'reason' => OutboundOrder::REASON_REPLACEMENT,
+                        'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
                         'tenant_id' => $tenant->id,
                         'warehouse_id' => $warehouse->id,
                         'ref' => "OB-{$tenant->code}-{$warehouse->code}-".str_pad($i + 1, 3, '0', STR_PAD_LEFT),
@@ -822,7 +827,7 @@ class WarehousePlatformSeeder extends Seeder
                         'recipient_city' => ['Tokyo', 'Bangkok', 'Singapore'][($tenantIdx + $i) % 3],
                         'recipient_address_line1' => $this->randomAddress($i),
                         'recipient_address_line2' => 'Apt '.(100 + $i),
-                        'shipping_method' => $shippingMethod,
+                        'shipping_method_id' => $shippingMethod->id,
                         'courier' => $courier,
                         'tracking_no' => $isShipped ? strtoupper($courier[0]).$warehouse->id.$tenant->id.str_pad($i, 6, '0', STR_PAD_LEFT) : null,
                         'package_count' => rand(1, 3),
