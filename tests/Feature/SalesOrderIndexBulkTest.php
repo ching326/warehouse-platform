@@ -88,6 +88,7 @@ class SalesOrderIndexBulkTest extends TestCase
         $this->assertSame(FulfillmentGroup::STATUS_CANCELLED, $group->status);
         $this->assertSame(OutboundOrder::STATUS_CANCELLED, $outbound->status);
         $this->assertSame(0, $group->orders()->count());
+        $this->assertSame(0, $outbound->salesOrders()->count());
         $this->assertSame(0, $balance->reserved_qty);
         $this->assertSame(10, $balance->available_qty);
         $this->assertDatabaseHas('inventory_movements', [
@@ -129,6 +130,7 @@ class SalesOrderIndexBulkTest extends TestCase
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $remaining->refresh()->fulfillment_status);
         $this->assertSame(FulfillmentGroup::STATUS_RESERVED, $group->status);
         $this->assertSame([$remaining->id], $group->orders()->pluck('sales_orders.id')->all());
+        $this->assertSame([$remaining->id], $outbound->salesOrders()->pluck('sales_orders.id')->all());
         $this->assertSame(1, $outbound->lines->count());
         $this->assertSame(3, $outbound->lines->first()->qty);
         $this->assertSame(3, $balance->reserved_qty);
@@ -407,6 +409,10 @@ class SalesOrderIndexBulkTest extends TestCase
 
         $this->assertSame(1, FulfillmentGroup::count());
         $this->assertSame([$grouped->id, $newOrder->id], $group->refresh()->orders()->orderBy('sales_orders.id')->pluck('sales_orders.id')->all());
+        $this->assertSame(
+            [$grouped->id, $newOrder->id],
+            $group->outboundOrder()->firstOrFail()->salesOrders()->orderBy('sales_orders.id')->pluck('sales_orders.id')->all(),
+        );
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $newOrder->refresh()->fulfillment_status);
     }
 

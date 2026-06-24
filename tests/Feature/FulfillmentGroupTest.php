@@ -123,7 +123,15 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame([$orderA->id, $orderB->id], $group->orders->pluck('id')->sort()->values()->all());
         $this->assertNotNull($outbound);
         $this->assertSame($group->id, $outbound->fulfillment_group_id);
+        $this->assertSame(OutboundOrder::REASON_CUSTOMER_ORDER, $outbound->reason);
+        $this->assertSame(OutboundOrder::SHIP_MODE_PARCEL, $outbound->ship_mode);
+        $this->assertNull($outbound->shipping_method_id);
         $this->assertSame(OutboundOrder::STATUS_PENDING, $outbound->status);
+        $this->assertSame(
+            [$orderA->id, $orderB->id],
+            $outbound->salesOrders()->orderBy('sales_orders.id')->pluck('sales_orders.id')->all(),
+        );
+        $this->assertTrue($outbound->salesOrders()->get()->every(fn ($order) => $order->pivot->arranged_at !== null));
         $this->assertSame(1, $outbound->lines->count());
         $this->assertSame(5, $outbound->lines->first()->qty);
         $this->assertSame(5, $balance->reserved_qty);
@@ -173,6 +181,7 @@ class FulfillmentGroupTest extends TestCase
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
 
         $this->assertSame($method->id, FulfillmentGroup::firstOrFail()->shipping_method_id);
+        $this->assertSame($method->id, FulfillmentGroup::firstOrFail()->outboundOrder()->value('shipping_method_id'));
     }
 
     public function test_create_group_picks_lowest_selection_priority_when_members_differ(): void
@@ -675,6 +684,7 @@ class FulfillmentGroupTest extends TestCase
         ]);
         $this->assertNotNull($orderA->refresh()->courier_csv_exported_at);
         $this->assertNotNull($orderB->refresh()->courier_csv_exported_at);
+        $this->assertNotNull($group->outboundOrder()->firstOrFail()->courier_csv_exported_at);
     }
 
     public function test_fulfillment_sagawa_export_writes_last_15_group_reference_to_customer_management_number(): void

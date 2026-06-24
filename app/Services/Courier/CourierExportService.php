@@ -157,6 +157,8 @@ class CourierExportService
                 ]);
 
                 foreach ($groups as $group) {
+                    $group->outboundOrder?->update(['courier_csv_exported_at' => $exportedAt]);
+
                     foreach ($group->groupOrders as $groupOrder) {
                         $order = $groupOrder->salesOrder;
 
@@ -204,6 +206,7 @@ class CourierExportService
             ->whereIn('id', $ids)
             ->whereIn('tenant_id', $allowedTenantIds)
             ->with([
+                'outboundOrder',
                 'shippingMethod.carrier',
                 'groupOrders.salesOrder.shop.tenant',
                 'groupOrders.salesOrder.lines.sku.stockItem',

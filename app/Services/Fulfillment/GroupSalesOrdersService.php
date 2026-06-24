@@ -147,6 +147,7 @@ class GroupSalesOrdersService
 
                 $outbound = $group->outboundOrder;
                 if ($outbound) {
+                    $outbound->salesOrders()->detach($order->id);
                     $outbound->lines()->delete();
                 }
 
@@ -214,6 +215,9 @@ class GroupSalesOrdersService
 
         $outbound = OutboundOrder::create([
             'fulfillment_group_id' => $group->id,
+            'reason' => OutboundOrder::REASON_CUSTOMER_ORDER,
+            'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
+            'shipping_method_id' => $defaultShippingMethodId,
             'tenant_id' => $tenantId,
             'warehouse_id' => $warehouseId,
             'ref' => $group->reference_no,
@@ -254,6 +258,7 @@ class GroupSalesOrdersService
             ->all();
 
         $group->orders()->attach($attachPayload);
+        $outbound->salesOrders()->attach($attachPayload);
 
         [$bySkuAndItem, $byStockItem] = $this->aggregateLines($orders);
 
