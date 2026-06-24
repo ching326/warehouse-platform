@@ -62,7 +62,6 @@ class OutboundOrder extends Model
         'recipient_city',
         'recipient_address_line1',
         'recipient_address_line2',
-        'shipping_method',
         'courier',
         'tracking_no',
         'package_count',

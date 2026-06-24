@@ -3,11 +3,17 @@
 namespace App\Livewire;
 
 use App\Models\OutboundOrder;
+use App\Models\ShippingMethod;
 use App\Models\Tenant;
+use App\Models\User;
+use App\Services\Courier\CourierExportService;
 use App\Services\InventoryService;
+use App\Support\CourierCarrier;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
+use RuntimeException;
 
 class OutboundOrderDetail extends Component
 {
@@ -33,11 +39,19 @@ class OutboundOrderDetail extends Component
 
     public string $recipientAddressLine2 = '';
 
+    public string $shippingMethodId = '';
+
     public string $courier = '';
 
     public string $trackingNo = '';
 
     public string $note = '';
+
+    public ?string $pendingCourierExportCarrier = null;
+
+    public array $pendingCourierExportOrderIds = [];
+
+    public ?string $pendingExportWarning = null;
 
     private bool $visibleTenantIdsResolved = false;
 
@@ -113,6 +127,7 @@ class OutboundOrderDetail extends Component
     public function editShipping(): void
     {
         $order = $this->loadPendingOrder();
+        $this->shippingMethodId = (string) ($order->shipping_method_id ?? '');
         $this->courier = (string) $order->courier;
         $this->trackingNo = (string) $order->tracking_no;
         $this->note = (string) $order->note;
@@ -129,23 +144,28 @@ class OutboundOrderDetail extends Component
         $order = $this->loadPendingOrder();
 
         validator([
+            'shipping_method_id' => $this->shippingMethodId,
             'courier' => $this->courier,
             'tracking_no' => $this->trackingNo,
             'note' => $this->note,
         ], [
+            'shipping_method_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::exists('shipping_methods', 'id')->where('status', 'active')],
             'courier' => ['nullable', 'string', 'max:100'],
             'tracking_no' => ['nullable', 'string', 'max:255'],
             'note' => ['nullable', 'string', 'max:2000'],
         ])->validate();
 
+        $methodId = $this->shippingMethodId !== '' ? (int) $this->shippingMethodId : null;
         $trackingNo = \App\Support\TrackingNumber::normalize($this->trackingNo);
 
         $order->update([
+            'shipping_method_id' => $methodId,
             'courier' => $this->nullableString($this->courier),
             'tracking_no' => $trackingNo,
             'note' => $this->nullableString($this->note),
         ]);
         $order->fulfillmentGroup?->update([
+            'shipping_method_id' => $methodId,
             'courier' => $this->nullableString($this->courier),
             'tracking_no' => $trackingNo,
             'note' => $this->nullableString($this->note),
@@ -153,6 +173,61 @@ class OutboundOrderDetail extends Component
 
         $this->editingShipping = false;
         session()->flash('status', __('fulfillment_groups.shipping_updated'));
+    }
+
+    public function exportYamato(): mixed
+    {
+        return $this->validateCourierExport(CourierCarrier::YAMATO);
+    }
+
+    public function exportSagawa(): mixed
+    {
+        return $this->validateCourierExport(CourierCarrier::SAGAWA);
+    }
+
+    public function validateCourierExport(string $carrier): mixed
+    {
+        $this->pendingCourierExportCarrier = null;
+        $this->pendingCourierExportOrderIds = [];
+        $this->pendingExportWarning = null;
+
+        $carrier = CourierCarrier::normalize($carrier);
+        $outboundOrderIds = [$this->orderId];
+
+        $result = app(CourierExportService::class)->validateOrderExport(
+            outboundOrderIds: $outboundOrderIds,
+            carrier: $carrier,
+            allowedTenantIds: $this->visibleTenantIds(),
+        );
+
+        if ($result->hasHardBlock()) {
+            session()->flash('error', $this->courierExportMessage($result->toArray()));
+
+            return null;
+        }
+
+        if ($result->requiresConfirmation) {
+            $this->pendingCourierExportCarrier = $carrier;
+            $this->pendingCourierExportOrderIds = $outboundOrderIds;
+            $this->pendingExportWarning = $this->reExportWarning($result->alreadyExportedOrderIds);
+
+            return null;
+        }
+
+        return $this->performCourierExport($carrier, confirmedReExport: false, outboundOrderIds: $outboundOrderIds);
+    }
+
+    public function confirmCourierExport(): mixed
+    {
+        if ($this->pendingCourierExportCarrier === null || $this->pendingCourierExportOrderIds === []) {
+            return null;
+        }
+
+        $carrier = $this->pendingCourierExportCarrier;
+        $outboundOrderIds = $this->pendingCourierExportOrderIds;
+        $this->clearPendingExport();
+
+        return $this->performCourierExport($carrier, confirmedReExport: true, outboundOrderIds: $outboundOrderIds);
     }
 
     public function cancel(): void
@@ -215,6 +290,7 @@ class OutboundOrderDetail extends Component
             ->with([
                 'tenant:id,code,name',
                 'warehouse:id,code,name',
+                'shippingMethod:id,name',
                 'createdBy:id,name',
                 'shippedBy:id,name',
                 'cancelledBy:id,name',
@@ -232,11 +308,85 @@ class OutboundOrderDetail extends Component
 
         return view('livewire.outbound-order-detail', [
             'order' => $order,
+            'shippingMethods' => $this->shippingMethodOptions(),
         ])->layout('inventory', [
             'title' => __('outbound.detail_page_title'),
             'subtitle' => __('outbound.detail_page_subtitle'),
             'pageWide' => true,
         ]);
+    }
+
+    private function performCourierExport(string $carrier, bool $confirmedReExport, array $outboundOrderIds): mixed
+    {
+        try {
+            $batch = app(CourierExportService::class)->exportOrders(
+                outboundOrderIds: $outboundOrderIds,
+                carrier: $carrier,
+                allowedTenantIds: $this->visibleTenantIds(),
+                user: Auth::user(),
+                confirmedReExport: $confirmedReExport,
+            );
+        } catch (RuntimeException $exception) {
+            session()->flash('error', $exception->getMessage());
+
+            return null;
+        }
+
+        $this->pendingCourierExportCarrier = null;
+        $this->pendingCourierExportOrderIds = [];
+
+        return redirect()->route('courier-export-batches.download', $batch);
+    }
+
+    private function clearPendingExport(): void
+    {
+        $this->pendingCourierExportCarrier = null;
+        $this->pendingCourierExportOrderIds = [];
+        $this->pendingExportWarning = null;
+    }
+
+    private function courierExportMessage(array $result): string
+    {
+        $parts = [];
+
+        foreach ([
+            'wrong_carrier_order_ids' => 'courier_export_wrong_carrier_ids',
+            'unsupported_courier_order_ids' => 'courier_export_unsupported_courier_ids',
+            'blocked_status_order_ids' => 'courier_export_blocked_status_ids',
+            'no_ready_lines_order_ids' => 'courier_export_no_ready_lines_ids',
+            'mixed_tenant_order_ids' => 'courier_export_mixed_tenant_ids',
+            'missing_order_ids' => 'courier_export_missing_ids',
+        ] as $key => $translationKey) {
+            if ($result[$key] !== []) {
+                $parts[] = __(
+                    'fulfillment_groups.'.$translationKey,
+                    ['ids' => implode(', ', $result[$key])]
+                );
+            }
+        }
+
+        return implode("\n", $parts ?: [$result['message']]);
+    }
+
+    private function reExportWarning(array $outboundOrderIds): string
+    {
+        $refs = OutboundOrder::query()
+            ->whereIn('id', $outboundOrderIds)
+            ->whereIn('tenant_id', $this->visibleTenantIds())
+            ->orderBy('ref')
+            ->pluck('ref')
+            ->all();
+
+        return __('fulfillment_groups.courier_export_reexport_warning')."\n".implode("\n", $refs);
+    }
+
+    private function shippingMethodOptions(): Collection
+    {
+        return ShippingMethod::query()
+            ->where('shipping_methods.status', 'active')
+            ->with('carrier:id,code,name')
+            ->ordered()
+            ->get(['shipping_methods.id', 'shipping_methods.carrier_id', 'shipping_methods.code', 'shipping_methods.name']);
     }
 
     private function loadPendingOrder(): OutboundOrder

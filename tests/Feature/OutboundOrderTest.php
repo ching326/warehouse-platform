@@ -7,6 +7,7 @@ use App\Livewire\OutboundOrderDetail;
 use App\Livewire\OutboundOrderIndex;
 use App\Livewire\OutboundOrderShip;
 use App\Models\Carrier;
+use App\Models\CourierExportBatch;
 use App\Models\FulfillmentGroup;
 use App\Models\InventoryBalance;
 use App\Models\InventoryMovement;
@@ -155,14 +156,14 @@ class OutboundOrderTest extends TestCase
             ->test(OutboundOrderCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
-            ->set('shippingMethod', $method->code)
+            ->set('shippingMethodId', (string) $method->id)
             ->set('reason', OutboundOrder::REASON_SAMPLE)
             ->set('lines.0.sku_id', (string) $sku->id)
             ->set('lines.0.qty', '1')
             ->call('save')
             ->assertRedirect(route('outbound.index'));
 
-        $this->assertSame($method->code, OutboundOrder::firstOrFail()->shipping_method);
+        $this->assertSame($method->id, OutboundOrder::firstOrFail()->shipping_method_id);
     }
 
     public function test_create_persists_reason_and_ship_mode(): void
@@ -704,6 +705,232 @@ class OutboundOrderTest extends TestCase
             ->call('save');
 
         $this->assertSame(2500, $order->refresh()->package_weight_g);
+    }
+
+    public function test_create_with_shipping_method_id_enables_courier_export_end_to_end(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(5);
+        $method = ShippingMethod::query()
+            ->with('carrier')
+            ->where('code', 'yamato_nekopos')
+            ->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('shippingMethodId', (string) $method->id)
+            ->set('reason', OutboundOrder::REASON_REPLACEMENT)
+            ->set('shipMode', OutboundOrder::SHIP_MODE_PARCEL)
+            ->set('recipientName', 'Test Recipient')
+            ->set('recipientCountryCode', 'JP')
+            ->set('recipientPostalCode', '100-0001')
+            ->set('recipientState', 'Tokyo')
+            ->set('recipientCity', 'Chiyoda-ku')
+            ->set('recipientAddressLine1', 'Chiyoda')
+            ->set('lines.0.sku_id', (string) $sku->id)
+            ->set('lines.0.qty', '1')
+            ->call('save')
+            ->assertRedirect(route('outbound.index'));
+
+        $order = OutboundOrder::firstOrFail();
+
+        $this->assertSame($method->id, $order->shipping_method_id, 'shipping_method_id captured by create flow');
+
+        $service = app(\App\Services\Courier\CourierExportService::class);
+        $result = $service->validateOrderExport(
+            outboundOrderIds: [$order->id],
+            carrier: \App\Support\CourierCarrier::YAMATO,
+            allowedTenantIds: [$tenant->id],
+        );
+
+        $this->assertEmpty($result->wrongCarrierOrderIds, 'shipping_method_id matches yamato carrier');
+        $this->assertTrue($result->ok || $result->requiresConfirmation || ! $result->hasHardBlock());
+
+        $batch = $service->exportOrders(
+            outboundOrderIds: [$order->id],
+            carrier: \App\Support\CourierCarrier::YAMATO,
+            allowedTenantIds: [$tenant->id],
+            user: null,
+        );
+
+        $this->assertNotNull($batch);
+        $this->assertNotNull($order->refresh()->courier_csv_exported_at);
+
+        $batchOrder = $batch->batchOrders()->first();
+        $this->assertNull($batchOrder->sales_order_id, 'manual outbound has no sales order');
+        $this->assertSame($order->ref, $batchOrder->platform_order_id);
+    }
+
+    public function test_detail_save_shipping_sets_shipping_method_id(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(3);
+        $method = ShippingMethod::query()->where('code', 'yamato_nekopos')->firstOrFail();
+
+        $order = OutboundOrder::factory()
+            ->for($tenant)
+            ->for($warehouse)
+            ->create([
+                'status' => OutboundOrder::STATUS_PENDING,
+                'reason' => OutboundOrder::REASON_REPLACEMENT,
+                'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
+                'shipping_method_id' => null,
+            ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderDetail::class, ['order' => $order])
+            ->call('editShipping')
+            ->set('shippingMethodId', (string) $method->id)
+            ->call('saveShipping');
+
+        $this->assertSame($method->id, $order->refresh()->shipping_method_id);
+    }
+
+    public function test_detail_export_yamato_for_manual_outbound(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(2);
+        $method = ShippingMethod::query()->where('code', 'yamato_nekopos')->firstOrFail();
+        $stockItem = $sku->stockItem;
+
+        $order = OutboundOrder::factory()
+            ->for($tenant)
+            ->for($warehouse)
+            ->create([
+                'status' => OutboundOrder::STATUS_PENDING,
+                'reason' => OutboundOrder::REASON_REPLACEMENT,
+                'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
+                'shipping_method_id' => $method->id,
+                'ref' => 'OB-MANUAL-P13-001',
+                'recipient_name' => 'Manual Export Recipient',
+                'recipient_country_code' => 'JP',
+                'recipient_postal_code' => '100-0001',
+                'recipient_state' => 'Tokyo',
+                'recipient_city' => 'Chiyoda-ku',
+                'recipient_address_line1' => 'Chiyoda',
+            ]);
+
+        OutboundOrderLine::factory()
+            ->for($order, 'order')
+            ->for($sku)
+            ->for($stockItem)
+            ->for($tenant)
+            ->create(['qty' => 1]);
+
+        $component = Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderDetail::class, ['order' => $order])
+            ->call('exportYamato');
+
+        $component->assertRedirect();
+
+        $this->assertNotNull($order->refresh()->courier_csv_exported_at);
+
+        $batch = \App\Models\CourierExportBatch::latest('id')->first();
+        $this->assertNotNull($batch);
+        $batchOrder = $batch->batchOrders()->first();
+        $this->assertNull($batchOrder->sales_order_id);
+        $this->assertSame('OB-MANUAL-P13-001', $batchOrder->platform_order_id);
+    }
+
+    public function test_detail_export_blocked_without_shipping_method_id(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(2);
+        $stockItem = $sku->stockItem;
+
+        $order = OutboundOrder::factory()
+            ->for($tenant)
+            ->for($warehouse)
+            ->create([
+                'status' => OutboundOrder::STATUS_PENDING,
+                'reason' => OutboundOrder::REASON_GIFT,
+                'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
+                'shipping_method_id' => null,
+            ]);
+
+        OutboundOrderLine::factory()
+            ->for($order, 'order')
+            ->for($sku)
+            ->for($stockItem)
+            ->for($tenant)
+            ->create(['qty' => 1]);
+
+        $result = app(\App\Services\Courier\CourierExportService::class)->validateOrderExport(
+            outboundOrderIds: [$order->id],
+            carrier: \App\Support\CourierCarrier::YAMATO,
+            allowedTenantIds: [$tenant->id],
+        );
+
+        $this->assertContains($order->id, $result->wrongCarrierOrderIds, 'null shipping_method_id hard-blocks export');
+        $this->assertTrue($result->hasHardBlock());
+    }
+
+    public function test_detail_export_tenant_scope(): void
+    {
+        [$tenantA, $warehouseA, $skuA] = $this->skuWithStock(2);
+        [$tenantB, $userB] = $this->tenantUser();
+        $method = ShippingMethod::query()->where('code', 'yamato_nekopos')->firstOrFail();
+        $stockItem = $skuA->stockItem;
+
+        $order = OutboundOrder::factory()
+            ->for($tenantA)
+            ->for($warehouseA)
+            ->create([
+                'status' => OutboundOrder::STATUS_PENDING,
+                'reason' => OutboundOrder::REASON_REPLACEMENT,
+                'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
+                'shipping_method_id' => $method->id,
+            ]);
+
+        OutboundOrderLine::factory()
+            ->for($order, 'order')
+            ->for($skuA)
+            ->for($stockItem)
+            ->for($tenantA)
+            ->create(['qty' => 1]);
+
+        $this->actingAs($userB)
+            ->get(route('outbound.show', $order))
+            ->assertStatus(404);
+    }
+
+    public function test_detail_export_already_exported_requires_reexport_confirmation(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(2);
+        $method = ShippingMethod::query()->where('code', 'yamato_nekopos')->firstOrFail();
+        $stockItem = $sku->stockItem;
+
+        $order = OutboundOrder::factory()
+            ->for($tenant)
+            ->for($warehouse)
+            ->create([
+                'status' => OutboundOrder::STATUS_PENDING,
+                'reason' => OutboundOrder::REASON_REPLACEMENT,
+                'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
+                'shipping_method_id' => $method->id,
+                'ref' => 'OB-REEXPORT-P13-001',
+                'courier_csv_exported_at' => now(),
+                'recipient_name' => 'Reexport Recipient',
+                'recipient_country_code' => 'JP',
+                'recipient_postal_code' => '100-0001',
+                'recipient_state' => 'Tokyo',
+                'recipient_city' => 'Chiyoda-ku',
+                'recipient_address_line1' => 'Chiyoda',
+            ]);
+
+        OutboundOrderLine::factory()
+            ->for($order, 'order')
+            ->for($sku)
+            ->for($stockItem)
+            ->for($tenant)
+            ->create(['qty' => 1]);
+
+        $component = Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderDetail::class, ['order' => $order])
+            ->call('exportYamato');
+
+        $component->assertSet('pendingCourierExportCarrier', \App\Support\CourierCarrier::YAMATO);
+        $this->assertNotEmpty($component->get('pendingExportWarning'));
+
+        $component->call('confirmCourierExport')->assertRedirect();
     }
 
     private function createOrder(

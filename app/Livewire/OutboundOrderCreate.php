@@ -49,7 +49,7 @@ class OutboundOrderCreate extends Component
 
     public string $recipientAddressLine2 = '';
 
-    public string $shippingMethod = '';
+    public string $shippingMethodId = '';
 
     public string $reason = '';
 
@@ -146,7 +146,7 @@ class OutboundOrderCreate extends Component
                 'recipient_city' => $this->nullableString($this->recipientCity),
                 'recipient_address_line1' => $this->nullableString($this->recipientAddressLine1),
                 'recipient_address_line2' => $this->nullableString($this->recipientAddressLine2),
-                'shipping_method' => $this->nullableString($this->shippingMethod),
+                'shipping_method_id' => $this->shippingMethodId !== '' ? (int) $this->shippingMethodId : null,
                 'created_by_user_id' => Auth::id(),
             ]);
 
@@ -317,7 +317,7 @@ class OutboundOrderCreate extends Component
             'recipient_city' => ['nullable', 'string', 'max:100'],
             'recipient_address_line1' => ['nullable', 'string', 'max:255'],
             'recipient_address_line2' => ['nullable', 'string', 'max:255'],
-            'shipping_method' => ['nullable', 'string', 'max:100'],
+            'shipping_method_id' => ['nullable', Rule::exists('shipping_methods', 'id')->where('status', 'active')],
             'reason' => ['required', Rule::in($this->manualReasons())],
             'ship_mode' => ['required', Rule::in([OutboundOrder::SHIP_MODE_PARCEL, OutboundOrder::SHIP_MODE_BULK])],
             'lines' => [
@@ -353,7 +353,7 @@ class OutboundOrderCreate extends Component
             'recipient_city' => $this->recipientCity,
             'recipient_address_line1' => $this->recipientAddressLine1,
             'recipient_address_line2' => $this->recipientAddressLine2,
-            'shipping_method' => $this->shippingMethod,
+            'shipping_method_id' => $this->shippingMethodId,
             'reason' => $this->reason,
             'ship_mode' => $this->shipMode,
             'lines' => $this->lines,

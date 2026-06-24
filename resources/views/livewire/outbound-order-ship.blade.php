@@ -59,7 +59,6 @@
             </div>
 
             <div class="form-grid three">
-                <flux:input wire:model="shippingMethod" :label="__('outbound.field_shipping_method')" />
                 <flux:input wire:model="courier" :label="__('outbound.field_courier')" />
                 <flux:input wire:model="trackingNo" :label="__('outbound.field_tracking_no')" />
                 <flux:input wire:model="packageCount" type="number" min="1" step="1" :label="__('outbound.field_package_count')" />
@@ -70,7 +69,7 @@
                 </label>
             </div>
 
-            @foreach (['shipping_method', 'courier', 'tracking_no', 'package_count', 'package_weight_kg', 'ship_note'] as $field)
+            @foreach (['courier', 'tracking_no', 'package_count', 'package_weight_kg', 'ship_note'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
         </section>

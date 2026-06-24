@@ -660,7 +660,6 @@ class FulfillmentGroupTest extends TestCase
         $this->assertNotNull($group->shipped_at);
         $this->assertSame(OutboundOrder::STATUS_SHIPPED, $outbound->status);
         $this->assertSame($method->carrier->code, $outbound->courier);
-        $this->assertSame($method->name, $outbound->shipping_method);
         $this->assertSame('FGTRACK1', $outbound->tracking_no);
         $this->assertSame(15, $balance->on_hand_qty);
         $this->assertSame(0, $balance->reserved_qty);

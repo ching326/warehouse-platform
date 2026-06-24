@@ -49,7 +49,6 @@ class ShipOutboundOrderService
 
             $shippedAt = now();
             $courier = $this->nullableString($input['courier'] ?? null);
-            $shippingMethod = $this->nullableString($input['shipping_method'] ?? null);
             $trackingNo = TrackingNumber::normalize($this->nullableString($input['tracking_no'] ?? null));
 
             $lockedOrder->update([
@@ -57,7 +56,6 @@ class ShipOutboundOrderService
                 'shipped_at' => $shippedAt,
                 'shipped_by_user_id' => Auth::id(),
                 'courier' => $courier,
-                'shipping_method' => $shippingMethod,
                 'tracking_no' => $trackingNo,
                 'package_count' => $this->nullableInt($input['package_count'] ?? null),
                 'package_weight_g' => $this->nullableInt($input['package_weight_g'] ?? null),

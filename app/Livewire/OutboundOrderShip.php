@@ -15,8 +15,6 @@ class OutboundOrderShip extends Component
 
     public string $courier = '';
 
-    public string $shippingMethod = '';
-
     public string $trackingNo = '';
 
     public string $packageCount = '';
@@ -44,7 +42,6 @@ class OutboundOrderShip extends Component
             return;
         }
 
-        $this->shippingMethod = $order->shipping_method ?? '';
     }
 
     public function save()
@@ -63,7 +60,6 @@ class OutboundOrderShip extends Component
         try {
             app(ShipOutboundOrderService::class)->ship($order, [
                 'courier' => $this->courier,
-                'shipping_method' => $this->shippingMethod,
                 'tracking_no' => $this->trackingNo,
                 'package_count' => $this->packageCount,
                 'package_weight_g' => $this->packageWeightKg === '' ? null : (int) round(((float) $this->packageWeightKg) * 1000),
@@ -104,14 +100,12 @@ class OutboundOrderShip extends Component
     {
         validator([
             'courier' => $this->courier,
-            'shipping_method' => $this->shippingMethod,
             'tracking_no' => $this->trackingNo,
             'package_count' => $this->packageCount,
             'package_weight_kg' => $this->packageWeightKg,
             'ship_note' => $this->shipNote,
         ], [
             'courier' => ['nullable', 'string', 'max:100'],
-            'shipping_method' => ['nullable', 'string', 'max:100'],
             'tracking_no' => ['nullable', 'string', 'max:255'],
             'package_count' => ['nullable', 'integer', 'min:1'],
             'package_weight_kg' => ['nullable', 'numeric', 'min:0'],

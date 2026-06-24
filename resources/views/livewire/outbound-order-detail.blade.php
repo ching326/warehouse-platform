@@ -1,5 +1,17 @@
 <div class="outbound-detail-page">
     <x-flash-toast />
+
+    @if ($pendingExportWarning)
+        <div class="active-filter-row">
+            <div class="export-warning-message">{{ $pendingExportWarning }}</div>
+            @if ($pendingCourierExportCarrier)
+                <flux:button type="button" size="sm" variant="primary" wire:click="confirmCourierExport">
+                    {{ __('fulfillment_groups.courier_export_confirm_btn') }}
+                </flux:button>
+            @endif
+        </div>
+    @endif
+
 <section class="table-shell flux-panel form-panel">
         <div class="form-panel-header">
             <div>
@@ -75,6 +87,14 @@
                 <flux:button href="{{ route('outbound.ship', $order) }}" variant="primary" wire:navigate>
                     {{ __('outbound.btn_ship') }}
                 </flux:button>
+                @if ($order->fulfillment_group_id === null)
+                    <flux:button type="button" variant="outline" wire:click="exportYamato">
+                        {{ __('fulfillment_groups.batch_export_yamato') }}
+                    </flux:button>
+                    <flux:button type="button" variant="outline" wire:click="exportSagawa">
+                        {{ __('fulfillment_groups.batch_export_sagawa') }}
+                    </flux:button>
+                @endif
                 <flux:button
                     type="button"
                     variant="danger"
@@ -167,6 +187,14 @@
 
         @if ($editingShipping)
             <div class="form-grid three">
+                <flux:select wire:model="shippingMethodId" :label="__('outbound.field_shipping_method')">
+                    <flux:select.option value="">{{ __('sales_orders.shipping_method_unset') }}</flux:select.option>
+                    @foreach ($shippingMethods as $method)
+                        <flux:select.option value="{{ $method->id }}">
+                            {{ $method->name }} / {{ $method->carrier->name }}
+                        </flux:select.option>
+                    @endforeach
+                </flux:select>
                 <flux:input wire:model="courier" :label="__('outbound.field_courier')" />
                 <flux:input wire:model="trackingNo" :label="__('outbound.field_tracking_no')" />
                 <label>
@@ -174,7 +202,7 @@
                     <textarea wire:model="note" rows="3"></textarea>
                 </label>
             </div>
-            @foreach (['courier', 'tracking_no', 'note'] as $field)
+            @foreach (['shipping_method_id', 'courier', 'tracking_no', 'note'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
             <div class="form-actions">
@@ -185,7 +213,7 @@
         <div class="balance-preview-grid">
             <div>
                 <span>{{ __('outbound.field_shipping_method') }}</span>
-                <strong>{{ $order->shipping_method ?: '-' }}</strong>
+                <strong>{{ $order->shippingMethod?->name ?: '-' }}</strong>
             </div>
             <div>
                 <span>{{ __('outbound.field_courier') }}</span>

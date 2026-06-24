@@ -265,7 +265,6 @@ class FulfillmentGroupPack extends Component
 
                 $shipService->ship($lockedOrder, [
                     'courier' => $lockedOrder->courier ?? $lockedOrder->fulfillmentGroup?->courier,
-                    'shipping_method' => $lockedOrder->shippingMethod?->name ?? $lockedOrder->shipping_method ?? $lockedOrder->fulfillmentGroup?->shippingMethod?->name,
                     'tracking_no' => $lockedOrder->tracking_no ?? $lockedOrder->fulfillmentGroup?->tracking_no,
                 ]);
             });

@@ -257,7 +257,6 @@ class FulfillmentGroupIndex extends Component
             try {
                 app(ShipOutboundOrderService::class)->ship($order, [
                     'courier' => $order->shippingMethod?->carrier?->code ?? '',
-                    'shipping_method' => $order->shippingMethod?->name ?? '',
                     'tracking_no' => (string) ($order->tracking_no ?? ''),
                 ]);
 

@@ -45,10 +45,10 @@
                     <flux:select.option value="{{ \App\Models\OutboundOrder::SHIP_MODE_BULK }}">{{ __('outbound.ship_mode_bulk') }}</flux:select.option>
                 </flux:select>
 
-                <flux:select wire:model="shippingMethod" :label="__('outbound.field_shipping_method')">
+                <flux:select wire:model="shippingMethodId" :label="__('outbound.field_shipping_method')">
                     <flux:select.option value="">{{ __('sales_orders.shipping_method_unset') }}</flux:select.option>
                     @foreach ($shippingMethods as $method)
-                        <flux:select.option value="{{ $method->code }}">
+                        <flux:select.option value="{{ $method->id }}">
                             {{ $method->name }} / {{ $method->carrier->name }}
                         </flux:select.option>
                     @endforeach
@@ -62,7 +62,7 @@
                 </label>
             </div>
 
-            @foreach (['tenantId', 'tenant_id', 'warehouse_id', 'ref', 'reason', 'ship_mode', 'shipping_method', 'note'] as $field)
+            @foreach (['tenantId', 'tenant_id', 'warehouse_id', 'ref', 'reason', 'ship_mode', 'shipping_method_id', 'note'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
         </section>
