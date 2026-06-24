@@ -5,7 +5,6 @@ namespace App\Services\Courier;
 use App\Models\CourierExportBatch;
 use App\Models\FulfillmentGroup;
 use App\Models\SalesOrder;
-use App\Models\SalesOrderLine;
 use App\Models\User;
 use App\Support\CourierCarrier;
 use Carbon\CarbonImmutable;
@@ -59,7 +58,7 @@ class CourierExportService
 
         $blockedStatusGroupIds = $groups
             ->filter(fn (FulfillmentGroup $group): bool => $group->status !== FulfillmentGroup::STATUS_RESERVED
-                || $group->groupOrders->contains(fn ($groupOrder): bool => in_array($groupOrder->salesOrder?->order_status, $blockedStatuses, true)))
+                || ($group->outboundOrder?->salesOrders->contains(fn (SalesOrder $order): bool => in_array($order->order_status, $blockedStatuses, true)) ?? false))
             ->pluck('id')
             ->values()
             ->all();
@@ -69,17 +68,18 @@ class CourierExportService
             ->values()
             ->all();
         $unsupportedCourierGroupIds = $groups
-            ->filter(fn (FulfillmentGroup $group): bool => $group->shippingMethod?->supports_courier_csv === false)
+            ->filter(fn (FulfillmentGroup $group): bool => $group->outboundOrder?->shippingMethod?->supports_courier_csv === false)
             ->pluck('id')
             ->values()
             ->all();
         $noReadyLinesGroupIds = $groups
-            ->filter(fn (FulfillmentGroup $group): bool => $this->groupShipmentRow($group)->lines->where('line_status', SalesOrderLine::STATUS_READY)->isEmpty())
+            ->filter(fn (FulfillmentGroup $group): bool => $group->outboundOrder === null
+                || $group->outboundOrder->leafLines->where('qty', '>', 0)->isEmpty())
             ->pluck('id')
             ->values()
             ->all();
         $alreadyExportedGroupIds = $groups
-            ->filter(fn (FulfillmentGroup $group): bool => $group->groupOrders->contains(fn ($groupOrder): bool => $groupOrder->salesOrder?->courier_csv_exported_at !== null))
+            ->filter(fn (FulfillmentGroup $group): bool => $group->outboundOrder?->courier_csv_exported_at !== null)
             ->pluck('id')
             ->values()
             ->all();
@@ -157,17 +157,31 @@ class CourierExportService
                 ]);
 
                 foreach ($groups as $group) {
-                    $group->outboundOrder?->update(['courier_csv_exported_at' => $exportedAt]);
+                    $outbound = $group->outboundOrder;
 
-                    foreach ($group->groupOrders as $groupOrder) {
-                        $order = $groupOrder->salesOrder;
+                    if (! $outbound) {
+                        continue;
+                    }
 
-                        if (! $order) {
-                            continue;
-                        }
+                    $outbound->update(['courier_csv_exported_at' => $exportedAt]);
+                    $orders = $outbound->salesOrders;
 
+                    if ($orders->isEmpty()) {
+                        $batch->batchOrders()->create([
+                            'sales_order_id' => null,
+                            'outbound_order_id' => $outbound->id,
+                            'platform_order_id' => $outbound->ref,
+                            'carrier' => $carrier,
+                            'exported_at' => $exportedAt,
+                        ]);
+
+                        continue;
+                    }
+
+                    foreach ($orders as $order) {
                         $batch->batchOrders()->create([
                             'sales_order_id' => $order->id,
+                            'outbound_order_id' => $outbound->id,
                             'platform_order_id' => $order->platform_order_id,
                             'carrier' => $carrier,
                             'exported_at' => $exportedAt,
@@ -206,10 +220,10 @@ class CourierExportService
             ->whereIn('id', $ids)
             ->whereIn('tenant_id', $allowedTenantIds)
             ->with([
-                'outboundOrder',
-                'shippingMethod.carrier',
-                'groupOrders.salesOrder.shop.tenant',
-                'groupOrders.salesOrder.lines.sku.stockItem',
+                'outboundOrder.shippingMethod.carrier',
+                'outboundOrder.leafLines.sku.stockItem',
+                'outboundOrder.salesOrders.shop.tenant',
+                'outboundOrder.salesOrders.lines.sku.stockItem',
             ])
             ->get()
             ->sortBy(fn (FulfillmentGroup $group) => array_search($group->id, $ids, true))
@@ -226,7 +240,7 @@ class CourierExportService
 
     private function groupCarrierMatches(FulfillmentGroup $group, string $carrier): bool
     {
-        return CourierCarrier::normalize($group->shippingMethod?->carrier?->code) === $carrier;
+        return CourierCarrier::normalize($group->outboundOrder?->shippingMethod?->carrier?->code) === $carrier;
     }
 
     private function normalizeCarrier(string $carrier): string
@@ -250,23 +264,25 @@ class CourierExportService
 
     private function groupShipmentRow(FulfillmentGroup $group): object
     {
-        $firstOrder = $group->groupOrders
-            ->map(fn ($groupOrder) => $groupOrder->salesOrder)
-            ->filter()
-            ->first();
-        $lines = $group->groupOrders
-            ->flatMap(fn ($groupOrder) => $groupOrder->salesOrder?->lines ?? collect())
-            ->values();
+        $outbound = $group->outboundOrder;
+        $linkedOrders = $outbound?->salesOrders ?? collect();
+        $firstOrder = $linkedOrders->first();
+        $lines = $linkedOrders->isNotEmpty()
+            ? $linkedOrders->flatMap(fn (SalesOrder $order) => $order->lines)->values()
+            : ($outbound?->leafLines ?? collect())->values();
 
         return (object) [
             'platform_order_id' => $group->reference_no,
-            'recipient_phone' => $group->recipient_phone,
-            'recipient_postal_code' => $group->recipient_postal_code,
-            'recipient_state' => $group->recipient_state,
-            'recipient_city' => $group->recipient_city,
-            'recipient_address_line1' => $group->recipient_address_line1,
-            'recipient_address_line2' => $group->recipient_address_line2,
-            'recipient_name' => $group->recipient_name,
+            'recipient_phone' => $outbound?->recipient_phone,
+            'recipient_postal_code' => $outbound?->recipient_postal_code,
+            'recipient_state' => $outbound?->recipient_state,
+            'recipient_city' => $outbound?->recipient_city,
+            'recipient_address_line1' => $outbound?->recipient_address_line1,
+            'recipient_address_line2' => $outbound?->recipient_address_line2,
+            'recipient_name' => $outbound?->recipient_name,
+            'package_count' => $outbound?->package_count,
+            'package_weight_g' => $outbound?->package_weight_g,
+            'tracking_no' => $outbound?->tracking_no,
             'shop' => $firstOrder?->shop,
             'lines' => $lines,
         ];

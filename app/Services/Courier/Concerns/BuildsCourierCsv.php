@@ -29,8 +29,9 @@ trait BuildsCourierCsv
     private function itemNames($order, int $limit, int $length): array
     {
         return $order->lines
-            ->where('line_status', \App\Models\SalesOrderLine::STATUS_READY)
-            ->map(fn ($line) => trim((string) ($line->sku?->name ?: $line->sku?->stockItem?->short_name ?: $line->sku?->stockItem?->name ?: $line->sku?->sku)))
+            ->map(fn ($line) => $this->normalizeCourierLine($line))
+            ->filter()
+            ->map(fn (object $line) => trim((string) ($line->sku?->name ?: $line->sku?->stockItem?->short_name ?: $line->sku?->stockItem?->name ?: $line->sku?->sku)))
             ->filter()
             ->unique()
             ->take($limit)
@@ -42,8 +43,27 @@ trait BuildsCourierCsv
     private function itemSummary($order): string
     {
         return $order->lines
-            ->where('line_status', \App\Models\SalesOrderLine::STATUS_READY)
-            ->map(fn ($line) => $line->quantity.' x '.($line->sku?->sku ?? 'SKU'))
+            ->map(fn ($line) => $this->normalizeCourierLine($line))
+            ->filter()
+            ->map(fn (object $line) => $line->quantity.' x '.($line->sku?->sku ?? 'SKU'))
             ->implode(' | ');
+    }
+
+    private function normalizeCourierLine($line): ?object
+    {
+        if ($line instanceof \App\Models\SalesOrderLine && $line->line_status !== \App\Models\SalesOrderLine::STATUS_READY) {
+            return null;
+        }
+
+        $quantity = (int) ($line->quantity ?? $line->qty ?? 0);
+
+        if ($quantity <= 0) {
+            return null;
+        }
+
+        return (object) [
+            'sku' => $line->sku,
+            'quantity' => $quantity,
+        ];
     }
 }

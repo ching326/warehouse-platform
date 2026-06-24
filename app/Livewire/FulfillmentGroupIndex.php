@@ -186,10 +186,18 @@ class FulfillmentGroupIndex extends Component
             return;
         }
 
-        FulfillmentGroup::query()
+        $group = FulfillmentGroup::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->whereKey($groupId)
-            ->update(['shipping_method_id' => $methodId]);
+            ->with('outboundOrder:id,fulfillment_group_id')
+            ->first();
+
+        if (! $group) {
+            return;
+        }
+
+        $group->update(['shipping_method_id' => $methodId]);
+        $group->outboundOrder?->update(['shipping_method_id' => $methodId]);
     }
 
     public function updateTracking(int $groupId, string $value): void

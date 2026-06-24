@@ -10,6 +10,7 @@ class CourierExportBatchOrder extends Model
     protected $fillable = [
         'courier_export_batch_id',
         'sales_order_id',
+        'outbound_order_id',
         'platform_order_id',
         'carrier',
         'exported_at',
@@ -30,5 +31,10 @@ class CourierExportBatchOrder extends Model
     public function salesOrder(): BelongsTo
     {
         return $this->belongsTo(SalesOrder::class);
+    }
+
+    public function outboundOrder(): BelongsTo
+    {
+        return $this->belongsTo(OutboundOrder::class);
     }
 }

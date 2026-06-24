@@ -695,6 +695,8 @@ class FulfillmentGroupTest extends TestCase
         $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA, $orderB]);
         $group = FulfillmentGroup::firstOrFail();
         $group->update(['shipping_method_id' => $method->id]);
+        $outbound = $group->outboundOrder()->firstOrFail();
+        $outbound->update(['shipping_method_id' => $method->id]);
 
         $batch = app(CourierExportService::class)->exportGroups(
             fulfillmentGroupIds: [$group->id],
@@ -717,7 +719,19 @@ class FulfillmentGroupTest extends TestCase
         ]);
         $this->assertNotNull($orderA->refresh()->courier_csv_exported_at);
         $this->assertNotNull($orderB->refresh()->courier_csv_exported_at);
-        $this->assertNotNull($group->outboundOrder()->firstOrFail()->courier_csv_exported_at);
+        $this->assertNotNull($outbound->refresh()->courier_csv_exported_at);
+        $this->assertDatabaseHas('courier_export_batch_orders', [
+            'courier_export_batch_id' => $batch->id,
+            'sales_order_id' => $orderA->id,
+            'outbound_order_id' => $outbound->id,
+            'platform_order_id' => $orderA->platform_order_id,
+        ]);
+        $this->assertDatabaseHas('courier_export_batch_orders', [
+            'courier_export_batch_id' => $batch->id,
+            'sales_order_id' => $orderB->id,
+            'outbound_order_id' => $outbound->id,
+            'platform_order_id' => $orderB->platform_order_id,
+        ]);
     }
 
     public function test_fulfillment_sagawa_export_writes_last_15_group_reference_to_customer_management_number(): void
@@ -733,6 +747,7 @@ class FulfillmentGroupTest extends TestCase
             'reference_no' => 'FG-LONG-0613-0659033902',
             'shipping_method_id' => $method->id,
         ]);
+        $group->outboundOrder()->firstOrFail()->update(['shipping_method_id' => $method->id]);
 
         $batch = app(CourierExportService::class)->exportGroups(
             fulfillmentGroupIds: [$group->id],
@@ -757,6 +772,7 @@ class FulfillmentGroupTest extends TestCase
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $group = FulfillmentGroup::firstOrFail();
         $group->update(['shipping_method_id' => $method->id]);
+        $group->outboundOrder()->firstOrFail()->update(['shipping_method_id' => $method->id]);
 
         $result = app(CourierExportService::class)->validateGroupExport(
             fulfillmentGroupIds: [$group->id],
@@ -769,6 +785,54 @@ class FulfillmentGroupTest extends TestCase
         $this->assertNull($order->refresh()->courier_csv_exported_at);
     }
 
+    public function test_fulfillment_courier_export_validates_against_outbound_state(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-OUTBOUND-GATES');
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+        $group->update(['shipping_method_id' => $method->id]);
+        $outbound = $group->outboundOrder()->firstOrFail();
+        $outbound->update([
+            'shipping_method_id' => $method->id,
+            'courier_csv_exported_at' => now(),
+        ]);
+
+        $result = app(CourierExportService::class)->validateGroupExport(
+            fulfillmentGroupIds: [$group->id],
+            carrier: CourierCarrier::YAMATO,
+            allowedTenantIds: [$tenant->id],
+        );
+
+        $this->assertTrue($result->requiresConfirmation);
+        $this->assertSame([$group->id], $result->alreadyExportedOrderIds);
+        $this->assertNull($order->refresh()->courier_csv_exported_at);
+
+        $outbound->update(['courier_csv_exported_at' => null]);
+        $method->update(['supports_courier_csv' => false]);
+
+        $result = app(CourierExportService::class)->validateGroupExport(
+            fulfillmentGroupIds: [$group->id],
+            carrier: CourierCarrier::YAMATO,
+            allowedTenantIds: [$tenant->id],
+        );
+
+        $this->assertSame([$group->id], $result->unsupportedCourierOrderIds);
+
+        $method->update(['supports_courier_csv' => true]);
+        $outbound->lines()->delete();
+
+        $result = app(CourierExportService::class)->validateGroupExport(
+            fulfillmentGroupIds: [$group->id],
+            carrier: CourierCarrier::YAMATO,
+            allowedTenantIds: [$tenant->id],
+        );
+
+        $this->assertSame([$group->id], $result->noReadyLinesOrderIds);
+    }
+
     public function test_fulfillment_index_courier_export_redirects_to_download(): void
     {
         Storage::fake('local');
@@ -779,6 +843,7 @@ class FulfillmentGroupTest extends TestCase
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $group = FulfillmentGroup::firstOrFail();
         $group->update(['shipping_method_id' => $method->id]);
+        $group->outboundOrder()->firstOrFail()->update(['shipping_method_id' => $method->id]);
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentGroupIndex::class)
