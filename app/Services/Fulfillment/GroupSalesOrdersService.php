@@ -113,7 +113,7 @@ class GroupSalesOrdersService
                 || ! in_array($order->fulfillment_status, [
                     SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
                     SalesOrder::FULFILLMENT_STATUS_READY,
-                    SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+                    SalesOrder::FULFILLMENT_STATUS_ARRANGED,
                 ], true)
             ) {
                 return false;
@@ -275,7 +275,7 @@ class GroupSalesOrdersService
 
         SalesOrder::query()
             ->whereIn('id', $orders->pluck('id')->all())
-            ->update(['fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_IN_GROUP]);
+            ->update(['fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_ARRANGED]);
     }
 
     private function lockReadyOrders(int $tenantId, array $salesOrderIds): Collection

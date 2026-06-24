@@ -139,7 +139,7 @@ class SalesOrderDetail extends Component
             SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
             SalesOrder::FULFILLMENT_STATUS_READY,
         ], true)) {
-            session()->flash('error', __('sales_orders.cannot_cancel_in_group'));
+            session()->flash('error', __('sales_orders.cannot_cancel_arranged'));
 
             return;
         }
@@ -452,7 +452,7 @@ class SalesOrderDetail extends Component
         return [
             SalesOrder::FULFILLMENT_STATUS_UNFULFILLED => __('sales_orders.fulfillment_unfulfilled'),
             SalesOrder::FULFILLMENT_STATUS_READY => __('sales_orders.fulfillment_ready'),
-            SalesOrder::FULFILLMENT_STATUS_IN_GROUP => __('sales_orders.fulfillment_in_group'),
+            SalesOrder::FULFILLMENT_STATUS_ARRANGED => __('sales_orders.fulfillment_arranged'),
             SalesOrder::FULFILLMENT_STATUS_SHIPPED => __('sales_orders.fulfillment_shipped'),
             SalesOrder::FULFILLMENT_STATUS_CANCELLED => __('sales_orders.fulfillment_cancelled'),
         ][$status] ?? $status;
@@ -474,7 +474,7 @@ class SalesOrderDetail extends Component
     {
         return match ($status) {
             SalesOrder::FULFILLMENT_STATUS_READY => 'blue',
-            SalesOrder::FULFILLMENT_STATUS_IN_GROUP => 'amber',
+            SalesOrder::FULFILLMENT_STATUS_ARRANGED => 'amber',
             SalesOrder::FULFILLMENT_STATUS_SHIPPED => 'green',
             SalesOrder::FULFILLMENT_STATUS_CANCELLED => 'red',
             default => 'zinc',
@@ -620,7 +620,7 @@ class SalesOrderDetail extends Component
             return true;
         }
 
-        if ($order->fulfillment_status !== SalesOrder::FULFILLMENT_STATUS_IN_GROUP) {
+        if ($order->fulfillment_status !== SalesOrder::FULFILLMENT_STATUS_ARRANGED) {
             return false;
         }
 

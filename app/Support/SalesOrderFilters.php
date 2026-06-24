@@ -222,7 +222,7 @@ class SalesOrderFilters
         return [
             SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
             SalesOrder::FULFILLMENT_STATUS_READY,
-            SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+            SalesOrder::FULFILLMENT_STATUS_ARRANGED,
             SalesOrder::FULFILLMENT_STATUS_SHIPPED,
             SalesOrder::FULFILLMENT_STATUS_CANCELLED,
         ];

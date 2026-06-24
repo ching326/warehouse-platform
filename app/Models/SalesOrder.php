@@ -25,7 +25,7 @@ class SalesOrder extends Model
 
     public const FULFILLMENT_STATUS_UNFULFILLED = 'unfulfilled';
     public const FULFILLMENT_STATUS_READY = 'ready';
-    public const FULFILLMENT_STATUS_IN_GROUP = 'in_group';
+    public const FULFILLMENT_STATUS_ARRANGED = 'arranged';
     public const FULFILLMENT_STATUS_SHIPPED = 'shipped';
     public const FULFILLMENT_STATUS_CANCELLED = 'cancelled';
 

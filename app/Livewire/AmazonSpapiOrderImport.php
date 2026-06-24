@@ -319,7 +319,7 @@ class AmazonSpapiOrderImport extends Component
         }
 
         if (in_array($order->fulfillment_status, [
-            SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+            SalesOrder::FULFILLMENT_STATUS_ARRANGED,
             SalesOrder::FULFILLMENT_STATUS_SHIPPED,
             SalesOrder::FULFILLMENT_STATUS_CANCELLED,
         ], true)) {

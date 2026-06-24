@@ -272,7 +272,7 @@ class SalesOrderIndex extends Component
                     SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
                     SalesOrder::FULFILLMENT_STATUS_READY,
                 ])->orWhere(function ($query) {
-                    $query->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_IN_GROUP)
+                    $query->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_ARRANGED)
                         ->whereHas('fulfillmentGroupOrders.fulfillmentGroup', fn ($group) => $group
                             ->where('status', FulfillmentGroup::STATUS_RESERVED));
                 });
@@ -408,7 +408,7 @@ class SalesOrderIndex extends Component
     {
         return match ($status) {
             SalesOrder::FULFILLMENT_STATUS_READY => 'blue',
-            SalesOrder::FULFILLMENT_STATUS_IN_GROUP => 'amber',
+            SalesOrder::FULFILLMENT_STATUS_ARRANGED => 'amber',
             SalesOrder::FULFILLMENT_STATUS_SHIPPED => 'green',
             SalesOrder::FULFILLMENT_STATUS_CANCELLED => 'red',
             default => 'zinc',
@@ -626,7 +626,7 @@ class SalesOrderIndex extends Component
         return [
             SalesOrder::FULFILLMENT_STATUS_UNFULFILLED => __('sales_orders.fulfillment_unfulfilled'),
             SalesOrder::FULFILLMENT_STATUS_READY => __('sales_orders.fulfillment_ready'),
-            SalesOrder::FULFILLMENT_STATUS_IN_GROUP => __('sales_orders.fulfillment_in_group'),
+            SalesOrder::FULFILLMENT_STATUS_ARRANGED => __('sales_orders.fulfillment_arranged'),
             SalesOrder::FULFILLMENT_STATUS_SHIPPED => __('sales_orders.fulfillment_shipped'),
             SalesOrder::FULFILLMENT_STATUS_CANCELLED => __('sales_orders.fulfillment_cancelled'),
         ];

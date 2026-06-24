@@ -51,7 +51,7 @@ return [
 
     'fulfillment_unfulfilled' => 'Unfulfilled',
     'fulfillment_ready' => 'Ship Ready',
-    'fulfillment_in_group' => 'In fulfillment',
+    'fulfillment_arranged' => 'Arranged',
     'fulfillment_shipped' => 'Shipped',
     'fulfillment_cancelled' => 'Cancelled',
 
@@ -86,7 +86,7 @@ return [
     'note_updated' => 'Note updated.',
     'order_cancelled_msg' => 'Order cancelled.',
     'order_deleted_msg' => 'Order deleted.',
-    'cannot_cancel_in_group' => 'Cannot cancel an order that is currently in a fulfillment group.',
+    'cannot_cancel_arranged' => 'Cannot cancel an order that is already arranged for fulfillment.',
     'cannot_cancel_completed' => 'Cannot cancel a completed order.',
     'cannot_delete_order' => 'This order cannot be deleted.',
     'empty_state' => 'No sales orders match the current filters.',

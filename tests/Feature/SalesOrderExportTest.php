@@ -342,7 +342,7 @@ class SalesOrderExportTest extends TestCase
         $this->orderWithLines($rakuten, [[$rakutenSku, 1]], [
             'platform_order_id' => 'EXP-RAKUTEN',
             'shipping_method' => 'sagawa',
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_ARRANGED,
             'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
             'order_date' => now()->subDays(3),
         ]);
@@ -357,7 +357,7 @@ class SalesOrderExportTest extends TestCase
         $rows = $this->mappedRows($this->filters([
             'platforms' => ['amazon', 'rakuten'],
             'shops' => [(string) $amazon->id, (string) $rakuten->id],
-            'fulfillment' => [SalesOrder::FULFILLMENT_STATUS_READY, SalesOrder::FULFILLMENT_STATUS_IN_GROUP],
+            'fulfillment' => [SalesOrder::FULFILLMENT_STATUS_READY, SalesOrder::FULFILLMENT_STATUS_ARRANGED],
             'order_status' => [SalesOrder::ORDER_STATUS_PENDING, SalesOrder::ORDER_STATUS_ON_HOLD],
             'shipping' => ['yamato', 'sagawa'],
             'date_range' => SalesOrderFilters::DATE_LAST_7_DAYS,

@@ -128,8 +128,8 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame(5, $outbound->lines->first()->qty);
         $this->assertSame(5, $balance->reserved_qty);
         $this->assertSame(15, $balance->available_qty);
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $orderA->refresh()->fulfillment_status);
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $orderB->refresh()->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $orderA->refresh()->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $orderB->refresh()->fulfillment_status);
     }
 
     public function test_create_group_generates_unique_reference_no(): void
@@ -443,7 +443,7 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame([3, 6], $childLines->pluck('qty')->all());
         $this->assertSame(3, $this->balance($tenant, $warehouse, $componentA)->reserved_qty);
         $this->assertSame(6, $this->balance($tenant, $warehouse, $componentB)->reserved_qty);
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $order->refresh()->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $order->refresh()->fulfillment_status);
     }
 
     public function test_tenant_user_can_only_create_group_for_own_tenant(): void
@@ -784,7 +784,7 @@ class FulfillmentGroupTest extends TestCase
         $unlinked->save();
 
         $this->assertSame(FulfillmentGroup::STATUS_RESERVED, $group->refresh()->status);
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $order->refresh()->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $order->refresh()->fulfillment_status);
     }
 
     public function test_detail_recipient_edit_updates_linked_outbound_order(): void

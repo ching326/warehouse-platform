@@ -320,18 +320,18 @@ class SalesOrderTest extends TestCase
         $this->assertSame([SalesOrderLine::STATUS_CANCELLED, SalesOrderLine::STATUS_CANCELLED], $order->lines()->pluck('line_status')->all());
     }
 
-    public function test_cancel_sales_order_blocked_when_in_group(): void
+    public function test_cancel_sales_order_blocked_when_arranged(): void
     {
         [, $shop, $sku] = $this->salesSku();
         $order = $this->createPersistedOrder($shop, $sku, [
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_ARRANGED,
         ]);
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderDetail::class, ['order' => $order])
             ->call('cancelOrder');
 
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $order->refresh()->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $order->refresh()->fulfillment_status);
         $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $order->order_status);
     }
 
@@ -353,11 +353,11 @@ class SalesOrderTest extends TestCase
         $this->assertDatabaseMissing('sales_order_lines', ['id' => $line->id]);
     }
 
-    public function test_delete_sales_order_blocked_when_in_group(): void
+    public function test_delete_sales_order_blocked_when_arranged(): void
     {
         [, $shop, $sku] = $this->salesSku();
         $order = $this->createPersistedOrder($shop, $sku, [
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_ARRANGED,
         ]);
 
         Livewire::actingAs($this->internalUser())
@@ -567,18 +567,18 @@ class SalesOrderTest extends TestCase
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->refresh()->fulfillment_status);
     }
 
-    public function test_unmark_ready_blocked_when_in_group(): void
+    public function test_unmark_ready_blocked_when_arranged(): void
     {
         [, $shop, $sku] = $this->salesSku();
         $order = $this->createPersistedOrder($shop, $sku, [
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_ARRANGED,
         ]);
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderDetail::class, ['order' => $order])
             ->call('unmarkReady');
 
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $order->refresh()->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $order->refresh()->fulfillment_status);
     }
 
     public function test_hold_succeeds_and_resets_fulfillment_status(): void
@@ -597,11 +597,11 @@ class SalesOrderTest extends TestCase
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->fulfillment_status);
     }
 
-    public function test_hold_blocked_when_in_group_without_reserved_group(): void
+    public function test_hold_blocked_when_arranged_without_reserved_group(): void
     {
         [, $shop, $sku] = $this->salesSku();
         $order = $this->createPersistedOrder($shop, $sku, [
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_ARRANGED,
         ]);
 
         Livewire::actingAs($this->internalUser())
@@ -696,11 +696,11 @@ class SalesOrderTest extends TestCase
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->refresh()->fulfillment_status);
     }
 
-    public function test_edit_lines_blocked_when_in_group(): void
+    public function test_edit_lines_blocked_when_arranged(): void
     {
         [, $shop, $sku] = $this->salesSku();
         $order = $this->createPersistedOrder($shop, $sku, [
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_ARRANGED,
         ]);
 
         Livewire::actingAs($this->internalUser())
@@ -739,7 +739,7 @@ class SalesOrderTest extends TestCase
             ->set('selectedIds', [(string) $eligible->id, (string) $ineligible->id])
             ->call('bulkMarkReady');
 
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $eligible->refresh()->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $eligible->refresh()->fulfillment_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $ineligible->refresh()->fulfillment_status);
     }
 
@@ -759,7 +759,7 @@ class SalesOrderTest extends TestCase
             ->set('selectedIds', [(string) $ownOrder->id, (string) $otherOrder->id])
             ->call('bulkMarkReady');
 
-        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_IN_GROUP, $ownOrder->refresh()->fulfillment_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $ownOrder->refresh()->fulfillment_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $otherOrder->refresh()->fulfillment_status);
     }
 
@@ -817,7 +817,7 @@ class SalesOrderTest extends TestCase
         $eligible = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'BULK-DELETE-YES']);
         $ineligible = $this->createPersistedOrder($shop, $sku, [
             'platform_order_id' => 'BULK-DELETE-NO',
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_ARRANGED,
         ]);
 
         Livewire::actingAs($this->internalUser())
@@ -1583,7 +1583,7 @@ class SalesOrderTest extends TestCase
             'platform_order_id' => 'RAKUTEN-SAGAWA',
             'shipping_method' => 'sagawa',
             'shipping_method_id' => $sagawa->id,
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_ARRANGED,
             'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
         ]);
         $this->createPersistedOrder($shopify, $shopifySku, [
@@ -1598,7 +1598,7 @@ class SalesOrderTest extends TestCase
             ->test(SalesOrderIndex::class)
             ->set('platforms', ['amazon', 'rakuten'])
             ->set('shopIds', [(string) $amazon->id, (string) $rakuten->id])
-            ->set('fulfillmentStatusesFilter', [SalesOrder::FULFILLMENT_STATUS_READY, SalesOrder::FULFILLMENT_STATUS_IN_GROUP])
+            ->set('fulfillmentStatusesFilter', [SalesOrder::FULFILLMENT_STATUS_READY, SalesOrder::FULFILLMENT_STATUS_ARRANGED])
             ->set('orderStatusesFilter', [SalesOrder::ORDER_STATUS_PENDING, SalesOrder::ORDER_STATUS_ON_HOLD])
             ->set('shippingMethodsFilter', [(string) $yamato->id, (string) $sagawa->id])
             ->assertSee('AMAZON-YAMATO')

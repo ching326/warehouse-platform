@@ -314,7 +314,7 @@ class AmazonSpapiOrderImportTest extends TestCase
         $sku = $this->sku($connection->shop, 'CANCEL-SKU');
         $existing = $this->existingOrder($connection->shop, 'AMZ-EXISTING-CANCEL');
         $unsafe = $this->existingOrder($connection->shop, 'AMZ-UNSAFE-CANCEL', [
-            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_IN_GROUP,
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_ARRANGED,
         ]);
         $this->fakeAmazon([
             $this->amazonOrder('AMZ-NEW-CANCEL', ['BuyerRequestedCancel' => ['IsBuyerRequestedCancel' => true]]),
