@@ -2,7 +2,7 @@
 
 namespace App\Livewire;
 
-use App\Models\FulfillmentGroup;
+use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\ShippingMethod;
 use App\Models\Tenant;
@@ -23,6 +23,13 @@ use RuntimeException;
 class FulfillmentGroupIndex extends Component
 {
     use WithPagination;
+
+    /** Maps the user-facing fulfillment statuses to OutboundOrder statuses. */
+    private const STATUS_MAP = [
+        'reserved' => OutboundOrder::STATUS_PENDING,
+        'shipped' => OutboundOrder::STATUS_SHIPPED,
+        'cancelled' => OutboundOrder::STATUS_CANCELLED,
+    ];
 
     /** @var array<int, string> */
     #[Url(as: 'tenant_ids', except: [])]
@@ -54,7 +61,7 @@ class FulfillmentGroupIndex extends Component
 
     public array $selectedIds = [];
 
-    public array $visibleGroupIds = [];
+    public array $visibleOrderIds = [];
 
     public array $noteDrafts = [];
 
@@ -119,14 +126,19 @@ class FulfillmentGroupIndex extends Component
 
     public function statusLabel(string $status): string
     {
-        return $this->statuses()[$status] ?? $status;
+        return match ($status) {
+            OutboundOrder::STATUS_PENDING => __('fulfillment_groups.status_reserved'),
+            OutboundOrder::STATUS_SHIPPED => __('fulfillment_groups.status_shipped'),
+            OutboundOrder::STATUS_CANCELLED => __('fulfillment_groups.status_cancelled'),
+            default => $status,
+        };
     }
 
     public function statusColor(string $status): string
     {
         return match ($status) {
-            FulfillmentGroup::STATUS_SHIPPED => 'green',
-            FulfillmentGroup::STATUS_CANCELLED => 'red',
+            OutboundOrder::STATUS_SHIPPED => 'green',
+            OutboundOrder::STATUS_CANCELLED => 'red',
             default => 'blue',
         };
     }
@@ -139,39 +151,40 @@ class FulfillmentGroupIndex extends Component
             $query['warehouse_id'] = $this->warehouseId;
         }
 
-        if (property_exists($this, 'tenantIds')) {
-            $tenantIds = array_values(array_filter($this->tenantIds, fn ($id): bool => ctype_digit((string) $id)));
-            if (count($tenantIds) === 1) {
-                $query['tenant_id'] = $tenantIds[0];
-            }
-        } elseif (property_exists($this, 'tenantId') && $this->tenantId !== '') {
-            $query['tenant_id'] = $this->tenantId;
+        $tenantIds = array_values(array_filter($this->tenantIds, fn ($id): bool => ctype_digit((string) $id)));
+        if (count($tenantIds) === 1) {
+            $query['tenant_id'] = $tenantIds[0];
         }
 
-        if (property_exists($this, 'shippingMethodsFilter')) {
-            $shippingMethodIds = array_values(array_filter($this->shippingMethodsFilter, fn ($id): bool => ctype_digit((string) $id)));
-            if (count($shippingMethodIds) === 1) {
-                $query['shipping_method_id'] = $shippingMethodIds[0];
-            }
+        $shippingMethodIds = array_values(array_filter($this->shippingMethodsFilter, fn ($id): bool => ctype_digit((string) $id)));
+        if (count($shippingMethodIds) === 1) {
+            $query['shipping_method_id'] = $shippingMethodIds[0];
         }
 
         return route('fulfillment.pick-summary', $query);
     }
 
-    public function updateNote(int $groupId, string $value): void
+    public function updateNote(int $orderId, string $value): void
     {
         $note = trim($value);
         $note = $note === '' ? null : mb_substr($note, 0, 2000);
 
-        FulfillmentGroup::query()
-            ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->whereKey($groupId)
-            ->update(['note' => $note]);
+        $order = $this->scopedOrderQuery()
+            ->whereKey($orderId)
+            ->with('fulfillmentGroup:id')
+            ->first();
 
-        $this->noteDrafts[$groupId] = $note ?? '';
+        if (! $order) {
+            return;
+        }
+
+        $order->update(['note' => $note]);
+        $order->fulfillmentGroup?->update(['note' => $note]);
+
+        $this->noteDrafts[$orderId] = $note ?? '';
     }
 
-    public function updateShippingMethod(int $groupId, string $value): void
+    public function updateShippingMethod(int $orderId, string $value): void
     {
         $methodId = $value === '' ? null : (int) $value;
 
@@ -186,80 +199,66 @@ class FulfillmentGroupIndex extends Component
             return;
         }
 
-        $group = FulfillmentGroup::query()
-            ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->whereKey($groupId)
-            ->with('outboundOrder:id,fulfillment_group_id')
+        $order = $this->scopedOrderQuery()
+            ->whereKey($orderId)
+            ->with('fulfillmentGroup:id')
             ->first();
 
-        if (! $group) {
+        if (! $order) {
             return;
         }
 
-        $group->update(['shipping_method_id' => $methodId]);
-        $group->outboundOrder?->update(['shipping_method_id' => $methodId]);
+        $order->update(['shipping_method_id' => $methodId]);
+        $order->fulfillmentGroup?->update(['shipping_method_id' => $methodId]);
     }
 
-    public function updateTracking(int $groupId, string $value): void
+    public function updateTracking(int $orderId, string $value): void
     {
         $trackingNo = TrackingNumber::normalize(mb_substr($value, 0, 255));
 
-        $group = FulfillmentGroup::query()
-            ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->with('groupOrders:id,fulfillment_group_id,sales_order_id')
-            ->find($groupId);
+        $order = $this->scopedOrderQuery()
+            ->whereKey($orderId)
+            ->with(['salesOrders:id', 'fulfillmentGroup:id'])
+            ->first();
 
-        if (! $group) {
+        if (! $order) {
             return;
         }
 
-        DB::transaction(function () use ($group, $trackingNo) {
-            $group->groupOrders()->update(['tracking_no' => $trackingNo]);
+        DB::transaction(function () use ($order, $trackingNo) {
+            $order->update(['tracking_no' => $trackingNo]);
+            $order->fulfillmentGroup?->groupOrders()->update(['tracking_no' => $trackingNo]);
 
             SalesOrder::query()
-                ->whereIn('id', $group->groupOrders->pluck('sales_order_id'))
+                ->whereIn('id', $order->salesOrders->pluck('id'))
                 ->update(['tracking_no' => $trackingNo]);
         });
 
-        $this->trackingDrafts[$groupId] = $trackingNo ?? '';
+        $this->trackingDrafts[$orderId] = $trackingNo ?? '';
     }
 
     public function markShipped(): void
     {
-        $selectedIds = collect($this->selectedIds)
-            ->map(fn ($id) => (int) $id)
-            ->filter()
-            ->unique()
-            ->values();
+        $selectedIds = $this->normalizedSelectedIds();
 
-        if ($selectedIds->isEmpty()) {
+        if ($selectedIds === []) {
             return;
         }
 
-        $groups = FulfillmentGroup::query()
+        $orders = $this->scopedOrderQuery()
             ->whereIn('id', $selectedIds)
-            ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->where('status', FulfillmentGroup::STATUS_RESERVED)
-            ->whereHas('outboundOrder')
-            ->with([
-                'outboundOrder',
-                'shippingMethod.carrier:id,code',
-                'groupOrders:id,fulfillment_group_id,tracking_no',
-            ])
+            ->where('status', OutboundOrder::STATUS_PENDING)
+            ->with(['shippingMethod.carrier:id,code,name', 'salesOrders:id'])
             ->get();
 
         $updated = 0;
 
-        foreach ($groups as $group) {
-            if (! $group->outboundOrder) {
-                continue;
-            }
-
+        foreach ($orders as $order) {
             try {
-                app(ShipOutboundOrderService::class)->ship($group->outboundOrder, [
-                    'courier' => $group->shippingMethod?->carrier?->code ?? '',
-                    'shipping_method' => $group->shippingMethod?->name ?? '',
-                    'tracking_no' => $group->groupOrders->pluck('tracking_no')->filter()->first() ?? '',
+                app(ShipOutboundOrderService::class)->ship($order, [
+                    'courier' => $order->shippingMethod?->carrier?->code ?? '',
+                    'shipping_method' => $order->shippingMethod?->name ?? '',
+                    'tracking_no' => (string) ($order->tracking_no ?? ''),
                 ]);
 
                 $updated++;
@@ -272,7 +271,7 @@ class FulfillmentGroupIndex extends Component
 
         session()->flash('status', __('fulfillment_groups.batch_mark_shipped_result', [
             'updated' => $updated,
-            'skipped' => $selectedIds->count() - $updated,
+            'skipped' => count($selectedIds) - $updated,
         ]));
     }
 
@@ -298,9 +297,10 @@ class FulfillmentGroupIndex extends Component
             return null;
         }
 
+        $groupIds = $this->selectedGroupIds();
         $carrier = $this->normalizeCourierCarrier($carrier);
         $result = app(CourierExportService::class)->validateGroupExport(
-            fulfillmentGroupIds: $this->normalizedSelectedIds(),
+            fulfillmentGroupIds: $groupIds,
             carrier: $carrier,
             allowedTenantIds: $this->allowedTenantIds(),
         );
@@ -313,13 +313,13 @@ class FulfillmentGroupIndex extends Component
 
         if ($result->requiresConfirmation) {
             $this->pendingCourierExportCarrier = $carrier;
-            $this->pendingCourierExportGroupIds = $this->normalizedSelectedIds();
+            $this->pendingCourierExportGroupIds = $groupIds;
             $this->pendingExportWarning = $this->reExportWarning($result->alreadyExportedOrderIds);
 
             return null;
         }
 
-        return $this->performCourierExport($carrier, confirmedReExport: false);
+        return $this->performCourierExport($carrier, confirmedReExport: false, groupIds: $groupIds);
     }
 
     public function confirmCourierExport(): mixed
@@ -347,34 +347,31 @@ class FulfillmentGroupIndex extends Component
 
     public function render()
     {
-        $groups = FulfillmentGroup::query()
+        $orders = $this->scopedOrderQuery()
+            ->whereNotNull('fulfillment_group_id')
             ->with([
                 'tenant:id,code,name',
                 'warehouse:id,code,name',
                 'shippingMethod:id,name',
-                'outboundOrder:id,fulfillment_group_id,shipping_method,courier_csv_exported_at',
-                'groupOrders:id,fulfillment_group_id,sales_order_id,tracking_no,arranged_at,shipped_at',
-                'groupOrders.salesOrder:id,shop_id,platform_order_id,shipping_method',
-                'groupOrders.salesOrder.shop:id,name',
-                'groupOrders.salesOrder.lines:id,sales_order_id,sku_id,quantity',
+                'fulfillmentGroup:id,reference_no,status',
+                'salesOrders:id,shop_id,platform_order_id',
+                'salesOrders.shop:id,name',
+                'salesOrders.lines:id,sales_order_id,sku_id,quantity',
             ])
             ->when($this->detailed, fn ($query) => $query->with([
-                'groupOrders.salesOrder.lines.sku:id,sku,name,stock_item_id',
-                'groupOrders.salesOrder.lines.sku.stockItem:id,short_name,name',
+                'salesOrders.lines.sku:id,sku,name,stock_item_id',
+                'salesOrders.lines.sku.stockItem:id,short_name,name',
             ]))
-            ->withCount('orders')
-            ->withMin('groupOrders', 'arranged_at')
-            ->whereIn('tenant_id', $this->allowedTenantIds())
             ->when($this->tenantIds !== [], fn ($query) => $query
                 ->whereIn('tenant_id', array_map('intval', $this->tenantIds)))
             ->when($this->warehouseId !== '', fn ($query) => $query->where('warehouse_id', (int) $this->warehouseId))
-            ->when($this->statusesFilter !== [], fn ($query) => $query->whereIn('status', $this->statusesFilter))
-            ->when($this->printWaiting, fn ($query) => $query
-                ->whereHas('outboundOrder', fn ($sub) => $sub->whereNull('courier_csv_exported_at')))
+            ->when($this->statusesFilter !== [], fn ($query) => $query
+                ->whereIn('status', array_map(fn ($status) => self::STATUS_MAP[$status] ?? $status, $this->statusesFilter)))
+            ->when($this->printWaiting, fn ($query) => $query->whereNull('courier_csv_exported_at'))
             ->when(in_array(SalesOrderFilters::OTHER_PRINTED, $this->othersFilter, true), fn ($query) => $query
-                ->whereHas('outboundOrder', fn ($sub) => $sub->whereNotNull('courier_csv_exported_at')))
+                ->whereNotNull('courier_csv_exported_at'))
             ->when(in_array(SalesOrderFilters::OTHER_NOT_PRINTED, $this->othersFilter, true), fn ($query) => $query
-                ->whereHas('outboundOrder', fn ($sub) => $sub->whereNull('courier_csv_exported_at')))
+                ->whereNull('courier_csv_exported_at'))
             ->when($this->shippingMethodsFilter !== [], function ($query) {
                 $query->where(function ($inner) {
                     $methodIds = array_values(array_filter(
@@ -396,34 +393,31 @@ class FulfillmentGroupIndex extends Component
             })
             ->when(in_array(SalesOrderFilters::OTHER_MULTI_ITEM, $this->othersFilter, true), fn ($query) => $query
                 ->where(fn ($inner) => $inner
-                    ->whereHas('groupOrders.salesOrder.lines', fn ($line) => $line->where('quantity', '>', 1))
-                    ->orWhereHas('groupOrders.salesOrder.lines', fn ($line) => $line, '>=', 2)))
+                    ->whereHas('leafLines', fn ($line) => $line->where('qty', '>', 1))
+                    ->orWhereHas('leafLines', fn ($line) => $line, '>=', 2)))
             ->when($this->search !== '', function ($query) {
                 $like = '%'.$this->search.'%';
 
                 $query->where(fn ($inner) => $inner
-                    ->where('reference_no', 'like', $like)
+                    ->where('ref', 'like', $like)
                     ->orWhere('recipient_name', 'like', $like)
-                    ->orWhereHas('groupOrders', fn ($sub) => $sub->where('tracking_no', 'like', $like))
-                    ->orWhereHas('groupOrders.salesOrder', fn ($sub) => $sub->where('platform_order_id', 'like', $like)));
+                    ->orWhere('tracking_no', 'like', $like)
+                    ->orWhereHas('salesOrders', fn ($sub) => $sub->where('platform_order_id', 'like', $like)));
             })
-            ->orderByRaw('group_orders_min_arranged_at is null')
-            ->orderBy('group_orders_min_arranged_at')
+            ->orderByRaw('shipped_at is not null')
+            ->orderBy('created_at')
             ->orderBy('id')
             ->paginate(30);
 
-        $this->visibleGroupIds = $groups->getCollection()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $this->visibleOrderIds = $orders->getCollection()->pluck('id')->map(fn ($id) => (int) $id)->all();
 
-        foreach ($groups as $group) {
-            $this->noteDrafts[$group->id] ??= $group->note ?? '';
-            $this->trackingDrafts[$group->id] ??= (string) ($group->groupOrders
-                ->pluck('tracking_no')
-                ->filter()
-                ->first() ?? '');
+        foreach ($orders as $order) {
+            $this->noteDrafts[$order->id] ??= $order->note ?? '';
+            $this->trackingDrafts[$order->id] ??= (string) ($order->tracking_no ?? '');
         }
 
         return view('livewire.fulfillment-group-index', [
-            'groups' => $groups,
+            'orders' => $orders,
             'tenants' => Tenant::query()
                 ->whereIn('id', $this->allowedTenantIds())
                 ->orderBy('name')
@@ -443,7 +437,7 @@ class FulfillmentGroupIndex extends Component
             ],
             'statuses' => $this->statuses(),
             'showTenantFilter' => $this->isInternalUser(),
-            'visibleGroupIds' => $this->visibleGroupIds,
+            'visibleOrderIds' => $this->visibleOrderIds,
         ])->layout('inventory', [
             'title' => __('fulfillment_groups.page_title'),
             'subtitle' => __('fulfillment_groups.page_subtitle'),
@@ -454,9 +448,9 @@ class FulfillmentGroupIndex extends Component
     private function statuses(): array
     {
         return [
-            FulfillmentGroup::STATUS_RESERVED => __('fulfillment_groups.status_reserved'),
-            FulfillmentGroup::STATUS_SHIPPED => __('fulfillment_groups.status_shipped'),
-            FulfillmentGroup::STATUS_CANCELLED => __('fulfillment_groups.status_cancelled'),
+            'reserved' => __('fulfillment_groups.status_reserved'),
+            'shipped' => __('fulfillment_groups.status_shipped'),
+            'cancelled' => __('fulfillment_groups.status_cancelled'),
         ];
     }
 
@@ -464,7 +458,7 @@ class FulfillmentGroupIndex extends Component
     {
         try {
             $batch = app(CourierExportService::class)->exportGroups(
-                fulfillmentGroupIds: $groupIds ?? $this->normalizedSelectedIds(),
+                fulfillmentGroupIds: $groupIds ?? $this->selectedGroupIds(),
                 carrier: $carrier,
                 allowedTenantIds: $this->allowedTenantIds(),
                 user: Auth::user(),
@@ -508,7 +502,7 @@ class FulfillmentGroupIndex extends Component
 
     private function reExportWarning(array $groupIds): string
     {
-        $references = FulfillmentGroup::query()
+        $references = \App\Models\FulfillmentGroup::query()
             ->whereIn('id', $groupIds)
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->orderBy('reference_no')
@@ -535,6 +529,29 @@ class FulfillmentGroupIndex extends Component
             ->unique()
             ->values()
             ->all();
+    }
+
+    /**
+     * Map the selected OutboundOrder ids to their fulfillment group ids for the
+     * (still group-keyed) courier export service.
+     *
+     * @return array<int, int>
+     */
+    private function selectedGroupIds(): array
+    {
+        return $this->scopedOrderQuery()
+            ->whereIn('id', $this->normalizedSelectedIds())
+            ->whereNotNull('fulfillment_group_id')
+            ->pluck('fulfillment_group_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function scopedOrderQuery()
+    {
+        return OutboundOrder::query()->whereIn('tenant_id', $this->allowedTenantIds());
     }
 
     private function normalizeCourierCarrier(string $carrier): string

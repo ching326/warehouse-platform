@@ -170,7 +170,7 @@
         <div
             x-data="{
                 selected: $wire.entangle('selectedIds'),
-                visible: $wire.entangle('visibleGroupIds'),
+                visible: $wire.entangle('visibleOrderIds'),
                 openActionMenu: null,
                 selectedList() { return (this.selected || []).map(String); },
                 visibleList() { return (this.visible || []).map(String); },
@@ -284,7 +284,7 @@
             </div>
         </div>
 
-        <flux:table :paginate="$groups" class="data-table">
+        <flux:table :paginate="$orders" class="data-table">
             <flux:table.columns>
                 <flux:table.column class="fg-col-select">
                     <label class="so-checkbox-hitbox so-checkbox-hitbox-header" title="{{ __('sales_orders.select_visible_orders') }}">
@@ -310,44 +310,39 @@
             </flux:table.columns>
 
             <flux:table.rows>
-                @forelse ($groups as $group)
+                @forelse ($orders as $order)
                     @php
-                        $members = $group->groupOrders;
-                        $orderIds = $members
-                            ->map(fn ($go) => $go->salesOrder?->platform_order_id)
+                        $salesOrders = $order->salesOrders;
+                        $reference = $order->fulfillmentGroup?->reference_no ?? $order->ref;
+                        $orderIds = $salesOrders
+                            ->map(fn ($so) => $so->platform_order_id)
                             ->filter()
                             ->values();
-                        $shops = $members
-                            ->map(fn ($go) => $go->salesOrder?->shop?->name)
+                        $shops = $salesOrders
+                            ->map(fn ($so) => $so->shop?->name)
                             ->filter()
                             ->unique()
                             ->values();
-                        $itemQty = $members->sum(fn ($go) => $go->salesOrder
-                            ? (int) $go->salesOrder->lines->sum('quantity')
-                            : 0);
-                        $arranged = $members->pluck('arranged_at')->filter()->min();
-                        $printed = $group->outboundOrder?->courier_csv_exported_at;
+                        $itemQty = $salesOrders->sum(fn ($so) => (int) $so->lines->sum('quantity'));
+                        $arranged = $order->created_at;
+                        $printed = $order->courier_csv_exported_at;
                     @endphp
-                    <flux:table.row :key="$group->id">
+                    <flux:table.row :key="$order->id">
                         <flux:table.cell class="fg-col-select">
                             <label class="so-checkbox-hitbox">
                                 <input
                                     type="checkbox"
-                                    x-bind:checked="isSelected({{ $group->id }})"
-                                    x-on:change="toggleRow({{ $group->id }})"
-                                    aria-label="{{ __('fulfillment_groups.select_group') }} {{ $group->reference_no }}"
+                                    x-bind:checked="isSelected({{ $order->id }})"
+                                    x-on:change="toggleRow({{ $order->id }})"
+                                    aria-label="{{ __('fulfillment_groups.select_group') }} {{ $reference }}"
                                 >
                             </label>
                         </flux:table.cell>
 
                         <flux:table.cell class="so-order-cell">
-                            @if ($group->outboundOrder)
-                                <flux:link href="{{ route('outbound.show', $group->outboundOrder) }}" wire:navigate>
-                                    <strong>{{ $group->reference_no }}</strong>
-                                </flux:link>
-                            @else
-                                <strong>{{ $group->reference_no }}</strong>
-                            @endif
+                            <flux:link href="{{ route('outbound.show', $order) }}" wire:navigate>
+                                <strong>{{ $reference }}</strong>
+                            </flux:link>
                             @forelse ($orderIds as $orderId)
                                 <span class="subtle">{{ $orderId }}</span>
                             @empty
@@ -356,7 +351,7 @@
                         </flux:table.cell>
 
                         <flux:table.cell>
-                            <strong>{{ $group->tenant->code }}</strong>
+                            <strong>{{ $order->tenant->code }}</strong>
                             <div class="fg-subtle">
                                 @if ($shops->count() === 1)
                                     {{ $shops->first() }}
@@ -369,31 +364,31 @@
                         </flux:table.cell>
 
                         <flux:table.cell>
-                            <strong>{{ $group->recipient_name ?: '-' }}</strong>
+                            <strong>{{ $order->recipient_name ?: '-' }}</strong>
                             @if ($detailed)
                                 @php
                                     $addressParts = array_values(array_filter([
-                                        trim(($group->recipient_state ?? '').' '.($group->recipient_city ?? '')),
-                                        $group->recipient_address_line1,
-                                        $group->recipient_address_line2,
+                                        trim(($order->recipient_state ?? '').' '.($order->recipient_city ?? '')),
+                                        $order->recipient_address_line1,
+                                        $order->recipient_address_line2,
                                     ], fn ($part) => trim((string) $part) !== ''));
                                     $address = implode(' ', $addressParts);
                                 @endphp
                                 <div class="fg-recipient-detail">
-                                    <span class="fg-subtle">{{ $group->recipient_phone ?: '-' }}</span>
-                                    <span class="fg-subtle">{{ $group->recipient_postal_code ?: '-' }}</span>
+                                    <span class="fg-subtle">{{ $order->recipient_phone ?: '-' }}</span>
+                                    <span class="fg-subtle">{{ $order->recipient_postal_code ?: '-' }}</span>
                                     <span class="fg-subtle fg-address-clamp" title="{{ $address }}">{{ $address !== '' ? $address : '-' }}</span>
                                 </div>
                             @else
-                                <div class="fg-subtle">{{ $group->recipient_city ?: $group->recipient_postal_code ?: '-' }}</div>
+                                <div class="fg-subtle">{{ $order->recipient_city ?: $order->recipient_postal_code ?: '-' }}</div>
                             @endif
                         </flux:table.cell>
 
                         <flux:table.cell :align="$detailed ? 'start' : 'end'">
                             @if ($detailed)
                                 <div class="fg-items-detail">
-                                    @foreach ($members as $member)
-                                        @foreach (($member->salesOrder?->lines ?? []) as $line)
+                                    @foreach ($salesOrders as $salesOrder)
+                                        @foreach (($salesOrder->lines ?? []) as $line)
                                             @php
                                                 $skuCode = $line->sku?->sku ?? '-';
                                                 $skuLabel = trim((string) ($line->sku?->stockItem?->short_name ?: $line->sku?->name ?: $line->sku?->stockItem?->name ?: ''));
@@ -423,11 +418,11 @@
                         <flux:table.cell>
                             <select
                                 class="fg-inline-input"
-                                wire:change="updateShippingMethod({{ $group->id }}, $event.target.value)"
+                                wire:change="updateShippingMethod({{ $order->id }}, $event.target.value)"
                             >
                                 <option value="">-</option>
                                 @foreach ($shippingMethods as $methodId => $methodName)
-                                    <option value="{{ $methodId }}" @selected((string) $group->shipping_method_id === (string) $methodId)>{{ $methodName }}</option>
+                                    <option value="{{ $methodId }}" @selected((string) $order->shipping_method_id === (string) $methodId)>{{ $methodName }}</option>
                                 @endforeach
                             </select>
                         </flux:table.cell>
@@ -436,9 +431,9 @@
                             <input
                                 type="text"
                                 class="fg-inline-input"
-                                value="{{ $trackingDrafts[$group->id] ?? '' }}"
+                                value="{{ $trackingDrafts[$order->id] ?? '' }}"
                                 placeholder="{{ __('fulfillment_groups.tracking_placeholder') }}"
-                                wire:change="updateTracking({{ $group->id }}, $event.target.value)"
+                                wire:change="updateTracking({{ $order->id }}, $event.target.value)"
                             />
                         </flux:table.cell>
 
@@ -446,9 +441,9 @@
                             <input
                                 type="text"
                                 class="fg-inline-input"
-                                value="{{ $noteDrafts[$group->id] ?? '' }}"
+                                value="{{ $noteDrafts[$order->id] ?? '' }}"
                                 placeholder="{{ __('fulfillment_groups.note_placeholder') }}"
-                                wire:change="updateNote({{ $group->id }}, $event.target.value)"
+                                wire:change="updateNote({{ $order->id }}, $event.target.value)"
                             />
                         </flux:table.cell>
 
@@ -461,15 +456,15 @@
                         </flux:table.cell>
 
                         <flux:table.cell>
-                            <flux:badge color="{{ $this->statusColor($group->status) }}">
-                                {{ $this->statusLabel($group->status) }}
+                            <flux:badge color="{{ $this->statusColor($order->status) }}">
+                                {{ $this->statusLabel($order->status) }}
                             </flux:badge>
                         </flux:table.cell>
 
                         <flux:table.cell>
-                            @if ($group->status === 'reserved')
+                            @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->fulfillmentGroup)
                                 <div class="fg-row-action">
-                                    <flux:button href="{{ route('fulfillment-groups.pack', $group) }}" size="sm" variant="primary" class="fg-scan-pack-button" wire:navigate>
+                                    <flux:button href="{{ route('fulfillment-groups.pack', $order->fulfillmentGroup) }}" size="sm" variant="primary" class="fg-scan-pack-button" wire:navigate>
                                         {{ __('fulfillment_pack.page_title') }}
                                     </flux:button>
                                 </div>
