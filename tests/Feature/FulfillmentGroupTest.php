@@ -862,7 +862,10 @@ class FulfillmentGroupTest extends TestCase
 
         $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA, $orderB]);
         $group = FulfillmentGroup::firstOrFail();
-        $csv = "440-069 713300,{$group->reference_no}\r\n";
+        $group->update(['reference_no' => 'FG-LEGACY-TRACK-REF']);
+        $outbound = $group->outboundOrder()->firstOrFail();
+        $outbound->update(['ref' => 'OB-TRACK-EXACT-REF']);
+        $csv = "440-069 713300,{$outbound->ref}\r\n";
 
         $result = app(TrackingImportService::class)->importFulfillmentGroups(
             contents: $csv,
@@ -877,8 +880,89 @@ class FulfillmentGroupTest extends TestCase
             $this->assertSame('440069713300', $pivot->tracking_no);
         }
 
+        $this->assertSame('440069713300', $outbound->refresh()->tracking_no);
         $this->assertSame('440069713300', $orderA->refresh()->tracking_no);
         $this->assertSame('440069713300', $orderB->refresh()->tracking_no);
+    }
+
+    public function test_fulfillment_tracking_import_matches_outbound_reference_suffix(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-TRACK-SUFFIX');
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+        $group->update(['reference_no' => 'FG-DOES-NOT-MATCH-SUFFIX']);
+        $outbound = $group->outboundOrder()->firstOrFail();
+        $outbound->update(['ref' => 'OB-TRACK-SUFFIX-123456789012345']);
+
+        $result = app(TrackingImportService::class)->importFulfillmentGroups(
+            contents: "440069713311,123456789012345\r\n",
+            sourceFileName: 'sagawa.csv',
+            user: $this->internalUser(),
+            allowedTenantIds: [$tenant->id],
+        );
+
+        $this->assertSame(['updated' => 1], $result);
+        $this->assertSame('440069713311', $outbound->refresh()->tracking_no);
+        $this->assertSame('440069713311', $order->refresh()->tracking_no);
+        $this->assertSame('440069713311', $group->groupOrders()->firstOrFail()->tracking_no);
+    }
+
+    public function test_fulfillment_tracking_import_skips_ambiguous_no_match_and_unchanged_rows(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-TRACK-UNCHANGED');
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = FulfillmentGroup::firstOrFail();
+        $outbound = $group->outboundOrder()->firstOrFail();
+        $outbound->update([
+            'ref' => 'OB-TRACK-UNCHANGED',
+            'tracking_no' => 'UNCHANGED',
+        ]);
+        $order->update(['tracking_no' => 'UNCHANGED']);
+        $group->groupOrders()->update(['tracking_no' => 'UNCHANGED']);
+
+        OutboundOrder::factory()->for($tenant)->for($warehouse)->create([
+            'ref' => 'OB-AMBIGUOUS-A-123456789012345',
+            'status' => OutboundOrder::STATUS_PENDING,
+        ]);
+        OutboundOrder::factory()->for($tenant)->for($warehouse)->create([
+            'ref' => 'OB-AMBIGUOUS-B-123456789012345',
+            'status' => OutboundOrder::STATUS_PENDING,
+        ]);
+
+        $result = app(TrackingImportService::class)->importFulfillmentGroups(
+            contents: "NEWTRACK,123456789012345\r\nUNCHANGED,{$outbound->ref}\r\nMISSING,NO-SUCH-REF\r\n",
+            sourceFileName: 'sagawa.csv',
+            user: $this->internalUser(),
+            allowedTenantIds: [$tenant->id],
+        );
+
+        $this->assertSame(['updated' => 0], $result);
+        $this->assertSame('UNCHANGED', $outbound->refresh()->tracking_no);
+        $this->assertSame('UNCHANGED', $order->refresh()->tracking_no);
+        $this->assertSame('UNCHANGED', $group->groupOrders()->firstOrFail()->tracking_no);
+    }
+
+    public function test_fulfillment_tracking_import_can_update_manual_outbound_parcel(): void
+    {
+        [$tenant, $warehouse] = $this->skuWithStock(20);
+        $outbound = OutboundOrder::factory()->for($tenant)->for($warehouse)->create([
+            'ref' => 'OB-MANUAL-TRACKING',
+            'status' => OutboundOrder::STATUS_PENDING,
+        ]);
+
+        $result = app(TrackingImportService::class)->importFulfillmentGroups(
+            contents: "{$outbound->ref},,,YMT-MANUAL\r\n",
+            sourceFileName: 'yamato.csv',
+            user: $this->internalUser(),
+            allowedTenantIds: [$tenant->id],
+        );
+
+        $this->assertSame(['updated' => 1], $result);
+        $this->assertSame('YMTMANUAL', $outbound->refresh()->tracking_no);
     }
 
     public function test_fulfillment_tracking_import_route_accepts_file_upload(): void
@@ -888,12 +972,14 @@ class FulfillmentGroupTest extends TestCase
 
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $group = FulfillmentGroup::firstOrFail();
-        $file = UploadedFile::fake()->createWithContent('tracking.csv', $group->reference_no.",,,YMT-TRACK\r\n");
+        $outbound = $group->outboundOrder()->firstOrFail();
+        $file = UploadedFile::fake()->createWithContent('tracking.csv', $outbound->ref.",,,YMT-TRACK\r\n");
 
         $this->actingAs($this->internalUser())
             ->post(route('fulfillment.tracking-import'), ['tracking_file' => $file])
             ->assertRedirect(route('fulfillment-groups.index'));
 
+        $this->assertSame('YMTTRACK', $outbound->refresh()->tracking_no);
         $this->assertSame('YMTTRACK', $order->refresh()->tracking_no);
     }
 

@@ -2,7 +2,7 @@
 
 namespace App\Services\Courier\TrackingImport;
 
-use App\Models\FulfillmentGroup;
+use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\User;
 use App\Support\TrackingNumber;
@@ -30,10 +30,10 @@ class TrackingImportService
                     ->map(function (array $row) use ($allowedTenantIds): array {
                         return [
                             'row' => $row,
-                            'groups' => $this->findGroups((array) $row['order_tokens'], $allowedTenantIds),
+                            'outboundOrders' => $this->findOutboundOrders((array) $row['order_tokens'], $allowedTenantIds),
                         ];
                     })
-                    ->filter(fn (array $candidate): bool => $candidate['groups']->count() === 1)
+                    ->filter(fn (array $candidate): bool => $candidate['outboundOrders']->count() === 1)
                     ->values();
 
                 if ($match->count() !== 1) {
@@ -41,39 +41,44 @@ class TrackingImportService
                 }
 
                 $row = $match->first()['row'];
-                $groups = $match->first()['groups'];
+                $outboundOrders = $match->first()['outboundOrders'];
 
-                $group = FulfillmentGroup::query()
+                $outbound = OutboundOrder::query()
                     ->whereIn('tenant_id', $allowedTenantIds)
-                    ->whereKey($groups->first()->id)
-                    ->with('groupOrders:id,fulfillment_group_id,sales_order_id,tracking_no')
+                    ->where('status', '!=', OutboundOrder::STATUS_CANCELLED)
+                    ->whereKey($outboundOrders->first()->id)
+                    ->with([
+                        'salesOrders:id,tenant_id,platform_order_id,tracking_no',
+                        'fulfillmentGroup:id,reference_no',
+                        'fulfillmentGroup.groupOrders:id,fulfillment_group_id,sales_order_id,tracking_no',
+                    ])
                     ->lockForUpdate()
                     ->first();
 
-                if (! $group) {
+                if (! $outbound) {
                     continue;
                 }
 
                 $newTrackingNo = TrackingNumber::normalize(mb_substr((string) $row['tracking_no'], 0, 255));
-                $oldTrackingNo = (string) ($group->groupOrders->pluck('tracking_no')->filter()->first() ?? '');
+
+                if ($newTrackingNo === null) {
+                    continue;
+                }
+
+                $oldTrackingNo = (string) ($outbound->tracking_no ?: $outbound->salesOrders->pluck('tracking_no')->filter()->first() ?: '');
 
                 if ($oldTrackingNo === $newTrackingNo) {
                     continue;
                 }
 
-                $group->groupOrders()->update(['tracking_no' => $newTrackingNo]);
+                $outbound->update(['tracking_no' => $newTrackingNo]);
+                $outbound->fulfillmentGroup?->groupOrders()->update(['tracking_no' => $newTrackingNo]);
 
                 SalesOrder::query()
-                    ->whereIn('id', $group->groupOrders->pluck('sales_order_id'))
+                    ->whereIn('id', $outbound->salesOrders->pluck('id'))
                     ->update(['tracking_no' => $newTrackingNo]);
 
-                foreach ($group->groupOrders as $groupOrder) {
-                    $salesOrder = SalesOrder::find($groupOrder->sales_order_id);
-
-                    if (! $salesOrder) {
-                        continue;
-                    }
-
+                foreach ($outbound->salesOrders as $salesOrder) {
                     activity('sales_order')
                         ->performedOn($salesOrder)
                         ->causedBy($user)
@@ -83,8 +88,28 @@ class TrackingImportService
                             'new_tracking_no' => $newTrackingNo,
                             'source_file_name' => $sourceFileName,
                             'row_no' => $row['row_no'],
-                            'fulfillment_group_id' => $group->id,
-                            'fulfillment_group_reference_no' => $group->reference_no,
+                            'outbound_order_id' => $outbound->id,
+                            'outbound_order_ref' => $outbound->ref,
+                            'fulfillment_group_id' => $outbound->fulfillmentGroup?->id,
+                            'fulfillment_group_reference_no' => $outbound->fulfillmentGroup?->reference_no,
+                        ])
+                        ->log('tracking_imported');
+                }
+
+                if ($outbound->salesOrders->isEmpty()) {
+                    activity('outbound_order')
+                        ->performedOn($outbound)
+                        ->causedBy($user)
+                        ->event('tracking_imported')
+                        ->withProperties([
+                            'old_tracking_no' => $oldTrackingNo,
+                            'new_tracking_no' => $newTrackingNo,
+                            'source_file_name' => $sourceFileName,
+                            'row_no' => $row['row_no'],
+                            'outbound_order_id' => $outbound->id,
+                            'outbound_order_ref' => $outbound->ref,
+                            'fulfillment_group_id' => $outbound->fulfillmentGroup?->id,
+                            'fulfillment_group_reference_no' => $outbound->fulfillmentGroup?->reference_no,
                         ])
                         ->log('tracking_imported');
                 }
@@ -103,9 +128,9 @@ class TrackingImportService
     /**
      * @param  array<int, string>  $tokens
      * @param  list<int>  $allowedTenantIds
-     * @return Collection<int, FulfillmentGroup>
+     * @return Collection<int, OutboundOrder>
      */
-    private function findGroups(array $tokens, array $allowedTenantIds): Collection
+    private function findOutboundOrders(array $tokens, array $allowedTenantIds): Collection
     {
         $tokens = collect($tokens)
             ->map(fn (string $token): string => trim($token))
@@ -117,10 +142,11 @@ class TrackingImportService
             return collect();
         }
 
-        $exactMatches = FulfillmentGroup::query()
+        $exactMatches = OutboundOrder::query()
             ->whereIn('tenant_id', $allowedTenantIds)
-            ->whereIn('reference_no', $tokens->all())
-            ->get(['id', 'tenant_id', 'reference_no']);
+            ->where('status', '!=', OutboundOrder::STATUS_CANCELLED)
+            ->whereIn('ref', $tokens->all())
+            ->get(['id', 'tenant_id', 'ref', 'status']);
 
         if ($exactMatches->isNotEmpty()) {
             return $exactMatches;
@@ -134,13 +160,14 @@ class TrackingImportService
             return collect();
         }
 
-        return FulfillmentGroup::query()
+        return OutboundOrder::query()
             ->whereIn('tenant_id', $allowedTenantIds)
+            ->where('status', '!=', OutboundOrder::STATUS_CANCELLED)
             ->where(function ($query) use ($suffixTokens): void {
                 foreach ($suffixTokens as $token) {
-                    $query->orWhereRaw('substr(reference_no, ?) = ?', [-15, $token]);
+                    $query->orWhereRaw('substr(ref, ?) = ?', [-15, $token]);
                 }
             })
-            ->get(['id', 'tenant_id', 'reference_no']);
+            ->get(['id', 'tenant_id', 'ref', 'status']);
     }
 }
