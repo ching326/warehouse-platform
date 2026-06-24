@@ -156,12 +156,75 @@ class OutboundOrderTest extends TestCase
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shippingMethod', $method->code)
+            ->set('reason', OutboundOrder::REASON_SAMPLE)
             ->set('lines.0.sku_id', (string) $sku->id)
             ->set('lines.0.qty', '1')
             ->call('save')
             ->assertRedirect(route('outbound.index'));
 
         $this->assertSame($method->code, OutboundOrder::firstOrFail()->shipping_method);
+    }
+
+    public function test_create_persists_reason_and_ship_mode(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(20);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('reason', OutboundOrder::REASON_FBA)
+            ->assertSet('shipMode', OutboundOrder::SHIP_MODE_BULK)
+            ->set('lines.0.sku_id', (string) $sku->id)
+            ->set('lines.0.qty', '1')
+            ->call('save')
+            ->assertRedirect(route('outbound.index'));
+
+        $order = OutboundOrder::firstOrFail();
+        $this->assertSame(OutboundOrder::REASON_FBA, $order->reason);
+        $this->assertSame(OutboundOrder::SHIP_MODE_BULK, $order->ship_mode);
+    }
+
+    public function test_create_defaults_ship_mode_to_parcel_for_gift(): void
+    {
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('reason', OutboundOrder::REASON_GIFT)
+            ->assertSet('shipMode', OutboundOrder::SHIP_MODE_PARCEL);
+    }
+
+    public function test_create_requires_reason(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(20);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('lines.0.sku_id', (string) $sku->id)
+            ->set('lines.0.qty', '1')
+            ->call('save')
+            ->assertHasErrors(['reason']);
+
+        $this->assertSame(0, OutboundOrder::count());
+    }
+
+    public function test_create_rejects_customer_order_reason_in_manual_form(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(20);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+            ->set('shipMode', OutboundOrder::SHIP_MODE_PARCEL)
+            ->set('lines.0.sku_id', (string) $sku->id)
+            ->set('lines.0.qty', '1')
+            ->call('save')
+            ->assertHasErrors(['reason']);
+
+        $this->assertSame(0, OutboundOrder::count());
     }
 
     public function test_create_autofills_japanese_address_from_postal_code(): void
@@ -258,6 +321,7 @@ class OutboundOrderTest extends TestCase
             ->test(OutboundOrderCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
+            ->set('reason', OutboundOrder::REASON_SAMPLE)
             ->set('lines.0.sku_id', (string) $bundleSku->id)
             ->set('lines.0.qty', '1')
             ->call('save')
@@ -655,6 +719,7 @@ class OutboundOrderTest extends TestCase
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('ref', $ref)
+            ->set('reason', OutboundOrder::REASON_SAMPLE)
             ->set('lines.0.sku_id', (string) $sku->id)
             ->set('lines.0.qty', (string) $qty)
             ->call('save');

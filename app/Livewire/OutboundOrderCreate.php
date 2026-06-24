@@ -51,9 +51,50 @@ class OutboundOrderCreate extends Component
 
     public string $shippingMethod = '';
 
+    public string $reason = '';
+
+    public string $shipMode = '';
+
     public array $lines = [
         ['sku_id' => '', 'qty' => '', 'note' => ''],
     ];
+
+    /**
+     * Reasons offered for manual outbound creation (customer_order is consolidation-only).
+     *
+     * @return list<string>
+     */
+    public function manualReasons(): array
+    {
+        return [
+            OutboundOrder::REASON_RE_SHIP,
+            OutboundOrder::REASON_REPLACEMENT,
+            OutboundOrder::REASON_GIFT,
+            OutboundOrder::REASON_FBA,
+            OutboundOrder::REASON_RETURN_TO_TENANT,
+            OutboundOrder::REASON_B2B,
+            OutboundOrder::REASON_SAMPLE,
+            OutboundOrder::REASON_OTHER,
+        ];
+    }
+
+    public function defaultShipModeForReason(string $reason): string
+    {
+        return in_array($reason, [
+            OutboundOrder::REASON_FBA,
+            OutboundOrder::REASON_RETURN_TO_TENANT,
+            OutboundOrder::REASON_B2B,
+        ], true)
+            ? OutboundOrder::SHIP_MODE_BULK
+            : OutboundOrder::SHIP_MODE_PARCEL;
+    }
+
+    public function updatedReason(): void
+    {
+        $this->shipMode = $this->reason === ''
+            ? ''
+            : $this->defaultShipModeForReason($this->reason);
+    }
 
     public function mount(): void
     {
@@ -94,6 +135,8 @@ class OutboundOrderCreate extends Component
                 'warehouse_id' => (int) $this->warehouseId,
                 'ref' => $this->ref !== '' ? $this->nullableString($this->ref) : 'OB-PENDING-'.\Illuminate\Support\Str::uuid(),
                 'status' => OutboundOrder::STATUS_PENDING,
+                'reason' => $this->reason,
+                'ship_mode' => $this->shipMode,
                 'note' => $this->nullableString($this->note),
                 'recipient_name' => $this->nullableString($this->recipientName),
                 'recipient_phone' => $this->nullableString($this->recipientPhone),
@@ -275,6 +318,8 @@ class OutboundOrderCreate extends Component
             'recipient_address_line1' => ['nullable', 'string', 'max:255'],
             'recipient_address_line2' => ['nullable', 'string', 'max:255'],
             'shipping_method' => ['nullable', 'string', 'max:100'],
+            'reason' => ['required', Rule::in($this->manualReasons())],
+            'ship_mode' => ['required', Rule::in([OutboundOrder::SHIP_MODE_PARCEL, OutboundOrder::SHIP_MODE_BULK])],
             'lines' => [
                 'required',
                 'array',
@@ -309,6 +354,8 @@ class OutboundOrderCreate extends Component
             'recipient_address_line1' => $this->recipientAddressLine1,
             'recipient_address_line2' => $this->recipientAddressLine2,
             'shipping_method' => $this->shippingMethod,
+            'reason' => $this->reason,
+            'ship_mode' => $this->shipMode,
             'lines' => $this->lines,
         ];
     }

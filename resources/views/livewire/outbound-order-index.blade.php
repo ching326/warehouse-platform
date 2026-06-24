@@ -32,6 +32,7 @@
             <flux:table.columns>
                 <flux:table.column>{{ __('outbound.col_ref') }}</flux:table.column>
                 <flux:table.column>{{ __('outbound.col_tenant_warehouse') }}</flux:table.column>
+                <flux:table.column>{{ __('outbound.col_reason') }}</flux:table.column>
                 <flux:table.column>{{ __('outbound.col_shipped_at') }}</flux:table.column>
                 <flux:table.column>{{ __('outbound.col_lines') }}</flux:table.column>
                 <flux:table.column>{{ __('outbound.col_status') }}</flux:table.column>
@@ -51,6 +52,14 @@
                             <span class="outbound-inline-pair">
                                 <strong>{{ $order->tenant->code }}</strong>
                                 <span class="outbound-inline-muted">{{ $shop ? $shop->code.' - '.$shop->name : '-' }}</span>
+                            </span>
+                        </flux:table.cell>
+                        <flux:table.cell>
+                            <span class="outbound-inline-pair">
+                                <strong>{{ $order->reasonLabel() ?? '-' }}</strong>
+                                @if ($order->shipModeLabel())
+                                    <span class="outbound-inline-muted">{{ $order->shipModeLabel() }}</span>
+                                @endif
                             </span>
                         </flux:table.cell>
                         <flux:table.cell>{{ $order->shipped_at ? $order->shipped_at->format('Y-m-d H:i') : '-' }}</flux:table.cell>
@@ -78,7 +87,7 @@
                     </flux:table.row>
                 @empty
                     <flux:table.row>
-                        <flux:table.cell colspan="6">
+                        <flux:table.cell colspan="7">
                             <div class="empty-state">{{ __('outbound.empty_state') }}</div>
                         </flux:table.cell>
                     </flux:table.row>

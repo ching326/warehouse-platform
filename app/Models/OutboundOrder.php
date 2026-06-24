@@ -86,6 +86,16 @@ class OutboundOrder extends Model
         ];
     }
 
+    public function reasonLabel(): ?string
+    {
+        return $this->reason ? __('outbound.reason_'.$this->reason) : null;
+    }
+
+    public function shipModeLabel(): ?string
+    {
+        return $this->ship_mode ? __('outbound.ship_mode_'.$this->ship_mode) : null;
+    }
+
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
