@@ -50,8 +50,10 @@
                     <flux:table.row :key="$scan->id">
                         <flux:table.cell>{{ $scan->created_at?->format('Y-m-d H:i:s') ?: '-' }}</flux:table.cell>
                         <flux:table.cell>
-                            @if ($scan->fulfillmentGroup)
-                                <a href="{{ route('fulfillment-groups.show', $scan->fulfillmentGroup) }}" wire:navigate><strong>{{ $scan->fulfillmentGroup->reference_no }}</strong></a>
+                            @if ($scan->fulfillmentGroup?->outboundOrder)
+                                <a href="{{ route('outbound.show', $scan->fulfillmentGroup->outboundOrder) }}" wire:navigate><strong>{{ $scan->fulfillmentGroup->reference_no }}</strong></a>
+                            @elseif ($scan->fulfillmentGroup)
+                                <strong>{{ $scan->fulfillmentGroup->reference_no }}</strong>
                             @else
                                 <span class="muted-dash">-</span>
                             @endif

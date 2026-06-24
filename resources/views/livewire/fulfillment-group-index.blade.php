@@ -341,9 +341,13 @@
                         </flux:table.cell>
 
                         <flux:table.cell class="so-order-cell">
-                            <flux:link href="{{ route('fulfillment-groups.show', $group) }}" wire:navigate>
+                            @if ($group->outboundOrder)
+                                <flux:link href="{{ route('outbound.show', $group->outboundOrder) }}" wire:navigate>
+                                    <strong>{{ $group->reference_no }}</strong>
+                                </flux:link>
+                            @else
                                 <strong>{{ $group->reference_no }}</strong>
-                            </flux:link>
+                            @endif
                             @forelse ($orderIds as $orderId)
                                 <span class="subtle">{{ $orderId }}</span>
                             @empty

@@ -123,7 +123,7 @@
                                 <span>{{ trans_choice('fulfillment_pick.order_count', $orders->count(), ['count' => $orders->count()]) }}</span>
                                 <small>
                                     @foreach ($groups->take(3) as $group)
-                                        <a href="{{ route('fulfillment-groups.show', $group) }}" wire:navigate>{{ $group->reference_no }}</a>@if (! $loop->last), @endif
+                                        <a href="{{ route('outbound.show', $group->outboundOrder) }}" wire:navigate>{{ $group->reference_no }}</a>@if (! $loop->last), @endif
                                     @endforeach
                                     @if ($groups->count() > 3)
                                         <span>{{ __('fulfillment_pick.more_groups', ['count' => $groups->count() - 3]) }}</span>

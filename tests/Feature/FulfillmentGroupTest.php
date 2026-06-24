@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Actions\BackfillNormalizedTrackingNumbers;
 use App\Livewire\FulfillmentGroupCreate;
-use App\Livewire\FulfillmentGroupDetail;
 use App\Livewire\FulfillmentGroupIndex;
 use App\Livewire\FulfillmentGroupPack;
 use App\Livewire\FulfillmentPackStart;
@@ -1027,7 +1026,7 @@ class FulfillmentGroupTest extends TestCase
         $group = FulfillmentGroup::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupDetail::class, ['group' => $group])
+            ->test(OutboundOrderDetail::class, ['order' => $group->outboundOrder])
             ->call('editRecipient')
             ->set('recipientName', 'New Recipient')
             ->set('recipientCountryCode', 'jp')
@@ -1037,10 +1036,10 @@ class FulfillmentGroupTest extends TestCase
 
         $this->assertSame('New Recipient', $group->refresh()->recipient_name);
         $this->assertSame('New Recipient', $group->outboundOrder->refresh()->recipient_name);
-        $this->assertSame('JP', $group->recipient_country_code);
+        $this->assertSame('JP', $group->outboundOrder->recipient_country_code);
     }
 
-    public function test_detail_shipping_edit_updates_group_only(): void
+    public function test_detail_shipping_edit_updates_outbound_and_group(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
         $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-SHIPPING');
@@ -1048,7 +1047,7 @@ class FulfillmentGroupTest extends TestCase
         $group = FulfillmentGroup::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupDetail::class, ['group' => $group])
+            ->test(OutboundOrderDetail::class, ['order' => $group->outboundOrder])
             ->call('editShipping')
             ->set('courier', 'Sagawa')
             ->set('trackingNo', 'SG-1')
@@ -1056,9 +1055,9 @@ class FulfillmentGroupTest extends TestCase
             ->call('saveShipping')
             ->assertHasNoErrors();
 
+        $this->assertSame('Sagawa', $group->outboundOrder->refresh()->courier);
+        $this->assertSame('SG1', $group->outboundOrder->tracking_no);
         $this->assertSame('Sagawa', $group->refresh()->courier);
-        $this->assertSame('SG1', $group->tracking_no);
-        $this->assertNull($group->outboundOrder->refresh()->courier);
     }
 
     public function test_fulfillment_group_routes_render(): void
@@ -1070,7 +1069,7 @@ class FulfillmentGroupTest extends TestCase
 
         $this->actingAs($this->internalUser())->get('/fulfillment-groups')->assertOk()->assertSee('Fulfillment Groups');
         $this->actingAs($this->internalUser())->get('/fulfillment-groups/create')->assertOk()->assertSee('Create Fulfillment Group');
-        $this->actingAs($this->internalUser())->get(route('fulfillment-groups.show', $group))->assertOk()->assertSee($group->reference_no);
+        $this->actingAs($this->internalUser())->get(route('outbound.show', $group->outboundOrder))->assertOk()->assertSee($group->reference_no);
         $this->actingAs($this->internalUser())->get(route('fulfillment.pack.start'))->assertOk()->assertSee('Scan tracking no.');
         $this->actingAs($this->internalUser())->get(route('fulfillment-groups.pack', $group))->assertOk()->assertSee($group->reference_no);
     }
@@ -1093,12 +1092,12 @@ class FulfillmentGroupTest extends TestCase
             ->assertDontSee(route('fulfillment-groups.pack', $shipped));
 
         $this->actingAs($this->internalUser())
-            ->get(route('fulfillment-groups.show', $reserved))
+            ->get(route('outbound.show', $reserved->outboundOrder))
             ->assertOk()
             ->assertSee(route('fulfillment-groups.pack', $reserved));
 
         $this->actingAs($this->internalUser())
-            ->get(route('fulfillment-groups.show', $shipped))
+            ->get(route('outbound.show', $shipped->outboundOrder))
             ->assertOk()
             ->assertDontSee(route('fulfillment-groups.pack', $shipped));
     }
@@ -1990,7 +1989,7 @@ class FulfillmentGroupTest extends TestCase
             ->set('barcode', 'SKU-BAR-SHIP')
             ->call('scan')
             ->call('markShipped')
-            ->assertRedirect(route('fulfillment-groups.show', $group));
+            ->assertRedirect(route('outbound.show', $group->outboundOrder));
 
         $this->assertSame(FulfillmentGroup::STATUS_SHIPPED, $group->refresh()->status);
         $this->assertSame(OutboundOrder::STATUS_SHIPPED, $group->outboundOrder->refresh()->status);
@@ -2035,7 +2034,7 @@ class FulfillmentGroupTest extends TestCase
             ->set('pendingQuantity', 3)
             ->call('confirmPendingQuantity')
             ->call('markShipped')
-            ->assertRedirect(route('fulfillment-groups.show', $group));
+            ->assertRedirect(route('outbound.show', $group->outboundOrder));
 
         $this->assertSame(FulfillmentGroup::STATUS_SHIPPED, $group->refresh()->status);
         $this->assertSame(3, (int) FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->sum('quantity'));

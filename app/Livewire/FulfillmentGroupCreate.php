@@ -69,7 +69,7 @@ class FulfillmentGroupCreate extends Component
 
         session()->flash('status', __('fulfillment_groups.group_created'));
 
-        return redirect()->route('fulfillment-groups.show', $group);
+        return redirect()->route('outbound.show', $group->outboundOrder);
     }
 
     public function render()

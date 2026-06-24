@@ -10,6 +10,16 @@
                 <flux:badge color="{{ $this->statusColor($order->status) }}">
                     {{ $this->statusLabel($order->status) }}
                 </flux:badge>
+                @if ($order->fulfillmentGroup)
+                    @if ($order->fulfillmentGroup->status === 'reserved')
+                        <flux:button href="{{ route('fulfillment-groups.pack', $order->fulfillmentGroup) }}" size="xs" variant="primary" wire:navigate>
+                            {{ __('fulfillment_pack.page_title') }}
+                        </flux:button>
+                    @endif
+                    <flux:button href="{{ route('fulfillment.pack-scans.index', ['fulfillment_group_id' => $order->fulfillmentGroup->id]) }}" size="xs" variant="outline" wire:navigate>
+                        {{ __('fulfillment_pack.scan_history_title') }}
+                    </flux:button>
+                @endif
                 <flux:button href="{{ route('outbound.index') }}" variant="outline" wire:navigate>
                     {{ __('outbound.btn_back_to_index') }}
                 </flux:button>
@@ -84,42 +94,65 @@
             <div>
                 <strong>{{ __('outbound.section_recipient') }}</strong>
             </div>
+            @if (! $editingRecipient && $order->status === \App\Models\OutboundOrder::STATUS_PENDING)
+                <flux:button type="button" variant="outline" wire:click="editRecipient">{{ __('fulfillment_groups.btn_edit') }}</flux:button>
+            @endif
         </div>
 
-        <div class="balance-preview-grid">
-            <div>
-                <span>{{ __('outbound.field_recipient_name') }}</span>
-                <strong>{{ $order->recipient_name ?: '-' }}</strong>
+        @if ($editingRecipient)
+            <div class="form-grid three">
+                <flux:input wire:model="recipientName" :label="__('outbound.field_recipient_name')" />
+                <flux:input wire:model="recipientPhone" :label="__('outbound.field_recipient_phone')" />
+                <flux:input wire:model="recipientCountryCode" maxlength="2" :label="__('outbound.field_country_code')" />
+                <flux:input wire:model="recipientPostalCode" :label="__('outbound.field_postal_code')" />
+                <flux:input wire:model="recipientState" :label="__('outbound.field_state')" />
+                <flux:input wire:model="recipientCity" :label="__('outbound.field_city')" />
+                <flux:input wire:model="recipientAddressLine1" :label="__('outbound.field_address_line1')" />
+                <flux:input wire:model="recipientAddressLine2" :label="__('outbound.field_address_line2')" />
             </div>
-            <div>
-                <span>{{ __('outbound.field_recipient_phone') }}</span>
-                <strong>{{ $order->recipient_phone ?: '-' }}</strong>
+            @foreach (['recipient_name', 'recipient_phone', 'recipient_country_code', 'recipient_postal_code', 'recipient_state', 'recipient_city', 'recipient_address_line1', 'recipient_address_line2'] as $field)
+                @error($field) <p class="form-error">{{ $message }}</p> @enderror
+            @endforeach
+            <div class="form-actions">
+                <flux:button type="button" variant="outline" wire:click="cancelEditRecipient">{{ __('fulfillment_groups.btn_cancel') }}</flux:button>
+                <flux:button type="button" variant="primary" wire:click="saveRecipient">{{ __('fulfillment_groups.btn_save') }}</flux:button>
             </div>
-            <div>
-                <span>{{ __('outbound.field_country_code') }}</span>
-                <strong>{{ $order->recipient_country_code ?: '-' }}</strong>
+        @else
+            <div class="balance-preview-grid">
+                <div>
+                    <span>{{ __('outbound.field_recipient_name') }}</span>
+                    <strong>{{ $order->recipient_name ?: '-' }}</strong>
+                </div>
+                <div>
+                    <span>{{ __('outbound.field_recipient_phone') }}</span>
+                    <strong>{{ $order->recipient_phone ?: '-' }}</strong>
+                </div>
+                <div>
+                    <span>{{ __('outbound.field_country_code') }}</span>
+                    <strong>{{ $order->recipient_country_code ?: '-' }}</strong>
+                </div>
+                <div>
+                    <span>{{ __('outbound.field_postal_code') }}</span>
+                    <strong>{{ $order->recipient_postal_code ?: '-' }}</strong>
+                </div>
+                <div>
+                    <span>{{ __('outbound.field_state') }}</span>
+                    <strong>{{ $order->recipient_state ?: '-' }}</strong>
+                </div>
+                <div>
+                    <span>{{ __('outbound.field_city') }}</span>
+                    <strong>{{ $order->recipient_city ?: '-' }}</strong>
+                </div>
+                <div>
+                    <span>{{ __('outbound.field_address_line1') }}</span>
+                    <strong>{{ $order->recipient_address_line1 ?: '-' }}</strong>
+                </div>
+                <div>
+                    <span>{{ __('outbound.field_address_line2') }}</span>
+                    <strong>{{ $order->recipient_address_line2 ?: '-' }}</strong>
+                </div>
             </div>
-            <div>
-                <span>{{ __('outbound.field_postal_code') }}</span>
-                <strong>{{ $order->recipient_postal_code ?: '-' }}</strong>
-            </div>
-            <div>
-                <span>{{ __('outbound.field_state') }}</span>
-                <strong>{{ $order->recipient_state ?: '-' }}</strong>
-            </div>
-            <div>
-                <span>{{ __('outbound.field_city') }}</span>
-                <strong>{{ $order->recipient_city ?: '-' }}</strong>
-            </div>
-            <div>
-                <span>{{ __('outbound.field_address_line1') }}</span>
-                <strong>{{ $order->recipient_address_line1 ?: '-' }}</strong>
-            </div>
-            <div>
-                <span>{{ __('outbound.field_address_line2') }}</span>
-                <strong>{{ $order->recipient_address_line2 ?: '-' }}</strong>
-            </div>
-        </div>
+        @endif
     </section>
 
     <section class="table-shell flux-panel form-panel">
@@ -127,8 +160,28 @@
             <div>
                 <strong>{{ __('outbound.section_shipment') }}</strong>
             </div>
+            @if (! $editingShipping && $order->status === \App\Models\OutboundOrder::STATUS_PENDING)
+                <flux:button type="button" variant="outline" wire:click="editShipping">{{ __('fulfillment_groups.btn_edit') }}</flux:button>
+            @endif
         </div>
 
+        @if ($editingShipping)
+            <div class="form-grid three">
+                <flux:input wire:model="courier" :label="__('outbound.field_courier')" />
+                <flux:input wire:model="trackingNo" :label="__('outbound.field_tracking_no')" />
+                <label>
+                    <span>{{ __('outbound.field_note') }}</span>
+                    <textarea wire:model="note" rows="3"></textarea>
+                </label>
+            </div>
+            @foreach (['courier', 'tracking_no', 'note'] as $field)
+                @error($field) <p class="form-error">{{ $message }}</p> @enderror
+            @endforeach
+            <div class="form-actions">
+                <flux:button type="button" variant="outline" wire:click="cancelEditShipping">{{ __('fulfillment_groups.btn_cancel') }}</flux:button>
+                <flux:button type="button" variant="primary" wire:click="saveShipping">{{ __('fulfillment_groups.btn_save') }}</flux:button>
+            </div>
+        @else
         <div class="balance-preview-grid">
             <div>
                 <span>{{ __('outbound.field_shipping_method') }}</span>
@@ -163,6 +216,7 @@
                 <strong>{{ $order->ship_note ?: '-' }}</strong>
             </div>
         </div>
+        @endif
     </section>
 
     <section class="table-shell flux-panel form-panel">
@@ -217,6 +271,85 @@
             </flux:table.rows>
         </flux:table>
     </section>
+
+    @if ($order->salesOrders->isNotEmpty())
+        <section class="table-shell flux-panel form-panel">
+            <div class="form-panel-header">
+                <div>
+                    <strong>{{ __('fulfillment_groups.section_orders') }}</strong>
+                    <span>{{ trans_choice('fulfillment_groups.order_count', $order->salesOrders->count(), ['count' => $order->salesOrders->count()]) }}</span>
+                </div>
+            </div>
+
+            <flux:table class="data-table">
+                <flux:table.columns>
+                    <flux:table.column>{{ __('sales_orders.col_platform_order_id') }}</flux:table.column>
+                    <flux:table.column>{{ __('sales_orders.col_recipient') }}</flux:table.column>
+                    <flux:table.column align="end">{{ __('sales_orders.col_qty') }}</flux:table.column>
+                    <flux:table.column>{{ __('sales_orders.col_fulfillment_status') }}</flux:table.column>
+                </flux:table.columns>
+                <flux:table.rows>
+                    @foreach ($order->salesOrders as $salesOrder)
+                        <flux:table.row :key="$salesOrder->id">
+                            <flux:table.cell><strong>{{ $salesOrder->platform_order_id ?: '#'.$salesOrder->id }}</strong></flux:table.cell>
+                            <flux:table.cell>
+                                <strong>{{ $salesOrder->recipient_name ?: '-' }}</strong>
+                                <span class="subtle">{{ $salesOrder->recipient_city ?: '-' }}</span>
+                            </flux:table.cell>
+                            <flux:table.cell align="end">{{ number_format($salesOrder->lines->count()) }}</flux:table.cell>
+                            <flux:table.cell>{{ __('sales_orders.fulfillment_'.$salesOrder->fulfillment_status) }}</flux:table.cell>
+                        </flux:table.row>
+                    @endforeach
+                </flux:table.rows>
+            </flux:table>
+        </section>
+    @endif
+
+    @if ($order->fulfillmentGroup && $order->fulfillmentGroup->packScans->isNotEmpty())
+        <section class="table-shell flux-panel form-panel">
+            <div class="form-panel-header">
+                <div>
+                    <strong>{{ __('fulfillment_pack.scan_history_title') }}</strong>
+                    <span>{{ __('fulfillment_pack.scan_history_recent_hint') }}</span>
+                </div>
+                <flux:button href="{{ route('fulfillment.pack-scans.index', ['fulfillment_group_id' => $order->fulfillmentGroup->id]) }}" variant="outline" wire:navigate>
+                    {{ __('fulfillment_pack.view_all_scan_history') }}
+                </flux:button>
+            </div>
+
+            <flux:table class="data-table">
+                <flux:table.columns>
+                    <flux:table.column>{{ __('fulfillment_pack.scan_time') }}</flux:table.column>
+                    <flux:table.column>{{ __('fulfillment_pack.scan_result') }}</flux:table.column>
+                    <flux:table.column>{{ __('fulfillment_pack.barcode') }}</flux:table.column>
+                    <flux:table.column>{{ __('fulfillment_pack.matched_item') }}</flux:table.column>
+                    <flux:table.column align="end">{{ __('fulfillment_pack.qty') }}</flux:table.column>
+                    <flux:table.column>{{ __('fulfillment_pack.scanned_by') }}</flux:table.column>
+                </flux:table.columns>
+                <flux:table.rows>
+                    @foreach ($order->fulfillmentGroup->packScans as $scan)
+                        <flux:table.row :key="$scan->id">
+                            <flux:table.cell>{{ $scan->created_at?->format('Y-m-d H:i:s') ?: '-' }}</flux:table.cell>
+                            <flux:table.cell>
+                                <flux:badge color="{{ $scan->result === 'accepted' ? 'green' : (in_array($scan->result, ['wrong_item', 'over_scan'], true) ? 'red' : 'amber') }}">
+                                    {{ __('fulfillment_pack.scan_result_'.$scan->result) }}
+                                </flux:badge>
+                            </flux:table.cell>
+                            <flux:table.cell>{{ $scan->barcode_scanned }}</flux:table.cell>
+                            <flux:table.cell>
+                                <strong>{{ $scan->sku?->sku ?? $scan->stockItem?->code ?? '-' }}</strong>
+                                @if ($scan->stockItem)
+                                    <span class="subtle">{{ $scan->stockItem->code }} / {{ $scan->stockItem->short_name ?: $scan->stockItem->name }}</span>
+                                @endif
+                            </flux:table.cell>
+                            <flux:table.cell align="end">{{ number_format($scan->quantity) }}</flux:table.cell>
+                            <flux:table.cell>{{ $scan->scannedBy?->name ?: '-' }}</flux:table.cell>
+                        </flux:table.row>
+                    @endforeach
+                </flux:table.rows>
+            </flux:table>
+        </section>
+    @endif
 
     <style>
         .outbound-detail-actions {

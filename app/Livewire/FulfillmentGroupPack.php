@@ -283,7 +283,7 @@ class FulfillmentGroupPack extends Component
         }
 
         session()->flash('status', __('fulfillment_pack.pack_complete'));
-        $this->redirectRoute('fulfillment-groups.show', $group, navigate: true);
+        $this->redirectRoute('outbound.show', $group->outboundOrder, navigate: true);
     }
 
     public function render(FulfillmentPackService $service)

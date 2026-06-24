@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Livewire\FulfillmentPackScanIndex;
 use App\Models\FulfillmentGroup;
 use App\Models\FulfillmentPackScan;
+use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\Shop;
 use App\Models\Sku;
@@ -147,7 +148,7 @@ class FulfillmentPackScanHistoryTest extends TestCase
         [, $group] = $this->packScanFixture(barcode: 'GROUP-DETAIL-SCAN');
 
         $this->actingAs($this->internalUser())
-            ->get(route('fulfillment-groups.show', $group))
+            ->get(route('outbound.show', $group->outboundOrder))
             ->assertOk()
             ->assertSee('Scan History')
             ->assertSee('GROUP-DETAIL-SCAN')
@@ -193,6 +194,12 @@ class FulfillmentPackScanHistoryTest extends TestCase
             ->for($tenant)
             ->for($warehouse)
             ->create();
+        OutboundOrder::factory()->create([
+            'fulfillment_group_id' => $group->id,
+            'tenant_id' => $tenant->id,
+            'warehouse_id' => $warehouse->id,
+            'ref' => $group->reference_no,
+        ]);
         $user = $this->internalUser();
         $scan = FulfillmentPackScan::create([
             'tenant_id' => $tenant->id,

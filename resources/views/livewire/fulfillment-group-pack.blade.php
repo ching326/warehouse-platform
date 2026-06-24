@@ -17,7 +17,7 @@
                 <flux:button href="{{ route('fulfillment.pack-scans.index', ['fulfillment_group_id' => $group->id]) }}" variant="outline" wire:navigate>
                     {{ __('fulfillment_pack.scan_history_title') }}
                 </flux:button>
-                <flux:button href="{{ route('fulfillment-groups.show', $group) }}" variant="outline" wire:navigate>
+                <flux:button href="{{ route('outbound.show', $group->outboundOrder) }}" variant="outline" wire:navigate>
                     {{ __('fulfillment_groups.btn_back') }}
                 </flux:button>
             </div>

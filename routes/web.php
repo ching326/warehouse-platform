@@ -6,7 +6,6 @@ use App\Http\Controllers\FulfillmentTrackingImportController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\MarketplaceShippingNoticeDownloadController;
 use App\Livewire\FulfillmentGroupCreate;
-use App\Livewire\FulfillmentGroupDetail;
 use App\Livewire\FulfillmentGroupIndex;
 use App\Livewire\FulfillmentGroupPack;
 use App\Livewire\FulfillmentPickSummary;
@@ -132,7 +131,6 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/fulfillment-groups/create', FulfillmentGroupCreate::class)->name('fulfillment-groups.create');
     Route::get('/fulfillment-groups/{group}/pack', FulfillmentGroupPack::class)->name('fulfillment-groups.pack');
     Route::get('/fulfillment-groups/{group}/issues/create', IssueCreate::class)->name('fulfillment-groups.issues.create');
-    Route::get('/fulfillment-groups/{group}', FulfillmentGroupDetail::class)->name('fulfillment-groups.show');
     Route::get('/issues', IssueIndex::class)->name('issues.index');
     Route::get('/issues/create', IssueCreate::class)->name('issues.create');
     Route::get('/issues/{issue}', IssueShow::class)->name('issues.show');
