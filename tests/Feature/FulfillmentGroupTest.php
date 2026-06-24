@@ -495,6 +495,44 @@ class FulfillmentGroupTest extends TestCase
             ->assertDontSee('FG-HIDDEN');
     }
 
+    public function test_fulfillment_index_searches_platform_order_id_and_lists_all_order_ids(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $firstOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, '503-2780983-9214241');
+        $secondOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, '503-2780983-9214242');
+        $hiddenOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, '503-2780983-9999999', '2 Hidden Street');
+        $this->createGroup($tenant, $warehouse, $firstOrder->ship_together_key, [$firstOrder, $secondOrder]);
+        $shownGroup = FulfillmentGroup::query()->latest('id')->firstOrFail();
+        $this->createGroup($tenant, $warehouse, $hiddenOrder->ship_together_key, [$hiddenOrder]);
+        $hiddenGroup = FulfillmentGroup::query()->latest('id')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupIndex::class)
+            ->set('search', '503-2780983-9214241')
+            ->assertSee($shownGroup->reference_no)
+            ->assertSee('503-2780983-9214241')
+            ->assertSee('503-2780983-9214242')
+            ->assertDontSee('+1')
+            ->assertDontSee($hiddenGroup->reference_no);
+    }
+
+    public function test_detailed_toggle_shows_sku_lines_and_full_address(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-DETAILED');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+
+        $component = Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentGroupIndex::class)
+            ->assertDontSee($sku->sku)
+            ->assertDontSee('1 Shared Street');
+
+        $component->call('toggleDetailed')
+            ->assertSet('detailed', true)
+            ->assertSee($sku->sku)
+            ->assertSee('1 Shared Street');
+    }
+
     public function test_shipping_linked_outbound_order_back_writes_group_and_sales_orders(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
@@ -1403,6 +1441,7 @@ class FulfillmentGroupTest extends TestCase
         $this->assertCount(1, $queries);
         $this->assertStringContainsString('group by', strtolower($queries[0]));
     }
+
     public function test_accepted_scan_sets_last_scanned_line_key_and_marker(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);

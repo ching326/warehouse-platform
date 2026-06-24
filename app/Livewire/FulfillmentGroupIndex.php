@@ -10,6 +10,7 @@ use App\Models\Warehouse;
 use App\Services\Courier\CourierExportService;
 use App\Services\Outbound\ShipOutboundOrderService;
 use App\Support\CourierCarrier;
+use App\Support\SalesOrderFilters;
 use App\Support\TrackingNumber;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -23,22 +24,37 @@ class FulfillmentGroupIndex extends Component
 {
     use WithPagination;
 
-    #[Url(as: 'tenant_id', except: '')]
-    public string $tenantId = '';
+    /** @var array<int, string> */
+    #[Url(as: 'tenant_ids', except: [])]
+    public array $tenantIds = [];
 
     #[Url(as: 'warehouse_id', except: '')]
     public string $warehouseId = '';
 
-    #[Url(as: 'status', except: '')]
-    public string $statusFilter = '';
+    /** @var array<int, string> */
+    #[Url(as: 'statuses', except: [])]
+    public array $statusesFilter = [];
 
     #[Url(as: 'print_waiting', except: false)]
     public bool $printWaiting = false;
 
+    /** @var array<int, string> */
+    #[Url(as: 'shipping', except: [])]
+    public array $shippingMethodsFilter = [];
+
+    /** @var array<int, string> */
+    #[Url(as: 'others', except: [])]
+    public array $othersFilter = [];
+
     #[Url(as: 'q', except: '')]
     public string $search = '';
 
+    #[Url(as: 'detailed', except: false)]
+    public bool $detailed = false;
+
     public array $selectedIds = [];
+
+    public array $visibleGroupIds = [];
 
     public array $noteDrafts = [];
 
@@ -61,7 +77,7 @@ class FulfillmentGroupIndex extends Component
         $this->authorizeTenantAccess();
     }
 
-    public function updatedTenantId(): void
+    public function updatedTenantIds(): void
     {
         $this->resetPage();
     }
@@ -71,7 +87,7 @@ class FulfillmentGroupIndex extends Component
         $this->resetPage();
     }
 
-    public function updatedStatusFilter(): void
+    public function updatedStatusesFilter(): void
     {
         $this->resetPage();
     }
@@ -81,9 +97,24 @@ class FulfillmentGroupIndex extends Component
         $this->resetPage();
     }
 
+    public function updatedShippingMethodsFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedOthersFilter(): void
+    {
+        $this->resetPage();
+    }
+
     public function updatedSearch(): void
     {
         $this->resetPage();
+    }
+
+    public function toggleDetailed(): void
+    {
+        $this->detailed = ! $this->detailed;
     }
 
     public function statusLabel(string $status): string
@@ -317,28 +348,63 @@ class FulfillmentGroupIndex extends Component
                 'groupOrders:id,fulfillment_group_id,sales_order_id,tracking_no,arranged_at,shipped_at',
                 'groupOrders.salesOrder:id,shop_id,platform_order_id,courier_csv_exported_at,shipping_method',
                 'groupOrders.salesOrder.shop:id,name',
-                'groupOrders.salesOrder.lines:id,sales_order_id,quantity',
+                'groupOrders.salesOrder.lines:id,sales_order_id,sku_id,quantity',
             ])
+            ->when($this->detailed, fn ($query) => $query->with([
+                'groupOrders.salesOrder.lines.sku:id,sku,name,stock_item_id',
+                'groupOrders.salesOrder.lines.sku.stockItem:id,short_name,name',
+            ]))
             ->withCount('orders')
             ->withMin('groupOrders', 'arranged_at')
             ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->when($this->tenantId !== '', fn ($query) => $query->where('tenant_id', (int) $this->tenantId))
+            ->when($this->tenantIds !== [], fn ($query) => $query
+                ->whereIn('tenant_id', array_map('intval', $this->tenantIds)))
             ->when($this->warehouseId !== '', fn ($query) => $query->where('warehouse_id', (int) $this->warehouseId))
-            ->when($this->statusFilter !== '', fn ($query) => $query->where('status', $this->statusFilter))
+            ->when($this->statusesFilter !== [], fn ($query) => $query->whereIn('status', $this->statusesFilter))
             ->when($this->printWaiting, fn ($query) => $query
                 ->whereHas('groupOrders.salesOrder', fn ($sub) => $sub->whereNull('courier_csv_exported_at')))
+            ->when(in_array(SalesOrderFilters::OTHER_PRINTED, $this->othersFilter, true), fn ($query) => $query
+                ->whereHas('groupOrders.salesOrder', fn ($sub) => $sub->whereNotNull('courier_csv_exported_at')))
+            ->when(in_array(SalesOrderFilters::OTHER_NOT_PRINTED, $this->othersFilter, true), fn ($query) => $query
+                ->whereHas('groupOrders.salesOrder', fn ($sub) => $sub->whereNull('courier_csv_exported_at')))
+            ->when($this->shippingMethodsFilter !== [], function ($query) {
+                $query->where(function ($inner) {
+                    $methodIds = array_values(array_filter(
+                        $this->shippingMethodsFilter,
+                        fn ($value): bool => ctype_digit((string) $value),
+                    ));
+                    $hasEmpty = in_array(SalesOrderFilters::EMPTY_SHIPPING, $this->shippingMethodsFilter, true);
+
+                    if ($methodIds !== []) {
+                        $inner->whereIn('shipping_method_id', array_map('intval', $methodIds));
+                    }
+
+                    if ($hasEmpty) {
+                        $methodIds !== []
+                            ? $inner->orWhereNull('shipping_method_id')
+                            : $inner->whereNull('shipping_method_id');
+                    }
+                });
+            })
+            ->when(in_array(SalesOrderFilters::OTHER_MULTI_ITEM, $this->othersFilter, true), fn ($query) => $query
+                ->where(fn ($inner) => $inner
+                    ->whereHas('groupOrders.salesOrder.lines', fn ($line) => $line->where('quantity', '>', 1))
+                    ->orWhereHas('groupOrders.salesOrder.lines', fn ($line) => $line, '>=', 2)))
             ->when($this->search !== '', function ($query) {
                 $like = '%'.$this->search.'%';
 
                 $query->where(fn ($inner) => $inner
                     ->where('reference_no', 'like', $like)
                     ->orWhere('recipient_name', 'like', $like)
-                    ->orWhereHas('groupOrders', fn ($sub) => $sub->where('tracking_no', 'like', $like)));
+                    ->orWhereHas('groupOrders', fn ($sub) => $sub->where('tracking_no', 'like', $like))
+                    ->orWhereHas('groupOrders.salesOrder', fn ($sub) => $sub->where('platform_order_id', 'like', $like)));
             })
             ->orderByRaw('group_orders_min_arranged_at is null')
             ->orderBy('group_orders_min_arranged_at')
             ->orderBy('id')
             ->paginate(30);
+
+        $this->visibleGroupIds = $groups->getCollection()->pluck('id')->map(fn ($id) => (int) $id)->all();
 
         foreach ($groups as $group) {
             $this->noteDrafts[$group->id] ??= $group->note ?? '';
@@ -358,14 +424,18 @@ class FulfillmentGroupIndex extends Component
                 ->where('status', 'active')
                 ->orderBy('name')
                 ->get(['id', 'code', 'name']),
-            'shippingMethods' => ShippingMethod::query()
-                ->where('status', 'active')
-                ->orderBy('name')
-                ->get(['id', 'name'])
+            'shippingMethods' => $shippingMethods = ShippingMethod::query()
+                ->where('shipping_methods.status', 'active')
+                ->ordered()
+                ->get()
                 ->mapWithKeys(fn (ShippingMethod $method) => [(string) $method->id => $method->name])
                 ->all(),
+            'shippingMethodFilterOptions' => $shippingMethods + [
+                SalesOrderFilters::EMPTY_SHIPPING => __('fulfillment_groups.shipping_method_unset'),
+            ],
             'statuses' => $this->statuses(),
             'showTenantFilter' => $this->isInternalUser(),
+            'visibleGroupIds' => $this->visibleGroupIds,
         ])->layout('inventory', [
             'title' => __('fulfillment_groups.page_title'),
             'subtitle' => __('fulfillment_groups.page_subtitle'),

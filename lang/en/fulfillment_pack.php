@@ -1,8 +1,8 @@
 <?php
 
 return [
-    'page_title' => 'Pack Check',
-    'start_page_title' => 'Start Pack Check',
+    'page_title' => 'Scan Pack',
+    'start_page_title' => 'Start Scan Pack',
     'scan_tracking_label' => 'Scan tracking no.',
     'scan_tracking_helper' => 'Scan a shipping label barcode for the selected warehouse and shipping method.',
     'scan_tracking_placeholder' => 'Tracking number',
