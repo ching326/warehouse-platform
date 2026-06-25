@@ -24,9 +24,7 @@ class SagawaCsvBuilder
         '編集０７', '編集０８', '編集０９', '編集１０',
     ];
 
-    public function __construct(private JapaneseAddressSplitter $splitter)
-    {
-    }
+    public function __construct(private JapaneseAddressSplitter $splitter) {}
 
     public function build(Collection $orders, CarbonImmutable $now): string
     {

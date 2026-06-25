@@ -4,6 +4,4 @@ namespace App\Services\Amazon;
 
 use RuntimeException;
 
-class AmazonSpapiApiException extends RuntimeException
-{
-}
+class AmazonSpapiApiException extends RuntimeException {}

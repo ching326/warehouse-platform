@@ -22,8 +22,7 @@ class MarketplaceShippingNoticeValidationResult
         public array $noReadyLinesOrderIds,
         public array $alreadyExportedOrderIds,
         public string $message,
-    ) {
-    }
+    ) {}
 
     public function toArray(): array
     {

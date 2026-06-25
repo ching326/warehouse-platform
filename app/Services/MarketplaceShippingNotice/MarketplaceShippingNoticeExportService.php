@@ -18,13 +18,13 @@ use RuntimeException;
 class MarketplaceShippingNoticeExportService
 {
     public const PLATFORM_AMAZON = 'amazon';
+
     public const PLATFORM_RAKUTEN = 'rakuten';
 
     public function __construct(
         private AmazonShippingNoticeBuilder $amazonBuilder,
         private RakutenShippingNoticeBuilder $rakutenBuilder,
-    ) {
-    }
+    ) {}
 
     public function validateExport(array $salesOrderIds, string $platform, array $allowedTenantIds): MarketplaceShippingNoticeValidationResult
     {

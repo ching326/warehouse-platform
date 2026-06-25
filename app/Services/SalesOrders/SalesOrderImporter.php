@@ -18,7 +18,7 @@ class SalesOrderImporter
     ) {}
 
     /**
-     * @param array<int,array<string,mixed>> $rows
+     * @param  array<int,array<string,mixed>>  $rows
      */
     public function import(Shop $shop, array $rows, ?int $userId = null): SalesOrderImportResult
     {
@@ -102,7 +102,7 @@ class SalesOrderImporter
     }
 
     /**
-     * @param array<int,array<string,mixed>> $rows
+     * @param  array<int,array<string,mixed>>  $rows
      */
     public function assertImportable(array $rows): void
     {
@@ -129,7 +129,7 @@ class SalesOrderImporter
     }
 
     /**
-     * @param array<int,array<string,mixed>> $rows
+     * @param  array<int,array<string,mixed>>  $rows
      * @return array<string,array<int,array<string,mixed>>>
      */
     private function importableGroups(array $rows): array
@@ -153,7 +153,7 @@ class SalesOrderImporter
     }
 
     /**
-     * @param array<int,array<string,mixed>> $rows
+     * @param  array<int,array<string,mixed>>  $rows
      */
     private function previewDuplicateCount(array $rows): int
     {
@@ -166,8 +166,8 @@ class SalesOrderImporter
     }
 
     /**
-     * @param array<int,array<string,mixed>> $rows
-     * @param array<string,mixed> $first
+     * @param  array<int,array<string,mixed>>  $rows
+     * @param  array<string,mixed>  $first
      * @return array{shipping_method_id: ?int, shipping_method: ?string}
      */
     private function resolvedShippingMethod(int $tenantId, array $rows, array $first): array

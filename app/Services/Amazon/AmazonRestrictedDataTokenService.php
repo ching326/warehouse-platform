@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 class AmazonRestrictedDataTokenService
 {
     /**
-     * @param array<int,array<string,mixed>> $resources
+     * @param  array<int,array<string,mixed>>  $resources
      */
     public function create(AmazonSpapiConnection $connection, string $accessToken, array $resources): string
     {

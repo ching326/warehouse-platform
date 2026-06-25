@@ -16,8 +16,7 @@ class CourierExportValidationResult
         public array $alreadyExportedOrderIds,
         public array $noReadyLinesOrderIds,
         public string $message,
-    ) {
-    }
+    ) {}
 
     public function toArray(): array
     {

@@ -8,7 +8,7 @@ use App\Models\Sku;
 class SkuDefaultShippingMethodResolver
 {
     /**
-     * @param array<int> $skuIds
+     * @param  array<int>  $skuIds
      * @return array{status: 'winner'|'tie'|'none', shipping_method_id: ?int, shipping_method: ?string}
      */
     public function resolve(int $tenantId, array $skuIds): array

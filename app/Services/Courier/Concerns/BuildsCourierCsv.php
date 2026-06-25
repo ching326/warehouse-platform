@@ -2,6 +2,8 @@
 
 namespace App\Services\Courier\Concerns;
 
+use App\Models\SalesOrderLine;
+
 trait BuildsCourierCsv
 {
     private function encodeRows(array $rows): string
@@ -51,7 +53,7 @@ trait BuildsCourierCsv
 
     private function normalizeCourierLine($line): ?object
     {
-        if ($line instanceof \App\Models\SalesOrderLine && $line->line_status !== \App\Models\SalesOrderLine::STATUS_READY) {
+        if ($line instanceof SalesOrderLine && $line->line_status !== SalesOrderLine::STATUS_READY) {
             return null;
         }
 

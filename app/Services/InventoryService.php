@@ -255,7 +255,7 @@ class InventoryService
     }
 
     /**
-     * @param callable(InventoryBalance): int|null $mutate
+     * @param  callable(InventoryBalance): int|null  $mutate
      */
     private function changeBalance(
         int $tenantId,
@@ -343,8 +343,8 @@ class InventoryService
     }
 
     /**
-     * @param array{on_hand:int,reserved:int,available:int,inbound:int,hold:int,damaged:int} $before
-     * @param array{on_hand:int,reserved:int,available:int,inbound:int,hold:int,damaged:int} $after
+     * @param  array{on_hand:int,reserved:int,available:int,inbound:int,hold:int,damaged:int}  $before
+     * @param  array{on_hand:int,reserved:int,available:int,inbound:int,hold:int,damaged:int}  $after
      * @return array{on_hand:int,reserved:int,available:int,inbound:int,hold:int,damaged:int}
      */
     private function bucketDeltas(array $before, array $after): array

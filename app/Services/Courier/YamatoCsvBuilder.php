@@ -20,9 +20,7 @@ class YamatoCsvBuilder
         '請求先顧客コード', '請求先分類コード', '運賃管理番号',
     ];
 
-    public function __construct(private JapaneseAddressSplitter $splitter)
-    {
-    }
+    public function __construct(private JapaneseAddressSplitter $splitter) {}
 
     public function build(Collection $orders, CarbonImmutable $now): string
     {

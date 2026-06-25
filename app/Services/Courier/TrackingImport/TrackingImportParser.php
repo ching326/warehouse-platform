@@ -7,8 +7,11 @@ use SplTempFileObject;
 class TrackingImportParser
 {
     public const STATUS_READY = 'ready';
+
     public const STATUS_MISSING_ORDER = 'missing_order';
+
     public const STATUS_MISSING_TRACKING = 'missing_tracking';
+
     public const STATUS_SKIPPED = 'skipped';
 
     /**
@@ -69,7 +72,7 @@ class TrackingImportParser
     private function parseDelimited(string $contents, string $delimiter): array
     {
         $contents = str_replace(["\r\n", "\r"], "\n", $contents);
-        $file = new SplTempFileObject();
+        $file = new SplTempFileObject;
         $file->fwrite($contents);
         $file->rewind();
         $file->setFlags(SplTempFileObject::READ_CSV | SplTempFileObject::SKIP_EMPTY);

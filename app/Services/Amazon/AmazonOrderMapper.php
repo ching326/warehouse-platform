@@ -12,8 +12,8 @@ use Illuminate\Support\Collection;
 class AmazonOrderMapper
 {
     /**
-     * @param array<int,array<string,mixed>> $orders
-     * @param array<string,array<int,array<string,mixed>>> $itemsByOrder
+     * @param  array<int,array<string,mixed>>  $orders
+     * @param  array<string,array<int,array<string,mixed>>>  $itemsByOrder
      * @return array<int,array<string,mixed>>
      */
     public function map(Shop $shop, array $orders, array $itemsByOrder): array
@@ -35,27 +35,32 @@ class AmazonOrderMapper
 
             if ($status === 'Pending') {
                 $rows[] = $this->singlePreviewRow($shop, $order, $rowNo++, 'not_actionable', __('amazon_spapi_import.pending_not_actionable'));
+
                 continue;
             }
 
             if ($status === 'Shipped') {
                 $rows[] = $this->singlePreviewRow($shop, $order, $rowNo++, 'not_actionable', __('amazon_spapi_import.shipped_not_actionable'));
+
                 continue;
             }
 
             if ($existingOrder && $cancelRequested) {
                 $rows[] = $this->singlePreviewRow($shop, $order, $rowNo++, 'existing_cancel_requested', __('amazon_spapi_import.status_existing_cancel_requested'));
+
                 continue;
             }
 
             if ($existingOrder) {
                 $rows[] = $this->singlePreviewRow($shop, $order, $rowNo++, 'duplicate', __('amazon_spapi_import.status_duplicate'));
+
                 continue;
             }
 
             $mappedOrderStatus = $this->mappedOrderStatus($status, $cancelRequested);
             if ($mappedOrderStatus === null) {
                 $rows[] = $this->singlePreviewRow($shop, $order, $rowNo++, 'api_warning', __('amazon_spapi_import.unknown_status', ['status' => $status]));
+
                 continue;
             }
 
@@ -69,6 +74,7 @@ class AmazonOrderMapper
             $items = $itemsByOrder[$amazonOrderId] ?? [];
             if ($items === []) {
                 $rows[] = $this->singlePreviewRow($shop, $order, $rowNo++, 'api_warning', __('amazon_spapi_import.no_items'));
+
                 continue;
             }
 
