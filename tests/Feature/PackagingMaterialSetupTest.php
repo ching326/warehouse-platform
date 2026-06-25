@@ -158,8 +158,8 @@ class PackagingMaterialSetupTest extends TestCase
             ->assertRedirect(route('setup.packagings.index'));
 
         $this->assertDatabaseHas('packaging_materials', [
-            'id'     => $packaging->id,
-            'name'   => 'New Name',
+            'id' => $packaging->id,
+            'name' => 'New Name',
             'status' => 'inactive',
         ]);
     }
@@ -207,8 +207,8 @@ class PackagingMaterialSetupTest extends TestCase
 
         TenantUser::factory()->create([
             'tenant_id' => $tenant->id,
-            'user_id'   => $user->id,
-            'status'    => 'active',
+            'user_id' => $user->id,
+            'status' => 'active',
         ]);
 
         return $user;

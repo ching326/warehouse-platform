@@ -542,7 +542,7 @@ class SalesOrderExportTest extends TestCase
     }
 
     /**
-     * @param array<int,array<int,mixed>> $rows
+     * @param  array<int,array<int,mixed>>  $rows
      */
     private function csv(array $rows): string
     {
@@ -588,7 +588,7 @@ class SalesOrderExportTest extends TestCase
     }
 
     /**
-     * @param array<int,array{0: Sku, 1: int, 2?: string}> $lines
+     * @param  array<int,array{0: Sku, 1: int, 2?: string}>  $lines
      */
     private function orderWithLines(Shop $shop, array $lines, array $attributes = []): SalesOrder
     {

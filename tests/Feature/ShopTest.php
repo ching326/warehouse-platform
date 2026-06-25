@@ -277,10 +277,10 @@ class ShopTest extends TestCase
         $tenant = Tenant::factory()->create(['status' => 'active']);
         $shop = Shop::factory()->create([
             'tenant_id' => $tenant->id,
-            'code'      => 'OLD-01',
-            'name'      => 'Old Name',
-            'platform'  => 'amazon',
-            'status'    => 'active',
+            'code' => 'OLD-01',
+            'name' => 'Old Name',
+            'platform' => 'amazon',
+            'status' => 'active',
         ]);
 
         Livewire::actingAs($this->internalUser())
@@ -292,8 +292,8 @@ class ShopTest extends TestCase
             ->assertRedirect(route('setup.shops.index'));
 
         $this->assertDatabaseHas('shops', [
-            'id'     => $shop->id,
-            'name'   => 'New Name',
+            'id' => $shop->id,
+            'name' => 'New Name',
             'status' => 'inactive',
             'consolidation_mode' => Shop::CONSOLIDATION_NONE,
         ]);
@@ -315,8 +315,8 @@ class ShopTest extends TestCase
         $tenant = Tenant::factory()->create(['status' => 'active']);
         $shop = Shop::factory()->create([
             'tenant_id' => $tenant->id,
-            'code'      => 'KEEP-01',
-            'platform'  => 'amazon',
+            'code' => 'KEEP-01',
+            'platform' => 'amazon',
             'marketplace' => '',
         ]);
 

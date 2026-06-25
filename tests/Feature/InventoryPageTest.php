@@ -213,7 +213,7 @@ class InventoryPageTest extends TestCase
 
     public function test_available_status_classes_use_simple_stock_thresholds(): void
     {
-        $component = new InventoryIndex();
+        $component = new InventoryIndex;
 
         $this->assertSame('available available-danger', $component->availableStatusClass(0));
         $this->assertSame('available available-warning', $component->availableStatusClass(10));

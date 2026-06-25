@@ -62,8 +62,8 @@ class OtherSettingsTest extends TestCase
     public function test_save_updates_existing_product_type(): void
     {
         $type = ProductType::create([
-            'slug'       => 'old-slug',
-            'name'       => 'Old Name',
+            'slug' => 'old-slug',
+            'name' => 'Old Name',
             'sort_order' => 10,
         ]);
 
@@ -74,7 +74,7 @@ class OtherSettingsTest extends TestCase
             ->call('save');
 
         $this->assertDatabaseHas('product_types', [
-            'id'   => $type->id,
+            'id' => $type->id,
             'name' => 'New Name',
         ]);
     }
@@ -111,8 +111,8 @@ class OtherSettingsTest extends TestCase
 
         TenantUser::factory()->create([
             'tenant_id' => $tenant->id,
-            'user_id'   => $user->id,
-            'status'    => 'active',
+            'user_id' => $user->id,
+            'status' => 'active',
         ]);
 
         return $user;

@@ -207,8 +207,8 @@ class WarehouseLocationTest extends TestCase
             ->assertRedirect(route('setup.locations.index'));
 
         $this->assertDatabaseHas('warehouse_locations', [
-            'id'     => $location->id,
-            'name'   => 'Updated Name',
+            'id' => $location->id,
+            'name' => 'Updated Name',
             'status' => 'inactive',
         ]);
     }

@@ -22,6 +22,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Models\WarehouseLocation;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -44,7 +45,7 @@ class ReturnOrderTest extends TestCase
     {
         $tenant = Tenant::factory()->create(['code' => 'acme']);
 
-        $no = ReturnOrder::buildReturnNo(7, $tenant->code, \Carbon\CarbonImmutable::create(2026, 6, 23, 0, 0, 0, 'Asia/Tokyo'));
+        $no = ReturnOrder::buildReturnNo(7, $tenant->code, CarbonImmutable::create(2026, 6, 23, 0, 0, 0, 'Asia/Tokyo'));
 
         $this->assertSame('RTN-ACME-260623-007', $no);
     }
@@ -396,4 +397,3 @@ class ReturnOrderTest extends TestCase
         ], $attributes));
     }
 }
-
