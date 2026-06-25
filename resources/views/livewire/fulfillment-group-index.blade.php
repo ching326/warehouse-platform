@@ -313,7 +313,7 @@
                 @forelse ($orders as $order)
                     @php
                         $salesOrders = $order->salesOrders;
-                        $reference = $order->fulfillmentGroup?->reference_no ?? $order->ref;
+                        $reference = $order->ref;
                         $orderIds = $salesOrders
                             ->map(fn ($so) => $so->platform_order_id)
                             ->filter()

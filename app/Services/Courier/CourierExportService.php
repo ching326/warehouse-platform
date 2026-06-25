@@ -20,8 +20,7 @@ class CourierExportService
     public function __construct(
         private YamatoCsvBuilder $yamatoCsvBuilder,
         private SagawaCsvBuilder $sagawaCsvBuilder,
-    ) {
-    }
+    ) {}
 
     public function validateOrderExport(array $outboundOrderIds, string $carrier, array $allowedTenantIds): CourierExportValidationResult
     {
@@ -180,8 +179,6 @@ class CourierExportService
                             'exported_at' => $exportedAt,
                         ]);
 
-                        $so->update(['courier_csv_exported_at' => $exportedAt]);
-
                         $properties = [
                             'carrier' => $carrier,
                             'batch_id' => $batch->id,
@@ -190,10 +187,6 @@ class CourierExportService
                             'outbound_order_ref' => $order->ref,
                             're_export' => $confirmedReExport,
                         ];
-                        if ($order->fulfillment_group_id !== null) {
-                            $properties['fulfillment_group_id'] = $order->fulfillment_group_id;
-                            $properties['fulfillment_group_reference_no'] = $order->ref;
-                        }
 
                         activity('sales_order')
                             ->performedOn($so)

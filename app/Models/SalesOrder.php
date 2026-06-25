@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -18,21 +17,33 @@ class SalesOrder extends Model
     use HasFactory, LogsActivity;
 
     public const ORDER_STATUS_PENDING = 'pending';
+
     public const ORDER_STATUS_ON_HOLD = 'on_hold';
+
     public const ORDER_STATUS_BACKORDER = 'backorder';
+
     public const ORDER_STATUS_CANCEL_REQUESTED = 'cancel_requested';
+
     public const ORDER_STATUS_CANCELLED = 'cancelled';
+
     public const ORDER_STATUS_COMPLETED = 'completed';
 
     public const FULFILLMENT_STATUS_UNFULFILLED = 'unfulfilled';
+
     public const FULFILLMENT_STATUS_READY = 'ready';
+
     public const FULFILLMENT_STATUS_ARRANGED = 'arranged';
+
     public const FULFILLMENT_STATUS_SHIPPED = 'shipped';
+
     public const FULFILLMENT_STATUS_CANCELLED = 'cancelled';
 
     public const SOURCE_MANUAL = 'manual';
+
     public const SOURCE_CSV = 'csv';
+
     public const SOURCE_AMAZON_REPORT = 'amazon_report';
+
     public const SOURCE_API = 'api';
 
     protected $fillable = [
@@ -48,7 +59,6 @@ class SalesOrder extends Model
         'shipping_method',
         'shipping_method_id',
         'tracking_no',
-        'courier_csv_exported_at',
         'marketplace_shipping_notice_exported_at',
         'shipped_at',
         'recipient_name',
@@ -70,7 +80,6 @@ class SalesOrder extends Model
             'platform_ordered_at' => 'datetime',
             'order_date' => 'datetime',
             'latest_ship_at' => 'datetime',
-            'courier_csv_exported_at' => 'datetime',
             'marketplace_shipping_notice_exported_at' => 'datetime',
             'shipped_at' => 'datetime',
         ];
@@ -146,11 +155,6 @@ class SalesOrder extends Model
         return $this->hasMany(Issue::class);
     }
 
-    public function fulfillmentGroupOrders(): HasMany
-    {
-        return $this->hasMany(FulfillmentGroupOrder::class);
-    }
-
     public function outboundOrders(): BelongsToMany
     {
         return $this->belongsToMany(OutboundOrder::class, 'outbound_order_sales_order')
@@ -175,14 +179,6 @@ class SalesOrder extends Model
     public function isPacking(): bool
     {
         return $this->activeOutboundOrder()?->courier_csv_exported_at !== null;
-    }
-
-    public function activeFulfillmentGroupOrder(): HasOne
-    {
-        return $this->hasOne(FulfillmentGroupOrder::class)
-            ->whereHas('fulfillmentGroup', fn ($query) => $query
-                ->where('status', '!=', FulfillmentGroup::STATUS_CANCELLED))
-            ->latestOfMany();
     }
 
     public function recalculateShipTogetherKey(): void

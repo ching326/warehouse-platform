@@ -8,8 +8,6 @@ use Illuminate\Support\Facades\DB;
 class BackfillNormalizedTrackingNumbers
 {
     private const TARGETS = [
-        'fulfillment_groups',
-        'fulfillment_group_orders',
         'sales_orders',
         'outbound_orders',
         'return_orders',

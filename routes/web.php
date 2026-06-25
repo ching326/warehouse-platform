@@ -1,46 +1,51 @@
 <?php
 
-use App\Http\Controllers\SalesOrderExportController;
 use App\Http\Controllers\CourierExportDownloadController;
 use App\Http\Controllers\FulfillmentTrackingImportController;
-use App\Http\Controllers\MediaController;
+use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MarketplaceShippingNoticeDownloadController;
+use App\Http\Controllers\MediaController;
+use App\Http\Controllers\SalesOrderExportController;
+use App\Livewire\AmazonSpapiOrderImport;
 use App\Livewire\FulfillmentGroupCreate;
 use App\Livewire\FulfillmentGroupIndex;
 use App\Livewire\FulfillmentGroupPack;
-use App\Livewire\FulfillmentPickSummary;
 use App\Livewire\FulfillmentPackScanIndex;
 use App\Livewire\FulfillmentPackStart;
-use App\Livewire\IssueCreate;
-use App\Livewire\IssueIndex;
-use App\Livewire\IssueShow;
-use App\Livewire\InventoryIndex;
-use App\Livewire\InventoryMovementsIndex;
+use App\Livewire\FulfillmentPickSummary;
 use App\Livewire\InboundOrderCreate;
 use App\Livewire\InboundOrderDetail;
 use App\Livewire\InboundOrderIndex;
 use App\Livewire\InboundOrderReceive;
+use App\Livewire\InventoryIndex;
+use App\Livewire\InventoryMovementsIndex;
+use App\Livewire\IssueCreate;
+use App\Livewire\IssueIndex;
+use App\Livewire\IssueShow;
+use App\Livewire\OtherSettings;
+use App\Livewire\OutboundOrderCreate;
+use App\Livewire\OutboundOrderDetail;
+use App\Livewire\OutboundOrderIndex;
+use App\Livewire\OutboundOrderShip;
+use App\Livewire\PackagingMaterialCreate;
+use App\Livewire\PackagingMaterialEdit;
+use App\Livewire\PackagingMaterialIndex;
 use App\Livewire\ReturnOrderCreate;
 use App\Livewire\ReturnOrderDisposition;
 use App\Livewire\ReturnOrderIndex;
 use App\Livewire\ReturnOrderInspect;
 use App\Livewire\ReturnOrderReceive;
 use App\Livewire\ReturnOrderShow;
-use App\Livewire\OutboundOrderCreate;
-use App\Livewire\OutboundOrderDetail;
-use App\Livewire\OutboundOrderIndex;
-use App\Livewire\OutboundOrderShip;
-use App\Livewire\AmazonSpapiOrderImport;
 use App\Livewire\SalesOrderCreate;
 use App\Livewire\SalesOrderDetail;
 use App\Livewire\SalesOrderImport;
 use App\Livewire\SalesOrderIndex;
-use App\Livewire\ShopCreate;
-use App\Livewire\ShopEdit;
-use App\Livewire\ShopIndex;
 use App\Livewire\ShippingMethodCreate;
 use App\Livewire\ShippingMethodEdit;
 use App\Livewire\ShippingMethodIndex;
+use App\Livewire\ShopCreate;
+use App\Livewire\ShopEdit;
+use App\Livewire\ShopIndex;
 use App\Livewire\SkuCreate;
 use App\Livewire\SkusIndex;
 use App\Livewire\StockAdjustmentCreate;
@@ -50,27 +55,25 @@ use App\Livewire\TenantIndex;
 use App\Livewire\WarehouseCreate;
 use App\Livewire\WarehouseEdit;
 use App\Livewire\WarehouseIndex;
-use App\Livewire\OtherSettings;
-use App\Livewire\PackagingMaterialCreate;
-use App\Livewire\PackagingMaterialEdit;
-use App\Livewire\PackagingMaterialIndex;
 use App\Livewire\WarehouseLocationCreate;
 use App\Livewire\WarehouseLocationEdit;
 use App\Livewire\WarehouseLocationIndex;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/locale/{locale}', \App\Http\Controllers\LocaleController::class)
+Route::post('/locale/{locale}', LocaleController::class)
     ->name('locale.switch');
 
 if (app()->environment('local')) {
     Route::get('/dev-login', function () {
-        $user = \App\Models\User::query()
+        $user = User::query()
             ->where('user_type', 'internal')
             ->where('is_active', true)
             ->first();
 
         if (! $user) {
-            $user = \App\Models\User::create([
+            $user = User::create([
                 'name' => 'Warehouse Admin',
                 'email' => 'admin@warehouse.test',
                 'password' => 'password',
@@ -79,14 +82,14 @@ if (app()->environment('local')) {
             ]);
         }
 
-        \Illuminate\Support\Facades\Auth::login($user);
+        Auth::login($user);
         request()->session()->regenerate();
 
         return redirect()->intended(route('inventory.index'));
     })->name('dev.login');
 
     Route::get('/dev-logout', function () {
-        \Illuminate\Support\Facades\Auth::logout();
+        Auth::logout();
         request()->session()->invalidate();
         request()->session()->regenerateToken();
 
@@ -130,7 +133,6 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/fulfillment/pack-scans', FulfillmentPackScanIndex::class)->name('fulfillment.pack-scans.index');
     Route::post('/fulfillment-groups/tracking-import', FulfillmentTrackingImportController::class)->name('fulfillment.tracking-import');
     Route::get('/fulfillment-groups/create', FulfillmentGroupCreate::class)->name('fulfillment-groups.create');
-    Route::get('/fulfillment-groups/{group}/issues/create', IssueCreate::class)->name('fulfillment-groups.issues.create');
     Route::get('/issues', IssueIndex::class)->name('issues.index');
     Route::get('/issues/create', IssueCreate::class)->name('issues.create');
     Route::get('/issues/{issue}', IssueShow::class)->name('issues.show');
@@ -157,4 +159,3 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/setup/other-settings', OtherSettings::class)->name('setup.other-settings');
     Route::get('/stock-adjustments/create', StockAdjustmentCreate::class)->name('stock-adjustments.create');
 });
-

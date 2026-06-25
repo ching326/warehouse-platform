@@ -6,6 +6,7 @@ use App\Actions\BackfillSalesOrderDate;
 use App\Livewire\SalesOrderCreate;
 use App\Livewire\SalesOrderDetail;
 use App\Livewire\SalesOrderIndex;
+use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\ShippingMethod;
@@ -1385,10 +1386,13 @@ class SalesOrderTest extends TestCase
         $multiQty->lines()->firstOrFail()->update(['quantity' => 2]);
         $cancelledExtra = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'OTHER-CANCELLED-EXTRA']);
         $cancelledExtra->lines()->create(['sku_id' => $extraSku->id, 'quantity' => 5, 'line_status' => SalesOrderLine::STATUS_CANCELLED]);
-        $printed = $this->createPersistedOrder($shop, $sku, [
-            'platform_order_id' => 'OTHER-PRINTED',
+        $printed = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'OTHER-PRINTED']);
+        $printedOutbound = OutboundOrder::factory()->for($tenant)->create([
+            'reason' => OutboundOrder::REASON_CUSTOMER_ORDER,
+            'status' => OutboundOrder::STATUS_PENDING,
             'courier_csv_exported_at' => now(),
         ]);
+        $printedOutbound->salesOrders()->attach($printed->id);
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)

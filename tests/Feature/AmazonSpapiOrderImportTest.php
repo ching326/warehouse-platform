@@ -5,8 +5,7 @@ namespace Tests\Feature;
 use App\Livewire\AmazonSpapiOrderImport;
 use App\Models\AmazonSpapiConnection;
 use App\Models\AmazonSpapiImportRun;
-use App\Models\FulfillmentGroup;
-use App\Models\FulfillmentGroupOrder;
+use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\ShippingMethod;
 use App\Models\Shop;
@@ -341,8 +340,11 @@ class AmazonSpapiOrderImportTest extends TestCase
     {
         $connection = $this->connection();
         $order = $this->existingOrder($connection->shop, 'AMZ-GROUP-CANCEL');
-        $group = FulfillmentGroup::factory()->for($connection->shop->tenant)->create();
-        FulfillmentGroupOrder::create(['fulfillment_group_id' => $group->id, 'sales_order_id' => $order->id]);
+        $outbound = OutboundOrder::factory()->for($connection->shop->tenant)->create([
+            'reason' => OutboundOrder::REASON_CUSTOMER_ORDER,
+            'status' => OutboundOrder::STATUS_PENDING,
+        ]);
+        $outbound->salesOrders()->attach($order->id);
         $this->fakeAmazon([
             $this->amazonOrder('AMZ-GROUP-CANCEL', ['BuyerRequestedCancel' => ['IsBuyerRequestedCancel' => true]]),
         ], ['AMZ-GROUP-CANCEL' => [$this->amazonItem('ANY-SKU')]]);

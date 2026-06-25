@@ -33,12 +33,6 @@
             <flux:input wire:model="reportedBy" :label="__('issues.field_reported_by')" />
         </div>
 
-        @if ($selectedFulfillmentGroup)
-            <div class="issue-context">
-                <span>{{ __('issues.field_fulfillment_group') }}</span>
-                <strong>{{ $selectedFulfillmentGroup->reference_no }}</strong>
-            </div>
-        @endif
 
         <div class="issue-picker-grid">
             <div class="issue-picker">
@@ -96,9 +90,6 @@
                                 <strong>{{ $order->ref ?: '#'.$order->id }}</strong>
                                 <span>
                                     {{ $order->warehouse?->code ?: '-' }} / {{ $order->status }}
-                                    @if ($order->fulfillmentGroup?->orders?->isNotEmpty())
-                                        / {{ $order->fulfillmentGroup->orders->pluck('platform_order_id')->filter()->take(2)->join(', ') }}
-                                    @endif
                                 </span>
                             </button>
                         @empty
@@ -114,7 +105,7 @@
             <textarea wire:model="note" rows="3"></textarea>
         </label>
 
-        @foreach (['tenantId', 'salesOrderId', 'outboundOrderId', 'fulfillmentGroupId', 'issue_type', 'status', 'lines', 'manualLines', 'unknownIssue'] as $field)
+        @foreach (['tenantId', 'salesOrderId', 'outboundOrderId', 'issue_type', 'status', 'lines', 'manualLines', 'unknownIssue'] as $field)
             @error($field) <p class="form-error">{{ $message }}</p> @enderror
         @endforeach
     </section>

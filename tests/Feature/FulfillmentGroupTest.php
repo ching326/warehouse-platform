@@ -118,7 +118,6 @@ class FulfillmentGroupTest extends TestCase
         $balance = $this->balance($tenant, $warehouse, $sku->stockItem);
 
         $this->assertNotNull($outbound);
-        $this->assertNull($outbound->fulfillment_group_id);
         $this->assertSame(OutboundOrder::REASON_CUSTOMER_ORDER, $outbound->reason);
         $this->assertSame(OutboundOrder::SHIP_MODE_PARCEL, $outbound->ship_mode);
         $this->assertNull($outbound->shipping_method_id);
@@ -706,8 +705,6 @@ class FulfillmentGroupTest extends TestCase
             'carrier' => CourierCarrier::YAMATO,
             'order_count' => 1,
         ]);
-        $this->assertNotNull($orderA->refresh()->courier_csv_exported_at);
-        $this->assertNotNull($orderB->refresh()->courier_csv_exported_at);
         $this->assertNotNull($outbound->refresh()->courier_csv_exported_at);
         $this->assertDatabaseHas('courier_export_batch_orders', [
             'courier_export_batch_id' => $batch->id,
@@ -767,7 +764,6 @@ class FulfillmentGroupTest extends TestCase
 
         $this->assertFalse($result->ok);
         $this->assertSame([$outbound->id], $result->wrongCarrierOrderIds);
-        $this->assertNull($order->refresh()->courier_csv_exported_at);
     }
 
     public function test_fulfillment_courier_export_validates_against_outbound_state(): void
@@ -792,7 +788,6 @@ class FulfillmentGroupTest extends TestCase
 
         $this->assertTrue($result->requiresConfirmation);
         $this->assertSame([$outbound->id], $result->alreadyExportedOrderIds);
-        $this->assertNull($order->refresh()->courier_csv_exported_at);
 
         $outbound->update(['courier_csv_exported_at' => null]);
         $method->update(['supports_courier_csv' => false]);
@@ -835,7 +830,6 @@ class FulfillmentGroupTest extends TestCase
             ->call('exportYamato')
             ->assertRedirect(route('courier-export-batches.download', CourierExportBatch::firstOrFail()));
 
-        $this->assertNotNull($order->refresh()->courier_csv_exported_at);
     }
 
     public function test_manual_outbound_without_group_can_be_exported_end_to_end(): void
@@ -850,7 +844,6 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::factory()->create([
             'tenant_id' => $tenant->id,
             'warehouse_id' => $warehouse->id,
-            'fulfillment_group_id' => null,
             'ref' => 'OB-MANUAL-EXPORT-001',
             'reason' => OutboundOrder::REASON_REPLACEMENT,
             'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
@@ -1045,7 +1038,6 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
 
         $unlinked = OutboundOrder::factory()->for($tenant)->for($warehouse)->create([
-            'fulfillment_group_id' => null,
             'status' => OutboundOrder::STATUS_PENDING,
         ]);
         $unlinked->status = OutboundOrder::STATUS_SHIPPED;

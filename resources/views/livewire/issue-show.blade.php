@@ -22,7 +22,6 @@
                 @endif
             </div>
             <div><span class="subtle">{{ __('issues.field_outbound_order') }}</span><strong>{{ $case->outboundOrder?->ref ?: '-' }}</strong></div>
-            <div><span class="subtle">{{ __('issues.field_fulfillment_group') }}</span><strong>{{ $case->fulfillmentGroup?->reference_no ?: '-' }}</strong></div>
             <div><span class="subtle">{{ __('issues.field_reported_at') }}</span><strong>{{ $case->reported_at?->format('Y-m-d H:i') ?? '-' }}</strong></div>
             <div><span class="subtle">{{ __('issues.field_reported_by') }}</span><strong>{{ $case->reported_by ?: '-' }}</strong></div>
             <div><span class="subtle">{{ __('issues.field_created_by') }}</span><strong>{{ $case->createdBy?->name ?: '-' }}</strong></div>

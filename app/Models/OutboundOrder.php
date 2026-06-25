@@ -54,7 +54,6 @@ class OutboundOrder extends Model
     public const REASON_OTHER = 'other';
 
     protected $fillable = [
-        'fulfillment_group_id',
         'reason',
         'ship_mode',
         'source_sales_order_id',
@@ -114,11 +113,6 @@ class OutboundOrder extends Model
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class);
-    }
-
-    public function fulfillmentGroup(): BelongsTo
-    {
-        return $this->belongsTo(FulfillmentGroup::class);
     }
 
     public function sourceSalesOrder(): BelongsTo

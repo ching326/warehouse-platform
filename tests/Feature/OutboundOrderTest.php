@@ -8,7 +8,6 @@ use App\Livewire\OutboundOrderIndex;
 use App\Livewire\OutboundOrderShip;
 use App\Models\Carrier;
 use App\Models\CourierExportBatch;
-use App\Models\FulfillmentGroup;
 use App\Models\InventoryBalance;
 use App\Models\InventoryMovement;
 use App\Models\OutboundOrder;
@@ -23,12 +22,15 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Courier\CourierExportService;
 use App\Services\InventoryService;
+use App\Support\CourierCarrier;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -52,6 +54,18 @@ class OutboundOrderTest extends TestCase
         $this->assertTrue(Schema::hasColumn('outbound_order_sales_order', 'outbound_order_id'));
         $this->assertTrue(Schema::hasColumn('outbound_order_sales_order', 'sales_order_id'));
         $this->assertTrue(Schema::hasColumn('outbound_order_sales_order', 'arranged_at'));
+    }
+
+    public function test_fulfillment_group_schema_is_dropped(): void
+    {
+        $this->assertFalse(Schema::hasTable('fulfillment_groups'));
+        $this->assertFalse(Schema::hasTable('fulfillment_group_orders'));
+        $this->assertFalse(Schema::hasColumn('outbound_orders', 'fulfillment_group_id'));
+        $this->assertFalse(Schema::hasColumn('fulfillment_pack_scans', 'fulfillment_group_id'));
+        $this->assertFalse(Schema::hasColumn('fulfillment_pack_scans', 'fulfillment_group_order_id'));
+        $this->assertFalse(Schema::hasColumn('sales_orders', 'courier_csv_exported_at'));
+        $this->assertFalse(Schema::hasColumn('issues', 'fulfillment_group_id'));
+        $this->assertFalse(Schema::hasColumn('return_orders', 'fulfillment_group_id'));
     }
 
     public function test_unified_shipping_model_casts_and_relations_resolve(): void
@@ -93,36 +107,6 @@ class OutboundOrderTest extends TestCase
         $this->assertTrue($order->shippingMethod->is($shippingMethod));
         $this->assertTrue($order->salesOrders->first()->is($linkedSalesOrder));
         $this->assertSame($arrangedAt->toDateTimeString(), (string) $order->salesOrders->first()->pivot->arranged_at);
-    }
-
-    public function test_unified_shipping_backfill_sets_grouped_outbound_reason_and_ship_mode(): void
-    {
-        [$tenant, $warehouse] = [Tenant::factory()->create(), Warehouse::factory()->create()];
-        $group = FulfillmentGroup::factory()->for($tenant)->for($warehouse)->create();
-        $grouped = OutboundOrder::factory()
-            ->for($tenant)
-            ->for($warehouse)
-            ->create([
-                'fulfillment_group_id' => $group->id,
-                'reason' => null,
-                'ship_mode' => OutboundOrder::SHIP_MODE_BULK,
-            ]);
-        $manual = OutboundOrder::factory()
-            ->for($tenant)
-            ->for($warehouse)
-            ->create([
-                'fulfillment_group_id' => null,
-                'reason' => null,
-                'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
-            ]);
-
-        $migration = require database_path('migrations/2026_06_24_000004_add_unified_shipping_fields_to_outbound_orders_table.php');
-        $migration->up();
-
-        $this->assertSame(OutboundOrder::REASON_CUSTOMER_ORDER, $grouped->refresh()->reason);
-        $this->assertSame(OutboundOrder::SHIP_MODE_PARCEL, $grouped->ship_mode);
-        $this->assertNull($manual->refresh()->reason);
-        $this->assertSame(OutboundOrder::SHIP_MODE_PARCEL, $manual->ship_mode);
     }
 
     public function test_create_single_sku_order_reserves_stock(): void
@@ -677,7 +661,7 @@ class OutboundOrderTest extends TestCase
 
     public function test_build_ref_uses_tenant_code_date_and_sequence(): void
     {
-        $ref = OutboundOrder::buildRef(7, 'acme', \Carbon\CarbonImmutable::create(2026, 6, 23, 0, 0, 0, 'Asia/Tokyo'));
+        $ref = OutboundOrder::buildRef(7, 'acme', CarbonImmutable::create(2026, 6, 23, 0, 0, 0, 'Asia/Tokyo'));
 
         $this->assertSame('OB-ACME-260623-007', $ref);
     }
@@ -737,10 +721,10 @@ class OutboundOrderTest extends TestCase
 
         $this->assertSame($method->id, $order->shipping_method_id, 'shipping_method_id captured by create flow');
 
-        $service = app(\App\Services\Courier\CourierExportService::class);
+        $service = app(CourierExportService::class);
         $result = $service->validateOrderExport(
             outboundOrderIds: [$order->id],
-            carrier: \App\Support\CourierCarrier::YAMATO,
+            carrier: CourierCarrier::YAMATO,
             allowedTenantIds: [$tenant->id],
         );
 
@@ -749,7 +733,7 @@ class OutboundOrderTest extends TestCase
 
         $batch = $service->exportOrders(
             outboundOrderIds: [$order->id],
-            carrier: \App\Support\CourierCarrier::YAMATO,
+            carrier: CourierCarrier::YAMATO,
             allowedTenantIds: [$tenant->id],
             user: null,
         );
@@ -824,7 +808,7 @@ class OutboundOrderTest extends TestCase
 
         $this->assertNotNull($order->refresh()->courier_csv_exported_at);
 
-        $batch = \App\Models\CourierExportBatch::latest('id')->first();
+        $batch = CourierExportBatch::latest('id')->first();
         $this->assertNotNull($batch);
         $batchOrder = $batch->batchOrders()->first();
         $this->assertNull($batchOrder->sales_order_id);
@@ -853,9 +837,9 @@ class OutboundOrderTest extends TestCase
             ->for($tenant)
             ->create(['qty' => 1]);
 
-        $result = app(\App\Services\Courier\CourierExportService::class)->validateOrderExport(
+        $result = app(CourierExportService::class)->validateOrderExport(
             outboundOrderIds: [$order->id],
-            carrier: \App\Support\CourierCarrier::YAMATO,
+            carrier: CourierCarrier::YAMATO,
             allowedTenantIds: [$tenant->id],
         );
 
@@ -927,7 +911,7 @@ class OutboundOrderTest extends TestCase
             ->test(OutboundOrderDetail::class, ['order' => $order])
             ->call('exportYamato');
 
-        $component->assertSet('pendingCourierExportCarrier', \App\Support\CourierCarrier::YAMATO);
+        $component->assertSet('pendingCourierExportCarrier', CourierCarrier::YAMATO);
         $this->assertNotEmpty($component->get('pendingExportWarning'));
 
         $component->call('confirmCourierExport')->assertRedirect();
@@ -940,7 +924,7 @@ class OutboundOrderTest extends TestCase
         int $qty,
         string $ref,
         ?User $user = null,
-    ): \Livewire\Features\SupportTesting\Testable {
+    ): Testable {
         return Livewire::actingAs($user ?? $this->internalUser())
             ->test(OutboundOrderCreate::class)
             ->set('tenantId', (string) $tenant->id)

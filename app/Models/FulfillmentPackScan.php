@@ -8,18 +8,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class FulfillmentPackScan extends Model
 {
     public const RESULT_ACCEPTED = 'accepted';
+
     public const RESULT_WRONG_ITEM = 'wrong_item';
+
     public const RESULT_OVER_SCAN = 'over_scan';
+
     public const RESULT_NOT_FOUND = 'not_found';
+
     public const RESULT_BLOCKED_STATUS = 'blocked_status';
 
     public const UPDATED_AT = null;
 
     protected $fillable = [
         'tenant_id',
-        'fulfillment_group_id',
         'outbound_order_id',
-        'fulfillment_group_order_id',
         'sales_order_id',
         'sku_id',
         'stock_item_id',
@@ -43,19 +45,9 @@ class FulfillmentPackScan extends Model
         return $this->belongsTo(Tenant::class);
     }
 
-    public function fulfillmentGroup(): BelongsTo
-    {
-        return $this->belongsTo(FulfillmentGroup::class);
-    }
-
     public function outboundOrder(): BelongsTo
     {
         return $this->belongsTo(OutboundOrder::class);
-    }
-
-    public function fulfillmentGroupOrder(): BelongsTo
-    {
-        return $this->belongsTo(FulfillmentGroupOrder::class);
     }
 
     public function salesOrder(): BelongsTo

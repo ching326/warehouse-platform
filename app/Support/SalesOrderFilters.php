@@ -13,16 +13,25 @@ class SalesOrderFilters
     public const EMPTY_SHIPPING = '__empty__';
 
     public const OTHER_MULTI_ITEM = 'multi_item';
+
     public const OTHER_PRINTED = 'printed';
+
     public const OTHER_NOT_PRINTED = 'not_printed';
 
     public const DATE_ALL = 'all';
+
     public const DATE_TODAY = 'today';
+
     public const DATE_LAST_3_DAYS = 'last_3_days';
+
     public const DATE_LAST_7_DAYS = 'last_7_days';
+
     public const DATE_LAST_30_DAYS = 'last_30_days';
+
     public const DATE_LAST_3_MONTHS = 'last_3_months';
+
     public const DATE_LAST_1_YEAR = 'last_1_year';
+
     public const DATE_CUSTOM = 'custom';
 
     public static function normalize(array $input): array
@@ -106,11 +115,11 @@ class SalesOrderFilters
             }
 
             if (in_array(self::OTHER_PRINTED, $filters['others'], true)) {
-                $query->whereNotNull('courier_csv_exported_at');
+                $query->whereHas('activeOutboundOrders', fn ($outbound) => $outbound->whereNotNull('outbound_orders.courier_csv_exported_at'));
             }
 
             if (in_array(self::OTHER_NOT_PRINTED, $filters['others'], true)) {
-                $query->whereNull('courier_csv_exported_at');
+                $query->whereDoesntHave('activeOutboundOrders', fn ($outbound) => $outbound->whereNotNull('outbound_orders.courier_csv_exported_at'));
             }
         }
 
@@ -184,7 +193,7 @@ class SalesOrderFilters
      * True when a filter-based export needs an explicit date range because
      * an all-dates result could include historical orders.
      *
-     * @param array<string,mixed> $filters
+     * @param  array<string,mixed>  $filters
      */
     public static function requiresExplicitDateRange(array $filters): bool
     {

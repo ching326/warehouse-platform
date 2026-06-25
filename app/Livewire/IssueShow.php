@@ -147,7 +147,6 @@ class IssueShow extends Component
             ->with([
                 'tenant:id,code,name',
                 'salesOrder:id,platform_order_id',
-                'fulfillmentGroup:id,reference_no',
                 'outboundOrder:id,ref',
                 'createdBy:id,name',
                 'updatedBy:id,name',
@@ -239,4 +238,3 @@ class IssueShow extends Component
         ];
     }
 }
-

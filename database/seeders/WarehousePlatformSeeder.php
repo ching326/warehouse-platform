@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Carrier;
 use App\Models\InboundOrder;
 use App\Models\InboundOrderLine;
 use App\Models\InventoryBalance;
@@ -11,7 +12,6 @@ use App\Models\OutboundOrderLine;
 use App\Models\PackagingMaterial;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
-use App\Models\Carrier;
 use App\Models\ShippingMethod;
 use App\Models\ShippingMethodRate;
 use App\Models\Shop;
@@ -811,7 +811,6 @@ class WarehousePlatformSeeder extends Seeder
                     $isShipped = rand(0, 1) === 1;
 
                     $outbound = OutboundOrder::create([
-                        'fulfillment_group_id' => null,
                         'reason' => OutboundOrder::REASON_REPLACEMENT,
                         'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
                         'tenant_id' => $tenant->id,

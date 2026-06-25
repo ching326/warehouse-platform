@@ -4,13 +4,13 @@ namespace App\Livewire;
 
 use App\Models\AmazonSpapiConnection;
 use App\Models\AmazonSpapiImportRun;
-use App\Models\FulfillmentGroupOrder;
 use App\Models\SalesOrder;
 use App\Models\Shop;
 use App\Services\Amazon\AmazonOrderMapper;
 use App\Services\Amazon\AmazonSpapiApiException;
 use App\Services\Amazon\AmazonSpapiOrdersClient;
 use App\Services\SalesOrders\SalesOrderImporter;
+use App\Support\AmazonSpapiRegion;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -21,12 +21,19 @@ use Livewire\Component;
 class AmazonSpapiOrderImport extends Component
 {
     public string $shopId = '';
+
     public string $windowType = AmazonSpapiImportRun::WINDOW_LAST_UPDATED;
+
     public string $windowFrom = '';
+
     public string $windowTo = '';
+
     public array $parsedRows = [];
+
     public bool $parsed = false;
+
     public bool $hasErrors = false;
+
     public ?string $warning = null;
 
     public function mount(): void
@@ -213,7 +220,7 @@ class AmazonSpapiOrderImport extends Component
             throw ValidationException::withMessages(['shopId' => __('amazon_spapi_import.connection_not_ready')]);
         }
 
-        $expectedRegion = \App\Support\AmazonSpapiRegion::regionForMarketplaceId($connection->marketplace_id);
+        $expectedRegion = AmazonSpapiRegion::regionForMarketplaceId($connection->marketplace_id);
         if ($expectedRegion !== null && $expectedRegion !== $connection->region) {
             throw ValidationException::withMessages(['shopId' => __('amazon_spapi_import.marketplace_region_mismatch')]);
         }
@@ -326,7 +333,7 @@ class AmazonSpapiOrderImport extends Component
             return false;
         }
 
-        return ! FulfillmentGroupOrder::query()->where('sales_order_id', $order->id)->exists();
+        return ! $order->activeOutboundOrders()->exists();
     }
 
     private function shopOptions()

@@ -3,11 +3,14 @@
 namespace Tests\Feature;
 
 use App\Livewire\SalesOrderIndex;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
 
 class AuthenticatedRoutesTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_guest_requests_are_blocked_from_operational_routes(): void
     {
         $this->get('/')->assertForbidden();

@@ -17,24 +17,34 @@ class Issue extends Model
     use HasFactory, LogsActivity;
 
     public const TYPE_MISSING = 'missing';
+
     public const TYPE_DAMAGED = 'damaged';
+
     public const TYPE_RETURNED = 'returned';
+
     public const TYPE_WRONG_ITEM = 'wrong_item';
+
     public const TYPE_LOST_IN_TRANSIT = 'lost_in_transit';
+
     public const TYPE_CUSTOMER_REFUSED = 'customer_refused';
+
     public const TYPE_OTHER = 'other';
 
     public const STATUS_OPEN = 'open';
+
     public const STATUS_INVESTIGATING = 'investigating';
+
     public const STATUS_WAITING_RETURN = 'waiting_return';
+
     public const STATUS_RECEIVED_RETURN = 'received_return';
+
     public const STATUS_RESOLVED = 'resolved';
+
     public const STATUS_CLOSED = 'closed';
 
     protected $fillable = [
         'tenant_id',
         'sales_order_id',
-        'fulfillment_group_id',
         'outbound_order_id',
         'issue_no',
         'issue_type',
@@ -72,11 +82,6 @@ class Issue extends Model
     public function salesOrder(): BelongsTo
     {
         return $this->belongsTo(SalesOrder::class);
-    }
-
-    public function fulfillmentGroup(): BelongsTo
-    {
-        return $this->belongsTo(FulfillmentGroup::class);
     }
 
     public function outboundOrder(): BelongsTo
@@ -168,5 +173,3 @@ class Issue extends Model
         ];
     }
 }
-
-

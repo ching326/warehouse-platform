@@ -114,7 +114,6 @@ class FulfillmentPackStart extends Component
                 ->with([
                     'tenant:id,code,name',
                     'salesOrders:id,platform_order_id,tracking_no',
-                    'fulfillmentGroup:id,reference_no,tracking_no',
                 ])
                 ->paginate(25);
 
