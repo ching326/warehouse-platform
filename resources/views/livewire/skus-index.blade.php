@@ -8,7 +8,10 @@
                 <strong>{{ __('skus.page_title') }}</strong>
                 <span>{{ __('skus.page_subtitle') }}</span>
             </div>
-            <flux:button href="{{ route('skus.create') }}" variant="primary">{{ __('skus.btn_create') }}</flux:button>
+            <div style="display:flex;gap:0.5rem;align-items:center;">
+                <flux:button href="{{ route('skus.import') }}" variant="subtle">{{ __('sku_import.btn_import') }}</flux:button>
+                <flux:button href="{{ route('skus.create') }}" variant="primary">{{ __('skus.btn_create') }}</flux:button>
+            </div>
         </div>
         <x-flash-toast />
 

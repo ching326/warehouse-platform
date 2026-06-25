@@ -1,0 +1,550 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Livewire\SkuImport;
+use App\Models\ProductType;
+use App\Models\Sku;
+use App\Models\SkuImportMapping;
+use App\Models\StockItem;
+use App\Models\Tenant;
+use App\Models\TenantUser;
+use App\Models\User;
+use App\Services\SkuImport\SkuImportReader;
+use App\Services\SkuImport\SkuWriter;
+use App\Support\SkuImport\SkuImportFields;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Testing\File;
+use Illuminate\Support\Facades\DB;
+use Livewire\Livewire;
+use Tests\TestCase;
+
+class SkuImportTest extends TestCase
+{
+    use RefreshDatabase;
+
+    // ---- Reader tests ----
+
+    public function test_reader_parses_csv_headers_and_rows(): void
+    {
+        $path = $this->csvFile("sku,name,brand\nSKU001,Product 1,Acme\nSKU002,Product 2,\n");
+        $result = app(SkuImportReader::class)->read($path);
+
+        $this->assertSame(['sku', 'name', 'brand'], $result['headers']);
+        $this->assertSame(2, $result['total']);
+        $this->assertCount(2, $result['rows']);
+        $this->assertSame(['SKU001', 'Product 1', 'Acme'], $result['rows'][0]);
+        $this->assertSame(['SKU002', 'Product 2', ''], $result['rows'][1]);
+
+        unlink($path);
+    }
+
+    public function test_reader_skips_blank_rows(): void
+    {
+        $path = $this->csvFile("sku,name\nSKU001,Prod1\n\n   \nSKU002,Prod2\n");
+        $result = app(SkuImportReader::class)->read($path);
+
+        $this->assertSame(2, $result['total']);
+
+        unlink($path);
+    }
+
+    public function test_reader_handles_utf8_bom(): void
+    {
+        $bom = "\xEF\xBB\xBF";
+        $path = $this->csvFile($bom."sku,name\nBOM001,BOM Product\n");
+        $result = app(SkuImportReader::class)->read($path);
+
+        $this->assertSame(1, $result['total']);
+        $this->assertSame('BOM001', $result['rows'][0][0]);
+
+        unlink($path);
+    }
+
+    public function test_reader_limits_returned_rows_but_counts_all(): void
+    {
+        $lines = "sku,name\n";
+        for ($i = 1; $i <= 10; $i++) {
+            $lines .= "SKU{$i},Product {$i}\n";
+        }
+        $path = $this->csvFile($lines);
+        $result = app(SkuImportReader::class)->read($path, 3);
+
+        $this->assertSame(10, $result['total']);
+        $this->assertCount(3, $result['rows']);
+
+        unlink($path);
+    }
+
+    // ---- Auto-guess tests ----
+
+    public function test_auto_guess_maps_exact_field_key_headers(): void
+    {
+        $headers = ['sku', 'name', 'brand', 'color'];
+        $mapping = SkuImportFields::autoGuess($headers);
+
+        $this->assertSame('sku', $mapping['sku']);
+        $this->assertSame('name', $mapping['name']);
+        $this->assertSame('brand', $mapping['brand']);
+        $this->assertSame('color', $mapping['color']);
+    }
+
+    public function test_auto_guess_maps_known_english_aliases(): void
+    {
+        $headers = ['product name', 'manufacturer', 'barcode'];
+        $mapping = SkuImportFields::autoGuess($headers);
+
+        $this->assertSame('product name', $mapping['name']);
+        $this->assertSame('manufacturer', $mapping['brand']);
+        $this->assertSame('barcode', $mapping['barcode']);
+    }
+
+    public function test_auto_guess_maps_japanese_headers(): void
+    {
+        $headers = ['SKUコード', 'SKU名', 'ブランド'];
+        $mapping = SkuImportFields::autoGuess($headers);
+
+        $this->assertSame('SKUコード', $mapping['sku']);
+        $this->assertSame('SKU名', $mapping['name']);
+        $this->assertSame('ブランド', $mapping['brand']);
+    }
+
+    public function test_auto_guess_leaves_unmatched_as_empty(): void
+    {
+        $headers = ['sku', 'unknown_column_xyz'];
+        $mapping = SkuImportFields::autoGuess($headers);
+
+        $this->assertSame('sku', $mapping['sku']);
+        $this->assertSame('', $mapping['name']);
+        $this->assertSame('', $mapping['brand']);
+    }
+
+    public function test_auto_guess_does_not_map_same_header_twice(): void
+    {
+        $headers = ['sku'];
+        $mapping = SkuImportFields::autoGuess($headers);
+
+        $skuCount = count(array_filter($mapping, fn ($v) => $v === 'sku'));
+        $this->assertSame(1, $skuCount);
+    }
+
+    // ---- SkuWriter tests ----
+
+    public function test_writer_creates_sku_and_stock_item(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'WRT']);
+        $productType = ProductType::firstOrCreate(['slug' => 'normal'], ['name' => 'Normal', 'sort_order' => 0]);
+
+        DB::beginTransaction();
+
+        $result = app(SkuWriter::class)->upsert(
+            $tenant->id,
+            null,
+            ['sku' => 'WRT-001', 'name' => 'Write Test', 'status' => 'active'],
+            ['product_type' => 'normal'],
+            false,
+        );
+
+        DB::commit();
+
+        $this->assertSame('created', $result->status);
+        $this->assertDatabaseHas('skus', ['sku' => 'WRT-001', 'tenant_id' => $tenant->id]);
+        $this->assertNotNull($result->sku->stock_item_id);
+        $this->assertStringStartsWith('WRT-', $result->sku->stockItem->code);
+    }
+
+    public function test_writer_skips_existing_sku_in_insert_only_mode(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'SKP']);
+        $existing = Sku::factory()->for($tenant)->create(['sku' => 'SKP-001', 'shop_id' => null]);
+
+        DB::beginTransaction();
+
+        $result = app(SkuWriter::class)->upsert(
+            $tenant->id,
+            null,
+            ['sku' => 'SKP-001', 'name' => 'Skip Me'],
+            [],
+            false,
+        );
+
+        DB::rollBack();
+
+        $this->assertSame('skipped', $result->status);
+    }
+
+    public function test_writer_updates_existing_sku_in_upsert_mode(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'UPS']);
+        $existing = Sku::factory()->for($tenant)->create(['sku' => 'UPS-001', 'name' => 'Original Name', 'shop_id' => null]);
+
+        DB::beginTransaction();
+
+        $result = app(SkuWriter::class)->upsert(
+            $tenant->id,
+            null,
+            ['sku' => 'UPS-001', 'name' => 'Updated Name', 'status' => 'active'],
+            [],
+            true,
+        );
+
+        DB::commit();
+
+        $this->assertSame('updated', $result->status);
+        $this->assertDatabaseHas('skus', ['sku' => 'UPS-001', 'name' => 'Updated Name']);
+    }
+
+    public function test_writer_links_existing_stock_item_by_code(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'LNK']);
+        $stockItem = StockItem::factory()->for($tenant)->create(['code' => 'LNK-000001']);
+
+        DB::beginTransaction();
+
+        $result = app(SkuWriter::class)->upsert(
+            $tenant->id,
+            null,
+            ['sku' => 'LNK-001', 'name' => 'Linked SKU', 'status' => 'active'],
+            ['stock_item_code' => 'LNK-000001'],
+            false,
+        );
+
+        DB::commit();
+
+        $this->assertSame('created', $result->status);
+        $this->assertSame($stockItem->id, $result->sku->stock_item_id);
+    }
+
+    public function test_writer_creates_new_stock_item_when_code_not_found(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'NEW']);
+
+        DB::beginTransaction();
+
+        $result = app(SkuWriter::class)->upsert(
+            $tenant->id,
+            null,
+            ['sku' => 'NEW-001', 'name' => 'New SKU', 'status' => 'active'],
+            ['stock_item_code' => 'DOES-NOT-EXIST-9999'],
+            false,
+        );
+
+        DB::commit();
+
+        $this->assertSame('created', $result->status);
+        $this->assertNotNull($result->sku->stock_item_id);
+        $this->assertDatabaseHas('stock_items', ['tenant_id' => $tenant->id, 'code' => 'NEW-000001']);
+    }
+
+    // ---- Livewire wizard tests ----
+
+    public function test_upload_step_reads_headers_and_advances_to_map(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'WIZ']);
+        $user = $this->internalUser();
+
+        Livewire::actingAs($user)
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', "sku,name,brand\nSKU001,Prod,Acme\n"))
+            ->call('upload')
+            ->assertSet('step', 'map')
+            ->assertSet('fileHeaders', ['sku', 'name', 'brand'])
+            ->assertSet('totalDataRows', 1);
+    }
+
+    public function test_upload_rejects_empty_file(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'EMP']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', "sku,name\n"))
+            ->call('upload')
+            ->assertHasErrors(['file']);
+    }
+
+    public function test_upload_enforces_row_cap(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'CAP']);
+        $lines = "sku,name\n";
+        for ($i = 1; $i <= 2001; $i++) {
+            $lines .= "SKU{$i},Product {$i}\n";
+        }
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('big.csv', $lines))
+            ->call('upload')
+            ->assertHasErrors(['file']);
+    }
+
+    public function test_map_step_requires_sku_and_name_fields(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'REQ']);
+        $component = Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', "col_a,col_b\nA1,B1\n"))
+            ->call('upload')
+            ->assertSet('step', 'map');
+
+        // mapping has no sku/name columns guessed -> advancing to preview should fail
+        $component
+            ->set('mapping.sku', '')
+            ->set('mapping.name', '')
+            ->call('advanceToPreview')
+            ->assertHasErrors(['mapping']);
+    }
+
+    public function test_advance_to_preview_validates_all_rows(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'PRV']);
+        $csv = "sku,name\nSKU001,Good\n,Missing SKU\nSKU003,Also Good\n";
+
+        $component = Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', $csv))
+            ->call('upload')
+            ->assertSet('step', 'map');
+
+        $component
+            ->call('advanceToPreview')
+            ->assertSet('step', 'preview')
+            ->assertSet('validRowCount', 2)
+            ->assertSet('errorRowCount', 1);
+    }
+
+    public function test_insert_only_counts_existing_sku_as_skipped(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'INS']);
+        Sku::factory()->for($tenant)->create(['sku' => 'INS-EXIST', 'shop_id' => null]);
+
+        $csv = "sku,name\nINS-EXIST,Existing\nINS-NEW,New\n";
+        $component = Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', $csv))
+            ->call('upload')
+            ->call('advanceToPreview')
+            ->assertSet('step', 'preview')
+            ->assertSet('existsRowCount', 1)
+            ->assertSet('validRowCount', 1);
+
+        // insert-only: existing is skipped
+        $component
+            ->set('allowUpsert', false)
+            ->call('confirmImport')
+            ->assertSet('step', 'result')
+            ->assertSet('resultCreated', 1)
+            ->assertSet('resultSkipped', 1);
+
+        $this->assertDatabaseHas('skus', ['sku' => 'INS-NEW', 'tenant_id' => $tenant->id]);
+    }
+
+    public function test_upsert_updates_existing_sku(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'UPT']);
+        Sku::factory()->for($tenant)->create(['sku' => 'UPT-001', 'name' => 'Old Name', 'shop_id' => null]);
+
+        $csv = "sku,name\nUPT-001,New Name\n";
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', $csv))
+            ->call('upload')
+            ->call('advanceToPreview')
+            ->set('allowUpsert', true)
+            ->call('confirmImport')
+            ->assertSet('step', 'result')
+            ->assertSet('resultUpdated', 1)
+            ->assertSet('resultCreated', 0);
+
+        $this->assertDatabaseHas('skus', ['sku' => 'UPT-001', 'name' => 'New Name']);
+    }
+
+    public function test_duplicate_sku_in_file_is_flagged_as_error(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'DUP']);
+
+        $csv = "sku,name\nDUP-001,First\nDUP-001,Second\n";
+        $component = Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', $csv))
+            ->call('upload')
+            ->call('advanceToPreview')
+            ->assertSet('step', 'preview');
+
+        // Row 1: valid, Row 2: error (dup in file)
+        $this->assertSame(1, $component->get('validRowCount'));
+        $this->assertSame(1, $component->get('errorRowCount'));
+    }
+
+    public function test_invalid_rows_counted_as_failed_in_result(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'INV']);
+
+        $csv = "sku,name,status\nINV-001,Good,active\nINV-002,Bad Status,invalid_status_xyz\n";
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', $csv))
+            ->call('upload')
+            ->call('advanceToPreview')
+            ->call('confirmImport')
+            ->assertSet('step', 'result')
+            ->assertSet('resultCreated', 1)
+            ->assertSet('resultFailed', 1);
+    }
+
+    public function test_tenant_user_cannot_import_for_another_tenant(): void
+    {
+        [$ownTenant, $user] = $this->tenantUser();
+        $otherTenant = Tenant::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(SkuImport::class)
+            ->assertSet('tenantId', (string) $ownTenant->id)
+            ->set('tenantId', (string) $otherTenant->id)
+            ->set('file', File::createWithContent('import.csv', "sku,name\nSKU001,P\n"))
+            ->call('upload')
+            ->assertHasErrors(['tenantId']);
+    }
+
+    public function test_tenant_user_fixed_to_own_tenant_on_mount(): void
+    {
+        [$tenant, $user] = $this->tenantUser();
+
+        Livewire::actingAs($user)
+            ->test(SkuImport::class)
+            ->assertSet('tenantId', (string) $tenant->id);
+    }
+
+    public function test_saved_template_can_be_created_and_loaded(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'TPL']);
+        $csv = "sku,name,brand\nT001,Product,Acme\n";
+
+        // Step through upload and map, then confirm with template save
+        $component = Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', $csv))
+            ->call('upload')
+            ->call('advanceToPreview')
+            ->set('doSaveTemplate', true)
+            ->set('saveTemplateName', 'My Template')
+            ->call('confirmImport')
+            ->assertSet('step', 'result');
+
+        $this->assertDatabaseHas('sku_import_mappings', [
+            'tenant_id' => $tenant->id,
+            'name' => 'My Template',
+        ]);
+    }
+
+    public function test_saved_template_can_be_loaded_on_map_step(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'TLD']);
+        $template = SkuImportMapping::create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Load Me',
+            'mapping' => ['sku' => 'product_code', 'name' => 'title'],
+        ]);
+
+        $component = Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', "product_code,title\nX001,Prod\n"))
+            ->call('upload')
+            ->assertSet('step', 'map');
+
+        $component
+            ->call('loadTemplate', $template->id)
+            ->assertSet('mapping.sku', 'product_code')
+            ->assertSet('mapping.name', 'title');
+    }
+
+    public function test_saved_template_name_duplicate_shows_error(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'TDU']);
+        SkuImportMapping::create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Existing Template',
+            'mapping' => [],
+        ]);
+
+        $csv = "sku,name\nTDU001,P\n";
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', $csv))
+            ->call('upload')
+            ->call('advanceToPreview')
+            ->set('doSaveTemplate', true)
+            ->set('saveTemplateName', 'Existing Template')
+            ->call('confirmImport')
+            ->assertHasErrors(['saveTemplateName'])
+            ->assertSet('step', 'preview');
+    }
+
+    public function test_template_scoped_to_tenant(): void
+    {
+        [$tenantA, $userA] = $this->tenantUser();
+        [$tenantB, $userB] = $this->tenantUser();
+
+        SkuImportMapping::create([
+            'tenant_id' => $tenantA->id,
+            'name' => 'Tenant A Template',
+            'mapping' => [],
+        ]);
+
+        $csv = "sku,name\nS001,P\n";
+        Livewire::actingAs($userB)
+            ->test(SkuImport::class)
+            ->set('file', File::createWithContent('import.csv', $csv))
+            ->call('upload')
+            ->assertSet('step', 'map')
+            ->assertDontSee('Tenant A Template');
+    }
+
+    // ---- Helpers ----
+
+    private function csvFile(string $content): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'sku_import_test_').'.csv';
+        file_put_contents($path, $content);
+
+        return $path;
+    }
+
+    private function internalUser(): User
+    {
+        return User::factory()->create([
+            'user_type' => 'internal',
+            'is_active' => true,
+        ]);
+    }
+
+    /** @return array{0: Tenant, 1: User} */
+    private function tenantUser(): array
+    {
+        $tenant = Tenant::factory()->create();
+        $user = User::factory()->create([
+            'user_type' => 'tenant',
+            'is_active' => true,
+        ]);
+
+        TenantUser::factory()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'status' => 'active',
+        ]);
+
+        return [$tenant, $user];
+    }
+}
