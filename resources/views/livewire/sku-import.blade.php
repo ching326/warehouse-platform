@@ -14,7 +14,7 @@
     {{-- Step 1: Upload --}}
     @if ($step === 'upload')
         <section class="flux-panel import-section">
-            <form wire:submit="upload">
+            <form wire:submit="readFile">
                 @if ($showTenantSelect)
                     <flux:select wire:model.live="tenantId" label="{{ __('skus.field_tenant') }}" required>
                         <option value="">{{ __('skus.select_tenant') }}</option>
@@ -42,8 +42,8 @@
 
                 <div class="form-actions">
                     <flux:button type="submit" variant="primary" wire:loading.attr="disabled">
-                        <span wire:loading.remove wire:target="upload">{{ __('sku_import.btn_upload') }}</span>
-                        <span wire:loading wire:target="upload">...</span>
+                        <span wire:loading.remove wire:target="readFile">{{ __('sku_import.btn_upload') }}</span>
+                        <span wire:loading wire:target="readFile">...</span>
                     </flux:button>
                 </div>
             </form>

@@ -95,7 +95,7 @@ class SkuImport extends Component
         }
     }
 
-    public function upload(): void
+    public function readFile(): void
     {
         $tenantId = $this->validatedTenantId();
 

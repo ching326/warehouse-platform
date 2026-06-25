@@ -247,7 +247,7 @@ class SkuImportTest extends TestCase
             ->test(SkuImport::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('file', File::createWithContent('import.csv', "sku,name,brand\nSKU001,Prod,Acme\n"))
-            ->call('upload')
+            ->call('readFile')
             ->assertSet('step', 'map')
             ->assertSet('fileHeaders', ['sku', 'name', 'brand'])
             ->assertSet('totalDataRows', 1);
@@ -261,7 +261,7 @@ class SkuImportTest extends TestCase
             ->test(SkuImport::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('file', File::createWithContent('import.csv', "sku,name\n"))
-            ->call('upload')
+            ->call('readFile')
             ->assertHasErrors(['file']);
     }
 
@@ -277,7 +277,7 @@ class SkuImportTest extends TestCase
             ->test(SkuImport::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('file', File::createWithContent('big.csv', $lines))
-            ->call('upload')
+            ->call('readFile')
             ->assertHasErrors(['file']);
     }
 
@@ -288,7 +288,7 @@ class SkuImportTest extends TestCase
             ->test(SkuImport::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('file', File::createWithContent('import.csv', "col_a,col_b\nA1,B1\n"))
-            ->call('upload')
+            ->call('readFile')
             ->assertSet('step', 'map');
 
         // mapping has no sku/name columns guessed -> advancing to preview should fail
@@ -308,7 +308,7 @@ class SkuImportTest extends TestCase
             ->test(SkuImport::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('file', File::createWithContent('import.csv', $csv))
-            ->call('upload')
+            ->call('readFile')
             ->assertSet('step', 'map');
 
         $component
@@ -328,7 +328,7 @@ class SkuImportTest extends TestCase
             ->test(SkuImport::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('file', File::createWithContent('import.csv', $csv))
-            ->call('upload')
+            ->call('readFile')
             ->call('advanceToPreview')
             ->assertSet('step', 'preview')
             ->assertSet('existsRowCount', 1)
@@ -355,7 +355,7 @@ class SkuImportTest extends TestCase
             ->test(SkuImport::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('file', File::createWithContent('import.csv', $csv))
-            ->call('upload')
+            ->call('readFile')
             ->call('advanceToPreview')
             ->set('allowUpsert', true)
             ->call('confirmImport')
@@ -375,7 +375,7 @@ class SkuImportTest extends TestCase
             ->test(SkuImport::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('file', File::createWithContent('import.csv', $csv))
-            ->call('upload')
+            ->call('readFile')
             ->call('advanceToPreview')
             ->assertSet('step', 'preview');
 
@@ -393,7 +393,7 @@ class SkuImportTest extends TestCase
             ->test(SkuImport::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('file', File::createWithContent('import.csv', $csv))
-            ->call('upload')
+            ->call('readFile')
             ->call('advanceToPreview')
             ->call('confirmImport')
             ->assertSet('step', 'result')
@@ -411,7 +411,7 @@ class SkuImportTest extends TestCase
             ->assertSet('tenantId', (string) $ownTenant->id)
             ->set('tenantId', (string) $otherTenant->id)
             ->set('file', File::createWithContent('import.csv', "sku,name\nSKU001,P\n"))
-            ->call('upload')
+            ->call('readFile')
             ->assertHasErrors(['tenantId']);
     }
 
@@ -434,7 +434,7 @@ class SkuImportTest extends TestCase
             ->test(SkuImport::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('file', File::createWithContent('import.csv', $csv))
-            ->call('upload')
+            ->call('readFile')
             ->call('advanceToPreview')
             ->set('doSaveTemplate', true)
             ->set('saveTemplateName', 'My Template')
@@ -460,7 +460,7 @@ class SkuImportTest extends TestCase
             ->test(SkuImport::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('file', File::createWithContent('import.csv', "product_code,title\nX001,Prod\n"))
-            ->call('upload')
+            ->call('readFile')
             ->assertSet('step', 'map');
 
         $component
@@ -483,7 +483,7 @@ class SkuImportTest extends TestCase
             ->test(SkuImport::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('file', File::createWithContent('import.csv', $csv))
-            ->call('upload')
+            ->call('readFile')
             ->call('advanceToPreview')
             ->set('doSaveTemplate', true)
             ->set('saveTemplateName', 'Existing Template')
@@ -507,7 +507,7 @@ class SkuImportTest extends TestCase
         Livewire::actingAs($userB)
             ->test(SkuImport::class)
             ->set('file', File::createWithContent('import.csv', $csv))
-            ->call('upload')
+            ->call('readFile')
             ->assertSet('step', 'map')
             ->assertDontSee('Tenant A Template');
     }
