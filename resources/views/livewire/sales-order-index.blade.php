@@ -251,7 +251,7 @@
                 </summary>
                 <div class="filter-panel compact">
                     <label>
-                        <input type="checkbox" wire:click="toggleOtherFilter('{{ \App\Support\SalesOrderFilters::OTHER_MULTI_ITEM }}')" @checked(in_array(\App\Support\SalesOrderFilters::OTHER_MULTI_ITEM, (array) $othersFilter, true))>
+                        <input type="checkbox" wire:model.live="othersFilter" value="{{ \App\Support\SalesOrderFilters::OTHER_MULTI_ITEM }}">
                         {{ __('sales_orders.other_multi_item') }}
                     </label>
                     <small class="filter-helper">{{ __('sales_orders.other_multi_item_hint') }}</small>

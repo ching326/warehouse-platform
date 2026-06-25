@@ -1156,6 +1156,8 @@ class SalesOrderTest extends TestCase
             ->assertSet('dateRange', SalesOrderFilters::DATE_ALL)
             ->assertSet('dateFrom', '')
             ->assertSet('dateTo', '')
+            ->call('removeFilterChip', 'other', SalesOrderFilters::OTHER_NOT_PRINTED)
+            ->assertSet('othersFilter', [])
             ->call('removeFilterChip', 'search')
             ->assertSet('search', '');
     }
