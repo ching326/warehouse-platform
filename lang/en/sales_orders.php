@@ -297,7 +297,7 @@ return [
     'courier_export_requires_confirmation' => 'Some selected orders were already exported. Export again?',
     'courier_export_confirm_reexport' => 'Some selected orders were already exported. Export again?',
     'courier_export_confirm_btn' => 'Export again',
-    'export_reexport_warning' => "Below orders were already exported. Export again?",
+    'export_reexport_warning' => 'Below orders were already exported. Export again?',
     'export_reexport_warning_with_orders' => "Below orders were already exported. Export again?\n:orders",
     'courier_export_wrong_carrier_ids' => 'Orders cannot be exported to this courier because their shipping method belongs to another carrier. Change the shipping method, or export with the correct courier.',
     'courier_export_unsupported_courier_ids' => 'Orders cannot be exported because their shipping method does not support courier CSV export.',
