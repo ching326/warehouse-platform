@@ -61,6 +61,21 @@ class SkuImportTest extends TestCase
         unlink($path);
     }
 
+    public function test_reader_handles_shift_jis_csv(): void
+    {
+        $utf8Content = "品番,商品名\nSKU001,テスト商品\n";
+        $sjisContent = mb_convert_encoding($utf8Content, 'SJIS-WIN', 'UTF-8');
+        $path = $this->csvFile($sjisContent);
+
+        $result = app(SkuImportReader::class)->read($path);
+
+        $this->assertSame(['品番', '商品名'], $result['headers']);
+        $this->assertSame('SKU001', $result['rows'][0][0]);
+        $this->assertSame('テスト商品', $result['rows'][0][1]);
+
+        unlink($path);
+    }
+
     public function test_reader_limits_returned_rows_but_counts_all(): void
     {
         $lines = "sku,name\n";

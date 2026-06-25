@@ -14,13 +14,60 @@ class SkuImportReader
      */
     public function read(string $path, ?int $limit = null): array
     {
+        if ($this->isExcelFile($path)) {
+            return $this->readExcel($path, $limit);
+        }
+
+        return $this->readCsv($path, $limit);
+    }
+
+    private function isExcelFile(string $path): bool
+    {
+        $magic = file_get_contents($path, false, null, 0, 4);
+
+        // XLSX = ZIP (PK header), XLS = OLE2 compound document
+        return $magic === "PK\x03\x04" || $magic === "\xD0\xCF\x11\xE0";
+    }
+
+    private function readCsv(string $path, ?int $limit): array
+    {
+        $content = file_get_contents($path);
+
+        // Strip UTF-8 BOM
+        if (str_starts_with($content, "\xEF\xBB\xBF")) {
+            $content = substr($content, 3);
+        }
+
+        // If not valid UTF-8, assume Shift-JIS (common for Japanese CSV exports)
+        if (! mb_check_encoding($content, 'UTF-8')) {
+            $content = mb_convert_encoding($content, 'UTF-8', 'SJIS-WIN');
+        }
+
+        $handle = fopen('php://temp', 'r+b');
+        fwrite($handle, $content);
+        rewind($handle);
+
+        $sheet = [];
+        while (($row = fgetcsv($handle)) !== false) {
+            $sheet[] = $row;
+        }
+        fclose($handle);
+
+        return $this->processSheet($sheet, $limit);
+    }
+
+    private function readExcel(string $path, ?int $limit): array
+    {
         $sheets = Excel::toArray(new class implements ToArray
         {
             public function array(array $array): void {}
         }, $path);
 
-        $sheet = $sheets[0] ?? [];
+        return $this->processSheet($sheets[0] ?? [], $limit);
+    }
 
+    private function processSheet(array $sheet, ?int $limit): array
+    {
         if (count($sheet) < 1) {
             return ['headers' => [], 'rows' => [], 'total' => 0];
         }
