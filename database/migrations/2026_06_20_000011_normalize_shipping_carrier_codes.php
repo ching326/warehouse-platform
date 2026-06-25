@@ -18,8 +18,10 @@ return new class extends Migration
             DB::table('carriers')
                 ->where('code', $alias)
                 ->whereNotExists(function ($query) use ($canonical) {
+                    // Wrap the self-reference in a derived table: MySQL forbids
+                    // selecting from the same table being updated (error 1093).
                     $query->selectRaw('1')
-                        ->from('carriers as canonical_carriers')
+                        ->fromRaw('(select code from carriers) as canonical_carriers')
                         ->where('canonical_carriers.code', $canonical);
                 })
                 ->update(['code' => $canonical]);
