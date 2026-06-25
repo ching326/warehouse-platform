@@ -44,6 +44,8 @@ return [
     'stock_item_mode_link' => '关联已有库存品项',
     'field_stock_item_name' => '库存品项名称',
     'field_short_name' => '简称',
+    'translations' => '翻译',
+    'translation_placeholder' => '留空则使用默认名称',
     'field_brand' => '品牌',
     'field_model_number' => '型号',
     'field_variation_code' => '规格代码',

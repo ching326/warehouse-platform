@@ -31,6 +31,9 @@ class SkuCreate extends Component
     #[Url(as: 'name', except: '')]
     public string $name = '';
 
+    /** Per-locale SKU name overrides keyed by app locale; base name is the fallback. */
+    public array $nameTranslations = ['ja' => '', 'zh_TW' => '', 'zh_CN' => ''];
+
     #[Url(as: 'platform_sku', except: '')]
     public string $platformSku = '';
 
@@ -60,6 +63,9 @@ class SkuCreate extends Component
 
     public array $stockItem = [
         'name' => '',
+        'name_ja' => '',
+        'name_zh_tw' => '',
+        'name_zh_cn' => '',
         'short_name' => '',
         'brand' => '',
         'model_number' => '',
@@ -133,6 +139,9 @@ class SkuCreate extends Component
                 'stock_item_id' => $stockItemId,
                 'sku' => trim($this->sku),
                 'name' => trim($this->name),
+                'name_ja' => $this->nullableString($this->nameTranslations['ja'] ?? ''),
+                'name_zh_tw' => $this->nullableString($this->nameTranslations['zh_TW'] ?? ''),
+                'name_zh_cn' => $this->nullableString($this->nameTranslations['zh_CN'] ?? ''),
                 'platform_sku' => $this->nullableString($this->platformSku),
                 'platform_product_id' => $this->nullableString($this->platformProductId),
                 'platform_variant_id' => $this->nullableString($this->platformVariantId),
@@ -184,6 +193,7 @@ class SkuCreate extends Component
                     ->when($shopId === null, fn ($rule) => $rule->whereNull('shop_id'), fn ($rule) => $rule->where('shop_id', $shopId)),
             ],
             'name' => ['required', 'string', 'max:255'],
+            'name_translations.*' => ['nullable', 'string', 'max:255'],
             'sku_type' => ['required', Rule::in(['single', 'virtual_bundle', 'physical_bundle'])],
             'default_packaging_material_id' => ['nullable', Rule::exists('packaging_materials', 'id')],
             'default_shipping_method_id' => ['nullable', Rule::exists('shipping_methods', 'id')->where('status', 'active')],
@@ -195,6 +205,9 @@ class SkuCreate extends Component
                 Rule::exists('stock_items', 'id')->where('tenant_id', $tenantId),
             ],
             'stock_item.name' => ['nullable', 'string', 'max:255'],
+            'stock_item.name_ja' => ['nullable', 'string', 'max:255'],
+            'stock_item.name_zh_tw' => ['nullable', 'string', 'max:255'],
+            'stock_item.name_zh_cn' => ['nullable', 'string', 'max:255'],
             'stock_item.weight_value' => ['nullable', 'numeric', 'min:0'],
             'stock_item.length_value' => ['nullable', 'numeric', 'min:0'],
             'stock_item.width_value' => ['nullable', 'numeric', 'min:0'],
@@ -209,6 +222,7 @@ class SkuCreate extends Component
             'shop_id' => $this->shopId === '' ? null : $this->shopId,
             'sku' => trim($this->sku),
             'name' => trim($this->name),
+            'name_translations' => $this->nameTranslations,
             'sku_type' => $this->skuType,
             'default_packaging_material_id' => $this->defaultPackagingMaterialId === '' ? null : $this->defaultPackagingMaterialId,
             'default_shipping_method_id' => $this->defaultShippingMethodId === '' ? null : $this->defaultShippingMethodId,
@@ -225,6 +239,9 @@ class SkuCreate extends Component
             'tenant_id' => $tenantId,
             'code' => $this->nextStockItemCode($tenantId),
             'name' => trim($this->stockItem['name']) ?: trim($this->name),
+            'name_ja' => $this->nullableString($this->stockItem['name_ja'] ?? ''),
+            'name_zh_tw' => $this->nullableString($this->stockItem['name_zh_tw'] ?? ''),
+            'name_zh_cn' => $this->nullableString($this->stockItem['name_zh_cn'] ?? ''),
             'short_name' => $this->nullableString($this->stockItem['short_name']),
             'brand' => $this->nullableString($this->stockItem['brand']),
             'model_number' => $this->nullableString($this->stockItem['model_number']),

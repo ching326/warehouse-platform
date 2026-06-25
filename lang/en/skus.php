@@ -44,6 +44,8 @@ return [
     'stock_item_mode_link' => 'Link existing stock item',
     'field_stock_item_name' => 'Stock item name',
     'field_short_name' => 'Short name',
+    'translations' => 'Translations',
+    'translation_placeholder' => 'Leave blank to use the default name',
     'field_brand' => 'Brand',
     'field_model_number' => 'Model number',
     'field_variation_code' => 'Variation code',

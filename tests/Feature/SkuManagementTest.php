@@ -59,6 +59,41 @@ class SkuManagementTest extends TestCase
         $this->assertSame('New Stock Item', $sku->stockItem->name);
     }
 
+    public function test_create_sku_persists_localized_name_overrides(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'LOC']);
+        $shop = Shop::factory()->for($tenant)->create();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('shopId', (string) $shop->id)
+            ->set('sku', 'SKU-LOCALIZED')
+            ->set('name', 'Default SKU Name')
+            ->set('nameTranslations.ja', 'SKU日本語名')
+            ->set('nameTranslations.zh_TW', 'SKU繁中名')
+            ->set('stockItem.name', 'Default Stock Name')
+            ->set('stockItem.name_ja', '在庫日本語名')
+            ->set('stockItem.name_zh_cn', '库存简中名')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('skus.index'));
+
+        $sku = Sku::where('sku', 'SKU-LOCALIZED')->firstOrFail();
+
+        $this->assertSame('SKU日本語名', $sku->name_ja);
+        $this->assertSame('SKU繁中名', $sku->name_zh_tw);
+        $this->assertNull($sku->name_zh_cn);
+
+        $this->assertSame('在庫日本語名', $sku->stockItem->name_ja);
+        $this->assertNull($sku->stockItem->name_zh_tw);
+        $this->assertSame('库存简中名', $sku->stockItem->name_zh_cn);
+
+        app()->setLocale('ja');
+        $this->assertSame('在庫日本語名', $sku->stockItem->displayName());
+        app()->setLocale('en');
+    }
+
     public function test_tenant_user_can_create_sku_only_for_own_tenant(): void
     {
         [$ownTenant, $user] = $this->tenantUser();

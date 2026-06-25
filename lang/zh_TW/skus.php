@@ -44,6 +44,8 @@ return [
     'stock_item_mode_link' => '連結既有庫存品項',
     'field_stock_item_name' => '庫存品項名稱',
     'field_short_name' => '簡稱',
+    'translations' => '翻譯',
+    'translation_placeholder' => '留空則使用預設名稱',
     'field_brand' => '品牌',
     'field_model_number' => '型號',
     'field_variation_code' => '規格代碼',

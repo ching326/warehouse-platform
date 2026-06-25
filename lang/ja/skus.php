@@ -44,6 +44,8 @@ return [
     'stock_item_mode_link' => '既存の在庫品目を紐付け',
     'field_stock_item_name' => '在庫品目名',
     'field_short_name' => '略称',
+    'translations' => '翻訳',
+    'translation_placeholder' => '空欄の場合はデフォルト名を使用します',
     'field_brand' => 'ブランド',
     'field_model_number' => '型番',
     'field_variation_code' => 'バリエーションコード',

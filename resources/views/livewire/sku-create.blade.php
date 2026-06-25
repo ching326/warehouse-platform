@@ -47,7 +47,16 @@
 
             <div class="form-grid three">
                 <flux:input wire:model="sku" required :label="__('skus.field_sku')" />
-                <flux:input wire:model="name" required :label="__('skus.field_sku_name')" />
+                @include('livewire.partials.localized-name-field', [
+                    'label' => __('skus.field_sku_name'),
+                    'baseModel' => 'name',
+                    'required' => true,
+                    'localeModels' => [
+                        'ja' => 'nameTranslations.ja',
+                        'zh_TW' => 'nameTranslations.zh_TW',
+                        'zh_CN' => 'nameTranslations.zh_CN',
+                    ],
+                ])
                 <flux:select wire:model="skuType" :label="__('skus.field_sku_type')">
                     <flux:select.option value="single">{{ __('common.sku_types.single') }}</flux:select.option>
                     <flux:select.option value="virtual_bundle">{{ __('common.sku_types.virtual_bundle') }}</flux:select.option>
@@ -129,7 +138,15 @@
                 @error('existing_stock_item_id') <p class="form-error">{{ $message }}</p> @enderror
             @else
                 <div class="form-grid three">
-                    <flux:input wire:model="stockItem.name" :label="__('skus.field_stock_item_name')" />
+                    @include('livewire.partials.localized-name-field', [
+                        'label' => __('skus.field_stock_item_name'),
+                        'baseModel' => 'stockItem.name',
+                        'localeModels' => [
+                            'ja' => 'stockItem.name_ja',
+                            'zh_TW' => 'stockItem.name_zh_tw',
+                            'zh_CN' => 'stockItem.name_zh_cn',
+                        ],
+                    ])
                     <flux:input wire:model="stockItem.short_name" :label="__('skus.field_short_name')" />
                     <flux:input wire:model="stockItem.brand" :label="__('skus.field_brand')" />
                     <flux:input wire:model="stockItem.model_number" :label="__('skus.field_model_number')" />
@@ -204,4 +221,51 @@
             <flux:button type="submit" variant="primary">{{ __('skus.btn_submit') }}</flux:button>
         </div>
     </form>
+
+    <style>
+        .localized-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .localized-field-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            align-self: flex-start;
+            padding: 0;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--accent);
+        }
+
+        .localized-field-toggle:hover {
+            text-decoration: underline;
+        }
+
+        .localized-field-toggle-icon {
+            width: 14px;
+            height: 14px;
+        }
+
+        .localized-field-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 4px;
+            padding: 10px 12px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: color-mix(in oklab, var(--accent), transparent 96%);
+        }
+
+        .localized-field-locale.is-current {
+            padding: 6px 8px;
+            border-radius: 6px;
+            background: color-mix(in oklab, var(--accent), transparent 88%);
+        }
+    </style>
 </div>
