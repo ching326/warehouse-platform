@@ -365,7 +365,7 @@
                             <flux:table.cell>
                                 <strong>{{ $scan->sku?->sku ?? $scan->stockItem?->code ?? '-' }}</strong>
                                 @if ($scan->stockItem)
-                                    <span class="subtle">{{ $scan->stockItem->code }} / {{ $scan->stockItem->short_name ?: $scan->stockItem->name }}</span>
+                                    <span class="subtle">{{ $scan->stockItem->code }} / {{ $scan->stockItem->displayName() }}</span>
                                 @endif
                             </flux:table.cell>
                             <flux:table.cell align="end">{{ number_format($scan->quantity) }}</flux:table.cell>

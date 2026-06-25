@@ -183,7 +183,7 @@
                     <div class="issue-stock-context">
                         <span>{{ __('issues.field_stock_item') }}</span>
                         <strong>{{ $stockItem->code }}</strong>
-                        <small>{{ $stockItem->short_name ?: $stockItem->name }}</small>
+                        <small>{{ $stockItem->displayName() }}</small>
                     </div>
                 @endif
                 <flux:input wire:model="manualLines.{{ $index }}.qty" type="number" min="1" step="1" :label="__('issues.field_qty')" />

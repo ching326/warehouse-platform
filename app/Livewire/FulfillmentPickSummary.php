@@ -155,7 +155,7 @@ class FulfillmentPickSummary extends Component
                     $rows[$key]['sku_codes']['bundle-component'] = __('fulfillment_pick.bundle_component');
                 } elseif ($sku) {
                     $rows[$key]['sku_codes'][$sku->id] = $sku->sku;
-                    $rows[$key]['sku_names'][$sku->id] = $sku->name;
+                    $rows[$key]['sku_names'][$sku->id] = $sku->localizedName();
                 }
 
                 $rows[$key]['required_qty'] += (int) $line['required_qty'];

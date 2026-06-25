@@ -103,7 +103,7 @@
                                 </div>
                             </flux:table.cell>
                             <flux:table.cell><span class="pick-sku-list">{{ implode(', ', $row['sku_codes']) ?: '-' }}</span></flux:table.cell>
-                            <flux:table.cell><span class="pick-name">{{ $stockItem?->short_name ?: $stockItem?->name ?: collect($row['sku_names'])->first() ?: '-' }}</span></flux:table.cell>
+                            <flux:table.cell><span class="pick-name">{{ $stockItem?->displayName() ?: collect($row['sku_names'])->first() ?: '-' }}</span></flux:table.cell>
                             <flux:table.cell>
                                 {{ $row['barcode'] ?: '-' }}
                                 @if ($row['alias_count'] > 0)
@@ -181,7 +181,7 @@
                                     <td>{{ $displayLocation }}</td>
                                     <td>{{ $stockItem?->code ?: '-' }}</td>
                                     <td>{{ implode(', ', $row['sku_codes']) ?: '-' }}</td>
-                                    <td>{{ $stockItem?->short_name ?: $stockItem?->name ?: collect($row['sku_names'])->first() ?: '-' }}</td>
+                                    <td>{{ $stockItem?->displayName() ?: collect($row['sku_names'])->first() ?: '-' }}</td>
                                     <td>{{ $row['barcode'] ?: '-' }}</td>
                                     <td>{{ number_format($row['required_qty']) }}</td>
                                     <td></td>

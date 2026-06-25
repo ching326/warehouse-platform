@@ -5,6 +5,8 @@ namespace App\Livewire;
 use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\ShippingMethod;
+use App\Models\Sku;
+use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\Warehouse;
 use App\Services\Courier\CourierExportService;
@@ -379,8 +381,8 @@ class FulfillmentIndex extends Component
                 'salesOrders.lines:id,sales_order_id,sku_id,quantity',
             ])
             ->when($this->detailed, fn ($query) => $query->with([
-                'salesOrders.lines.sku:id,sku,name,stock_item_id',
-                'salesOrders.lines.sku.stockItem:id,short_name,name',
+                'salesOrders.lines.sku' => fn ($sku) => $sku->select(['id', 'sku', 'stock_item_id', ...Sku::DISPLAY_NAME_COLUMNS]),
+                'salesOrders.lines.sku.stockItem' => fn ($stockItem) => $stockItem->select(['id', ...StockItem::DISPLAY_NAME_COLUMNS]),
             ]))
             ->when($this->tenantIds !== [], fn ($query) => $query
                 ->whereIn('tenant_id', array_map('intval', $this->tenantIds)))

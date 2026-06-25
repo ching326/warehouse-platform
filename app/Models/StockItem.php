@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasLocalizedAttributes;
 use Database\Factories\StockItemFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,13 +15,31 @@ use Spatie\Activitylog\Traits\LogsActivity;
 class StockItem extends Model
 {
     /** @use HasFactory<StockItemFactory> */
-    use HasFactory, LogsActivity;
+    use HasFactory, HasLocalizedAttributes, LogsActivity;
+
+    /** Columns holding the localized display name (base + per-locale overrides). */
+    public const DISPLAY_NAME_COLUMNS = [
+        'name',
+        'name_ja',
+        'name_zh_tw',
+        'name_zh_cn',
+        'short_name',
+        'short_name_ja',
+        'short_name_zh_tw',
+        'short_name_zh_cn',
+    ];
 
     protected $fillable = [
         'tenant_id',
         'code',
         'name',
+        'name_ja',
+        'name_zh_tw',
+        'name_zh_cn',
         'short_name',
+        'short_name_ja',
+        'short_name_zh_tw',
+        'short_name_zh_cn',
         'brand',
         'model_number',
         'variation_code',
@@ -69,6 +88,27 @@ class StockItem extends Model
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    /** Localized full name for the given (or current) locale, base name as fallback. */
+    public function localizedName(?string $locale = null): string
+    {
+        return $this->localized('name', $locale);
+    }
+
+    /** Localized short name for the given (or current) locale, base short name as fallback. */
+    public function localizedShortName(?string $locale = null): string
+    {
+        return $this->localized('short_name', $locale);
+    }
+
+    /**
+     * Operator-facing display name for the given (or current) locale: the
+     * localized short name, falling back to the localized full name.
+     */
+    public function displayName(?string $locale = null): string
+    {
+        return $this->localizedShortName($locale) ?: $this->localizedName($locale);
     }
 
     public function skus(): HasMany

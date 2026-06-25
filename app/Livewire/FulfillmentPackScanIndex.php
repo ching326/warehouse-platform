@@ -3,6 +3,8 @@
 namespace App\Livewire;
 
 use App\Models\FulfillmentPackScan;
+use App\Models\Sku;
+use App\Models\StockItem;
 use App\Models\Tenant;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -65,8 +67,8 @@ class FulfillmentPackScanIndex extends Component
                     'tenant:id,code,name',
                     'outboundOrder:id,ref',
                     'salesOrder:id,platform_order_id',
-                    'sku:id,sku,name',
-                    'stockItem:id,code,name,short_name',
+                    'sku' => fn ($q) => $q->select(['id', 'sku', ...Sku::DISPLAY_NAME_COLUMNS]),
+                    'stockItem' => fn ($q) => $q->select(['id', 'code', ...StockItem::DISPLAY_NAME_COLUMNS]),
                     'scannedBy:id,name',
                 ])
                 ->orderByDesc('created_at')

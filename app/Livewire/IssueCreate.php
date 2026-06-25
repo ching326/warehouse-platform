@@ -464,7 +464,7 @@ class IssueCreate extends Component
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->where('tenant_id', $tenantId)
             ->whereIn('id', $stockItemIds)
-            ->get(['id', 'code', 'name', 'short_name'])
+            ->get(['id', 'code', ...StockItem::DISPLAY_NAME_COLUMNS])
             ->keyBy('id');
     }
 

@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\OutboundOrder;
 use App\Models\ShippingMethod;
+use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Services\Courier\CourierExportService;
 use App\Services\InventoryService;
@@ -294,7 +295,11 @@ class OutboundOrderDetail extends Component
                 'salesOrders:id,platform_order_id,recipient_name,recipient_city,fulfillment_status',
                 'salesOrders.lines:id,sales_order_id',
                 'packScans' => fn ($query) => $query
-                    ->with(['sku:id,sku,name', 'stockItem:id,code,name,short_name', 'scannedBy:id,name'])
+                    ->with([
+                        'sku:id,sku,name',
+                        'stockItem' => fn ($q) => $q->select(['id', 'code', ...StockItem::DISPLAY_NAME_COLUMNS]),
+                        'scannedBy:id,name',
+                    ])
                     ->latest('id')
                     ->limit(10),
             ])

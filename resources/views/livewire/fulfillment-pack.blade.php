@@ -157,7 +157,7 @@
                         </flux:table.cell>
                         <flux:table.cell>{{ $line['stock_item']?->code ?: '-' }}</flux:table.cell>
                         <flux:table.cell>{{ $line['sku']?->barcode ?: $line['stock_item']?->barcode ?: '-' }}</flux:table.cell>
-                        <flux:table.cell>{{ $line['stock_item']?->short_name ?: $line['stock_item']?->name ?: $line['sku']?->name ?: '-' }}</flux:table.cell>
+                        <flux:table.cell>{{ $line['stock_item']?->displayName() ?: $line['sku']?->localizedName() ?: '-' }}</flux:table.cell>
                         <flux:table.cell align="end">{{ number_format($line['required_qty']) }}</flux:table.cell>
                         <flux:table.cell align="end">{{ number_format($line['scanned_qty']) }}</flux:table.cell>
                         <flux:table.cell align="end">
