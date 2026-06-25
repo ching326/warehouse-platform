@@ -17,16 +17,16 @@ class StockItem extends Model
     /** @use HasFactory<StockItemFactory> */
     use HasFactory, HasLocalizedAttributes, LogsActivity;
 
-    /** Columns holding the localized display name (base + per-locale overrides). */
+    /**
+     * Columns needed to render the display name: the localized full name (base +
+     * per-locale overrides) plus the language-neutral short_name shorthand.
+     */
     public const DISPLAY_NAME_COLUMNS = [
         'name',
         'name_ja',
         'name_zh_tw',
         'name_zh_cn',
         'short_name',
-        'short_name_ja',
-        'short_name_zh_tw',
-        'short_name_zh_cn',
     ];
 
     protected $fillable = [
@@ -37,9 +37,6 @@ class StockItem extends Model
         'name_zh_tw',
         'name_zh_cn',
         'short_name',
-        'short_name_ja',
-        'short_name_zh_tw',
-        'short_name_zh_cn',
         'brand',
         'model_number',
         'variation_code',
@@ -96,19 +93,13 @@ class StockItem extends Model
         return $this->localized('name', $locale);
     }
 
-    /** Localized short name for the given (or current) locale, base short name as fallback. */
-    public function localizedShortName(?string $locale = null): string
-    {
-        return $this->localized('short_name', $locale);
-    }
-
     /**
-     * Operator-facing display name for the given (or current) locale: the
-     * localized short name, falling back to the localized full name.
+     * Operator-facing display name: the language-neutral short_name shorthand,
+     * falling back to the localized full name when no short_name is set.
      */
     public function displayName(?string $locale = null): string
     {
-        return $this->localizedShortName($locale) ?: $this->localizedName($locale);
+        return ($this->short_name ?: '') ?: $this->localizedName($locale);
     }
 
     public function skus(): HasMany

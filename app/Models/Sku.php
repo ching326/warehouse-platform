@@ -84,7 +84,7 @@ class Sku extends Model
      */
     public function displayName(?string $locale = null): string
     {
-        $shortName = $this->stockItem?->localizedShortName($locale) ?? '';
+        $shortName = (string) ($this->stockItem?->short_name ?? '');
 
         if ($shortName !== '') {
             return $shortName;

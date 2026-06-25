@@ -32,54 +32,62 @@ class LocalizedProductNameTest extends TestCase
         $this->assertSame('Full Name', $item->fresh()->displayName());
     }
 
-    public function test_stock_item_display_name_uses_locale_override_when_present(): void
+    public function test_stock_item_short_name_is_language_neutral(): void
     {
+        // short_name behaves like brand/model_number: one value, no per-locale
+        // variants, and it wins over the localized full name regardless of locale.
         $item = StockItem::factory()->create([
             'name' => 'Base Name',
-            'short_name' => 'Base Short',
-            'short_name_ja' => 'ジャパン略称',
-            'name_zh_tw' => '繁中名稱',
+            'name_ja' => 'ジャパン名称',
+            'short_name' => 'SHRT',
         ]);
 
         app()->setLocale('ja');
-        $this->assertSame('ジャパン略称', $item->displayName());
+        $this->assertSame('SHRT', $item->displayName());
 
         app()->setLocale('zh_TW');
-        // No zh_TW short_name override, so localized short_name falls back to base short_name.
-        $this->assertSame('Base Short', $item->displayName());
+        $this->assertSame('SHRT', $item->displayName());
     }
 
-    public function test_stock_item_display_name_falls_back_to_base_when_override_empty(): void
+    public function test_stock_item_name_uses_locale_override_then_falls_back(): void
     {
         $item = StockItem::factory()->create([
             'name' => 'Base Name',
-            'short_name' => 'Base Short',
+            'name_ja' => 'ジャパン名称',
+            'name_zh_tw' => '繁中名稱',
+            'short_name' => null,
         ]);
 
-        app()->setLocale('zh_CN');
-        $this->assertSame('Base Short', $item->displayName());
+        app()->setLocale('ja');
+        $this->assertSame('ジャパン名称', $item->displayName());
 
-        // Unknown/source locale (en) always uses the base column.
+        app()->setLocale('zh_TW');
+        $this->assertSame('繁中名稱', $item->displayName());
+
+        // No zh_CN override -> base name. Source locale (en) -> base name.
+        app()->setLocale('zh_CN');
+        $this->assertSame('Base Name', $item->displayName());
+
         app()->setLocale('en');
-        $this->assertSame('Base Short', $item->displayName());
+        $this->assertSame('Base Name', $item->displayName());
     }
 
-    public function test_sku_display_name_delegates_to_stock_item_then_own_name(): void
+    public function test_sku_display_name_delegates_to_stock_item_then_own_localized_name(): void
     {
         $item = StockItem::factory()->create([
             'name' => 'Item Name',
             'short_name' => 'Item Short',
-            'short_name_ja' => 'アイテム略称',
         ]);
         $sku = Sku::factory()->for($item, 'stockItem')->create([
             'name' => 'Sku Name',
             'name_ja' => 'SKUジャパン',
         ]);
 
+        // Stock item short_name wins (language-neutral).
         app()->setLocale('ja');
-        $this->assertSame('アイテム略称', $sku->displayName());
+        $this->assertSame('Item Short', $sku->displayName());
 
-        // With no linked stock item, the SKU falls back to its own localized name.
+        // With no linked stock item, the SKU uses its own localized name.
         $orphan = Sku::factory()->create([
             'stock_item_id' => null,
             'name' => 'Orphan Sku',
