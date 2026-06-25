@@ -22,9 +22,9 @@ class OtherSettings extends Component
     public function addType(): void
     {
         $this->types[] = [
-            'id'         => null,
-            'slug'       => '',
-            'name'       => '',
+            'id' => null,
+            'slug' => '',
+            'name' => '',
             'sort_order' => count($this->types) * 10,
             'translations' => ['en' => '', 'zh_TW' => '', 'zh_CN' => '', 'ja' => ''],
         ];
@@ -39,13 +39,13 @@ class OtherSettings extends Component
     public function save(): void
     {
         $this->validate([
-            'types.*.slug'              => ['required', 'string', 'max:50'],
-            'types.*.name'              => ['required', 'string', 'max:255'],
-            'types.*.sort_order'        => ['required', 'integer', 'min:0'],
-            'types.*.translations.en'   => ['nullable', 'string', 'max:255'],
+            'types.*.slug' => ['required', 'string', 'max:50'],
+            'types.*.name' => ['required', 'string', 'max:255'],
+            'types.*.sort_order' => ['required', 'integer', 'min:0'],
+            'types.*.translations.en' => ['nullable', 'string', 'max:255'],
             'types.*.translations.zh_TW' => ['nullable', 'string', 'max:255'],
             'types.*.translations.zh_CN' => ['nullable', 'string', 'max:255'],
-            'types.*.translations.ja'   => ['nullable', 'string', 'max:255'],
+            'types.*.translations.ja' => ['nullable', 'string', 'max:255'],
         ]);
 
         $keptIds = collect($this->types)->pluck('id')->filter()->values()->all();
@@ -54,15 +54,15 @@ class OtherSettings extends Component
         foreach ($this->types as $row) {
             $translations = array_filter(
                 $row['translations'] ?? [],
-                fn($v) => $v !== null && $v !== ''
+                fn ($v) => $v !== null && $v !== ''
             );
 
             $enName = $translations['en'] ?? $row['name'];
 
             $data = [
-                'slug'         => $row['slug'],
-                'name'         => $enName ?: $row['name'],
-                'sort_order'   => (int) $row['sort_order'],
+                'slug' => $row['slug'],
+                'name' => $enName ?: $row['name'],
+                'sort_order' => (int) $row['sort_order'],
                 'translations' => $translations ?: null,
             ];
 
@@ -76,6 +76,7 @@ class OtherSettings extends Component
         $this->loadTypes();
         session()->flash('saved', true);
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();
@@ -87,11 +88,11 @@ class OtherSettings extends Component
     {
         $this->types = ProductType::orderBy('sort_order')->orderBy('id')
             ->get()
-            ->map(fn($t) => [
-                'id'           => $t->id,
-                'slug'         => $t->slug,
-                'name'         => $t->name,
-                'sort_order'   => $t->sort_order,
+            ->map(fn ($t) => [
+                'id' => $t->id,
+                'slug' => $t->slug,
+                'name' => $t->name,
+                'sort_order' => $t->sort_order,
                 'translations' => array_merge(
                     ['en' => '', 'zh_TW' => '', 'zh_CN' => '', 'ja' => ''],
                     $t->translations ?? []
@@ -104,7 +105,7 @@ class OtherSettings extends Component
     {
         return view('livewire.other-settings')
             ->layout('inventory', [
-                'title'    => __('setup.other_settings_title'),
+                'title' => __('setup.other_settings_title'),
                 'subtitle' => __('setup.other_settings_subtitle'),
             ]);
     }

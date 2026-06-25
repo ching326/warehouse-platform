@@ -112,6 +112,7 @@ class WarehouseLocationIndex extends Component
     {
         return $status === 'active' ? 'green' : 'zinc';
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();

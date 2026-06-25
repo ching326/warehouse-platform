@@ -112,6 +112,7 @@ class OutboundOrderShip extends Component
             'ship_note' => ['nullable', 'string', 'max:1000'],
         ])->validate();
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();

@@ -200,6 +200,7 @@ class InboundOrderReceive extends Component
             'received_carton_count' => $this->receivedCartonCount,
         ], $rules)->validate();
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();

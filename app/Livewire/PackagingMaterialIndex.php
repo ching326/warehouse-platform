@@ -99,6 +99,7 @@ class PackagingMaterialIndex extends Component
             ? __('setup.packaging_types.'.$type)
             : str($type)->replace('_', ' ')->title()->toString();
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();

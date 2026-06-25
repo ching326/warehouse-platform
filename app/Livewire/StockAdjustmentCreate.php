@@ -119,6 +119,7 @@ class StockAdjustmentCreate extends Component
             'ref_id' => $this->refId,
         ];
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();

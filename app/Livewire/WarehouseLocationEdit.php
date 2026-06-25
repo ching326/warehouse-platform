@@ -13,11 +13,16 @@ class WarehouseLocationEdit extends Component
     public WarehouseLocation $location;
 
     public string $warehouseId = '';
-    public string $code        = '';
-    public string $name        = '';
-    public string $type        = 'storage';
-    public string $status      = 'active';
-    public string $note        = '';
+
+    public string $code = '';
+
+    public string $name = '';
+
+    public string $type = 'storage';
+
+    public string $status = 'active';
+
+    public string $note = '';
 
     public function mount(WarehouseLocation $location): void
     {
@@ -25,13 +30,13 @@ class WarehouseLocationEdit extends Component
             abort(403);
         }
 
-        $this->location    = $location;
+        $this->location = $location;
         $this->warehouseId = (string) $location->warehouse_id;
-        $this->code        = $location->code;
-        $this->name        = $location->name ?? '';
-        $this->type        = $location->type;
-        $this->status      = $location->status;
-        $this->note        = $location->note ?? '';
+        $this->code = $location->code;
+        $this->name = $location->name ?? '';
+        $this->type = $location->type;
+        $this->status = $location->status;
+        $this->note = $location->note ?? '';
     }
 
     public function save()
@@ -40,14 +45,14 @@ class WarehouseLocationEdit extends Component
 
         validator([
             'warehouse_id' => $this->warehouseId,
-            'code'         => $code,
-            'name'         => $this->name,
-            'type'         => $this->type,
-            'status'       => $this->status,
-            'note'         => $this->note,
+            'code' => $code,
+            'name' => $this->name,
+            'type' => $this->type,
+            'status' => $this->status,
+            'note' => $this->note,
         ], [
             'warehouse_id' => ['required', 'integer', Rule::exists('warehouses', 'id')->where('status', 'active')],
-            'code'         => [
+            'code' => [
                 'required',
                 'string',
                 'max:50',
@@ -55,21 +60,21 @@ class WarehouseLocationEdit extends Component
                     ->where('warehouse_id', (int) $this->warehouseId)
                     ->ignore($this->location->id),
             ],
-            'name'   => ['nullable', 'string', 'max:255'],
-            'type'   => ['required', 'string', Rule::in(array_keys($this->locationTypes()))],
+            'name' => ['nullable', 'string', 'max:255'],
+            'type' => ['required', 'string', Rule::in(array_keys($this->locationTypes()))],
             'status' => ['required', 'string', Rule::in(['active', 'inactive'])],
-            'note'   => ['nullable', 'string', 'max:1000'],
+            'note' => ['nullable', 'string', 'max:1000'],
         ], [
             'code.unique' => __('locations.duplicate_code'),
         ])->validate();
 
         $this->location->update([
             'warehouse_id' => (int) $this->warehouseId,
-            'code'         => $code,
-            'name'         => $this->nullableString($this->name),
-            'type'         => $this->type,
-            'status'       => $this->status,
-            'note'         => $this->nullableString($this->note),
+            'code' => $code,
+            'name' => $this->nullableString($this->name),
+            'type' => $this->type,
+            'status' => $this->status,
+            'note' => $this->nullableString($this->note),
         ]);
 
         session()->flash('status', __('locations.location_updated'));
@@ -88,13 +93,13 @@ class WarehouseLocationEdit extends Component
                 })
                 ->orderBy('name')
                 ->get(['id', 'code', 'name']),
-            'types'    => $this->locationTypes(),
+            'types' => $this->locationTypes(),
             'statuses' => [
-                'active'   => __('locations.status_active'),
+                'active' => __('locations.status_active'),
                 'inactive' => __('locations.status_inactive'),
             ],
         ])->layout('inventory', [
-            'title'    => __('locations.edit_page_title'),
+            'title' => __('locations.edit_page_title'),
             'subtitle' => $this->location->warehouse->code.' / '.$this->location->code,
         ]);
     }
@@ -102,14 +107,14 @@ class WarehouseLocationEdit extends Component
     private function locationTypes(): array
     {
         return [
-            'storage'   => __('locations.type_storage'),
+            'storage' => __('locations.type_storage'),
             'receiving' => __('locations.type_receiving'),
-            'qc'        => __('locations.type_qc'),
-            'packing'   => __('locations.type_packing'),
-            'shipping'  => __('locations.type_shipping'),
-            'hold'      => __('locations.type_hold'),
-            'damaged'   => __('locations.type_damaged'),
-            'other'     => __('locations.type_other'),
+            'qc' => __('locations.type_qc'),
+            'packing' => __('locations.type_packing'),
+            'shipping' => __('locations.type_shipping'),
+            'hold' => __('locations.type_hold'),
+            'damaged' => __('locations.type_damaged'),
+            'other' => __('locations.type_other'),
         ];
     }
 

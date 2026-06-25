@@ -113,6 +113,7 @@ class ShopCreate extends Component
             'note' => ['nullable', 'string', 'max:2000'],
         ])->validate();
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();

@@ -9,8 +9,8 @@ use App\Models\Sku;
 use App\Models\Tenant;
 use App\Services\SalesOrders\SalesOrderImporter;
 use Illuminate\Database\QueryException;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
@@ -673,6 +673,7 @@ class SalesOrderImport extends Component
             'amazon_report' => __('sales_orders.import_format_amazon_report'),
         ];
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();

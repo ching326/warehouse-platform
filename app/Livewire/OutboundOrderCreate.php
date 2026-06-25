@@ -13,6 +13,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
@@ -133,7 +134,7 @@ class OutboundOrderCreate extends Component
             $order = OutboundOrder::create([
                 'tenant_id' => $tenantId,
                 'warehouse_id' => (int) $this->warehouseId,
-                'ref' => $this->ref !== '' ? $this->nullableString($this->ref) : 'OB-PENDING-'.\Illuminate\Support\Str::uuid(),
+                'ref' => $this->ref !== '' ? $this->nullableString($this->ref) : 'OB-PENDING-'.Str::uuid(),
                 'status' => OutboundOrder::STATUS_PENDING,
                 'reason' => $this->reason,
                 'ship_mode' => $this->shipMode,
@@ -476,6 +477,7 @@ class OutboundOrderCreate extends Component
 
         return Tenant::query()->find($this->tenantId, ['id', 'code', 'name']);
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();

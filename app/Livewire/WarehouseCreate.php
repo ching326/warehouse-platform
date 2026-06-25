@@ -68,7 +68,7 @@ class WarehouseCreate extends Component
     {
         return view('livewire.warehouse-create', [
             'statuses' => [
-                'active'   => __('setup.status_active'),
+                'active' => __('setup.status_active'),
                 'inactive' => __('setup.status_inactive'),
             ],
             'timezones' => \DateTimeZone::listIdentifiers(),
@@ -106,6 +106,7 @@ class WarehouseCreate extends Component
             'status' => ['required', 'string', Rule::in(['active', 'inactive'])],
         ])->validate();
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();

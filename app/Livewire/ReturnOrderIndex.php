@@ -14,13 +14,26 @@ class ReturnOrderIndex extends Component
 {
     use WithPagination;
 
-    #[Url(as: 'tenant_id', except: '')] public string $tenantId = '';
-    #[Url(except: '')] public string $warehouseId = '';
-    #[Url(except: '')] public string $statusFilter = '';
-    #[Url(except: '')] public string $typeFilter = '';
-    #[Url(except: '')] public string $reasonFilter = '';
-    #[Url(except: '')] public string $paymentFilter = '';
-    #[Url(except: '')] public string $search = '';
+    #[Url(as: 'tenant_id', except: '')]
+    public string $tenantId = '';
+
+    #[Url(except: '')]
+    public string $warehouseId = '';
+
+    #[Url(except: '')]
+    public string $statusFilter = '';
+
+    #[Url(except: '')]
+    public string $typeFilter = '';
+
+    #[Url(except: '')]
+    public string $reasonFilter = '';
+
+    #[Url(except: '')]
+    public string $paymentFilter = '';
+
+    #[Url(except: '')]
+    public string $search = '';
 
     public function render()
     {
@@ -52,8 +65,8 @@ class ReturnOrderIndex extends Component
 
         return view('livewire.return-order-index', [
             'orders' => $orders,
-            'tenants' => Tenant::query()->whereIn('id', $this->allowedTenantIds())->orderBy('name')->get(['id','code','name']),
-            'warehouses' => Warehouse::query()->orderBy('name')->get(['id','code','name']),
+            'tenants' => Tenant::query()->whereIn('id', $this->allowedTenantIds())->orderBy('name')->get(['id', 'code', 'name']),
+            'warehouses' => Warehouse::query()->orderBy('name')->get(['id', 'code', 'name']),
             'statuses' => ReturnOrder::statusOptions(),
             'types' => ReturnOrder::typeOptions(),
             'reasons' => ReturnOrder::reasonOptions(),
@@ -62,7 +75,13 @@ class ReturnOrderIndex extends Component
         ])->layout('inventory', ['title' => __('return_orders.page_title'), 'subtitle' => __('return_orders.page_subtitle')]);
     }
 
-    private function isInternalUser(): bool { return Auth::user()?->user_type === 'internal'; }
-    private function allowedTenantIds(): array { return $this->isInternalUser() ? Tenant::query()->pluck('id')->all() : (Auth::user()?->activeTenantIds() ?? []); }
-}
+    private function isInternalUser(): bool
+    {
+        return Auth::user()?->user_type === 'internal';
+    }
 
+    private function allowedTenantIds(): array
+    {
+        return $this->isInternalUser() ? Tenant::query()->pluck('id')->all() : (Auth::user()?->activeTenantIds() ?? []);
+    }
+}

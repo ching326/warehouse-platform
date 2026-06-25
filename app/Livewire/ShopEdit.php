@@ -17,23 +17,38 @@ class ShopEdit extends Component
 {
     public Shop $shop;
 
-    public string $tenantId      = '';
-    public string $platform      = '';
-    public string $marketplace   = '';
-    public string $code          = '';
-    public string $name          = '';
-    public string $consolidationMode = Shop::CONSOLIDATION_SAME_SHOP;
-    public string $contactName   = '';
-    public string $contactEmail  = '';
-    public string $status        = 'active';
-    public string $note          = '';
+    public string $tenantId = '';
 
-    public string $spapiSellerId     = '';
+    public string $platform = '';
+
+    public string $marketplace = '';
+
+    public string $code = '';
+
+    public string $name = '';
+
+    public string $consolidationMode = Shop::CONSOLIDATION_SAME_SHOP;
+
+    public string $contactName = '';
+
+    public string $contactEmail = '';
+
+    public string $status = 'active';
+
+    public string $note = '';
+
+    public string $spapiSellerId = '';
+
     public string $spapiMarketplaceId = '';
-    public string $spapiRegion       = AmazonSpapiRegion::FE;
-    public string $spapiLwaClientId  = '';
+
+    public string $spapiRegion = AmazonSpapiRegion::FE;
+
+    public string $spapiLwaClientId = '';
+
     public string $spapiLwaClientSecretInput = '';
+
     public string $spapiRefreshTokenInput = '';
+
     public bool $spapiSyncEnabled = false;
 
     public function mount(Shop $shop): void
@@ -42,17 +57,17 @@ class ShopEdit extends Component
             abort(403);
         }
 
-        $this->shop         = $shop->load('amazonSpapiConnection');
-        $this->tenantId     = (string) $shop->tenant_id;
-        $this->platform     = $shop->platform;
-        $this->marketplace  = $shop->marketplace ?? '';
-        $this->code         = $shop->code;
-        $this->name         = $shop->name;
+        $this->shop = $shop->load('amazonSpapiConnection');
+        $this->tenantId = (string) $shop->tenant_id;
+        $this->platform = $shop->platform;
+        $this->marketplace = $shop->marketplace ?? '';
+        $this->code = $shop->code;
+        $this->name = $shop->name;
         $this->consolidationMode = $shop->consolidation_mode ?? Shop::CONSOLIDATION_SAME_SHOP;
-        $this->contactName  = $shop->contact_name ?? '';
+        $this->contactName = $shop->contact_name ?? '';
         $this->contactEmail = $shop->contact_email ?? '';
-        $this->status       = $shop->status;
-        $this->note         = $shop->note ?? '';
+        $this->status = $shop->status;
+        $this->note = $shop->note ?? '';
         $this->fillAmazonSpapiState();
     }
 
@@ -62,21 +77,21 @@ class ShopEdit extends Component
         $marketplace = trim($this->marketplace);
 
         validator([
-            'tenant_id'     => $this->tenantId,
-            'platform'      => $this->platform,
-            'marketplace'   => $marketplace,
-            'code'          => $this->code,
-            'name'          => $this->name,
+            'tenant_id' => $this->tenantId,
+            'platform' => $this->platform,
+            'marketplace' => $marketplace,
+            'code' => $this->code,
+            'name' => $this->name,
             'consolidation_mode' => $this->consolidationMode,
-            'contact_name'  => $this->contactName,
+            'contact_name' => $this->contactName,
             'contact_email' => $this->contactEmail,
-            'status'        => $this->status,
-            'note'          => $this->note,
+            'status' => $this->status,
+            'note' => $this->note,
         ], [
-            'tenant_id'     => ['required', Rule::exists('tenants', 'id')->where('status', 'active')],
-            'platform'      => ['required', 'string', Rule::in(array_keys($this->platforms()))],
-            'marketplace'   => ['string', 'max:100'],
-            'code'          => [
+            'tenant_id' => ['required', Rule::exists('tenants', 'id')->where('status', 'active')],
+            'platform' => ['required', 'string', Rule::in(array_keys($this->platforms()))],
+            'marketplace' => ['string', 'max:100'],
+            'code' => [
                 'required',
                 'string',
                 'max:50',
@@ -86,25 +101,25 @@ class ShopEdit extends Component
                     ->where('marketplace', $marketplace)
                     ->ignore($this->shop->id),
             ],
-            'name'          => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255'],
             'consolidation_mode' => ['required', 'string', Rule::in(Shop::consolidationModes())],
-            'contact_name'  => ['nullable', 'string', 'max:255'],
+            'contact_name' => ['nullable', 'string', 'max:255'],
             'contact_email' => ['nullable', 'email', 'max:255'],
-            'status'        => ['required', 'string', Rule::in(['active', 'inactive'])],
-            'note'          => ['nullable', 'string', 'max:2000'],
+            'status' => ['required', 'string', Rule::in(['active', 'inactive'])],
+            'note' => ['nullable', 'string', 'max:2000'],
         ])->validate();
 
         $this->shop->update([
-            'tenant_id'     => (int) $this->tenantId,
-            'platform'      => $this->platform,
-            'marketplace'   => $marketplace,
-            'code'          => $this->code,
-            'name'          => trim($this->name),
+            'tenant_id' => (int) $this->tenantId,
+            'platform' => $this->platform,
+            'marketplace' => $marketplace,
+            'code' => $this->code,
+            'name' => trim($this->name),
             'consolidation_mode' => $this->consolidationMode,
-            'contact_name'  => $this->nullableString($this->contactName),
+            'contact_name' => $this->nullableString($this->contactName),
             'contact_email' => $this->nullableString($this->contactEmail),
-            'status'        => $this->status,
-            'note'          => $this->nullableString($this->note),
+            'status' => $this->status,
+            'note' => $this->nullableString($this->note),
         ]);
 
         session()->flash('status', __('shop.shop_updated'));
@@ -251,10 +266,10 @@ class ShopEdit extends Component
         $amazonConnection = $this->shop->amazonSpapiConnection;
 
         return view('livewire.shop-edit', [
-            'tenants'   => Tenant::where('status', 'active')->orderBy('name')->get(['id', 'code', 'name']),
+            'tenants' => Tenant::where('status', 'active')->orderBy('name')->get(['id', 'code', 'name']),
             'platforms' => $this->platforms(),
-            'statuses'  => [
-                'active'   => __('shop.status_active'),
+            'statuses' => [
+                'active' => __('shop.status_active'),
                 'inactive' => __('shop.status_inactive'),
             ],
             'consolidationModes' => $this->consolidationModes(),
@@ -264,10 +279,11 @@ class ShopEdit extends Component
             'amazonRegionOptions' => AmazonSpapiRegion::options(),
             'canTestAmazonConnection' => $amazonConnection !== null && ! $this->amazonSettingsDirty(),
         ])->layout('inventory', [
-            'title'    => __('shop.shop_edit_page_title'),
+            'title' => __('shop.shop_edit_page_title'),
             'subtitle' => $this->shop->code.' - '.$this->shop->name,
         ]);
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();
@@ -285,10 +301,10 @@ class ShopEdit extends Component
     private function platforms(): array
     {
         return [
-            'amazon'  => __('shop.platform_amazon'),
+            'amazon' => __('shop.platform_amazon'),
             'rakuten' => __('shop.platform_rakuten'),
             'shopify' => __('shop.platform_shopify'),
-            'manual'  => __('shop.platform_manual'),
+            'manual' => __('shop.platform_manual'),
         ];
     }
 

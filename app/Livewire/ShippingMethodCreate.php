@@ -12,24 +12,43 @@ use Livewire\Component;
 class ShippingMethodCreate extends Component
 {
     public string $carrierId = '';
+
     public string $code = '';
+
     public string $name = '';
+
     public string $serviceType = '';
+
     public string $sortOrder = '';
+
     public string $selectionPriority = '0';
+
     public bool $isTrackable = true;
+
     public bool $requiresSize = false;
+
     public bool $requiresZone = false;
+
     public bool $supportsCourierCsv = true;
+
     public string $status = 'active';
+
     public string $note = '';
+
     public string $flatFee = '';
+
     public string $currency = 'JPY';
+
     public string $mappingPlatform = '';
+
     public string $mappingMarketplace = '';
+
     public string $mappingCarrierCode = '';
+
     public string $mappingCarrierName = '';
+
     public string $mappingServiceCode = '';
+
     public string $mappingServiceName = '';
 
     public function mappingPlatforms(): array

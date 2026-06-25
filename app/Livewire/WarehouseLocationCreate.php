@@ -89,6 +89,7 @@ class WarehouseLocationCreate extends Component
 
         return $code;
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();

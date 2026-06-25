@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Carrier;
 use App\Models\ShippingMethod;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class ShippingMethodEdit extends ShippingMethodCreate
 {
@@ -66,8 +67,8 @@ class ShippingMethodEdit extends ShippingMethodCreate
         $this->normalize();
 
         validator($this->validationData(), [
-            'mapping_platform' => ['required', \Illuminate\Validation\Rule::in(array_keys($this->mappingPlatforms()))],
-            'mapping_marketplace' => ['nullable', \Illuminate\Validation\Rule::in(array_keys($this->mappingMarketplaces()))],
+            'mapping_platform' => ['required', Rule::in(array_keys($this->mappingPlatforms()))],
+            'mapping_marketplace' => ['nullable', Rule::in(array_keys($this->mappingMarketplaces()))],
             'mapping_carrier_code' => ['nullable', 'string', 'max:100'],
             'mapping_carrier_name' => ['nullable', 'string', 'max:255'],
             'mapping_service_code' => ['nullable', 'string', 'max:100'],

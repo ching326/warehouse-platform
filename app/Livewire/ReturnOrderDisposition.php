@@ -71,6 +71,7 @@ class ReturnOrderDisposition extends Component
 
                 if ($disposition === ReturnOrderLine::DISPOSITION_UNDECIDED) {
                     $hasUndecided = true;
+
                     continue;
                 }
 

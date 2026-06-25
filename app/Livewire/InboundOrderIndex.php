@@ -113,6 +113,7 @@ class InboundOrderIndex extends Component
             ->orderByDesc('id')
             ->paginate($this->perPage);
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();

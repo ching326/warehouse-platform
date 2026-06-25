@@ -5,12 +5,11 @@ namespace App\Livewire;
 use App\Livewire\Concerns\HandlesPrivateMediaAssets;
 use App\Models\InboundOrder;
 use App\Models\MediaAsset;
-use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 
 class InboundOrderDetail extends Component

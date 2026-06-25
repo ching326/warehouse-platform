@@ -9,6 +9,7 @@ use App\Models\Warehouse;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
@@ -73,7 +74,7 @@ class InboundOrderCreate extends Component
             $order = InboundOrder::create([
                 'tenant_id' => $tenantId,
                 'warehouse_id' => (int) $this->warehouseId,
-                'ref' => $this->ref !== '' ? $this->nullableString($this->ref) : 'IB-PENDING-'.\Illuminate\Support\Str::uuid(),
+                'ref' => $this->ref !== '' ? $this->nullableString($this->ref) : 'IB-PENDING-'.Str::uuid(),
                 'status' => InboundOrder::STATUS_PENDING,
                 'expected_at' => $this->nullableString($this->expectedAt),
                 'expected_carton_count' => $this->expectedCartonCount === '' ? null : (int) $this->expectedCartonCount,
@@ -203,6 +204,7 @@ class InboundOrderCreate extends Component
 
         return Tenant::query()->find($this->tenantId, ['id', 'code', 'name']);
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();

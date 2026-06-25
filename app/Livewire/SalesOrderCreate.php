@@ -254,6 +254,7 @@ class SalesOrderCreate extends Component
             ->with('carrier:id,code')
             ->find((int) $this->shippingMethodId);
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();

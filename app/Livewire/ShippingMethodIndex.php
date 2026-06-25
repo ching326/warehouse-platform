@@ -25,13 +25,21 @@ class ShippingMethodIndex extends Component
     public string $search = '';
 
     public ?int $editingCarrierId = null;
+
     public string $carrierCode = '';
+
     public string $carrierName = '';
+
     public string $carrierCountryCode = 'JP';
+
     public string $carrierSortOrder = '';
+
     public string $carrierStatus = 'active';
+
     public array $carrierSortOrders = [];
+
     public array $methodSortOrders = [];
+
     public array $methodSelectionPriorities = [];
 
     public function mount(): void

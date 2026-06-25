@@ -81,8 +81,11 @@ class SkusIndex extends Component
     public bool $aliasIsActive = true;
 
     private const VIEW_DETAILED = 'detailed';
+
     private const VIEW_CATALOG = 'catalog';
+
     private const VIEW_MARKETPLACE = 'marketplace';
+
     private const VIEW_LOGISTICS = 'logistics';
 
     private const IMAGE_TYPES = ['main', 'gallery', 'barcode', 'packaging', 'other'];
