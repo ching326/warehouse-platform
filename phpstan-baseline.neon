@@ -1,0 +1,1099 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$created_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Exports/SalesOrdersExport.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$fulfillment_status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Exports/SalesOrdersExport.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$order_status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Exports/SalesOrdersExport.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$source\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Exports/SalesOrdersExport.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/AmazonSpapiOrderImport.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$marketplace_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/AmazonSpapiOrderImport.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$region\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/AmazonSpapiOrderImport.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/AmazonSpapiOrderImport.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tenant_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/AmazonSpapiOrderImport.php
+
+		-
+			message: '#^Cannot call method copy\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Livewire/AmazonSpapiOrderImport.php
+
+		-
+			message: '#^Method App\\Livewire\\AmazonSpapiOrderImport\:\:selectedConnection\(\) should return App\\Models\\AmazonSpapiConnection\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Livewire/AmazonSpapiOrderImport.php
+
+		-
+			message: '#^Method App\\Livewire\\AmazonSpapiOrderImport\:\:validatedConnection\(\) should return App\\Models\\AmazonSpapiConnection but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Livewire/AmazonSpapiOrderImport.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/FulfillmentIndex.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/FulfillmentPack.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>sku" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/FulfillmentPack.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/FulfillmentPackStart.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/FulfillmentPickSummary.php
+
+		-
+			message: '#^Method App\\Livewire\\FulfillmentPickSummary\:\:pickRows\(\) should return Illuminate\\Support\\Collection\<int, array\<string, mixed\>\> but returns Illuminate\\Support\\Collection\<int, array\{sku_id\: mixed, stock_item_id\: mixed, stock_item\: mixed, sku_codes\: array, sku_names\: array, required_qty\: int, outbounds\: non\-empty\-array, orders\: array, \.\.\.\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Livewire/FulfillmentPickSummary.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 3
+			path: app/Livewire/FulfillmentPickSummary.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 4
+			path: app/Livewire/FulfillmentPickSummary.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/InboundOrderCreate.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Livewire/InboundOrderDetail.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$lines\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/InboundOrderDetail.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$mediaAssets\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/InboundOrderDetail.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$received_qty\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/InboundOrderDetail.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tenant_id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/InboundOrderDetail.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:mediaAssets\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/InboundOrderDetail.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$expected_qty\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Livewire/InboundOrderReceive.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 5
+			path: app/Livewire/InboundOrderReceive.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$received_qty\.$#'
+			identifier: property.notFound
+			count: 6
+			path: app/Livewire/InboundOrderReceive.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$sku_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/InboundOrderReceive.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$stock_item_id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/InboundOrderReceive.php
+
+		-
+			message: '#^Method App\\Livewire\\InboundOrderReceive\:\:nullableString\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: app/Livewire/InboundOrderReceive.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/IssueCreate.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$sku\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/IssueCreate.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$stockItem\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/IssueCreate.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$stock_item_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/IssueCreate.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>stock_item_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/IssueCreate.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/IssueShow.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tenant_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/IssueShow.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:mediaAssets\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/IssueShow.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/OutboundOrderCreate.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$component_stock_item_id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/OutboundOrderCreate.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/OutboundOrderCreate.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$quantity\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/OutboundOrderCreate.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tenant_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/OutboundOrderCreate.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ReturnOrderCreate.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$disposition\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ReturnOrderDisposition.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$disposition_location_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ReturnOrderDisposition.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ReturnOrderDisposition.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$condition\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ReturnOrderInspect.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ReturnOrderInspect.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$note\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ReturnOrderInspect.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$expected_qty\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ReturnOrderReceive.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ReturnOrderReceive.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$received_location_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ReturnOrderReceive.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$received_qty\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ReturnOrderReceive.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/ReturnOrderShow.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tenant_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ReturnOrderShow.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:mediaAssets\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/ReturnOrderShow.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SalesOrderCreate.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$bundleComponents\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/SalesOrderDetail.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SalesOrderDetail.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$reason\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SalesOrderDetail.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$sku_type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SalesOrderDetail.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SalesOrderDetail.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$stock_item_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SalesOrderDetail.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\ShippingMethod\>\:\:orWhereKey\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/SalesOrderDetail.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SalesOrderImport.php
+
+		-
+			message: '#^Method App\\Livewire\\SalesOrderImport\:\:isDuplicateOrderConstraintViolation\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: app/Livewire/SalesOrderImport.php
+
+		-
+			message: '#^Method App\\Livewire\\SalesOrderImport\:\:nullableString\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: app/Livewire/SalesOrderImport.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Livewire/SalesOrderIndex.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between \(int\|non\-empty\-string\) and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Livewire/SalesOrderIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$carrier_code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ShippingMethodEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$carrier_name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ShippingMethodEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$currency\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ShippingMethodEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$marketplace\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ShippingMethodEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$platform\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ShippingMethodEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$price\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ShippingMethodEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$rate_type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ShippingMethodEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$service_code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ShippingMethodEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$service_name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ShippingMethodEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tenant_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ShippingMethodEdit.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>carrier_code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/ShippingMethodEdit.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>carrier_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/ShippingMethodEdit.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>currency" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/ShippingMethodEdit.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>marketplace" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/ShippingMethodEdit.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>platform" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/ShippingMethodEdit.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>price" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/ShippingMethodEdit.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>service_code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/ShippingMethodEdit.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>service_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/ShippingMethodEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$lwa_client_id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/ShopEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$marketplace_id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/ShopEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$region\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/ShopEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$seller_id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/ShopEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/ShopEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$sync_enabled\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Livewire/ShopEdit.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>status" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/ShopEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$is_dangerous_goods\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkuEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/SkuEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$requires_expiry_tracking\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkuEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$requires_lot_tracking\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkuEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$sku_name_locale\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkuEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$stock_item_name_locale\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkuEdit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>\|Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$barcode\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$brand\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$color\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$disk\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$height_value\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 5
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$is_primary\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$length_value\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$model_id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$platform\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$platform_product_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$quantity\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$shop\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$short_name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$size\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$stockItem\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tenant_id\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$variation_code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$weight_value\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$width_value\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>\|Illuminate\\Database\\Eloquent\\Model\:\:mediaAssets\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Method App\\Livewire\\SkusIndex\:\:managedAliasSku\(\) should return App\\Models\\Sku but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Method App\\Livewire\\SkusIndex\:\:managedAliasSkuForView\(\) should return App\\Models\\Sku\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Method App\\Livewire\\SkusIndex\:\:managedStockItem\(\) should return App\\Models\\StockItem but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Method App\\Livewire\\SkusIndex\:\:managedStockItemForView\(\) should return App\\Models\\StockItem\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Offset ''mime'' on array\{0\: int\<0, max\>, 1\: int\<0, max\>, 2\: int, 3\: string, mime\: string, channels\?\: int, bits\?\: int\} in isset\(\) always exists and is not nullable\.$#'
+			identifier: isset.offset
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Offset 0 on array\{0\: int\<0, max\>, 1\: int\<0, max\>, 2\: int, 3\: string, mime\: string, channels\?\: int, bits\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Offset 1 on array\{0\: int\<0, max\>, 1\: int\<0, max\>, 2\: int, 3\: string, mime\: string, channels\?\: int, bits\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>product_type" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>short_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/SkusIndex.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/WarehouseLocationEdit.php
+
+		-
+			message: '#^PHPDoc tag @use has invalid type Database\\Factories\\ReturnOrderFactory\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Models/ReturnOrder.php
+
+		-
+			message: '#^Type Database\\Factories\\ReturnOrderFactory in generic type Illuminate\\Database\\Eloquent\\Factories\\HasFactory\<Database\\Factories\\ReturnOrderFactory\> in PHPDoc tag @use is not subtype of template type TFactory of Illuminate\\Database\\Eloquent\\Factories\\Factory of trait Illuminate\\Database\\Eloquent\\Factories\\HasFactory\.$#'
+			identifier: generics.notSubtype
+			count: 1
+			path: app/Models/ReturnOrder.php
+
+		-
+			message: '#^PHPDoc tag @use has invalid type Database\\Factories\\ReturnOrderLineFactory\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Models/ReturnOrderLine.php
+
+		-
+			message: '#^Type Database\\Factories\\ReturnOrderLineFactory in generic type Illuminate\\Database\\Eloquent\\Factories\\HasFactory\<Database\\Factories\\ReturnOrderLineFactory\> in PHPDoc tag @use is not subtype of template type TFactory of Illuminate\\Database\\Eloquent\\Factories\\Factory of trait Illuminate\\Database\\Eloquent\\Factories\\HasFactory\.$#'
+			identifier: generics.notSubtype
+			count: 1
+			path: app/Models/ReturnOrderLine.php
+
+		-
+			message: '#^Method App\\Models\\SalesOrder\:\:activeOutboundOrder\(\) should return App\\Models\\OutboundOrder\|null but returns \(Illuminate\\Database\\Eloquent\\Model&object\{pivot\: Illuminate\\Database\\Eloquent\\Relations\\Pivot\}\)\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Models/SalesOrder.php
+
+		-
+			message: '#^Method App\\Models\\SalesOrder\:\:activeOutboundOrder\(\) should return App\\Models\\OutboundOrder\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Models/SalesOrder.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$short_name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/Sku.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:localizedName\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/Sku.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>short_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Models/Sku.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Amazon/AmazonOrderMapper.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$carrier\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Courier/CourierExportService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$shop\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Courier/CourierExportService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$supports_courier_csv\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Courier/CourierExportService.php
+
+		-
+			message: '#^Match expression does not handle remaining value\: string$#'
+			identifier: match.unhandled
+			count: 1
+			path: app/Services/Courier/CourierExportService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Courier/SagawaCsvBuilder.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>sku" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Courier/SagawaCsvBuilder.php
+
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/Courier/TrackingImport/TrackingImportParser.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Courier/YamatoCsvBuilder.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>sku" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Courier/YamatoCsvBuilder.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\FulfillmentPackScan\:\:\$scanned_qty\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Fulfillment/FulfillmentPackService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$parent_line_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Fulfillment/FulfillmentPackService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$qty\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/Fulfillment/FulfillmentPackService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$sku\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/Fulfillment/FulfillmentPackService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$sku_id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/Fulfillment/FulfillmentPackService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$stockItem\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Fulfillment/FulfillmentPackService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$stock_item_id\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Services/Fulfillment/FulfillmentPackService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>sku" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Fulfillment/FulfillmentPackService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Fulfillment/OutboundConsolidationService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$line_status\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/Fulfillment/OutboundConsolidationService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ship_together_key\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Fulfillment/OutboundConsolidationService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$sku\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Fulfillment/OutboundConsolidationService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Fulfillment/OutboundConsolidationService.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$mutate with type \(callable\)\|null is not subtype of native type callable\.$#'
+			identifier: parameter.phpDocType
+			count: 1
+			path: app/Services/InventoryService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/MarketplaceShippingNotice/AmazonShippingNoticeBuilder.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$platform_line_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/MarketplaceShippingNotice/AmazonShippingNoticeBuilder.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$quantity\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/MarketplaceShippingNotice/AmazonShippingNoticeBuilder.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$is_trackable\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/MarketplaceShippingNotice/MarketplaceShippingNoticeExportService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$marketplace\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/MarketplaceShippingNotice/MarketplaceShippingNoticeExportService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$marketplaceMappings\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/MarketplaceShippingNotice/MarketplaceShippingNoticeExportService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$platform\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/MarketplaceShippingNotice/MarketplaceShippingNoticeExportService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$inventory_movement_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Outbound/ShipOutboundOrderService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$qty\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Outbound/ShipOutboundOrderService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$stock_item_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Outbound/ShipOutboundOrderService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/SalesOrders/SkuDefaultShippingMethodResolver.php

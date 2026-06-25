@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+echo "Running Larastan..."
+php vendor/bin/phpstan analyse --memory-limit=512M
+
+echo "Running tests..."
+php artisan test
+
+echo "Pre-push checks passed."

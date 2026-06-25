@@ -1,0 +1,7 @@
+#!/bin/sh
+set -e
+
+echo "Running Pint on changed files..."
+php vendor/bin/pint --test --dirty
+
+echo "Pre-commit checks passed."
