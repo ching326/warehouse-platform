@@ -72,67 +72,41 @@
             @endif
         </section>
 
-        {{-- SKU fields --}}
+        {{-- Column-to-field mapping table --}}
         <section class="flux-panel import-section">
-            <h3 class="section-title">{{ __('sku_import.map_group_sku') }}</h3>
+            <h3 class="section-title">{{ __('sku_import.map_heading') }}</h3>
             <p class="field-hint">{{ __('sku_import.map_hint') }}</p>
             <table class="mapping-table">
                 <thead>
                     <tr>
-                        <th>{{ __('sku_import.map_col_field') }}</th>
                         <th>{{ __('sku_import.map_col_file_column') }}</th>
+                        <th>{{ __('sku_import.map_col_field') }}</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($fields as $field)
-                        @if ($field->target === 'sku')
-                            <tr>
-                                <td>
-                                    {{ __($field->labelKey) }}
-                                    @if ($field->required)
-                                        <span class="badge-required">{{ __('sku_import.map_required_badge') }}</span>
-                                    @endif
-                                </td>
-                                <td>
-                                    <select wire:model.live="mapping.{{ $field->key }}" class="map-select">
-                                        <option value="">{{ __('sku_import.map_ignore') }}</option>
-                                        @foreach ($fileHeaders as $header)
-                                            <option value="{{ $header }}">{{ $header }}</option>
+                    @foreach ($fileHeaders as $colIdx => $header)
+                        <tr>
+                            <td>{{ $header }}</td>
+                            <td>
+                                <select wire:change="setFieldForColumn({{ $colIdx }}, $event.target.value)" class="map-select">
+                                    <option value="">{{ __('sku_import.map_ignore') }}</option>
+                                    <optgroup label="{{ __('sku_import.map_group_sku') }}">
+                                        @foreach ($fields as $field)
+                                            @if ($field->target === 'sku')
+                                                <option value="{{ $field->key }}" {{ ($columnToField[$header] ?? '') === $field->key ? 'selected' : '' }}>{{ __($field->labelKey) }}{{ $field->required ? ' *' : '' }}</option>
+                                            @endif
                                         @endforeach
-                                    </select>
-                                </td>
-                            </tr>
-                        @endif
-                    @endforeach
-                </tbody>
-            </table>
-        </section>
-
-        {{-- Stock item fields --}}
-        <section class="flux-panel import-section">
-            <h3 class="section-title">{{ __('sku_import.map_group_stock_item') }}</h3>
-            <table class="mapping-table">
-                <thead>
-                    <tr>
-                        <th>{{ __('sku_import.map_col_field') }}</th>
-                        <th>{{ __('sku_import.map_col_file_column') }}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($fields as $field)
-                        @if ($field->target === 'stock_item')
-                            <tr>
-                                <td>{{ __($field->labelKey) }}</td>
-                                <td>
-                                    <select wire:model.live="mapping.{{ $field->key }}" class="map-select">
-                                        <option value="">{{ __('sku_import.map_ignore') }}</option>
-                                        @foreach ($fileHeaders as $header)
-                                            <option value="{{ $header }}">{{ $header }}</option>
+                                    </optgroup>
+                                    <optgroup label="{{ __('sku_import.map_group_stock_item') }}">
+                                        @foreach ($fields as $field)
+                                            @if ($field->target === 'stock_item')
+                                                <option value="{{ $field->key }}" {{ ($columnToField[$header] ?? '') === $field->key ? 'selected' : '' }}>{{ __($field->labelKey) }}</option>
+                                            @endif
                                         @endforeach
-                                    </select>
-                                </td>
-                            </tr>
-                        @endif
+                                    </optgroup>
+                                </select>
+                            </td>
+                        </tr>
                     @endforeach
                 </tbody>
             </table>

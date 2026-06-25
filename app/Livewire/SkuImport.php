@@ -131,6 +131,25 @@ class SkuImport extends Component
         $this->step = 'upload';
     }
 
+    public function setFieldForColumn(int $colIdx, string $fieldKey): void
+    {
+        $header = $this->fileHeaders[$colIdx] ?? null;
+
+        if ($header === null) {
+            return;
+        }
+
+        foreach ($this->mapping as $key => $mappedHeader) {
+            if ($mappedHeader === $header) {
+                $this->mapping[$key] = '';
+            }
+        }
+
+        if ($fieldKey !== '' && array_key_exists($fieldKey, $this->mapping)) {
+            $this->mapping[$fieldKey] = $header;
+        }
+    }
+
     public function loadTemplate(int $id): void
     {
         $tenantId = (int) $this->tenantId;
@@ -373,6 +392,7 @@ class SkuImport extends Component
             'fields' => SkuImportFields::all(),
             'savedTemplates' => $this->savedTemplates(),
             'showTenantSelect' => $this->isInternalUser(),
+            'columnToField' => $this->buildColumnToFieldMap(),
         ])->layout('inventory', [
             'title' => __('sku_import.page_title'),
             'subtitle' => __('sku_import.page_subtitle'),
@@ -630,6 +650,19 @@ class SkuImport extends Component
     private function isInternalUser(): bool
     {
         return Auth::user()?->user_type === 'internal';
+    }
+
+    private function buildColumnToFieldMap(): array
+    {
+        $map = [];
+
+        foreach ($this->mapping as $fieldKey => $header) {
+            if ($header !== '') {
+                $map[$header] = $fieldKey;
+            }
+        }
+
+        return $map;
     }
 
     private function resetFileState(): void
