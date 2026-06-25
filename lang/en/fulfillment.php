@@ -71,6 +71,7 @@ return [
     'filter_print_waiting' => 'Print waiting',
     'filter_shipping' => 'Shipping',
     'filter_others' => 'Others',
+    'clear_all_filters' => 'Clear all',
     'other_multi_item' => 'Multi-item parcel',
     'other_multi_item_hint' => 'Multiple SKUs or quantity greater than 1',
     'other_printed' => 'Printed',

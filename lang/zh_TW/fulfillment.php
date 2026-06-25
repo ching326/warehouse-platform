@@ -71,6 +71,7 @@ return [
     'filter_print_waiting' => '待列印',
     'filter_shipping' => '配送方式',
     'filter_others' => '其他',
+    'clear_all_filters' => '全部清除',
     'other_multi_item' => '多品項包裹',
     'other_multi_item_hint' => '多個 SKU 或數量大於 1',
     'other_printed' => '已列印',

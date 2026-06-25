@@ -12,6 +12,7 @@ use App\Services\Outbound\ShipOutboundOrderService;
 use App\Support\CourierCarrier;
 use App\Support\SalesOrderFilters;
 use App\Support\TrackingNumber;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -116,6 +117,32 @@ class FulfillmentIndex extends Component
 
     public function updatedSearch(): void
     {
+        $this->resetPage();
+    }
+
+    public function removeFilterChip(string $group, string $value = ''): void
+    {
+        match ($group) {
+            'tenant' => $this->tenantIds = $this->removeFilterValue($this->tenantIds, $value),
+            'warehouse' => $this->warehouseId = '',
+            'status' => $this->statusesFilter = $this->removeFilterValue($this->statusesFilter, $value),
+            'shipping' => $this->shippingMethodsFilter = $this->removeFilterValue($this->shippingMethodsFilter, $value),
+            'other' => $this->othersFilter = $this->removeFilterValue($this->othersFilter, $value),
+            'search' => $this->search = '',
+            default => null,
+        };
+
+        $this->resetPage();
+    }
+
+    public function clearAllFilters(): void
+    {
+        $this->tenantIds = [];
+        $this->warehouseId = '';
+        $this->statusesFilter = [];
+        $this->shippingMethodsFilter = [];
+        $this->othersFilter = [];
+        $this->search = '';
         $this->resetPage();
     }
 
@@ -409,28 +436,34 @@ class FulfillmentIndex extends Component
             $this->trackingDrafts[$order->id] ??= (string) ($order->tracking_no ?? '');
         }
 
+        $tenants = Tenant::query()
+            ->whereIn('id', $this->allowedTenantIds())
+            ->orderBy('name')
+            ->get(['id', 'code', 'name']);
+        $warehouses = Warehouse::query()
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'code', 'name']);
+        $shippingMethods = ShippingMethod::query()
+            ->where('shipping_methods.status', 'active')
+            ->ordered()
+            ->get()
+            ->mapWithKeys(fn (ShippingMethod $method) => [(string) $method->id => $method->name])
+            ->all();
+        $shippingMethodFilterOptions = $shippingMethods + [
+            SalesOrderFilters::EMPTY_SHIPPING => __('fulfillment.shipping_method_unset'),
+        ];
+
         return view('livewire.fulfillment-index', [
             'orders' => $orders,
-            'tenants' => Tenant::query()
-                ->whereIn('id', $this->allowedTenantIds())
-                ->orderBy('name')
-                ->get(['id', 'code', 'name']),
-            'warehouses' => Warehouse::query()
-                ->where('status', 'active')
-                ->orderBy('name')
-                ->get(['id', 'code', 'name']),
-            'shippingMethods' => $shippingMethods = ShippingMethod::query()
-                ->where('shipping_methods.status', 'active')
-                ->ordered()
-                ->get()
-                ->mapWithKeys(fn (ShippingMethod $method) => [(string) $method->id => $method->name])
-                ->all(),
-            'shippingMethodFilterOptions' => $shippingMethods + [
-                SalesOrderFilters::EMPTY_SHIPPING => __('fulfillment.shipping_method_unset'),
-            ],
+            'tenants' => $tenants,
+            'warehouses' => $warehouses,
+            'shippingMethods' => $shippingMethods,
+            'shippingMethodFilterOptions' => $shippingMethodFilterOptions,
             'statuses' => $this->statuses(),
             'showTenantFilter' => $this->isInternalUser(),
             'visibleOrderIds' => $this->visibleOrderIds,
+            'activeFilterChips' => $this->activeFilterChips($tenants, $warehouses, $shippingMethodFilterOptions),
         ])->layout('inventory', [
             'title' => __('fulfillment.page_title'),
             'subtitle' => __('fulfillment.page_subtitle'),
@@ -445,6 +478,70 @@ class FulfillmentIndex extends Component
             'shipped' => __('fulfillment.status_shipped'),
             'cancelled' => __('fulfillment.status_cancelled'),
         ];
+    }
+
+    /**
+     * @param  Collection<int, Tenant>  $tenants
+     * @param  Collection<int, Warehouse>  $warehouses
+     * @param  array<string, string>  $shippingMethodFilterOptions
+     * @return array<int, array{group: string, value: string, text: string}>
+     */
+    private function activeFilterChips($tenants, $warehouses, array $shippingMethodFilterOptions): array
+    {
+        $chips = [];
+
+        $tenantLabels = $tenants
+            ->mapWithKeys(fn (Tenant $tenant) => [(string) $tenant->id => $tenant->code.' - '.$tenant->name])
+            ->all();
+        foreach ((array) $this->tenantIds as $tenantId) {
+            $chips[] = $this->chip('tenant', (string) $tenantId, __('fulfillment.field_tenant'), $tenantLabels[(string) $tenantId] ?? (string) $tenantId);
+        }
+
+        if ($this->warehouseId !== '') {
+            $warehouse = $warehouses->firstWhere('id', (int) $this->warehouseId);
+            $chips[] = $this->chip('warehouse', (string) $this->warehouseId, __('fulfillment.field_warehouse'), $warehouse ? $warehouse->code.' - '.$warehouse->name : (string) $this->warehouseId);
+        }
+
+        $statusLabels = $this->statuses();
+        foreach ((array) $this->statusesFilter as $status) {
+            $chips[] = $this->chip('status', (string) $status, __('fulfillment.col_status'), $statusLabels[(string) $status] ?? (string) $status);
+        }
+
+        foreach ((array) $this->shippingMethodsFilter as $method) {
+            $chips[] = $this->chip('shipping', (string) $method, __('fulfillment.filter_shipping'), $shippingMethodFilterOptions[(string) $method] ?? (string) $method);
+        }
+
+        $otherLabels = [
+            SalesOrderFilters::OTHER_MULTI_ITEM => __('fulfillment.other_multi_item'),
+            SalesOrderFilters::OTHER_PRINTED => __('fulfillment.other_printed'),
+            SalesOrderFilters::OTHER_NOT_PRINTED => __('fulfillment.other_not_printed'),
+        ];
+        foreach ((array) $this->othersFilter as $other) {
+            $chips[] = $this->chip('other', (string) $other, __('fulfillment.filter_others'), $otherLabels[(string) $other] ?? (string) $other);
+        }
+
+        if (trim($this->search) !== '') {
+            $chips[] = $this->chip('search', '', __('common.search'), $this->search);
+        }
+
+        return $chips;
+    }
+
+    /**
+     * @return array{group: string, value: string, text: string}
+     */
+    private function chip(string $group, string $value, string $label, string $text): array
+    {
+        return [
+            'group' => $group,
+            'value' => $value,
+            'text' => $label.': '.$text,
+        ];
+    }
+
+    private function removeFilterValue(mixed $values, string $value): array
+    {
+        return array_values(array_filter((array) $values, fn ($item) => (string) $item !== $value));
     }
 
     private function performCourierExport(string $carrier, bool $confirmedReExport, ?array $outboundOrderIds = null): mixed

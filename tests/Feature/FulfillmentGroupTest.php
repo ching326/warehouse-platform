@@ -560,6 +560,41 @@ class FulfillmentGroupTest extends TestCase
             ->assertDontSee($printedGroup->ref);
     }
 
+    public function test_fulfillment_index_filter_chips_render_and_remove_individual_filters(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-CHIPS');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $yamato = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+
+        $component = Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('tenantIds', [(string) $tenant->id])
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('statusesFilter', ['reserved'])
+            ->set('shippingMethodsFilter', [(string) $yamato->id])
+            ->set('othersFilter', [SalesOrderFilters::OTHER_MULTI_ITEM])
+            ->set('search', 'SO-FG-CHIPS')
+            ->assertSee(__('fulfillment.field_tenant').': '.$tenant->code.' - '.$tenant->name)
+            ->assertSee(__('fulfillment.field_warehouse').': '.$warehouse->code.' - '.$warehouse->name)
+            ->assertSee(__('fulfillment.col_status').': '.__('fulfillment.status_reserved'))
+            ->assertSee(__('fulfillment.filter_shipping').': '.$yamato->name)
+            ->assertSee(__('fulfillment.filter_others').': '.__('fulfillment.other_multi_item'))
+            ->assertSee(__('common.search').': SO-FG-CHIPS');
+
+        $component
+            ->call('removeFilterChip', 'other', SalesOrderFilters::OTHER_MULTI_ITEM)
+            ->assertSet('othersFilter', [])
+            ->call('removeFilterChip', 'status', 'reserved')
+            ->assertSet('statusesFilter', [])
+            ->call('removeFilterChip', 'warehouse')
+            ->assertSet('warehouseId', '')
+            ->call('clearAllFilters')
+            ->assertSet('tenantIds', [])
+            ->assertSet('shippingMethodsFilter', [])
+            ->assertSet('search', '');
+    }
+
     public function test_detailed_toggle_shows_sku_lines_and_full_address(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);

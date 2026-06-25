@@ -165,6 +165,20 @@
                     placeholder="{{ __('fulfillment.search_placeholder') }}"
                 >
             </div>
+
+            @if ($activeFilterChips !== [])
+                <div class="filter-chip-row" data-testid="fulfillment-filter-chips">
+                    @foreach ($activeFilterChips as $chip)
+                        <button type="button" class="filter-chip" wire:click="removeFilterChip('{{ $chip['group'] }}', '{{ $chip['value'] }}')">
+                            <span>{{ $chip['text'] }}</span>
+                            <strong aria-hidden="true">x</strong>
+                        </button>
+                    @endforeach
+                    <button type="button" class="filter-chip-clear" wire:click="clearAllFilters">
+                        {{ __('fulfillment.clear_all_filters') }}
+                    </button>
+                </div>
+            @endif
         </div>
 
         <div

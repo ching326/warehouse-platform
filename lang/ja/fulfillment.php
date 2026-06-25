@@ -71,6 +71,7 @@ return [
     'filter_print_waiting' => '印刷待ち',
     'filter_shipping' => '配送方法',
     'filter_others' => 'その他',
+    'clear_all_filters' => 'すべてクリア',
     'other_multi_item' => '複数商品の出荷',
     'other_multi_item_hint' => '複数 SKU または数量が 2 以上',
     'other_printed' => '印刷済み',
