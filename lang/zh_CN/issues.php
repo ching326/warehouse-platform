@@ -20,6 +20,7 @@ return [
     'field_condition' => '状况',
     'field_action' => '计划处理',
     'field_sku' => 'SKU',
+    'field_stock_item' => '库存品项',
     'field_created_by' => '创建者',
     'all_types' => '全部类型',
     'all_statuses' => '全部状态',

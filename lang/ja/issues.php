@@ -20,6 +20,7 @@ return [
     'field_condition' => '状態',
     'field_action' => '予定対応',
     'field_sku' => 'SKU',
+    'field_stock_item' => '在庫品目',
     'field_created_by' => '作成者',
     'all_types' => 'すべての種別',
     'all_statuses' => 'すべてのステータス',

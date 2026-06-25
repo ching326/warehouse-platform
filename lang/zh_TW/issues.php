@@ -20,6 +20,7 @@ return [
     'field_condition' => '狀況',
     'field_action' => '計劃處理',
     'field_sku' => 'SKU',
+    'field_stock_item' => '庫存品項',
     'field_created_by' => '建立者',
     'all_types' => '全部類型',
     'all_statuses' => '全部狀態',
