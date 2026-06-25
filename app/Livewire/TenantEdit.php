@@ -12,13 +12,24 @@ class TenantEdit extends Component
     public Tenant $tenant;
 
     public string $code = '';
+
     public string $name = '';
+
     public string $contactName = '';
+
     public string $contactEmail = '';
+
     public string $contactPhone = '';
+
     public string $billingTerms = '';
+
     public string $status = 'active';
+
     public string $notes = '';
+
+    public string $skuNameLocale = '';
+
+    public string $stockItemNameLocale = '';
 
     public function mount(Tenant $tenant): void
     {
@@ -26,15 +37,17 @@ class TenantEdit extends Component
             abort(403);
         }
 
-        $this->tenant       = $tenant;
-        $this->code         = $tenant->code;
-        $this->name         = $tenant->name;
-        $this->contactName  = $tenant->contact_name ?? '';
+        $this->tenant = $tenant;
+        $this->code = $tenant->code;
+        $this->name = $tenant->name;
+        $this->contactName = $tenant->contact_name ?? '';
         $this->contactEmail = $tenant->contact_email ?? '';
         $this->contactPhone = $tenant->contact_phone ?? '';
         $this->billingTerms = $tenant->billing_terms ?? '';
-        $this->status       = $tenant->status;
-        $this->notes        = $tenant->notes ?? '';
+        $this->status = $tenant->status;
+        $this->notes = $tenant->notes ?? '';
+        $this->skuNameLocale = $tenant->sku_name_locale ?? '';
+        $this->stockItemNameLocale = $tenant->stock_item_name_locale ?? '';
     }
 
     public function save()
@@ -42,34 +55,40 @@ class TenantEdit extends Component
         $this->code = strtoupper(trim($this->code));
 
         validator([
-            'code'          => $this->code,
-            'name'          => $this->name,
-            'contact_name'  => $this->contactName,
+            'code' => $this->code,
+            'name' => $this->name,
+            'contact_name' => $this->contactName,
             'contact_email' => $this->contactEmail,
             'contact_phone' => $this->contactPhone,
             'billing_terms' => $this->billingTerms,
-            'status'        => $this->status,
-            'notes'         => $this->notes,
+            'status' => $this->status,
+            'notes' => $this->notes,
+            'sku_name_locale' => $this->skuNameLocale,
+            'stock_item_name_locale' => $this->stockItemNameLocale,
         ], [
-            'code'          => ['required', 'string', 'max:50', Rule::unique('tenants', 'code')->ignore($this->tenant->id)],
-            'name'          => ['required', 'string', 'max:255'],
-            'contact_name'  => ['nullable', 'string', 'max:255'],
+            'code' => ['required', 'string', 'max:50', Rule::unique('tenants', 'code')->ignore($this->tenant->id)],
+            'name' => ['required', 'string', 'max:255'],
+            'contact_name' => ['nullable', 'string', 'max:255'],
             'contact_email' => ['nullable', 'email', 'max:255'],
             'contact_phone' => ['nullable', 'string', 'max:50'],
             'billing_terms' => ['nullable', 'string', 'max:255'],
-            'status'        => ['required', 'string', Rule::in(['active', 'inactive'])],
-            'notes'         => ['nullable', 'string', 'max:2000'],
+            'status' => ['required', 'string', Rule::in(['active', 'inactive'])],
+            'notes' => ['nullable', 'string', 'max:2000'],
+            'sku_name_locale' => ['nullable', 'string', Rule::in(['', 'ja', 'zh_TW', 'zh_CN'])],
+            'stock_item_name_locale' => ['nullable', 'string', Rule::in(['', 'ja', 'zh_TW', 'zh_CN'])],
         ])->validate();
 
         $this->tenant->update([
-            'code'          => $this->code,
-            'name'          => trim($this->name),
-            'contact_name'  => $this->nullableString($this->contactName),
+            'code' => $this->code,
+            'name' => trim($this->name),
+            'contact_name' => $this->nullableString($this->contactName),
             'contact_email' => $this->nullableString($this->contactEmail),
             'contact_phone' => $this->nullableString($this->contactPhone),
             'billing_terms' => $this->nullableString($this->billingTerms),
-            'status'        => $this->status,
-            'notes'         => $this->nullableString($this->notes),
+            'status' => $this->status,
+            'notes' => $this->nullableString($this->notes),
+            'sku_name_locale' => $this->nullableString($this->skuNameLocale),
+            'stock_item_name_locale' => $this->nullableString($this->stockItemNameLocale),
         ]);
 
         session()->flash('status', __('setup.tenant_updated'));
@@ -81,11 +100,17 @@ class TenantEdit extends Component
     {
         return view('livewire.tenant-edit', [
             'statuses' => [
-                'active'   => __('setup.status_active'),
+                'active' => __('setup.status_active'),
                 'inactive' => __('setup.status_inactive'),
             ],
+            'localeOptions' => [
+                '' => __('setup.locale_default_en'),
+                'ja' => '日本語',
+                'zh_TW' => '繁體中文',
+                'zh_CN' => '简体中文',
+            ],
         ])->layout('inventory', [
-            'title'    => __('setup.tenant_edit_page_title'),
+            'title' => __('setup.tenant_edit_page_title'),
             'subtitle' => $this->tenant->code.'  E'.$this->tenant->name,
         ]);
     }

@@ -24,6 +24,8 @@ class Tenant extends Model
         'billing_terms',
         'status',
         'notes',
+        'sku_name_locale',
+        'stock_item_name_locale',
     ];
 
     public function getActivitylogOptions(): LogOptions

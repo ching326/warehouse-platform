@@ -51,6 +51,7 @@
                     'label' => __('skus.field_sku_name'),
                     'baseModel' => 'name',
                     'required' => true,
+                    'baseLocale' => $skuNameBaseLocale,
                     'localeModels' => [
                         'ja' => 'nameTranslations.ja',
                         'zh_TW' => 'nameTranslations.zh_TW',
@@ -141,6 +142,7 @@
                     @include('livewire.partials.localized-name-field', [
                         'label' => __('skus.field_stock_item_name'),
                         'baseModel' => 'stockItem.name',
+                        'baseLocale' => $stockItemNameBaseLocale,
                         'localeModels' => [
                             'ja' => 'stockItem.name_ja',
                             'zh_TW' => 'stockItem.name_zh_tw',

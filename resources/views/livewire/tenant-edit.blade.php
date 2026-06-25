@@ -58,6 +58,34 @@
             </label>
         </section>
 
+        <section class="table-shell flux-panel form-panel">
+            <div class="form-panel-header">
+                <div>
+                    <strong>{{ __('setup.section_name_languages') }}</strong>
+                    <span>{{ __('setup.section_name_languages_hint') }}</span>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div>
+                    <flux:select wire:model="skuNameLocale" :label="__('setup.field_sku_name_locale')">
+                        @foreach ($localeOptions as $value => $label)
+                            <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    @error('sku_name_locale') <p class="form-error">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <flux:select wire:model="stockItemNameLocale" :label="__('setup.field_stock_item_name_locale')">
+                        @foreach ($localeOptions as $value => $label)
+                            <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    @error('stock_item_name_locale') <p class="form-error">{{ $message }}</p> @enderror
+                </div>
+            </div>
+        </section>
+
         <div class="form-actions">
             <flux:button href="{{ route('setup.tenants.index') }}" variant="outline">{{ __('setup.btn_cancel') }}</flux:button>
             <flux:button type="submit" variant="primary">{{ __('setup.btn_save') }}</flux:button>

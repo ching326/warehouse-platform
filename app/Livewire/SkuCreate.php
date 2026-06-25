@@ -162,6 +162,8 @@ class SkuCreate extends Component
 
     public function render()
     {
+        $currentTenant = $this->currentTenant();
+
         return view('livewire.sku-create', [
             'tenants' => $this->tenantOptions(),
             'shops' => $this->shopOptions(),
@@ -170,7 +172,9 @@ class SkuCreate extends Component
             'stockItems' => $this->stockItemOptions(),
             'productTypes' => ProductType::orderBy('sort_order')->orderBy('name')->get(['slug', 'name']),
             'showTenantSelect' => $this->isInternalUser(),
-            'currentTenant' => $this->currentTenant(),
+            'currentTenant' => $currentTenant,
+            'skuNameBaseLocale' => $currentTenant?->sku_name_locale,
+            'stockItemNameBaseLocale' => $currentTenant?->stock_item_name_locale,
         ])->layout('inventory', [
             'title' => __('skus.create_page_title'),
             'subtitle' => __('skus.create_page_subtitle'),
@@ -374,7 +378,7 @@ class SkuCreate extends Component
             return null;
         }
 
-        return Tenant::query()->find($this->tenantId, ['id', 'code', 'name']);
+        return Tenant::query()->find($this->tenantId, ['id', 'code', 'name', 'sku_name_locale', 'stock_item_name_locale']);
     }
 
     private function normalizeQueryPrefill(): void
