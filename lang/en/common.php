@@ -13,7 +13,6 @@ return [
     'nav_outbound' => 'Outbound',
     'nav_outbound_orders' => 'Outbound orders',
     'nav_sales_orders' => 'Sales Order',
-    'nav_fulfillment_groups' => 'Fulfillment',
     'nav_fulfillment' => 'Fulfillment queue',
     'nav_pick_summary' => 'Pick Summary',
     'nav_issues' => 'Issue',
