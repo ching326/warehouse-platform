@@ -14,7 +14,7 @@ return new class extends Migration
             $table->foreignId('sales_order_id')->constrained('sales_orders')->restrictOnDelete();
             $table->timestamps();
 
-            $table->unique(['fulfillment_group_id', 'sales_order_id']);
+            $table->unique(['fulfillment_group_id', 'sales_order_id'], 'fg_orders_group_sales_unique');
             $table->index(['sales_order_id']);
         });
     }

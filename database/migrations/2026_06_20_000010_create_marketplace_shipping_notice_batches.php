@@ -29,12 +29,12 @@ return new class extends Migration
         Schema::create('marketplace_shipping_notice_batch_orders', function (Blueprint $table) {
             $table->id();
             $table->foreignId('marketplace_shipping_notice_batch_id')
-                ->constrained('marketplace_shipping_notice_batches')
+                ->constrained('marketplace_shipping_notice_batches', indexName: 'msn_batch_orders_batch_fk')
                 ->cascadeOnDelete();
             $table->foreignId('sales_order_id')->constrained()->cascadeOnDelete();
             $table->string('platform_order_id')->nullable();
             $table->string('tracking_no')->nullable();
-            $table->foreignId('shipping_method_id')->nullable()->constrained('shipping_methods')->nullOnDelete();
+            $table->foreignId('shipping_method_id')->nullable()->constrained('shipping_methods', indexName: 'msn_batch_orders_shipping_method_fk')->nullOnDelete();
             $table->timestamp('exported_at');
             $table->timestamps();
 

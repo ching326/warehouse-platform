@@ -14,7 +14,7 @@ return new class extends Migration
             $table->foreignId('sales_order_id')->constrained()->cascadeOnDelete();
             $table->timestamp('arranged_at')->nullable();
 
-            $table->unique(['outbound_order_id', 'sales_order_id']);
+            $table->unique(['outbound_order_id', 'sales_order_id'], 'oo_so_outbound_sales_unique');
         });
     }
 
