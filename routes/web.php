@@ -7,9 +7,9 @@ use App\Http\Controllers\MarketplaceShippingNoticeDownloadController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\SalesOrderExportController;
 use App\Livewire\AmazonSpapiOrderImport;
-use App\Livewire\FulfillmentGroupCreate;
-use App\Livewire\FulfillmentGroupIndex;
-use App\Livewire\FulfillmentGroupPack;
+use App\Livewire\FulfillmentCreate;
+use App\Livewire\FulfillmentIndex;
+use App\Livewire\FulfillmentPack;
 use App\Livewire\FulfillmentPackScanIndex;
 use App\Livewire\FulfillmentPackStart;
 use App\Livewire\FulfillmentPickSummary;
@@ -115,7 +115,7 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/outbound', OutboundOrderIndex::class)->name('outbound.index');
     Route::get('/outbound/create', OutboundOrderCreate::class)->name('outbound.create');
     Route::get('/outbound/{order}/ship', OutboundOrderShip::class)->name('outbound.ship');
-    Route::get('/outbound/{order}/pack', FulfillmentGroupPack::class)->name('outbound.pack');
+    Route::get('/outbound/{order}/pack', FulfillmentPack::class)->name('outbound.pack');
     Route::get('/outbound/{order}', OutboundOrderDetail::class)->name('outbound.show');
     Route::get('/sales-orders', SalesOrderIndex::class)->name('sales.orders.index');
     Route::get('/sales-orders/create', SalesOrderCreate::class)->name('sales.orders.create');
@@ -127,12 +127,12 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/courier-export-batches/{batch}/download', CourierExportDownloadController::class)->name('courier-export-batches.download');
     Route::get('/marketplace-shipping-notice-batches/{batch}/download', MarketplaceShippingNoticeDownloadController::class)
         ->name('marketplace-shipping-notice-batches.download');
-    Route::get('/fulfillment-groups', FulfillmentGroupIndex::class)->name('fulfillment-groups.index');
+    Route::get('/fulfillment', FulfillmentIndex::class)->name('fulfillment.index');
+    Route::get('/fulfillment/create', FulfillmentCreate::class)->name('fulfillment.create');
     Route::get('/fulfillment/pick-summary', FulfillmentPickSummary::class)->name('fulfillment.pick-summary');
     Route::get('/fulfillment/pack', FulfillmentPackStart::class)->name('fulfillment.pack.start');
     Route::get('/fulfillment/pack-scans', FulfillmentPackScanIndex::class)->name('fulfillment.pack-scans.index');
-    Route::post('/fulfillment-groups/tracking-import', FulfillmentTrackingImportController::class)->name('fulfillment.tracking-import');
-    Route::get('/fulfillment-groups/create', FulfillmentGroupCreate::class)->name('fulfillment-groups.create');
+    Route::post('/fulfillment/tracking-import', FulfillmentTrackingImportController::class)->name('fulfillment.tracking-import');
     Route::get('/issues', IssueIndex::class)->name('issues.index');
     Route::get('/issues/create', IssueCreate::class)->name('issues.create');
     Route::get('/issues/{issue}', IssueShow::class)->name('issues.show');

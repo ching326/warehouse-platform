@@ -9,7 +9,7 @@ use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Tenant;
 use App\Models\Warehouse;
-use App\Services\Fulfillment\GroupSalesOrdersService;
+use App\Services\Fulfillment\OutboundConsolidationService;
 use App\Services\MarketplaceShippingNotice\MarketplaceShippingNoticeExportService;
 use App\Support\SalesOrderFilters;
 use Illuminate\Support\Collection;
@@ -281,7 +281,7 @@ class SalesOrderIndex extends Component
             ->get(['id']);
 
         $updated = 0;
-        $groupService = app(GroupSalesOrdersService::class);
+        $groupService = app(OutboundConsolidationService::class);
 
         foreach ($orders as $order) {
             try {
@@ -813,7 +813,7 @@ class SalesOrderIndex extends Component
             ->with('shop')
             ->get();
 
-        $service = app(GroupSalesOrdersService::class);
+        $service = app(OutboundConsolidationService::class);
         $warehouseId = (int) $this->readyWarehouseId;
 
         foreach ($orders->groupBy('ship_together_key') as $shipKey => $keyOrders) {
@@ -882,7 +882,7 @@ class SalesOrderIndex extends Component
                     ->with('shop')
                     ->get();
 
-                $service = app(GroupSalesOrdersService::class);
+                $service = app(OutboundConsolidationService::class);
 
                 foreach ($orders->groupBy('ship_together_key') as $keyOrders) {
                     $this->groupReadyOrders($service, $keyOrders, $warehouseId, $combine);
@@ -900,7 +900,7 @@ class SalesOrderIndex extends Component
         $this->finishBulk('sales_orders.bulk_ready_result', $grouped, $selectedCount);
     }
 
-    private function groupReadyOrders(GroupSalesOrdersService $service, Collection $orders, int $warehouseId, bool $combine): void
+    private function groupReadyOrders(OutboundConsolidationService $service, Collection $orders, int $warehouseId, bool $combine): void
     {
         $firstOrder = $orders->firstOrFail();
 

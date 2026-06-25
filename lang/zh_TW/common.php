@@ -18,6 +18,7 @@ return [
     'nav_outbound_orders' => '出倉訂單',
     'nav_sales_orders' => '訂單管理',
     'nav_fulfillment_groups' => '發貨管理',
+    'nav_fulfillment' => '發貨列表',
     'nav_issues' => '問題案件',
     'nav_setup' => '設定',
     'nav_locations' => '庫位',

@@ -135,7 +135,7 @@
                                 @if ($firstOutbound)
                                     <div class="pick-actions">
                                         @if ($outbounds->count() > 1)
-                                            <flux:button href="{{ route('fulfillment-groups.index', ['search' => $firstOutbound->ref]) }}" size="xs" variant="subtle" wire:navigate>{{ __('fulfillment_pick.view_groups') }}</flux:button>
+                                            <flux:button href="{{ route('fulfillment.index', ['search' => $firstOutbound->ref]) }}" size="xs" variant="subtle" wire:navigate>{{ __('fulfillment_pick.view_groups') }}</flux:button>
                                         @endif
                                         <flux:button href="{{ route('outbound.pack', $firstOutbound) }}" size="xs" variant="primary" wire:navigate>{{ __('fulfillment_pick.pack_first') }}</flux:button>
                                     </div>

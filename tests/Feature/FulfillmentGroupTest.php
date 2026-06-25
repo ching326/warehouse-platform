@@ -3,9 +3,9 @@
 namespace Tests\Feature;
 
 use App\Actions\BackfillNormalizedTrackingNumbers;
-use App\Livewire\FulfillmentGroupCreate;
-use App\Livewire\FulfillmentGroupIndex;
-use App\Livewire\FulfillmentGroupPack;
+use App\Livewire\FulfillmentCreate;
+use App\Livewire\FulfillmentIndex;
+use App\Livewire\FulfillmentPack;
 use App\Livewire\FulfillmentPackStart;
 use App\Livewire\OutboundOrderDetail;
 use App\Livewire\OutboundOrderShip;
@@ -29,7 +29,7 @@ use App\Models\Warehouse;
 use App\Services\Courier\CourierExportService;
 use App\Services\Courier\TrackingImport\TrackingImportService;
 use App\Services\Fulfillment\FulfillmentPackService;
-use App\Services\Fulfillment\GroupSalesOrdersService;
+use App\Services\Fulfillment\OutboundConsolidationService;
 use App\Services\InventoryService;
 use App\Support\CourierCarrier;
 use App\Support\SalesOrderFilters;
@@ -238,7 +238,7 @@ class FulfillmentGroupTest extends TestCase
         $yamato = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupIndex::class)
+            ->test(FulfillmentIndex::class)
             ->call('updateShippingMethod', $outbound->id, (string) $yamato->id);
 
         $this->assertSame($yamato->id, $outbound->refresh()->shipping_method_id);
@@ -247,7 +247,7 @@ class FulfillmentGroupTest extends TestCase
         $inactive->update(['status' => 'inactive']);
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupIndex::class)
+            ->test(FulfillmentIndex::class)
             ->call('updateShippingMethod', $outbound->id, (string) $inactive->id);
 
         $this->assertSame($yamato->id, $outbound->refresh()->shipping_method_id);
@@ -259,7 +259,7 @@ class FulfillmentGroupTest extends TestCase
         $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-EMPTY');
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupCreate::class)
+            ->test(FulfillmentCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shipKey', (string) $order->ship_together_key)
@@ -302,7 +302,7 @@ class FulfillmentGroupTest extends TestCase
         $order = $this->readySalesOrder($otherTenant, $otherShop, $otherSku, 1, 'SO-WRONG-TENANT');
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupCreate::class)
+            ->test(FulfillmentCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shipKey', (string) $order->ship_together_key)
@@ -364,7 +364,7 @@ class FulfillmentGroupTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        app(GroupSalesOrdersService::class)->joinGroup($outbound, [$orderB->id]);
+        app(OutboundConsolidationService::class)->joinGroup($outbound, [$orderB->id]);
     }
 
     public function test_join_group_refuses_shipped_groups(): void
@@ -378,7 +378,7 @@ class FulfillmentGroupTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        app(GroupSalesOrdersService::class)->joinGroup($outbound, [$orderB->id]);
+        app(OutboundConsolidationService::class)->joinGroup($outbound, [$orderB->id]);
     }
 
     public function test_group_creation_preserves_distinct_outbound_lines_for_skus_sharing_stock_item(): void
@@ -455,7 +455,7 @@ class FulfillmentGroupTest extends TestCase
         $order = $this->readySalesOrder($otherTenant, $shop, $sku, 1, 'SO-HIDDEN');
 
         Livewire::actingAs($user)
-            ->test(FulfillmentGroupCreate::class)
+            ->test(FulfillmentCreate::class)
             ->set('tenantId', (string) $otherTenant->id)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shipKey', (string) $order->ship_together_key)
@@ -474,7 +474,7 @@ class FulfillmentGroupTest extends TestCase
         $order = $this->readySalesOrder($otherTenant, $shop, $sku, 1, 'SO-HIDDEN-OPTION');
 
         Livewire::actingAs($user)
-            ->test(FulfillmentGroupCreate::class)
+            ->test(FulfillmentCreate::class)
             ->set('tenantId', (string) $otherTenant->id)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shipKey', (string) $order->ship_together_key)
@@ -502,7 +502,7 @@ class FulfillmentGroupTest extends TestCase
         ]);
 
         Livewire::actingAs($user)
-            ->test(FulfillmentGroupIndex::class)
+            ->test(FulfillmentIndex::class)
             ->assertSee('OB-OWN')
             ->assertDontSee('OB-HIDDEN');
     }
@@ -519,7 +519,7 @@ class FulfillmentGroupTest extends TestCase
         $hiddenGroup = OutboundOrder::query()->latest('id')->firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupIndex::class)
+            ->test(FulfillmentIndex::class)
             ->set('search', '503-2780983-9214241')
             ->assertSee($shownGroup->ref)
             ->assertSee('503-2780983-9214241')
@@ -540,23 +540,23 @@ class FulfillmentGroupTest extends TestCase
         $notPrintedGroup = OutboundOrder::query()->latest('id')->firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupIndex::class)
+            ->test(FulfillmentIndex::class)
             ->set('printWaiting', true)
             ->assertDontSee($printedGroup->ref)
             ->assertSee($notPrintedGroup->ref);
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupIndex::class)
+            ->test(FulfillmentIndex::class)
             ->set('othersFilter', [SalesOrderFilters::OTHER_PRINTED])
             ->assertSee($printedGroup->ref)
-            ->assertSee(__('fulfillment_groups.printed_at', ['time' => '06-18 10:00']))
+            ->assertSee(__('fulfillment.printed_at', ['time' => '06-18 10:00']))
             ->assertDontSee($notPrintedGroup->ref);
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupIndex::class)
+            ->test(FulfillmentIndex::class)
             ->set('othersFilter', [SalesOrderFilters::OTHER_NOT_PRINTED])
             ->assertSee($notPrintedGroup->ref)
-            ->assertSee(__('fulfillment_groups.not_printed'))
+            ->assertSee(__('fulfillment.not_printed'))
             ->assertDontSee($printedGroup->ref);
     }
 
@@ -567,7 +567,7 @@ class FulfillmentGroupTest extends TestCase
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
 
         $component = Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupIndex::class)
+            ->test(FulfillmentIndex::class)
             ->assertDontSee($sku->sku)
             ->assertDontSee('1 Shared Street');
 
@@ -607,7 +607,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupIndex::class)
+            ->test(FulfillmentIndex::class)
             ->call('updateTracking', $outbound->id, '  ab-123 cd  ');
 
         $this->assertSame('AB123CD', $outbound->refresh()->tracking_no);
@@ -626,7 +626,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound->update(['shipping_method_id' => $method->id, 'tracking_no' => 'FGTRACK1']);
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupIndex::class)
+            ->test(FulfillmentIndex::class)
             ->set('selectedIds', [(string) $outbound->id])
             ->call('markShipped')
             ->assertSet('selectedIds', []);
@@ -664,7 +664,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound->update(['status' => OutboundOrder::STATUS_SHIPPED]);
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupIndex::class)
+            ->test(FulfillmentIndex::class)
             ->set('selectedIds', [(string) $outbound->id])
             ->call('markShipped')
             ->assertSet('selectedIds', []);
@@ -825,7 +825,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound->update(['shipping_method_id' => $method->id]);
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupIndex::class)
+            ->test(FulfillmentIndex::class)
             ->set('selectedIds', [(string) $outbound->id])
             ->call('exportYamato')
             ->assertRedirect(route('courier-export-batches.download', CourierExportBatch::firstOrFail()));
@@ -908,7 +908,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound->update(['ref' => 'OB-TRACK-EXACT-REF']);
         $csv = "440-069 713300,{$outbound->ref}\r\n";
 
-        $result = app(TrackingImportService::class)->importFulfillmentGroups(
+        $result = app(TrackingImportService::class)->importOutboundTracking(
             contents: $csv,
             sourceFileName: 'sagawa.csv',
             user: $this->internalUser(),
@@ -932,7 +932,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound->update(['ref' => 'FG-DOES-NOT-MATCH-SUFFIX']);
         $outbound->update(['ref' => 'OB-TRACK-SUFFIX-123456789012345']);
 
-        $result = app(TrackingImportService::class)->importFulfillmentGroups(
+        $result = app(TrackingImportService::class)->importOutboundTracking(
             contents: "440069713311,123456789012345\r\n",
             sourceFileName: 'sagawa.csv',
             user: $this->internalUser(),
@@ -966,7 +966,7 @@ class FulfillmentGroupTest extends TestCase
             'status' => OutboundOrder::STATUS_PENDING,
         ]);
 
-        $result = app(TrackingImportService::class)->importFulfillmentGroups(
+        $result = app(TrackingImportService::class)->importOutboundTracking(
             contents: "NEWTRACK,123456789012345\r\nUNCHANGED,{$outbound->ref}\r\nMISSING,NO-SUCH-REF\r\n",
             sourceFileName: 'sagawa.csv',
             user: $this->internalUser(),
@@ -986,7 +986,7 @@ class FulfillmentGroupTest extends TestCase
             'status' => OutboundOrder::STATUS_PENDING,
         ]);
 
-        $result = app(TrackingImportService::class)->importFulfillmentGroups(
+        $result = app(TrackingImportService::class)->importOutboundTracking(
             contents: "{$outbound->ref},,,YMT-MANUAL\r\n",
             sourceFileName: 'yamato.csv',
             user: $this->internalUser(),
@@ -1008,7 +1008,7 @@ class FulfillmentGroupTest extends TestCase
 
         $this->actingAs($this->internalUser())
             ->post(route('fulfillment.tracking-import'), ['tracking_file' => $file])
-            ->assertRedirect(route('fulfillment-groups.index'));
+            ->assertRedirect(route('fulfillment.index'));
 
         $this->assertSame('YMTTRACK', $outbound->refresh()->tracking_no);
         $this->assertSame('YMTTRACK', $order->refresh()->tracking_no);
@@ -1097,8 +1097,8 @@ class FulfillmentGroupTest extends TestCase
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
 
-        $this->actingAs($this->internalUser())->get('/fulfillment-groups')->assertOk()->assertSee('Fulfillment Groups');
-        $this->actingAs($this->internalUser())->get('/fulfillment-groups/create')->assertOk()->assertSee('Create Fulfillment Group');
+        $this->actingAs($this->internalUser())->get('/fulfillment')->assertOk()->assertSee('Fulfillment Queue');
+        $this->actingAs($this->internalUser())->get('/fulfillment/create')->assertOk()->assertSee('New Fulfillment');
         $this->actingAs($this->internalUser())->get(route('outbound.show', $outbound))->assertOk()->assertSee($outbound->ref);
         $this->actingAs($this->internalUser())->get(route('fulfillment.pack.start'))->assertOk()->assertSee('Scan tracking no.');
         $this->actingAs($this->internalUser())->get(route('outbound.pack', $outbound))->assertOk()->assertSee($outbound->ref);
@@ -1117,7 +1117,7 @@ class FulfillmentGroupTest extends TestCase
         $shipped->update(['status' => OutboundOrder::STATUS_SHIPPED]);
 
         $this->actingAs($this->internalUser())
-            ->get(route('fulfillment-groups.index'))
+            ->get(route('fulfillment.index'))
             ->assertOk()
             ->assertSee(route('outbound.pack', $reserved))
             ->assertDontSee(route('outbound.pack', $shipped));
@@ -1140,8 +1140,8 @@ class FulfillmentGroupTest extends TestCase
             'is_active' => true,
         ]);
 
-        $this->actingAs($user)->get('/fulfillment-groups')->assertForbidden();
-        $this->actingAs($user)->get('/fulfillment-groups/create')->assertForbidden();
+        $this->actingAs($user)->get('/fulfillment')->assertForbidden();
+        $this->actingAs($user)->get('/fulfillment/create')->assertForbidden();
     }
 
     public function test_guest_and_tenant_user_cannot_access_pack_check(): void
@@ -1393,7 +1393,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('packMode', 'strict')
             ->assertSee('2')
             ->set('barcode', 'SKU-BAR-001')
@@ -1406,7 +1406,7 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame(2, FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->count());
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->assertSee('Ready to mark shipped.')
             ->assertSee('2');
     }
@@ -1420,7 +1420,7 @@ class FulfillmentGroupTest extends TestCase
         $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'INACTIVE-ALIAS', false);
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('barcode', 'INACTIVE-ALIAS')
             ->call('scan')
             ->assertSee('Barcode does not match this shipment.');
@@ -1437,7 +1437,7 @@ class FulfillmentGroupTest extends TestCase
         $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'SKU ALIAS-001');
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('barcode', 'sku-alias001')
             ->call('scan')
             ->assertSee('Ready to mark shipped.');
@@ -1460,7 +1460,7 @@ class FulfillmentGroupTest extends TestCase
         $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_STOCK_ITEM, $sku->stock_item_id, 'STOCK ALIAS-001');
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('barcode', 'stock-alias001')
             ->call('scan')
             ->assertSee('Ready to mark shipped.');
@@ -1487,7 +1487,7 @@ class FulfillmentGroupTest extends TestCase
         $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_STOCK_ITEM, $componentStock->id, 'COMPONENT ALIAS-001');
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('barcode', 'component-alias001')
             ->call('scan')
             ->assertSee('Ready to mark shipped.');
@@ -1511,7 +1511,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('packMode', 'strict')
             ->set('barcode', 'direct-sku-bar')
             ->call('scan')
@@ -1546,7 +1546,7 @@ class FulfillmentGroupTest extends TestCase
         ]);
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->assertSee('Ready to mark shipped.')
             ->assertSee('3');
     }
@@ -1646,7 +1646,7 @@ class FulfillmentGroupTest extends TestCase
         $lineKey = 'sku:'.$sku->id.':stock:'.$sku->stock_item_id;
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('barcode', 'SKU-BAR-LAST')
             ->call('scan')
             ->assertSet('lastScannedLineKey', $lineKey)
@@ -1661,7 +1661,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('barcode', 'WRONG-LAST')
             ->call('scan')
             ->assertSet('lastScannedLineKey', null)
@@ -1678,7 +1678,7 @@ class FulfillmentGroupTest extends TestCase
         $lineKey = 'sku:'.$sku->id.':stock:'.$sku->stock_item_id;
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('barcode', 'SKU-BAR-QTY-LAST')
             ->call('scan')
             ->set('pendingQuantity', 2)
@@ -1731,7 +1731,7 @@ class FulfillmentGroupTest extends TestCase
         ]);
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->assertSee('Lines complete')
             ->assertSee('0 / 1')
             ->assertSee('Qty scanned')
@@ -1751,7 +1751,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('barcode', 'SKU-BAR-QTY-PROMPT')
             ->call('scan')
             ->assertSet('pendingQuantity', 1)
@@ -1772,7 +1772,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('barcode', 'SKU-BAR-QTY-ADD')
             ->call('scan')
             ->set('pendingQuantity', 3)
@@ -1795,7 +1795,7 @@ class FulfillmentGroupTest extends TestCase
             $outbound = OutboundOrder::query()->latest('id')->firstOrFail();
 
             $component = Livewire::actingAs($this->internalUser())
-                ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+                ->test(FulfillmentPack::class, ['order' => $outbound])
                 ->set('barcode', 'SKU-BAR-QTY-BLOCK-'.$status)
                 ->call('scan')
                 ->assertSet('pendingQuantity', 1);
@@ -1829,7 +1829,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('barcode', 'SKU-BAR-QTY-CLAMP')
             ->call('scan')
             ->set('pendingQuantity', 99)
@@ -1848,7 +1848,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('barcode', 'SKU-BAR-QTY-ONE')
             ->call('scan')
             ->assertSet('pendingQuantityScan', null)
@@ -1866,7 +1866,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('packMode', 'strict')
             ->set('barcode', 'SKU-BAR-STRICT')
             ->call('scan')
@@ -1887,7 +1887,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->assertSee('Strict scan')
             ->set('barcode', 'SKU-BAR-RISK')
             ->call('scan')
@@ -1914,7 +1914,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('barcode', 'SHARED-STOCK-BAR')
             ->call('scan')
             ->set('barcode', 'SHARED-STOCK-BAR')
@@ -1944,7 +1944,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('barcode', 'WRONG')
             ->call('scan')
             ->assertSee('Barcode does not match this shipment.')
@@ -1976,14 +1976,14 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->call('markShipped')
             ->assertSee('Scan all required items before shipping.');
 
         $this->assertSame(OutboundOrder::STATUS_PENDING, $outbound->refresh()->status);
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('barcode', 'SKU-BAR-SHIP')
             ->call('scan')
             ->call('markShipped')
@@ -2007,7 +2007,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('barcode', 'SKU-BAR-PENDING-SHIP')
             ->call('scan')
             ->call('markShipped')
@@ -2026,7 +2026,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('barcode', 'SKU-BAR-QTY-SHIP')
             ->call('scan')
             ->set('pendingQuantity', 3)
@@ -2050,7 +2050,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound->update(['status' => OutboundOrder::STATUS_CANCELLED]);
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('barcode', 'SKU-BAR-BLOCK')
             ->call('scan')
             ->assertSee('This fulfillment group is cancelled.');
@@ -2059,7 +2059,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound->update(['status' => OutboundOrder::STATUS_SHIPPED]);
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('barcode', 'SKU-BAR-BLOCK')
             ->call('scan')
             ->assertSee('This fulfillment group is already shipped.');
@@ -2138,7 +2138,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupPack::class, ['order' => $outbound])
+            ->test(FulfillmentPack::class, ['order' => $outbound])
             ->set('packMode', 'strict')
             ->assertSee('BUNDLE-1')
             ->assertSee('2')
@@ -2218,7 +2218,7 @@ class FulfillmentGroupTest extends TestCase
         ?User $user = null,
     ): Testable {
         return Livewire::actingAs($user ?? $this->internalUser())
-            ->test(FulfillmentGroupCreate::class)
+            ->test(FulfillmentCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shipKey', $shipKey)

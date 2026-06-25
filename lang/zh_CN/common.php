@@ -18,6 +18,7 @@ return [
     'nav_outbound_orders' => '出库订单',
     'nav_sales_orders' => '订单管理',
     'nav_fulfillment_groups' => '发货管理',
+    'nav_fulfillment' => '发货列表',
     'nav_issues' => '问题案件',
     'nav_setup' => '设置',
     'nav_locations' => '库位',

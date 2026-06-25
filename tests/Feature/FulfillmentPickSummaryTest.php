@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\FulfillmentGroupCreate;
-use App\Livewire\FulfillmentGroupIndex;
+use App\Livewire\FulfillmentCreate;
+use App\Livewire\FulfillmentIndex;
 use App\Livewire\FulfillmentPickSummary;
 use App\Models\Carrier;
 use App\Models\InboundReceipt;
@@ -456,7 +456,7 @@ class FulfillmentPickSummaryTest extends TestCase
     public function test_fulfillment_group_index_has_pick_summary_link(): void
     {
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupIndex::class)
+            ->test(FulfillmentIndex::class)
             ->assertSee('Pick Summary')
             ->assertSee(route('fulfillment.pick-summary'), false);
     }
@@ -471,16 +471,16 @@ class FulfillmentPickSummaryTest extends TestCase
         $method = $this->shippingMethod('pick_link_method');
 
         $component = Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupIndex::class)
+            ->test(FulfillmentIndex::class)
             ->set('warehouseId', (string) $warehouse->id);
 
-        if (property_exists(FulfillmentGroupIndex::class, 'tenantIds')) {
+        if (property_exists(FulfillmentIndex::class, 'tenantIds')) {
             $component->set('tenantIds', [(string) $tenant->id]);
-        } elseif (property_exists(FulfillmentGroupIndex::class, 'tenantId')) {
+        } elseif (property_exists(FulfillmentIndex::class, 'tenantId')) {
             $component->set('tenantId', (string) $tenant->id);
         }
 
-        if (property_exists(FulfillmentGroupIndex::class, 'shippingMethodsFilter')) {
+        if (property_exists(FulfillmentIndex::class, 'shippingMethodsFilter')) {
             $component->set('shippingMethodsFilter', [(string) $method->id]);
         }
 
@@ -488,7 +488,7 @@ class FulfillmentPickSummaryTest extends TestCase
             ->assertSee('warehouse_id='.$warehouse->id, false)
             ->assertSee('tenant_id='.$tenant->id, false);
 
-        if (property_exists(FulfillmentGroupIndex::class, 'shippingMethodsFilter')) {
+        if (property_exists(FulfillmentIndex::class, 'shippingMethodsFilter')) {
             $component->assertSee('shipping_method_id='.$method->id, false);
         }
     }
@@ -742,7 +742,7 @@ class FulfillmentPickSummaryTest extends TestCase
     private function createGroup(Tenant $tenant, Warehouse $warehouse, string $shipKey, array $orders): void
     {
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupCreate::class)
+            ->test(FulfillmentCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shipKey', $shipKey)

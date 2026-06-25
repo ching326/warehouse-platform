@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Livewire\Component;
 
-class FulfillmentGroupPack extends Component
+class FulfillmentPack extends Component
 {
     public int $outboundOrderId = 0;
 
@@ -289,7 +289,7 @@ class FulfillmentGroupPack extends Component
 
         $reference = $order->ref;
 
-        return view('livewire.fulfillment-group-pack', [
+        return view('livewire.fulfillment-pack', [
             'order' => $order,
             'lines' => $lines,
             'allComplete' => $allComplete,

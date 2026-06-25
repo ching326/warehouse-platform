@@ -1,11 +1,11 @@
 <?php
 
 return [
-    'page_title' => '发货分组',
+    'page_title' => '发货列表',
     'page_subtitle' => '将准备就绪的订单分组,并为出库分配库存。',
-    'create_page_title' => '创建发货分组',
+    'create_page_title' => '新建发货',
     'create_page_subtitle' => '选择收件人相同的准备就绪订单。',
-    'detail_page_title' => '发货分组',
+    'detail_page_title' => '发货',
     'group_created' => '已创建发货分组。',
     'recipient_updated' => '已更新收件人。',
     'shipping_updated' => '已更新出货资料。',

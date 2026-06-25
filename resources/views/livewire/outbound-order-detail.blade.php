@@ -6,7 +6,7 @@
             <div class="export-warning-message">{{ $pendingExportWarning }}</div>
             @if ($pendingCourierExportCarrier)
                 <flux:button type="button" size="sm" variant="primary" wire:click="confirmCourierExport">
-                    {{ __('fulfillment_groups.courier_export_confirm_btn') }}
+                    {{ __('fulfillment.courier_export_confirm_btn') }}
                 </flux:button>
             @endif
         </div>
@@ -89,10 +89,10 @@
                 </flux:button>
                 @if ($order->fulfillment_group_id === null)
                     <flux:button type="button" variant="outline" wire:click="exportYamato">
-                        {{ __('fulfillment_groups.batch_export_yamato') }}
+                        {{ __('fulfillment.batch_export_yamato') }}
                     </flux:button>
                     <flux:button type="button" variant="outline" wire:click="exportSagawa">
-                        {{ __('fulfillment_groups.batch_export_sagawa') }}
+                        {{ __('fulfillment.batch_export_sagawa') }}
                     </flux:button>
                 @endif
                 <flux:button
@@ -115,7 +115,7 @@
                 <strong>{{ __('outbound.section_recipient') }}</strong>
             </div>
             @if (! $editingRecipient && $order->status === \App\Models\OutboundOrder::STATUS_PENDING)
-                <flux:button type="button" variant="outline" wire:click="editRecipient">{{ __('fulfillment_groups.btn_edit') }}</flux:button>
+                <flux:button type="button" variant="outline" wire:click="editRecipient">{{ __('fulfillment.btn_edit') }}</flux:button>
             @endif
         </div>
 
@@ -134,8 +134,8 @@
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
             <div class="form-actions">
-                <flux:button type="button" variant="outline" wire:click="cancelEditRecipient">{{ __('fulfillment_groups.btn_cancel') }}</flux:button>
-                <flux:button type="button" variant="primary" wire:click="saveRecipient">{{ __('fulfillment_groups.btn_save') }}</flux:button>
+                <flux:button type="button" variant="outline" wire:click="cancelEditRecipient">{{ __('fulfillment.btn_cancel') }}</flux:button>
+                <flux:button type="button" variant="primary" wire:click="saveRecipient">{{ __('fulfillment.btn_save') }}</flux:button>
             </div>
         @else
             <div class="balance-preview-grid">
@@ -181,7 +181,7 @@
                 <strong>{{ __('outbound.section_shipment') }}</strong>
             </div>
             @if (! $editingShipping && $order->status === \App\Models\OutboundOrder::STATUS_PENDING)
-                <flux:button type="button" variant="outline" wire:click="editShipping">{{ __('fulfillment_groups.btn_edit') }}</flux:button>
+                <flux:button type="button" variant="outline" wire:click="editShipping">{{ __('fulfillment.btn_edit') }}</flux:button>
             @endif
         </div>
 
@@ -206,8 +206,8 @@
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
             <div class="form-actions">
-                <flux:button type="button" variant="outline" wire:click="cancelEditShipping">{{ __('fulfillment_groups.btn_cancel') }}</flux:button>
-                <flux:button type="button" variant="primary" wire:click="saveShipping">{{ __('fulfillment_groups.btn_save') }}</flux:button>
+                <flux:button type="button" variant="outline" wire:click="cancelEditShipping">{{ __('fulfillment.btn_cancel') }}</flux:button>
+                <flux:button type="button" variant="primary" wire:click="saveShipping">{{ __('fulfillment.btn_save') }}</flux:button>
             </div>
         @else
         <div class="balance-preview-grid">
@@ -304,8 +304,8 @@
         <section class="table-shell flux-panel form-panel">
             <div class="form-panel-header">
                 <div>
-                    <strong>{{ __('fulfillment_groups.section_orders') }}</strong>
-                    <span>{{ trans_choice('fulfillment_groups.order_count', $order->salesOrders->count(), ['count' => $order->salesOrders->count()]) }}</span>
+                    <strong>{{ __('fulfillment.section_orders') }}</strong>
+                    <span>{{ trans_choice('fulfillment.order_count', $order->salesOrders->count(), ['count' => $order->salesOrders->count()]) }}</span>
                 </div>
             </div>
 

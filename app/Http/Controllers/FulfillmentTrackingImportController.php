@@ -25,13 +25,13 @@ class FulfillmentTrackingImportController extends Controller
 
         if ($validator->fails()) {
             return redirect()
-                ->route('fulfillment-groups.index')
+                ->route('fulfillment.index')
                 ->with('error', $validator->errors()->first('tracking_file'));
         }
 
         $file = $request->file('tracking_file');
         $contents = file_get_contents($file->getRealPath());
-        $service->importFulfillmentGroups(
+        $service->importOutboundTracking(
             contents: $contents === false ? '' : $contents,
             sourceFileName: $file->getClientOriginalName(),
             user: Auth::user(),
@@ -39,8 +39,8 @@ class FulfillmentTrackingImportController extends Controller
         );
 
         return redirect()
-            ->route('fulfillment-groups.index')
-            ->with('status', __('fulfillment_groups.tracking_import_succeeded'));
+            ->route('fulfillment.index')
+            ->with('status', __('fulfillment.tracking_import_succeeded'));
     }
 
     private function isInternalUser(): bool

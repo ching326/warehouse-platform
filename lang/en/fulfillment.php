@@ -1,11 +1,11 @@
 <?php
 
 return [
-    'page_title' => 'Fulfillment Groups',
-    'page_subtitle' => 'Group ready sales orders and reserve stock for outbound shipping.',
-    'create_page_title' => 'Create Fulfillment Group',
+    'page_title' => 'Fulfillment Queue',
+    'page_subtitle' => 'Consolidate ready sales orders and reserve stock for outbound shipping.',
+    'create_page_title' => 'New Fulfillment',
     'create_page_subtitle' => 'Select ready sales orders that share the same recipient.',
-    'detail_page_title' => 'Fulfillment Group',
+    'detail_page_title' => 'Fulfillment',
     'group_created' => 'Fulfillment group created.',
     'recipient_updated' => 'Recipient updated.',
     'shipping_updated' => 'Shipping info updated.',

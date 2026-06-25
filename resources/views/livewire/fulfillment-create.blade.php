@@ -4,36 +4,36 @@
         <section class="table-shell flux-panel form-panel">
             <div class="form-panel-header">
                 <div>
-                    <strong>{{ __('fulfillment_groups.create_page_title') }}</strong>
-                    <span>{{ __('fulfillment_groups.create_page_subtitle') }}</span>
+                    <strong>{{ __('fulfillment.create_page_title') }}</strong>
+                    <span>{{ __('fulfillment.create_page_subtitle') }}</span>
                 </div>
-                <flux:button href="{{ route('fulfillment-groups.index') }}" variant="outline" wire:navigate>
-                    {{ __('fulfillment_groups.btn_back') }}
+                <flux:button href="{{ route('fulfillment.index') }}" variant="outline" wire:navigate>
+                    {{ __('fulfillment.btn_back') }}
                 </flux:button>
             </div>
 
             <div class="form-grid three">
                 @if ($showTenantSelect)
-                    <flux:select wire:model.live="tenantId" required :label="__('fulfillment_groups.field_tenant')">
-                        <flux:select.option value="">{{ __('fulfillment_groups.select_tenant') }}</flux:select.option>
+                    <flux:select wire:model.live="tenantId" required :label="__('fulfillment.field_tenant')">
+                        <flux:select.option value="">{{ __('fulfillment.select_tenant') }}</flux:select.option>
                         @foreach ($tenants as $tenant)
                             <flux:select.option value="{{ $tenant->id }}">{{ $tenant->code }} - {{ $tenant->name }}</flux:select.option>
                         @endforeach
                     </flux:select>
                 @endif
 
-                <flux:select wire:model.live="warehouseId" required :label="__('fulfillment_groups.field_warehouse')">
-                    <flux:select.option value="">{{ __('fulfillment_groups.select_warehouse') }}</flux:select.option>
+                <flux:select wire:model.live="warehouseId" required :label="__('fulfillment.field_warehouse')">
+                    <flux:select.option value="">{{ __('fulfillment.select_warehouse') }}</flux:select.option>
                     @foreach ($warehouses as $warehouse)
                         <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} - {{ $warehouse->name }}</flux:select.option>
                     @endforeach
                 </flux:select>
 
-                <flux:select wire:model.live="shipKey" required :label="__('fulfillment_groups.field_ship_key')">
-                    <flux:select.option value="">{{ __('fulfillment_groups.select_ship_key') }}</flux:select.option>
+                <flux:select wire:model.live="shipKey" required :label="__('fulfillment.field_ship_key')">
+                    <flux:select.option value="">{{ __('fulfillment.select_ship_key') }}</flux:select.option>
                     @foreach ($shipKeyOptions as $option)
                         <flux:select.option value="{{ $option->ship_together_key }}">
-                            {{ $option->recipient_name ?: '-' }} / {{ $option->recipient_city ?: '-' }} / {{ trans_choice('fulfillment_groups.order_count', $option->order_count, ['count' => $option->order_count]) }}
+                            {{ $option->recipient_name ?: '-' }} / {{ $option->recipient_city ?: '-' }} / {{ trans_choice('fulfillment.order_count', $option->order_count, ['count' => $option->order_count]) }}
                         </flux:select.option>
                     @endforeach
                 </flux:select>
@@ -47,8 +47,8 @@
         <section class="table-shell flux-panel form-panel">
             <div class="form-panel-header">
                 <div>
-                    <strong>{{ __('fulfillment_groups.section_orders') }}</strong>
-                    <span>{{ __('fulfillment_groups.section_orders_hint') }}</span>
+                    <strong>{{ __('fulfillment.section_orders') }}</strong>
+                    <span>{{ __('fulfillment.section_orders_hint') }}</span>
                 </div>
             </div>
 
@@ -84,7 +84,7 @@
                     @empty
                         <flux:table.row>
                             <flux:table.cell colspan="4">
-                                <div class="empty-state">{{ __('fulfillment_groups.no_ready_orders') }}</div>
+                                <div class="empty-state">{{ __('fulfillment.no_ready_orders') }}</div>
                             </flux:table.cell>
                         </flux:table.row>
                     @endforelse
@@ -93,11 +93,11 @@
         </section>
 
         <div class="form-actions">
-            <flux:button href="{{ route('fulfillment-groups.index') }}" variant="outline" wire:navigate>
-                {{ __('fulfillment_groups.btn_cancel') }}
+            <flux:button href="{{ route('fulfillment.index') }}" variant="outline" wire:navigate>
+                {{ __('fulfillment.btn_cancel') }}
             </flux:button>
             <flux:button type="submit" variant="primary">
-                {{ __('fulfillment_groups.btn_create') }}
+                {{ __('fulfillment.btn_create') }}
             </flux:button>
         </div>
     </form>

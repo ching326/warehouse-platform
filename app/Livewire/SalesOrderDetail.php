@@ -8,7 +8,7 @@ use App\Models\SalesOrderLine;
 use App\Models\ShippingMethod;
 use App\Models\Sku;
 use App\Models\Tenant;
-use App\Services\Fulfillment\GroupSalesOrdersService;
+use App\Services\Fulfillment\OutboundConsolidationService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -262,7 +262,7 @@ class SalesOrderDetail extends Component
         }
 
         try {
-            $held = app(GroupSalesOrdersService::class)->releaseOrderForHold($order);
+            $held = app(OutboundConsolidationService::class)->releaseOrderForHold($order);
         } catch (InvalidArgumentException) {
             session()->flash('error', __('sales_orders.cannot_hold'));
 

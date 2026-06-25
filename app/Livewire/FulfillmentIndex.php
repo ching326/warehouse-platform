@@ -20,7 +20,7 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use RuntimeException;
 
-class FulfillmentGroupIndex extends Component
+class FulfillmentIndex extends Component
 {
     use WithPagination;
 
@@ -127,9 +127,9 @@ class FulfillmentGroupIndex extends Component
     public function statusLabel(string $status): string
     {
         return match ($status) {
-            OutboundOrder::STATUS_PENDING => __('fulfillment_groups.status_reserved'),
-            OutboundOrder::STATUS_SHIPPED => __('fulfillment_groups.status_shipped'),
-            OutboundOrder::STATUS_CANCELLED => __('fulfillment_groups.status_cancelled'),
+            OutboundOrder::STATUS_PENDING => __('fulfillment.status_reserved'),
+            OutboundOrder::STATUS_SHIPPED => __('fulfillment.status_shipped'),
+            OutboundOrder::STATUS_CANCELLED => __('fulfillment.status_cancelled'),
             default => $status,
         };
     }
@@ -263,7 +263,7 @@ class FulfillmentGroupIndex extends Component
 
         $this->selectedIds = [];
 
-        session()->flash('status', __('fulfillment_groups.batch_mark_shipped_result', [
+        session()->flash('status', __('fulfillment.batch_mark_shipped_result', [
             'updated' => $updated,
             'skipped' => count($selectedIds) - $updated,
         ]));
@@ -286,7 +286,7 @@ class FulfillmentGroupIndex extends Component
         $this->pendingExportWarning = null;
 
         if ($this->selectedIds === []) {
-            session()->flash('error', __('fulfillment_groups.courier_export_no_selection'));
+            session()->flash('error', __('fulfillment.courier_export_no_selection'));
 
             return null;
         }
@@ -409,7 +409,7 @@ class FulfillmentGroupIndex extends Component
             $this->trackingDrafts[$order->id] ??= (string) ($order->tracking_no ?? '');
         }
 
-        return view('livewire.fulfillment-group-index', [
+        return view('livewire.fulfillment-index', [
             'orders' => $orders,
             'tenants' => Tenant::query()
                 ->whereIn('id', $this->allowedTenantIds())
@@ -426,14 +426,14 @@ class FulfillmentGroupIndex extends Component
                 ->mapWithKeys(fn (ShippingMethod $method) => [(string) $method->id => $method->name])
                 ->all(),
             'shippingMethodFilterOptions' => $shippingMethods + [
-                SalesOrderFilters::EMPTY_SHIPPING => __('fulfillment_groups.shipping_method_unset'),
+                SalesOrderFilters::EMPTY_SHIPPING => __('fulfillment.shipping_method_unset'),
             ],
             'statuses' => $this->statuses(),
             'showTenantFilter' => $this->isInternalUser(),
             'visibleOrderIds' => $this->visibleOrderIds,
         ])->layout('inventory', [
-            'title' => __('fulfillment_groups.page_title'),
-            'subtitle' => __('fulfillment_groups.page_subtitle'),
+            'title' => __('fulfillment.page_title'),
+            'subtitle' => __('fulfillment.page_subtitle'),
             'pageWide' => true,
         ]);
     }
@@ -441,9 +441,9 @@ class FulfillmentGroupIndex extends Component
     private function statuses(): array
     {
         return [
-            'reserved' => __('fulfillment_groups.status_reserved'),
-            'shipped' => __('fulfillment_groups.status_shipped'),
-            'cancelled' => __('fulfillment_groups.status_cancelled'),
+            'reserved' => __('fulfillment.status_reserved'),
+            'shipped' => __('fulfillment.status_shipped'),
+            'cancelled' => __('fulfillment.status_cancelled'),
         ];
     }
 
@@ -484,7 +484,7 @@ class FulfillmentGroupIndex extends Component
         ] as $key => $translationKey) {
             if ($result[$key] !== []) {
                 $parts[] = __(
-                    'fulfillment_groups.'.$translationKey,
+                    'fulfillment.'.$translationKey,
                     ['ids' => implode(', ', $result[$key])]
                 );
             }
@@ -502,7 +502,7 @@ class FulfillmentGroupIndex extends Component
             ->pluck('ref')
             ->all();
 
-        return __('fulfillment_groups.courier_export_reexport_warning')."\n".implode("\n", $refs);
+        return __('fulfillment.courier_export_reexport_warning')."\n".implode("\n", $refs);
     }
 
     private function clearPendingExport(): void

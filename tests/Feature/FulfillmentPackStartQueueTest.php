@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\FulfillmentGroupCreate;
+use App\Livewire\FulfillmentCreate;
 use App\Livewire\FulfillmentPackStart;
 use App\Models\Carrier;
 use App\Models\OutboundOrder;
@@ -219,7 +219,7 @@ class FulfillmentPackStartQueueTest extends TestCase
     private function createGroup(Tenant $tenant, Warehouse $warehouse, string $shipKey, array $orders): void
     {
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupCreate::class)
+            ->test(FulfillmentCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shipKey', $shipKey)

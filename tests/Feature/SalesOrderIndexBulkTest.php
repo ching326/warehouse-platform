@@ -16,7 +16,7 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\Warehouse;
-use App\Services\Fulfillment\GroupSalesOrdersService;
+use App\Services\Fulfillment\OutboundConsolidationService;
 use App\Services\InventoryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -66,7 +66,7 @@ class SalesOrderIndexBulkTest extends TestCase
         $warehouse = Warehouse::factory()->create(['status' => 'active']);
         $order = $this->orderWithLines($shop, $sku, ['fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY]);
         app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $sku->stock_item_id, 10);
-        $group = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$order->id]);
+        $group = app(OutboundConsolidationService::class)->createGroup($tenant->id, $warehouse->id, [$order->id]);
         $outbound = $group;
 
         $this->assertSame(1, $this->balance($tenant, $warehouse, $sku)->reserved_qty);
@@ -112,7 +112,7 @@ class SalesOrderIndexBulkTest extends TestCase
             'platform_order_id' => 'BULK-HOLD-MULTI-REMAIN',
         ]);
         $remaining->lines()->firstOrFail()->update(['quantity' => 3]);
-        $group = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$held->id, $remaining->id]);
+        $group = app(OutboundConsolidationService::class)->createGroup($tenant->id, $warehouse->id, [$held->id, $remaining->id]);
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
@@ -150,8 +150,8 @@ class SalesOrderIndexBulkTest extends TestCase
             'platform_order_id' => 'BULK-HOLD-NOT-PRINTED',
             'recipient_address_line1' => '2 Not Printed Street',
         ]);
-        $printedGroup = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$printed->id]);
-        $notPrintedGroup = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$notPrinted->id]);
+        $printedGroup = app(OutboundConsolidationService::class)->createGroup($tenant->id, $warehouse->id, [$printed->id]);
+        $notPrintedGroup = app(OutboundConsolidationService::class)->createGroup($tenant->id, $warehouse->id, [$notPrinted->id]);
         $printedGroup->update(['courier_csv_exported_at' => now()]);
 
         Livewire::actingAs($this->internalUser())
@@ -182,8 +182,8 @@ class SalesOrderIndexBulkTest extends TestCase
             'platform_order_id' => 'DETAIL-HOLD-PRINTED',
             'recipient_address_line1' => '2 Detail Hold Street',
         ]);
-        $allowedGroup = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$allowed->id]);
-        $printedGroup = app(GroupSalesOrdersService::class)->createGroup($tenant->id, $warehouse->id, [$printed->id]);
+        $allowedGroup = app(OutboundConsolidationService::class)->createGroup($tenant->id, $warehouse->id, [$allowed->id]);
+        $printedGroup = app(OutboundConsolidationService::class)->createGroup($tenant->id, $warehouse->id, [$printed->id]);
         $printedGroup->update(['courier_csv_exported_at' => now()]);
 
         Livewire::actingAs($this->internalUser())
@@ -394,7 +394,7 @@ class SalesOrderIndexBulkTest extends TestCase
         [$tenant, $shop, $sku] = $this->salesSku('BULK-JOIN');
         $warehouse = $this->warehouseWithStock($tenant, [$sku]);
         $grouped = $this->orderWithLines($shop, $sku, ['fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY]);
-        $group = app(GroupSalesOrdersService::class)
+        $group = app(OutboundConsolidationService::class)
             ->singleOrderGroup($tenant->id, $warehouse->id, $grouped->id);
         $newOrder = $this->orderWithLines($shop, $sku);
 

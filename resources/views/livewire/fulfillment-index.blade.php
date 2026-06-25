@@ -6,7 +6,7 @@
             <div class="export-warning-message">{{ $pendingExportWarning }}</div>
             @if ($pendingCourierExportCarrier)
                 <flux:button type="button" size="sm" variant="primary" wire:click="confirmCourierExport">
-                    {{ __('fulfillment_groups.courier_export_confirm_btn') }}
+                    {{ __('fulfillment.courier_export_confirm_btn') }}
                 </flux:button>
             @endif
         </div>
@@ -32,7 +32,7 @@
                         x-on:click.prevent="openFilter = openFilter === 'tenant' ? null : 'tenant'"
                         x-bind:aria-expanded="openFilter === 'tenant'"
                     >
-                        <span>{{ __('fulfillment_groups.field_tenant') }}</span>
+                        <span>{{ __('fulfillment.field_tenant') }}</span>
                     </summary>
                     <div class="filter-panel">
                         @foreach ($tenants as $tenant)
@@ -54,10 +54,10 @@
                     x-on:click.prevent="openFilter = openFilter === 'warehouse' ? null : 'warehouse'"
                     x-bind:aria-expanded="openFilter === 'warehouse'"
                 >
-                    <span>{{ __('fulfillment_groups.field_warehouse') }}</span>
+                    <span>{{ __('fulfillment.field_warehouse') }}</span>
                 </summary>
                 <div class="filter-panel">
-                    <label><input type="radio" wire:model.live="warehouseId" value=""> {{ __('fulfillment_groups.all_warehouses') }}</label>
+                    <label><input type="radio" wire:model.live="warehouseId" value=""> {{ __('fulfillment.all_warehouses') }}</label>
                     @foreach ($warehouses as $warehouse)
                         <label><input type="radio" wire:model.live="warehouseId" value="{{ $warehouse->id }}"> {{ $warehouse->code }} - {{ $warehouse->name }}</label>
                     @endforeach
@@ -76,7 +76,7 @@
                     x-on:click.prevent="openFilter = openFilter === 'status' ? null : 'status'"
                     x-bind:aria-expanded="openFilter === 'status'"
                 >
-                    <span>{{ __('fulfillment_groups.col_status') }}</span>
+                    <span>{{ __('fulfillment.col_status') }}</span>
                 </summary>
                 <div class="filter-panel compact">
                     @foreach ($statuses as $status => $label)
@@ -97,7 +97,7 @@
                     x-on:click.prevent="openFilter = openFilter === 'shipping' ? null : 'shipping'"
                     x-bind:aria-expanded="openFilter === 'shipping'"
                 >
-                    <span>{{ __('fulfillment_groups.filter_shipping') }}</span>
+                    <span>{{ __('fulfillment.filter_shipping') }}</span>
                 </summary>
                 <div class="filter-panel compact">
                     @foreach ($shippingMethodFilterOptions as $method => $label)
@@ -118,21 +118,21 @@
                     x-on:click.prevent="openFilter = openFilter === 'others' ? null : 'others'"
                     x-bind:aria-expanded="openFilter === 'others'"
                 >
-                    <span>{{ __('fulfillment_groups.filter_others') }}</span>
+                    <span>{{ __('fulfillment.filter_others') }}</span>
                 </summary>
                 <div class="filter-panel compact">
                     <label>
                         <input type="checkbox" wire:model.live="othersFilter" value="{{ \App\Support\SalesOrderFilters::OTHER_MULTI_ITEM }}">
-                        {{ __('fulfillment_groups.other_multi_item') }}
+                        {{ __('fulfillment.other_multi_item') }}
                     </label>
-                    <small class="filter-helper">{{ __('fulfillment_groups.other_multi_item_hint') }}</small>
+                    <small class="filter-helper">{{ __('fulfillment.other_multi_item_hint') }}</small>
                     <label>
                         <input type="checkbox" wire:model.live="othersFilter" value="{{ \App\Support\SalesOrderFilters::OTHER_PRINTED }}">
-                        {{ __('fulfillment_groups.other_printed') }}
+                        {{ __('fulfillment.other_printed') }}
                     </label>
                     <label>
                         <input type="checkbox" wire:model.live="othersFilter" value="{{ \App\Support\SalesOrderFilters::OTHER_NOT_PRINTED }}">
-                        {{ __('fulfillment_groups.other_not_printed') }}
+                        {{ __('fulfillment.other_not_printed') }}
                     </label>
                 </div>
             </details>
@@ -144,13 +144,13 @@
                 wire:click="toggleDetailed"
             >
                 <flux:icon.list-bullet class="print-ready-icon" />
-                <span class="print-ready-label">{{ __('fulfillment_groups.btn_details') }}</span>
+                <span class="print-ready-label">{{ __('fulfillment.btn_details') }}</span>
             </button>
 
             <label @class(['filter-button', 'print-ready-pill', 'is-active' => $printWaiting])>
                 <input class="print-ready-toggle-input" type="checkbox" wire:model.live="printWaiting">
                 <flux:icon.printer class="print-ready-icon" />
-                <span class="print-ready-label">{{ __('fulfillment_groups.filter_print_waiting') }}</span>
+                <span class="print-ready-label">{{ __('fulfillment.filter_print_waiting') }}</span>
             </label>
         </div>
 
@@ -162,7 +162,7 @@
                     class="sales-order-search-input"
                     wire:model.live.debounce.300ms="search"
                     aria-label="{{ __('common.search') }}"
-                    placeholder="{{ __('fulfillment_groups.search_placeholder') }}"
+                    placeholder="{{ __('fulfillment.search_placeholder') }}"
                 >
             </div>
         </div>
@@ -214,11 +214,11 @@
         >
         <div class="sales-order-page-actions" data-testid="fulfillment-group-page-actions">
             <flux:button href="{{ $this->pickSummaryUrl() }}" variant="outline" wire:navigate>
-                {{ __('fulfillment_groups.btn_pick_summary') }}
+                {{ __('fulfillment.btn_pick_summary') }}
             </flux:button>
 
-            <flux:button href="{{ route('fulfillment-groups.create') }}" variant="primary" wire:navigate>
-                {{ __('fulfillment_groups.btn_create') }}
+            <flux:button href="{{ route('fulfillment.create') }}" variant="primary" wire:navigate>
+                {{ __('fulfillment.btn_create') }}
             </flux:button>
 
             <details
@@ -229,14 +229,14 @@
                 <summary x-on:click.prevent="openActionMenu = openActionMenu === 'import' ? null : 'import'">
                     <span class="action-menu-label">
                         <flux:icon.arrow-up-tray />
-                        {{ __('fulfillment_groups.bulk_import_group') }}
+                        {{ __('fulfillment.bulk_import_group') }}
                     </span>
                 </summary>
                 <div class="action-menu-panel action-menu-panel-sectioned">
                     <div class="action-menu-section">
-                        <span>{{ __('fulfillment_groups.tracking_import_menu') }}</span>
+                        <span>{{ __('fulfillment.tracking_import_menu') }}</span>
                         <button type="button" wire:click="openTrackingImportModal" x-on:click="openActionMenu = null">
-                            {{ __('fulfillment_groups.batch_import_tracking') }}
+                            {{ __('fulfillment.batch_import_tracking') }}
                         </button>
                     </div>
                 </div>
@@ -250,17 +250,17 @@
                 <summary x-on:click.prevent="openActionMenu = openActionMenu === 'export' ? null : 'export'">
                     <span class="action-menu-label">
                         <flux:icon.arrow-down-tray />
-                        {{ __('fulfillment_groups.bulk_export_group') }}
+                        {{ __('fulfillment.bulk_export_group') }}
                     </span>
                 </summary>
                 <div class="action-menu-panel action-menu-panel-sectioned">
                     <div class="action-menu-section">
-                        <span>{{ __('fulfillment_groups.courier_export_menu') }}</span>
+                        <span>{{ __('fulfillment.courier_export_menu') }}</span>
                         <button type="button" wire:click="exportYamato" x-on:click="openActionMenu = null">
-                            {{ __('fulfillment_groups.batch_export_yamato') }}
+                            {{ __('fulfillment.batch_export_yamato') }}
                         </button>
                         <button type="button" wire:click="exportSagawa" x-on:click="openActionMenu = null">
-                            {{ __('fulfillment_groups.batch_export_sagawa') }}
+                            {{ __('fulfillment.batch_export_sagawa') }}
                         </button>
                     </div>
                 </div>
@@ -276,10 +276,10 @@
 
             <div class="selection-action-group" data-testid="fulfillment-group-status-actions">
                 <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
-                    {{ __('fulfillment_groups.btn_mark_shipped') }}
+                    {{ __('fulfillment.btn_mark_shipped') }}
                 </flux:button>
                 <flux:button type="button" size="sm" variant="primary" wire:click="markShipped" x-show="has()" x-cloak>
-                    {{ __('fulfillment_groups.btn_mark_shipped') }}
+                    {{ __('fulfillment.btn_mark_shipped') }}
                 </flux:button>
             </div>
         </div>
@@ -297,16 +297,16 @@
                         >
                     </label>
                 </flux:table.column>
-                <flux:table.column>{{ __('fulfillment_groups.col_reference_no') }}</flux:table.column>
-                <flux:table.column>{{ __('fulfillment_groups.col_shop') }}</flux:table.column>
-                <flux:table.column>{{ __('fulfillment_groups.col_recipient') }}</flux:table.column>
-                <flux:table.column :align="$detailed ? 'start' : 'end'">{{ __('fulfillment_groups.col_items') }}</flux:table.column>
-                <flux:table.column>{{ __('fulfillment_groups.col_shipping') }}</flux:table.column>
-                <flux:table.column>{{ __('fulfillment_groups.col_tracking') }}</flux:table.column>
-                <flux:table.column>{{ __('fulfillment_groups.col_note') }}</flux:table.column>
-                <flux:table.column>{{ __('fulfillment_groups.col_added') }}</flux:table.column>
-                <flux:table.column>{{ __('fulfillment_groups.col_status') }}</flux:table.column>
-                <flux:table.column>{{ __('fulfillment_groups.col_actions') }}</flux:table.column>
+                <flux:table.column>{{ __('fulfillment.col_reference_no') }}</flux:table.column>
+                <flux:table.column>{{ __('fulfillment.col_shop') }}</flux:table.column>
+                <flux:table.column>{{ __('fulfillment.col_recipient') }}</flux:table.column>
+                <flux:table.column :align="$detailed ? 'start' : 'end'">{{ __('fulfillment.col_items') }}</flux:table.column>
+                <flux:table.column>{{ __('fulfillment.col_shipping') }}</flux:table.column>
+                <flux:table.column>{{ __('fulfillment.col_tracking') }}</flux:table.column>
+                <flux:table.column>{{ __('fulfillment.col_note') }}</flux:table.column>
+                <flux:table.column>{{ __('fulfillment.col_added') }}</flux:table.column>
+                <flux:table.column>{{ __('fulfillment.col_status') }}</flux:table.column>
+                <flux:table.column>{{ __('fulfillment.col_actions') }}</flux:table.column>
             </flux:table.columns>
 
             <flux:table.rows>
@@ -334,7 +334,7 @@
                                     type="checkbox"
                                     x-bind:checked="isSelected({{ $order->id }})"
                                     x-on:change="toggleRow({{ $order->id }})"
-                                    aria-label="{{ __('fulfillment_groups.select_group') }} {{ $reference }}"
+                                    aria-label="{{ __('fulfillment.select_group') }} {{ $reference }}"
                                 >
                             </label>
                         </flux:table.cell>
@@ -356,7 +356,7 @@
                                 @if ($shops->count() === 1)
                                     {{ $shops->first() }}
                                 @elseif ($shops->count() > 1)
-                                    {{ __('fulfillment_groups.shops_count', ['count' => $shops->count()]) }}
+                                    {{ __('fulfillment.shops_count', ['count' => $shops->count()]) }}
                                 @else
                                     -
                                 @endif
@@ -432,7 +432,7 @@
                                 type="text"
                                 class="fg-inline-input"
                                 value="{{ $trackingDrafts[$order->id] ?? '' }}"
-                                placeholder="{{ __('fulfillment_groups.tracking_placeholder') }}"
+                                placeholder="{{ __('fulfillment.tracking_placeholder') }}"
                                 wire:change="updateTracking({{ $order->id }}, $event.target.value)"
                             />
                         </flux:table.cell>
@@ -442,7 +442,7 @@
                                 type="text"
                                 class="fg-inline-input"
                                 value="{{ $noteDrafts[$order->id] ?? '' }}"
-                                placeholder="{{ __('fulfillment_groups.note_placeholder') }}"
+                                placeholder="{{ __('fulfillment.note_placeholder') }}"
                                 wire:change="updateNote({{ $order->id }}, $event.target.value)"
                             />
                         </flux:table.cell>
@@ -451,7 +451,7 @@
                             @php($dateFormat = $detailed ? 'Y-m-d H:i' : 'm-d H:i')
                             <div>{{ $arranged ? $arranged->format($dateFormat) : '-' }}</div>
                             <div class="fg-subtle">
-                                {{ $printed ? __('fulfillment_groups.printed_at', ['time' => $printed->format($dateFormat)]) : __('fulfillment_groups.not_printed') }}
+                                {{ $printed ? __('fulfillment.printed_at', ['time' => $printed->format($dateFormat)]) : __('fulfillment.not_printed') }}
                             </div>
                         </flux:table.cell>
 
@@ -474,7 +474,7 @@
                 @empty
                     <flux:table.row>
                         <flux:table.cell colspan="11">
-                            <div class="empty-state">{{ __('fulfillment_groups.empty_state') }}</div>
+                            <div class="empty-state">{{ __('fulfillment.empty_state') }}</div>
                         </flux:table.cell>
                     </flux:table.row>
                 @endforelse
@@ -488,11 +488,11 @@
             <section class="tracking-import-modal flux-panel">
                 <header class="tracking-import-header">
                     <div>
-                        <h2>{{ __('fulfillment_groups.tracking_import_title') }}</h2>
-                        <p>{{ __('fulfillment_groups.tracking_import_subtitle') }}</p>
+                        <h2>{{ __('fulfillment.tracking_import_title') }}</h2>
+                        <p>{{ __('fulfillment.tracking_import_subtitle') }}</p>
                     </div>
                     <flux:button type="button" variant="ghost" size="sm" wire:click="closeTrackingImportModal">
-                        {{ __('fulfillment_groups.tracking_import_close_btn') }}
+                        {{ __('fulfillment.tracking_import_close_btn') }}
                     </flux:button>
                 </header>
 
@@ -524,14 +524,14 @@
                             accept=".csv,.txt,text/csv,text/plain"
                             x-on:change="fileName = $event.target.files.length ? $event.target.files[0].name : ''"
                         >
-                        <strong>{{ __('fulfillment_groups.tracking_import_drop_title') }}</strong>
-                        <span>{{ __('fulfillment_groups.tracking_import_drop_hint') }}</span>
+                        <strong>{{ __('fulfillment.tracking_import_drop_title') }}</strong>
+                        <span>{{ __('fulfillment.tracking_import_drop_hint') }}</span>
                         <span class="tracking-import-file-name" x-show="fileName" x-text="fileName"></span>
                     </label>
 
                     <footer class="tracking-import-footer">
                         <flux:button type="submit" variant="primary">
-                            {{ __('fulfillment_groups.tracking_import_confirm_btn') }}
+                            {{ __('fulfillment.tracking_import_confirm_btn') }}
                         </flux:button>
                     </footer>
                 </form>

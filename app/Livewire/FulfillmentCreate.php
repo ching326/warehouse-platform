@@ -5,7 +5,7 @@ namespace App\Livewire;
 use App\Models\SalesOrder;
 use App\Models\Tenant;
 use App\Models\Warehouse;
-use App\Services\Fulfillment\GroupSalesOrdersService;
+use App\Services\Fulfillment\OutboundConsolidationService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use Livewire\Component;
 
-class FulfillmentGroupCreate extends Component
+class FulfillmentCreate extends Component
 {
     public string $tenantId = '';
 
@@ -56,7 +56,7 @@ class FulfillmentGroupCreate extends Component
         $this->validateInput($tenantId);
 
         try {
-            $outbound = app(GroupSalesOrdersService::class)->createGroup(
+            $outbound = app(OutboundConsolidationService::class)->createGroup(
                 tenantId: $tenantId,
                 warehouseId: (int) $this->warehouseId,
                 salesOrderIds: $this->selectedOrderIds,
@@ -67,22 +67,22 @@ class FulfillmentGroupCreate extends Component
             return;
         }
 
-        session()->flash('status', __('fulfillment_groups.group_created'));
+        session()->flash('status', __('fulfillment.group_created'));
 
         return redirect()->route('outbound.show', $outbound);
     }
 
     public function render()
     {
-        return view('livewire.fulfillment-group-create', [
+        return view('livewire.fulfillment-create', [
             'tenants' => $this->tenantOptions(),
             'warehouses' => $this->warehouseOptions(),
             'shipKeyOptions' => $this->shipKeyOptions(),
             'eligibleOrders' => $this->eligibleOrders(),
             'showTenantSelect' => $this->isInternalUser(),
         ])->layout('inventory', [
-            'title' => __('fulfillment_groups.create_page_title'),
-            'subtitle' => __('fulfillment_groups.create_page_subtitle'),
+            'title' => __('fulfillment.create_page_title'),
+            'subtitle' => __('fulfillment.create_page_subtitle'),
         ]);
     }
 
@@ -168,7 +168,7 @@ class FulfillmentGroupCreate extends Component
         $tenantId = (int) $this->tenantId;
 
         if ($tenantId <= 0 || ! in_array($tenantId, $this->allowedTenantIds(), true)) {
-            throw ValidationException::withMessages(['tenant_id' => __('fulfillment_groups.invalid_tenant')]);
+            throw ValidationException::withMessages(['tenant_id' => __('fulfillment.invalid_tenant')]);
         }
 
         return $tenantId;

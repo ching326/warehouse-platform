@@ -53,15 +53,15 @@
 
                 <div class="ready-combine-body">
                     @if ($readyWarehouseOptions->count() > 1)
-                        <flux:select wire:model.live="readyWarehouseId" :label="__('fulfillment_groups.field_warehouse')">
-                            <flux:select.option value="">{{ __('fulfillment_groups.select_warehouse') }}</flux:select.option>
+                        <flux:select wire:model.live="readyWarehouseId" :label="__('fulfillment.field_warehouse')">
+                            <flux:select.option value="">{{ __('fulfillment.select_warehouse') }}</flux:select.option>
                             @foreach ($readyWarehouseOptions as $warehouse)
                                 <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} / {{ $warehouse->name }}</flux:select.option>
                             @endforeach
                         </flux:select>
                     @else
                         <div>
-                            <span class="subtle">{{ __('fulfillment_groups.field_warehouse') }}</span>
+                            <span class="subtle">{{ __('fulfillment.field_warehouse') }}</span>
                             <strong>{{ $readyWarehouseOptions->first()?->code }} / {{ $readyWarehouseOptions->first()?->name }}</strong>
                         </div>
                     @endif

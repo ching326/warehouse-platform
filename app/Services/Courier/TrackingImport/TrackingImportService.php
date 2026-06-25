@@ -17,7 +17,7 @@ class TrackingImportService
      * @param  list<int>  $allowedTenantIds
      * @return array{updated: int}
      */
-    public function importFulfillmentGroups(string $contents, ?string $sourceFileName, User $user, array $allowedTenantIds): array
+    public function importOutboundTracking(string $contents, ?string $sourceFileName, User $user, array $allowedTenantIds): array
     {
         $parsed = $this->parser->parse($contents);
 

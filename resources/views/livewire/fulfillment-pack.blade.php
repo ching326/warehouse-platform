@@ -18,23 +18,23 @@
             </div>
             <div class="active-filter-row">
                 <flux:badge color="{{ $order->status === \App\Models\OutboundOrder::STATUS_SHIPPED ? 'green' : ($order->status === \App\Models\OutboundOrder::STATUS_CANCELLED ? 'red' : 'blue') }}">
-                    {{ __('fulfillment_groups.status_'.$statusKey) }}
+                    {{ __('fulfillment.status_'.$statusKey) }}
                 </flux:badge>
                 <flux:button href="{{ route('fulfillment.pack-scans.index', ['outbound_order_id' => $order->id]) }}" variant="outline" wire:navigate>
                     {{ __('fulfillment_pack.scan_history_title') }}
                 </flux:button>
                 <flux:button href="{{ route('outbound.show', $order) }}" variant="outline" wire:navigate>
-                    {{ __('fulfillment_groups.btn_back') }}
+                    {{ __('fulfillment.btn_back') }}
                 </flux:button>
             </div>
         </div>
 
         <div class="form-grid three">
-            <div><span class="subtle">{{ __('fulfillment_groups.col_status') }}</span><strong>{{ __('fulfillment_groups.status_'.$statusKey) }}</strong></div>
-            <div><span class="subtle">{{ __('fulfillment_groups.field_recipient_name') }}</span><strong>{{ $order->recipient_name ?: '-' }}</strong></div>
-            <div><span class="subtle">{{ __('fulfillment_groups.field_tracking_no') }}</span><strong>{{ $order->tracking_no ?: '-' }}</strong></div>
-            <div><span class="subtle">{{ __('fulfillment_groups.col_shipping') }}</span><strong>{{ $order->shippingMethod?->name ?: '-' }}</strong></div>
-            <div><span class="subtle">{{ __('fulfillment_groups.col_orders') }}</span><strong>{{ number_format($order->salesOrders->count()) }}</strong></div>
+            <div><span class="subtle">{{ __('fulfillment.col_status') }}</span><strong>{{ __('fulfillment.status_'.$statusKey) }}</strong></div>
+            <div><span class="subtle">{{ __('fulfillment.field_recipient_name') }}</span><strong>{{ $order->recipient_name ?: '-' }}</strong></div>
+            <div><span class="subtle">{{ __('fulfillment.field_tracking_no') }}</span><strong>{{ $order->tracking_no ?: '-' }}</strong></div>
+            <div><span class="subtle">{{ __('fulfillment.col_shipping') }}</span><strong>{{ $order->shippingMethod?->name ?: '-' }}</strong></div>
+            <div><span class="subtle">{{ __('fulfillment.col_orders') }}</span><strong>{{ number_format($order->salesOrders->count()) }}</strong></div>
             <div><span class="subtle">{{ __('fulfillment_pack.overall_progress') }}</span><strong>{{ number_format($progress['qty_scanned']) }} / {{ number_format($progress['qty_required']) }} {{ __('fulfillment_pack.scanned_short') }}</strong></div>
         </div>
     </section>
@@ -136,7 +136,7 @@
                 <flux:table.column align="end">{{ __('fulfillment_pack.required_qty') }}</flux:table.column>
                 <flux:table.column align="end">{{ __('fulfillment_pack.scanned_qty') }}</flux:table.column>
                 <flux:table.column align="end">{{ __('fulfillment_pack.remaining_qty') }}</flux:table.column>
-                <flux:table.column>{{ __('fulfillment_groups.col_status') }}</flux:table.column>
+                <flux:table.column>{{ __('fulfillment.col_status') }}</flux:table.column>
             </flux:table.columns>
             <flux:table.rows>
                 @foreach ($lines as $line)

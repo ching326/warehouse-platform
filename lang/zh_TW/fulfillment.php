@@ -1,11 +1,11 @@
 <?php
 
 return [
-    'page_title' => '發貨群組',
+    'page_title' => '發貨列表',
     'page_subtitle' => '將準備就緒的訂單分組,並為出倉分配庫存。',
-    'create_page_title' => '建立發貨群組',
+    'create_page_title' => '新建發貨',
     'create_page_subtitle' => '選擇收件人相同的準備就緒訂單。',
-    'detail_page_title' => '發貨群組',
+    'detail_page_title' => '發貨',
     'group_created' => '已建立發貨群組。',
     'recipient_updated' => '已更新收件人。',
     'shipping_updated' => '已更新出貨資料。',

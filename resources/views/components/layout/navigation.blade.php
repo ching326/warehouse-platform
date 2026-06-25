@@ -5,7 +5,7 @@
     $returnOrdersActive = request()->routeIs('return-orders.*');
     $outboundActive  = request()->routeIs('outbound.*');
     $salesActive     = request()->routeIs('sales.*');
-    $fulfillmentActive = request()->routeIs('fulfillment-groups.*', 'fulfillment.*');
+    $fulfillmentActive = request()->routeIs('fulfillment.*');
     $issuesActive = request()->routeIs('issues.*');
     $setupActive     = request()->routeIs('setup.*');
 @endphp
@@ -125,12 +125,12 @@
                         {{ __('common.nav_outbound_orders') }}
                     </a>
                     <a
-                        href="{{ route('fulfillment-groups.index') }}"
-                        class="{{ request()->routeIs('fulfillment-groups.*') ? 'is-active' : '' }}"
+                        href="{{ route('fulfillment.index') }}"
+                        class="{{ request()->routeIs('fulfillment.index', 'fulfillment.create', 'fulfillment.pack.start', 'fulfillment.pack-scans.index') ? 'is-active' : '' }}"
                         wire:navigate
                         @click="open = false"
                     >
-                        {{ __('common.nav_fulfillment_group_list') }}
+                        {{ __('common.nav_fulfillment') }}
                     </a>
                     <a
                         href="{{ route('fulfillment.pick-summary') }}"

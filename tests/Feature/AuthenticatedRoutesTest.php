@@ -17,7 +17,7 @@ class AuthenticatedRoutesTest extends TestCase
         $this->get('/inventory')->assertForbidden();
         $this->get('/sales-orders')->assertForbidden();
         $this->get('/sales-orders/export')->assertForbidden();
-        $this->post('/fulfillment-groups/tracking-import')->assertForbidden();
+        $this->post('/fulfillment/tracking-import')->assertForbidden();
         $this->get('/setup/shipping-methods')->assertForbidden();
     }
 

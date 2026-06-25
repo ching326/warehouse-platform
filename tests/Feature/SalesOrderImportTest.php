@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\FulfillmentGroupCreate;
+use App\Livewire\FulfillmentCreate;
 use App\Livewire\SalesOrderCreate;
 use App\Livewire\SalesOrderDetail;
 use App\Livewire\SalesOrderImport;
@@ -577,7 +577,7 @@ class SalesOrderImportTest extends TestCase
         ]);
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupCreate::class)
+            ->test(FulfillmentCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shipKey', (string) $order->ship_together_key)
@@ -607,7 +607,7 @@ class SalesOrderImportTest extends TestCase
         ]);
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupCreate::class)
+            ->test(FulfillmentCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shipKey', (string) $pending->ship_together_key)
@@ -615,7 +615,7 @@ class SalesOrderImportTest extends TestCase
             ->assertDontSee('AMZ-FG-HOLD-ORDER');
 
         Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentGroupCreate::class)
+            ->test(FulfillmentCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shipKey', (string) $onHold->ship_together_key)

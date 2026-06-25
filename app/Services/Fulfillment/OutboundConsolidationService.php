@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
-class GroupSalesOrdersService
+class OutboundConsolidationService
 {
     public function __construct(private readonly InventoryService $inventoryService) {}
 
@@ -53,7 +53,7 @@ class GroupSalesOrdersService
 
             if ($orders->pluck('ship_together_key')->unique()->count() !== 1 || $orders->first()?->ship_together_key !== $shipKey) {
                 throw ValidationException::withMessages([
-                    'selectedOrderIds' => __('fulfillment_groups.orders_must_share_key'),
+                    'selectedOrderIds' => __('fulfillment.orders_must_share_key'),
                 ]);
             }
 
@@ -210,7 +210,7 @@ class GroupSalesOrdersService
     private function appendOrdersToOutbound(OutboundOrder $outbound, Collection $orders): void
     {
         if ($outbound->status !== OutboundOrder::STATUS_PENDING) {
-            throw new InvalidArgumentException(__('fulfillment_groups.group_not_joinable'));
+            throw new InvalidArgumentException(__('fulfillment.group_not_joinable'));
         }
 
         $this->attachAndReserve($outbound, $orders);
@@ -273,14 +273,14 @@ class GroupSalesOrdersService
 
         if ($orders->count() !== count($ids)) {
             throw ValidationException::withMessages([
-                'selectedOrderIds' => __('fulfillment_groups.orders_required'),
+                'selectedOrderIds' => __('fulfillment.orders_required'),
             ]);
         }
 
         foreach ($orders as $order) {
             if ((int) $order->tenant_id !== $tenantId) {
                 throw ValidationException::withMessages([
-                    'selectedOrderIds' => __('fulfillment_groups.orders_required'),
+                    'selectedOrderIds' => __('fulfillment.orders_required'),
                 ]);
             }
 
@@ -289,19 +289,19 @@ class GroupSalesOrdersService
                 || $order->fulfillment_status !== SalesOrder::FULFILLMENT_STATUS_READY
             ) {
                 throw ValidationException::withMessages([
-                    'selectedOrderIds' => __('fulfillment_groups.order_no_longer_ready', ['id' => $order->id]),
+                    'selectedOrderIds' => __('fulfillment.order_no_longer_ready', ['id' => $order->id]),
                 ]);
             }
 
             if ($this->hasActiveOutbound($order)) {
                 throw ValidationException::withMessages([
-                    'selectedOrderIds' => __('fulfillment_groups.order_already_grouped', ['id' => $order->id]),
+                    'selectedOrderIds' => __('fulfillment.order_already_grouped', ['id' => $order->id]),
                 ]);
             }
 
             if (! $this->orderIsShipComplete($order)) {
                 throw ValidationException::withMessages([
-                    'selectedOrderIds' => __('fulfillment_groups.order_not_ship_complete', ['id' => $order->id]),
+                    'selectedOrderIds' => __('fulfillment.order_not_ship_complete', ['id' => $order->id]),
                 ]);
             }
         }
@@ -313,7 +313,7 @@ class GroupSalesOrdersService
 
         if ($keys->count() !== 1 || $keys->first() === null) {
             throw ValidationException::withMessages([
-                'selectedOrderIds' => __('fulfillment_groups.orders_must_share_key'),
+                'selectedOrderIds' => __('fulfillment.orders_must_share_key'),
             ]);
         }
     }
@@ -321,11 +321,11 @@ class GroupSalesOrdersService
     private function validateJoinableOutbound(OutboundOrder $outbound): void
     {
         if ($outbound->reason !== OutboundOrder::REASON_CUSTOMER_ORDER || $outbound->status !== OutboundOrder::STATUS_PENDING) {
-            throw new InvalidArgumentException(__('fulfillment_groups.group_not_joinable'));
+            throw new InvalidArgumentException(__('fulfillment.group_not_joinable'));
         }
 
         if ($outbound->courier_csv_exported_at !== null) {
-            throw new InvalidArgumentException(__('fulfillment_groups.group_not_joinable'));
+            throw new InvalidArgumentException(__('fulfillment.group_not_joinable'));
         }
     }
 
@@ -340,7 +340,7 @@ class GroupSalesOrdersService
         $modes = $shops->pluck('consolidation_mode')->map(fn ($mode) => $mode ?: Shop::CONSOLIDATION_SAME_SHOP);
 
         if ($modes->contains(Shop::CONSOLIDATION_NONE)) {
-            throw new InvalidArgumentException(__('fulfillment_groups.consolidation_not_allowed'));
+            throw new InvalidArgumentException(__('fulfillment.consolidation_not_allowed'));
         }
 
         if ($shopIds->count() === 1) {
@@ -348,14 +348,14 @@ class GroupSalesOrdersService
                 return;
             }
 
-            throw new InvalidArgumentException(__('fulfillment_groups.consolidation_not_allowed'));
+            throw new InvalidArgumentException(__('fulfillment.consolidation_not_allowed'));
         }
 
         if ($modes->every(fn ($mode) => $mode === Shop::CONSOLIDATION_CROSS_SHOP)) {
             return;
         }
 
-        throw new InvalidArgumentException(__('fulfillment_groups.consolidation_not_allowed'));
+        throw new InvalidArgumentException(__('fulfillment.consolidation_not_allowed'));
     }
 
     private function hasActiveOutbound(SalesOrder $order): bool

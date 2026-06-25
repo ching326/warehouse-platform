@@ -1,11 +1,11 @@
 <?php
 
 return [
-    'page_title' => '出荷グループ',
+    'page_title' => '出荷一覧',
     'page_subtitle' => '出荷準備が完了した注文をまとめ、出庫用に在庫を引き当てます。',
-    'create_page_title' => '出荷グループ作成',
+    'create_page_title' => '出荷作成',
     'create_page_subtitle' => '同じ宛先の出荷準備完了注文を選択します。',
-    'detail_page_title' => '出荷グループ',
+    'detail_page_title' => '出荷',
     'group_created' => '出荷グループを作成しました。',
     'recipient_updated' => '宛先を更新しました。',
     'shipping_updated' => '出荷情報を更新しました。',

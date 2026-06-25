@@ -121,7 +121,7 @@ class OutboundOrderDetail extends Component
         $order->update($data);
 
         $this->editingRecipient = false;
-        session()->flash('status', __('fulfillment_groups.recipient_updated'));
+        session()->flash('status', __('fulfillment.recipient_updated'));
     }
 
     public function editShipping(): void
@@ -166,7 +166,7 @@ class OutboundOrderDetail extends Component
         ]);
 
         $this->editingShipping = false;
-        session()->flash('status', __('fulfillment_groups.shipping_updated'));
+        session()->flash('status', __('fulfillment.shipping_updated'));
     }
 
     public function exportYamato(): mixed
@@ -353,7 +353,7 @@ class OutboundOrderDetail extends Component
         ] as $key => $translationKey) {
             if ($result[$key] !== []) {
                 $parts[] = __(
-                    'fulfillment_groups.'.$translationKey,
+                    'fulfillment.'.$translationKey,
                     ['ids' => implode(', ', $result[$key])]
                 );
             }
@@ -371,7 +371,7 @@ class OutboundOrderDetail extends Component
             ->pluck('ref')
             ->all();
 
-        return __('fulfillment_groups.courier_export_reexport_warning')."\n".implode("\n", $refs);
+        return __('fulfillment.courier_export_reexport_warning')."\n".implode("\n", $refs);
     }
 
     private function shippingMethodOptions(): Collection

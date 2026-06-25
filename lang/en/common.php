@@ -14,7 +14,7 @@ return [
     'nav_outbound_orders' => 'Outbound orders',
     'nav_sales_orders' => 'Sales Order',
     'nav_fulfillment_groups' => 'Fulfillment',
-    'nav_fulfillment_group_list' => 'Fulfillment Groups',
+    'nav_fulfillment' => 'Fulfillment queue',
     'nav_pick_summary' => 'Pick Summary',
     'nav_issues' => 'Issue',
     'nav_setup' => 'Setup',
@@ -82,4 +82,3 @@ return [
         'other' => 'Other',
     ],
 ];
-
