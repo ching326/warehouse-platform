@@ -137,7 +137,7 @@
                             </flux:table.cell>
                             <flux:table.cell>
                                 <div class="sku-row-actions">
-                                    <flux:button type="button" size="xs" variant="primary">
+                                    <flux:button href="{{ route('skus.edit', $sku) }}" size="xs" variant="primary">
                                         {{ __('skus.btn_edit') }}
                                     </flux:button>
                                     @if ($this->canImportAmazonImage($sku))

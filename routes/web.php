@@ -47,6 +47,7 @@ use App\Livewire\ShopCreate;
 use App\Livewire\ShopEdit;
 use App\Livewire\ShopIndex;
 use App\Livewire\SkuCreate;
+use App\Livewire\SkuEdit;
 use App\Livewire\SkusIndex;
 use App\Livewire\StockAdjustmentCreate;
 use App\Livewire\TenantCreate;
@@ -138,6 +139,7 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/issues/{issue}', IssueShow::class)->name('issues.show');
     Route::get('/skus', SkusIndex::class)->name('skus.index');
     Route::get('/skus/create', SkuCreate::class)->name('skus.create');
+    Route::get('/skus/{sku}/edit', SkuEdit::class)->name('skus.edit');
     Route::get('/setup/tenants', TenantIndex::class)->name('setup.tenants.index');
     Route::get('/setup/tenants/create', TenantCreate::class)->name('setup.tenants.create');
     Route::get('/setup/tenants/{tenant}/edit', TenantEdit::class)->name('setup.tenants.edit');
