@@ -66,6 +66,7 @@ class SalesOrderExportController extends Controller
 
         return Excel::download(new SalesOrdersExport($filters), $filename, $writer);
     }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();

@@ -5,6 +5,7 @@ namespace App\Support;
 class CourierCarrier
 {
     public const YAMATO = 'yamato';
+
     public const SAGAWA = 'sagawa';
 
     private const ALIASES = [

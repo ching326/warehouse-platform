@@ -5,7 +5,9 @@ namespace App\Support;
 class AmazonSpapiRegion
 {
     public const NA = 'na';
+
     public const EU = 'eu';
+
     public const FE = 'fe';
 
     public static function options(): array

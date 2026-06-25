@@ -29,7 +29,7 @@ class SalesOrdersExport implements FromQuery, WithHeadings, WithMapping
     ];
 
     /**
-     * @param array<string,mixed> $filters
+     * @param  array<string,mixed>  $filters
      */
     public function __construct(private array $filters)
     {
@@ -66,7 +66,7 @@ class SalesOrdersExport implements FromQuery, WithHeadings, WithMapping
     }
 
     /**
-     * @param SalesOrderLine $line
+     * @param  SalesOrderLine  $line
      */
     public function map($line): array
     {
