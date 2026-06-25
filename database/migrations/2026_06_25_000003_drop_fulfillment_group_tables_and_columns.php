@@ -12,11 +12,17 @@ return new class extends Migration
             $table->dropConstrainedForeignId('fulfillment_group_id');
         });
 
-        // Drop the foreign keys before the indexes: MySQL refuses to drop an
-        // index that still backs an FK constraint.
+        // MySQL refuses to drop an index that still backs an FK constraint.
+        // (1) drop the FKs on the group columns; (2) give tenant_id its own index,
+        // since the composite (tenant_id, fulfillment_group_id) is otherwise the
+        // backing index for the tenant_id FK; (3) then drop the group indexes/columns.
         Schema::table('fulfillment_pack_scans', function (Blueprint $table): void {
             $table->dropForeign(['fulfillment_group_id']);
             $table->dropForeign(['fulfillment_group_order_id']);
+        });
+
+        Schema::table('fulfillment_pack_scans', function (Blueprint $table): void {
+            $table->index('tenant_id', 'fps_tenant_idx');
         });
 
         Schema::table('fulfillment_pack_scans', function (Blueprint $table): void {
