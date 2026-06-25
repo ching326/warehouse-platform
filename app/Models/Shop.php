@@ -17,7 +17,9 @@ class Shop extends Model
     use HasFactory, LogsActivity;
 
     public const CONSOLIDATION_NONE = 'none';
+
     public const CONSOLIDATION_SAME_SHOP = 'same_shop';
+
     public const CONSOLIDATION_CROSS_SHOP = 'cross_shop';
 
     protected $fillable = [

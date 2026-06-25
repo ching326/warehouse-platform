@@ -50,5 +50,4 @@ class InventoryBalance extends Model
     {
         return $this->belongsTo(StockItem::class);
     }
-
 }

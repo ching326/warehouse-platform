@@ -13,6 +13,7 @@ class SalesOrderLine extends Model
     use HasFactory;
 
     public const STATUS_READY = 'ready';
+
     public const STATUS_CANCELLED = 'cancelled';
 
     protected $fillable = [

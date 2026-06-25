@@ -15,16 +15,25 @@ class IssueLine extends Model
     use HasFactory, LogsActivity;
 
     public const CONDITION_MISSING = 'missing';
+
     public const CONDITION_DAMAGED = 'damaged';
+
     public const CONDITION_GOOD = 'good';
+
     public const CONDITION_UNKNOWN = 'unknown';
 
     public const ACTION_NONE = 'none';
+
     public const ACTION_RESEND = 'resend';
+
     public const ACTION_REFUND = 'refund';
+
     public const ACTION_RETURN_TO_STOCK = 'return_to_stock';
+
     public const ACTION_MARK_DAMAGED = 'mark_damaged';
+
     public const ACTION_WRITE_OFF = 'write_off';
+
     public const ACTION_INVESTIGATE = 'investigate';
 
     protected $fillable = [

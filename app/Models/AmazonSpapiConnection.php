@@ -13,7 +13,9 @@ class AmazonSpapiConnection extends Model
     use LogsActivity;
 
     public const STATUS_NOT_TESTED = 'not_tested';
+
     public const STATUS_CONNECTED = 'connected';
+
     public const STATUS_FAILED = 'failed';
 
     protected $fillable = [

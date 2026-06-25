@@ -12,6 +12,7 @@ class BarcodeAlias extends Model
     use LogsActivity;
 
     public const MODEL_TYPE_SKU = 'sku';
+
     public const MODEL_TYPE_STOCK_ITEM = 'stock_item';
 
     public const BARCODE_TYPES = [

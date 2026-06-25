@@ -13,13 +13,21 @@ class InventoryMovement extends Model
     use HasFactory;
 
     public const TYPE_OPENING_BALANCE = 'opening_balance';
+
     public const TYPE_RECEIVE = 'receive';
+
     public const TYPE_RESERVE = 'reserve';
+
     public const TYPE_RELEASE_RESERVE = 'release_reserve';
+
     public const TYPE_SHIP = 'ship';
+
     public const TYPE_HOLD = 'hold';
+
     public const TYPE_RELEASE_HOLD = 'release_hold';
+
     public const TYPE_MARK_DAMAGED = 'mark_damaged';
+
     public const TYPE_ADJUST = 'adjust';
 
     public $timestamps = false;

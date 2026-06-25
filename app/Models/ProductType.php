@@ -10,9 +10,10 @@ class ProductType extends Model
 
     protected $casts = ['translations' => 'array'];
 
-    public function label(string $locale = null): string
+    public function label(?string $locale = null): string
     {
         $locale ??= app()->getLocale();
+
         return $this->translations[$locale] ?? $this->name;
     }
 }

@@ -12,14 +12,19 @@ class AmazonSpapiImportRun extends Model
     use LogsActivity;
 
     public const MODE_MANUAL = 'manual';
+
     public const MODE_SCHEDULED = 'scheduled';
 
     public const STATUS_PREVIEWED = 'previewed';
+
     public const STATUS_IMPORTING = 'importing';
+
     public const STATUS_COMPLETED = 'completed';
+
     public const STATUS_FAILED = 'failed';
 
     public const WINDOW_LAST_UPDATED = 'last_updated';
+
     public const WINDOW_CREATED = 'created';
 
     protected $fillable = [

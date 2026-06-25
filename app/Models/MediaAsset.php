@@ -9,9 +9,13 @@ use Illuminate\Support\Facades\Storage;
 class MediaAsset extends Model
 {
     public const MODEL_TYPE_STOCK_ITEM = 'stock_item';
+
     public const MODEL_TYPE_ISSUE = 'issue';
+
     public const MODEL_TYPE_RETURN_ORDER = 'return_order';
+
     public const MODEL_TYPE_RETURN_ORDER_LINE = 'return_order_line';
+
     public const MODEL_TYPE_INBOUND_ORDER = 'inbound_order';
 
     protected $fillable = [

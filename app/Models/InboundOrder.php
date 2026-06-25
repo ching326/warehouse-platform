@@ -25,9 +25,13 @@ class InboundOrder extends Model
     }
 
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_ARRIVED = 'arrived';
+
     public const STATUS_PARTIALLY_RECEIVED = 'partially_received';
+
     public const STATUS_RECEIVED = 'received';
+
     public const STATUS_CANCELLED = 'cancelled';
 
     protected $fillable = [
