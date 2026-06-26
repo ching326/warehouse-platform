@@ -477,6 +477,28 @@ class InboundOrderTest extends TestCase
             ->assertDontSee('HIDDEN-INBOUND');
     }
 
+    public function test_inbound_index_shop_filter_scopes_orders(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create();
+        $shopA = Shop::factory()->for($tenant)->create(['code' => 'SHOP-A', 'status' => 'active']);
+        $shopB = Shop::factory()->for($tenant)->create(['code' => 'SHOP-B', 'status' => 'active']);
+        $stockA = StockItem::factory()->for($tenant)->create();
+        $stockB = StockItem::factory()->for($tenant)->create();
+        $skuA = Sku::factory()->for($tenant)->for($shopA)->for($stockA)->create(['sku' => 'IB-INDEX-SHOP-A']);
+        $skuB = Sku::factory()->for($tenant)->for($shopB)->for($stockB)->create(['sku' => 'IB-INDEX-SHOP-B']);
+
+        $this->inboundOrder($tenant, $warehouse, $skuA, ref: 'IB-SHOP-A-FILTER');
+        $this->inboundOrder($tenant, $warehouse, $skuB, ref: 'IB-SHOP-B-FILTER');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(InboundOrderIndex::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('shopId', (string) $shopA->id)
+            ->assertSee('IB-SHOP-A-FILTER')
+            ->assertDontSee('IB-SHOP-B-FILTER');
+    }
+
     public function test_inbound_routes_render(): void
     {
         [$tenant, $warehouse, $sku] = $this->receivableSku();

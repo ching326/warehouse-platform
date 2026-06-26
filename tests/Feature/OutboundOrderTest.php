@@ -170,6 +170,50 @@ class OutboundOrderTest extends TestCase
         $this->assertSame(OutboundOrder::SHIP_MODE_BULK, $order->ship_mode);
     }
 
+    public function test_create_shop_filter_scopes_sku_selection(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create();
+        $shopA = Shop::factory()->for($tenant)->create(['code' => 'SHOP-A', 'status' => 'active']);
+        $shopB = Shop::factory()->for($tenant)->create(['code' => 'SHOP-B', 'status' => 'active']);
+        $stockA = StockItem::factory()->for($tenant)->create();
+        $stockB = StockItem::factory()->for($tenant)->create();
+        $skuA = Sku::factory()->for($tenant)->for($shopA)->for($stockA)->create(['sku' => 'OB-SHOP-A']);
+        $skuB = Sku::factory()->for($tenant)->for($shopB)->for($stockB)->create(['sku' => 'OB-SHOP-B']);
+
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $stockA->id, 5);
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $stockB->id, 5);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('shopId', (string) $shopA->id)
+            ->assertSee('OB-SHOP-A')
+            ->assertDontSee('OB-SHOP-B')
+            ->set('reason', OutboundOrder::REASON_SAMPLE)
+            ->set('lines.0.sku_id', (string) $skuB->id)
+            ->set('lines.0.qty', '1')
+            ->call('save')
+            ->assertHasErrors(['lines.0.sku_id']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('shopId', (string) $shopA->id)
+            ->set('reason', OutboundOrder::REASON_SAMPLE)
+            ->set('lines.0.sku_id', (string) $skuA->id)
+            ->set('lines.0.qty', '2')
+            ->call('save')
+            ->assertRedirect(route('outbound.index'));
+
+        $this->assertDatabaseHas('outbound_order_lines', [
+            'sku_id' => $skuA->id,
+            'qty' => 2,
+        ]);
+    }
+
     public function test_create_defaults_ship_mode_to_parcel_for_gift(): void
     {
         Livewire::actingAs($this->internalUser())
@@ -565,6 +609,31 @@ class OutboundOrderTest extends TestCase
             ->test(OutboundOrderIndex::class)
             ->assertSee('OWN-OUTBOUND')
             ->assertDontSee('HIDDEN-OUTBOUND');
+    }
+
+    public function test_outbound_index_shop_filter_scopes_orders(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create();
+        $shopA = Shop::factory()->for($tenant)->create(['code' => 'SHOP-A', 'status' => 'active']);
+        $shopB = Shop::factory()->for($tenant)->create(['code' => 'SHOP-B', 'status' => 'active']);
+        $stockA = StockItem::factory()->for($tenant)->create();
+        $stockB = StockItem::factory()->for($tenant)->create();
+        $skuA = Sku::factory()->for($tenant)->for($shopA)->for($stockA)->create(['sku' => 'INDEX-SHOP-A']);
+        $skuB = Sku::factory()->for($tenant)->for($shopB)->for($stockB)->create(['sku' => 'INDEX-SHOP-B']);
+
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $stockA->id, 5);
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $stockB->id, 5);
+
+        $this->createOrder($tenant, $warehouse, $skuA, qty: 1, ref: 'OB-SHOP-A-FILTER');
+        $this->createOrder($tenant, $warehouse, $skuB, qty: 1, ref: 'OB-SHOP-B-FILTER');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderIndex::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('shopId', (string) $shopA->id)
+            ->assertSee('OB-SHOP-A-FILTER')
+            ->assertDontSee('OB-SHOP-B-FILTER');
     }
 
     public function test_outbound_routes_render(): void

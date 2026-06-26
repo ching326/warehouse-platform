@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\OutboundOrder;
 use App\Models\ShippingMethod;
+use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\StockItem;
 use App\Models\Tenant;
@@ -27,6 +28,8 @@ class OutboundOrderCreate extends Component
 
     #[Url(as: 'warehouse_id', except: '')]
     public string $warehouseId = '';
+
+    public string $shopId = '';
 
     public string $ref = '';
 
@@ -105,6 +108,12 @@ class OutboundOrderCreate extends Component
     public function updatedTenantId(): void
     {
         $this->warehouseId = '';
+        $this->shopId = '';
+        $this->lines = [['sku_id' => '', 'qty' => '', 'note' => '']];
+    }
+
+    public function updatedShopId(): void
+    {
         $this->lines = [['sku_id' => '', 'qty' => '', 'note' => '']];
     }
 
@@ -195,6 +204,7 @@ class OutboundOrderCreate extends Component
     {
         return view('livewire.outbound-order-create', [
             'tenants' => $this->tenantOptions(),
+            'shops' => $this->shopOptions(),
             'warehouses' => $this->warehouseOptions(),
             'shippingMethods' => $this->shippingMethodOptions(),
             'skus' => $this->skuOptions(),
@@ -303,9 +313,16 @@ class OutboundOrderCreate extends Component
 
     private function validateInput(int $tenantId): void
     {
+        $skuExistsRule = Rule::exists('skus', 'id')->where('tenant_id', $tenantId);
+
+        if ($this->shopId !== '') {
+            $skuExistsRule->where('shop_id', (int) $this->shopId);
+        }
+
         validator($this->formData(), [
             'tenant_id' => ['required', 'integer'],
             'warehouse_id' => ['required', 'integer', Rule::exists('warehouses', 'id')->where('status', 'active')],
+            'shop_id' => ['nullable', 'integer', Rule::exists('shops', 'id')->where('tenant_id', $tenantId)],
             'ref' => ['nullable', 'string', 'max:255'],
             'note' => ['nullable', 'string', 'max:1000'],
             'recipient_name' => ['nullable', 'string', 'max:255'],
@@ -331,7 +348,7 @@ class OutboundOrderCreate extends Component
                     }
                 },
             ],
-            'lines.*.sku_id' => ['required', 'integer', Rule::exists('skus', 'id')->where('tenant_id', $tenantId)],
+            'lines.*.sku_id' => ['required', 'integer', $skuExistsRule],
             'lines.*.qty' => ['required', 'integer', 'min:1'],
             'lines.*.note' => ['nullable', 'string', 'max:500'],
         ])->validate();
@@ -342,6 +359,7 @@ class OutboundOrderCreate extends Component
         return [
             'tenant_id' => $this->tenantId,
             'warehouse_id' => $this->warehouseId,
+            'shop_id' => $this->shopId,
             'ref' => $this->ref,
             'note' => $this->note,
             'recipient_name' => $this->recipientName,
@@ -375,6 +393,19 @@ class OutboundOrderCreate extends Component
             ->get(['id', 'code', 'name']);
     }
 
+    private function shopOptions(): Collection
+    {
+        if ($this->tenantId === '') {
+            return collect();
+        }
+
+        return Shop::query()
+            ->where('tenant_id', $this->tenantId)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'code', 'name']);
+    }
+
     private function shippingMethodOptions(): Collection
     {
         return ShippingMethod::query()
@@ -391,6 +422,7 @@ class OutboundOrderCreate extends Component
             ->where(fn ($query) => $query
                 ->where('sku_type', 'virtual_bundle')
                 ->orWhereNotNull('stock_item_id'))
+            ->when($this->shopId !== '', fn ($query) => $query->where('shop_id', $this->shopId))
             ->with(['shop:id,code', 'stockItem:id,code,name'])
             ->orderBy('sku')
             ->limit(50)

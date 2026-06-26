@@ -41,9 +41,9 @@
                 <flux:input wire:model="expectedAt" type="date" :label="__('inbound.field_expected_at')" />
 
                 <flux:input wire:model="expectedCartonCount" type="number" min="0" step="1" :label="__('inbound.field_expected_carton_count')" />
-            </div>
 
-            <flux:input wire:model="cartonMark" :label="__('inbound.field_carton_mark')" />
+                <flux:input wire:model="cartonMark" :label="__('inbound.field_carton_mark')" />
+            </div>
 
             <label style="margin-top: 12px; display: block;">
                 <span>{{ __('inbound.field_note') }}</span>

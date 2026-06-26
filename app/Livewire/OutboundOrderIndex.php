@@ -3,8 +3,10 @@
 namespace App\Livewire;
 
 use App\Models\OutboundOrder;
+use App\Models\Shop;
 use App\Models\Tenant;
 use App\Models\Warehouse;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -20,6 +22,9 @@ class OutboundOrderIndex extends Component
     #[Url(as: 'warehouse_id', except: '')]
     public string $warehouseId = '';
 
+    #[Url(as: 'shop_id', except: '')]
+    public string $shopId = '';
+
     #[Url(as: 'status', except: '')]
     public string $statusFilter = '';
 
@@ -28,6 +33,12 @@ class OutboundOrderIndex extends Component
     private array $visibleTenantIdsCache = [];
 
     public function updatedTenantId(): void
+    {
+        $this->shopId = '';
+        $this->resetPage();
+    }
+
+    public function updatedShopId(): void
     {
         $this->resetPage();
     }
@@ -67,6 +78,13 @@ class OutboundOrderIndex extends Component
         $orders = OutboundOrder::query()
             ->whereIn('tenant_id', $this->visibleTenantIds())
             ->when($this->tenantId !== '', fn ($query) => $query->where('tenant_id', (int) $this->tenantId))
+            ->when($this->shopId !== '', function ($query) {
+                $query->where(function ($query) {
+                    $query
+                        ->whereHas('salesOrders', fn ($query) => $query->where('shop_id', (int) $this->shopId))
+                        ->orWhereHas('lines.sku', fn ($query) => $query->where('shop_id', (int) $this->shopId));
+                });
+            })
             ->when($this->warehouseId !== '', fn ($query) => $query->where('warehouse_id', (int) $this->warehouseId))
             ->when($this->statusFilter !== '', fn ($query) => $query->where('status', $this->statusFilter))
             ->with([
@@ -74,7 +92,8 @@ class OutboundOrderIndex extends Component
                 'warehouse:id,code,name',
                 'salesOrders:id,shop_id',
                 'salesOrders.shop:id,code,name',
-                'parentLines.sku:id,sku,sku_type',
+                'parentLines.sku:id,shop_id,sku,sku_type',
+                'parentLines.sku.shop:id,code,name',
             ])
             ->orderByDesc('created_at')
             ->paginate(30);
@@ -85,6 +104,7 @@ class OutboundOrderIndex extends Component
                 ->whereIn('id', $this->visibleTenantIds())
                 ->orderBy('name')
                 ->get(['id', 'code', 'name']),
+            'shops' => $this->shopOptions(),
             'warehouses' => Warehouse::query()->orderBy('name')->get(['id', 'code', 'name']),
             'statuses' => [
                 OutboundOrder::STATUS_PENDING => __('outbound.status_pending'),
@@ -124,5 +144,15 @@ class OutboundOrderIndex extends Component
         }
 
         return $this->visibleTenantIdsCache = $user->activeTenantIds();
+    }
+
+    private function shopOptions(): Collection
+    {
+        return Shop::query()
+            ->whereIn('tenant_id', $this->visibleTenantIds())
+            ->when($this->tenantId !== '', fn ($query) => $query->where('tenant_id', (int) $this->tenantId))
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'tenant_id', 'code', 'name']);
     }
 }

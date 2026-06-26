@@ -26,6 +26,13 @@
                     </label>
                 @endif
 
+                <flux:select wire:model.live="shopId" :label="__('skus.field_shop')">
+                    <flux:select.option value="">{{ __('skus.no_shop') }}</flux:select.option>
+                    @foreach ($shops as $shop)
+                        <flux:select.option value="{{ $shop->id }}">{{ $shop->code }} - {{ $shop->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+
                 <flux:select wire:model.live="warehouseId" required :label="__('outbound.field_warehouse')">
                     <flux:select.option value="">{{ __('stock_adjustments.select_warehouse') }}</flux:select.option>
                     @foreach ($warehouses as $warehouse)
@@ -62,7 +69,7 @@
                 </label>
             </div>
 
-            @foreach (['tenantId', 'tenant_id', 'warehouse_id', 'ref', 'reason', 'ship_mode', 'shipping_method_id', 'note'] as $field)
+            @foreach (['tenantId', 'tenant_id', 'warehouse_id', 'shop_id', 'ref', 'reason', 'ship_mode', 'shipping_method_id', 'note'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
         </section>

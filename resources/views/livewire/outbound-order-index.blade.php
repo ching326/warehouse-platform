@@ -9,6 +9,13 @@
                 @endforeach
             </flux:select>
 
+            <flux:select wire:model.live="shopId" :label="__('skus.field_shop')">
+                <flux:select.option value="">{{ __('common.all_shops') }}</flux:select.option>
+                @foreach ($shops as $shop)
+                    <flux:select.option value="{{ $shop->id }}">{{ $shop->code }} - {{ $shop->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
             <flux:select wire:model.live="warehouseId" :label="__('outbound.field_warehouse')">
                 <flux:select.option value="">{{ __('common.all_warehouses') }}</flux:select.option>
                 @foreach ($warehouses as $warehouse)
@@ -42,7 +49,19 @@
             <flux:table.rows>
                 @forelse ($orders as $order)
                     <flux:table.row :key="$order->id">
-                        @php($shop = $order->salesOrders->first()?->shop)
+                        @php
+                            $shops = $order->salesOrders
+                                ->map(fn ($salesOrder) => $salesOrder->shop)
+                                ->merge($order->parentLines->map(fn ($line) => $line->sku?->shop))
+                                ->filter()
+                                ->unique('id')
+                                ->values();
+                            $shopLabel = match (true) {
+                                $shops->isEmpty() => '-',
+                                $shops->count() === 1 => $shops->first()->code.' - '.$shops->first()->name,
+                                default => $shops->first()->code.' +'.($shops->count() - 1),
+                            };
+                        @endphp
                         <flux:table.cell>
                             <a class="outbound-order-number-link" href="{{ route('outbound.show', $order) }}" wire:navigate>
                                 {{ $order->ref ?: '-' }}
@@ -51,7 +70,7 @@
                         <flux:table.cell>
                             <span class="outbound-inline-pair">
                                 <strong>{{ $order->tenant->code }}</strong>
-                                <span class="outbound-inline-muted">{{ $shop ? $shop->code.' - '.$shop->name : '-' }}</span>
+                                <span class="outbound-inline-muted">{{ $shopLabel }}</span>
                             </span>
                         </flux:table.cell>
                         <flux:table.cell>

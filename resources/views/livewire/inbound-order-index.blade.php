@@ -12,6 +12,13 @@
                 </flux:select>
             @endif
 
+            <flux:select wire:model.live="shopId" :label="__('skus.field_shop')">
+                <flux:select.option value="">{{ __('common.all_shops') }}</flux:select.option>
+                @foreach ($shops as $shop)
+                    <flux:select.option value="{{ $shop->id }}">{{ $shop->code }} - {{ $shop->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
             <flux:select wire:model.live="warehouseId" :label="__('inbound.field_warehouse')">
                 <flux:select.option value="">{{ __('common.all_warehouses') }}</flux:select.option>
                 @foreach ($warehouses as $warehouse)

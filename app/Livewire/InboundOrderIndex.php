@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\InboundOrder;
+use App\Models\Shop;
 use App\Models\Tenant;
 use App\Models\Warehouse;
 use Illuminate\Support\Collection;
@@ -18,6 +19,8 @@ class InboundOrderIndex extends Component
 
     public string $warehouseId = '';
 
+    public string $shopId = '';
+
     public string $status = '';
 
     public int $perPage = 15;
@@ -27,6 +30,12 @@ class InboundOrderIndex extends Component
     private ?array $visibleTenantIdsCache = null;
 
     public function updatedTenantId(): void
+    {
+        $this->shopId = '';
+        $this->resetPage();
+    }
+
+    public function updatedShopId(): void
     {
         $this->resetPage();
     }
@@ -62,6 +71,7 @@ class InboundOrderIndex extends Component
         return view('livewire.inbound-order-index', [
             'orders' => $this->orders(),
             'tenants' => $this->tenantOptions(),
+            'shops' => $this->shopOptions(),
             'warehouses' => $this->warehouseOptions(),
             'showTenantFilter' => $this->isInternalUser(),
             'statuses' => [
@@ -108,6 +118,7 @@ class InboundOrderIndex extends Component
             ->withCount('lines')
             ->when($this->visibleTenantIds() !== null, fn ($query) => $query->whereIn('tenant_id', $this->visibleTenantIds()))
             ->when($this->tenantId !== '', fn ($query) => $query->where('tenant_id', $this->tenantId))
+            ->when($this->shopId !== '', fn ($query) => $query->whereHas('lines.sku', fn ($query) => $query->where('shop_id', $this->shopId)))
             ->when($this->warehouseId !== '', fn ($query) => $query->where('warehouse_id', $this->warehouseId))
             ->when($this->status !== '', fn ($query) => $query->where('status', $this->status))
             ->orderByDesc('id')
@@ -154,5 +165,15 @@ class InboundOrderIndex extends Component
         return Warehouse::query()
             ->orderBy('name')
             ->get(['id', 'code', 'name']);
+    }
+
+    private function shopOptions(): Collection
+    {
+        return Shop::query()
+            ->when($this->visibleTenantIds() !== null, fn ($query) => $query->whereIn('tenant_id', $this->visibleTenantIds()))
+            ->when($this->tenantId !== '', fn ($query) => $query->where('tenant_id', $this->tenantId))
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'tenant_id', 'code', 'name']);
     }
 }
