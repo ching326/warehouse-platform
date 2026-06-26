@@ -248,34 +248,6 @@ class OutboundOrderTest extends TestCase
             ->assertSet('recipientAddressLine1', 'Shinjuku');
     }
 
-    public function test_create_sku_search_filters_dropdown_options(): void
-    {
-        $tenant = Tenant::factory()->create();
-        $warehouse = Warehouse::factory()->create();
-        $shop = Shop::factory()->for($tenant)->create();
-        $matchingItem = StockItem::factory()->for($tenant)->create(['code' => 'MATCH-STOCK']);
-        $hiddenItem = StockItem::factory()->for($tenant)->create(['code' => 'HIDDEN-STOCK']);
-
-        Sku::factory()->for($tenant)->for($shop)->for($matchingItem)->create([
-            'sku_type' => 'single',
-            'sku' => 'MATCH-SKU',
-            'name' => 'Matching cable',
-        ]);
-        Sku::factory()->for($tenant)->for($shop)->for($hiddenItem)->create([
-            'sku_type' => 'single',
-            'sku' => 'HIDDEN-SKU',
-            'name' => 'Hidden charger',
-        ]);
-
-        Livewire::actingAs($this->internalUser())
-            ->test(OutboundOrderCreate::class)
-            ->set('tenantId', (string) $tenant->id)
-            ->set('warehouseId', (string) $warehouse->id)
-            ->set('skuSearch', 'MATCH')
-            ->assertSee('MATCH-SKU')
-            ->assertDontSee('HIDDEN-SKU');
-    }
-
     public function test_create_virtual_bundle_order_reserves_components(): void
     {
         [$tenant, $warehouse, $bundleSku, $componentA, $componentB] = $this->virtualBundleWithStock();

@@ -92,7 +92,6 @@ return [
     'all_statuses' => '全部狀態',
     'select_tenant' => '選擇客戶',
     'no_active_tenant' => '沒有有效客戶',
-    'search_skus_label' => '搜尋 SKU',
     'select_sku' => '選擇 SKU',
     'bundle_components_label' => '組成品',
     'virtual_bundle' => '虛擬組合',

@@ -92,7 +92,6 @@ return [
     'all_statuses' => '全部状态',
     'select_tenant' => '选择客户',
     'no_active_tenant' => '没有有效客户',
-    'search_skus_label' => '搜索 SKU',
     'select_sku' => '选择 SKU',
     'bundle_components_label' => '组成品',
     'virtual_bundle' => '虚拟组合',

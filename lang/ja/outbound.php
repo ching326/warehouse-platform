@@ -92,7 +92,6 @@ return [
     'all_statuses' => 'すべてのステータス',
     'select_tenant' => '荷主を選択',
     'no_active_tenant' => '有効な荷主がありません',
-    'search_skus_label' => 'SKU を検索',
     'select_sku' => 'SKU を選択',
     'bundle_components_label' => '構成品',
     'virtual_bundle' => '仮想セット',

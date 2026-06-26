@@ -92,7 +92,6 @@ return [
     'all_statuses' => 'All statuses',
     'select_tenant' => 'Select tenant',
     'no_active_tenant' => 'No active tenant',
-    'search_skus_label' => 'Search SKUs',
     'select_sku' => 'Select SKU',
     'bundle_components_label' => 'Components',
     'virtual_bundle' => 'Virtual bundle',
