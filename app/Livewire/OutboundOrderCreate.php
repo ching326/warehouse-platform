@@ -32,8 +32,6 @@ class OutboundOrderCreate extends Component
 
     public string $note = '';
 
-    public string $skuSearch = '';
-
     public string $recipientName = '';
 
     public string $recipientPhone = '';
@@ -388,30 +386,12 @@ class OutboundOrderCreate extends Component
 
     private function skuOptions(): Collection
     {
-        $searchTerm = trim($this->skuSearch);
-        $search = '%'.$searchTerm.'%';
-
         return Sku::query()
             ->where('tenant_id', $this->tenantId)
             ->where(fn ($query) => $query
                 ->where('sku_type', 'virtual_bundle')
                 ->orWhereNotNull('stock_item_id'))
             ->with(['shop:id,code', 'stockItem:id,code,name'])
-            ->when($searchTerm !== '', function ($query) use ($search) {
-                $query->where(function ($query) use ($search) {
-                    $query
-                        ->where('sku', 'like', $search)
-                        ->orWhere('name', 'like', $search)
-                        ->orWhere('platform_sku', 'like', $search)
-                        ->orWhere('platform_label_code', 'like', $search)
-                        ->orWhereHas('stockItem', function ($query) use ($search) {
-                            $query
-                                ->where('code', 'like', $search)
-                                ->orWhere('name', 'like', $search)
-                                ->orWhere('barcode', 'like', $search);
-                        });
-                });
-            })
             ->orderBy('sku')
             ->limit(50)
             ->get(['id', 'tenant_id', 'shop_id', 'stock_item_id', 'sku', 'name', 'platform_sku', 'platform_label_code', 'sku_type']);

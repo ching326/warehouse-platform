@@ -99,16 +99,10 @@
                 </div>
             </div>
 
-            <flux:input
-                wire:model.live.debounce.300ms="skuSearch"
-                :label="__('outbound.search_skus_label')"
-                :placeholder="__('inventory.search_placeholder')"
-            />
-
             @foreach ($lines as $index => $line)
                 <div class="line-row">
                     <flux:select
-                        wire:key="outbound-sku-select-{{ $index }}-{{ md5($tenantId.'|'.$skuSearch) }}"
+                        wire:key="outbound-sku-select-{{ $index }}-{{ $tenantId }}"
                         wire:model="lines.{{ $index }}.sku_id"
                         required
                         :label="__('outbound.field_sku')"
