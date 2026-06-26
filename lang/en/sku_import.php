@@ -71,6 +71,7 @@ return [
     // Errors
     'empty_file' => 'The file has no data rows.',
     'row_cap_exceeded' => 'File has :count rows. Maximum is 2,000. Please split the file.',
+    'file_expired' => 'The uploaded file is no longer available. Please upload it again.',
     'required_fields_missing' => 'The following required fields are not mapped: :fields.',
     'template_name_required' => 'Enter a name for the template.',
     'template_name_duplicate' => 'A template with this name already exists for this tenant.',

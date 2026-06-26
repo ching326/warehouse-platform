@@ -13,6 +13,7 @@ use App\Support\SkuImport\SkuImportFields;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -104,8 +105,10 @@ class SkuImport extends Component
             'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:5120'],
         ]);
 
-        $path = $this->file->getRealPath();
-        $data = app(SkuImportReader::class)->read($path);
+        $this->deleteStoredImportFile();
+        $path = $this->storeImportFile();
+        $this->filePath = $path;
+        $data = app(SkuImportReader::class)->read(Storage::disk('local')->path($path));
 
         if ($data['total'] === 0) {
             throw ValidationException::withMessages(['file' => __('sku_import.empty_file')]);
@@ -120,8 +123,6 @@ class SkuImport extends Component
         $this->fileHeaders = $data['headers'];
         $this->sampleRows = array_slice($data['rows'], 0, 5);
         $this->totalDataRows = $data['total'];
-        $this->filePath = $path;
-
         $this->mapping = SkuImportFields::autoGuess($this->fileHeaders);
         $this->step = 'map';
     }
@@ -152,7 +153,7 @@ class SkuImport extends Component
 
     public function loadTemplate(int $id): void
     {
-        $tenantId = (int) $this->tenantId;
+        $tenantId = $this->validatedTenantId();
         $template = SkuImportMapping::where('tenant_id', $tenantId)->find($id);
 
         if ($template === null) {
@@ -177,7 +178,7 @@ class SkuImport extends Component
 
     public function deleteTemplate(int $id): void
     {
-        $tenantId = (int) $this->tenantId;
+        $tenantId = $this->validatedTenantId();
         SkuImportMapping::where('tenant_id', $tenantId)->where('id', $id)->delete();
     }
 
@@ -194,7 +195,7 @@ class SkuImport extends Component
         $tenantId = (int) $this->tenantId;
         $shopId = $this->shopId !== '' ? (int) $this->shopId : null;
 
-        $data = app(SkuImportReader::class)->read($this->filePath);
+        $data = $this->readStoredImportFile();
         $rows = $data['rows'];
 
         $columnIndex = $this->buildColumnIndex();
@@ -276,7 +277,7 @@ class SkuImport extends Component
             ]);
         }
 
-        $data = app(SkuImportReader::class)->read($this->filePath);
+        $data = $this->readStoredImportFile();
         $rows = $data['rows'];
         $columnIndex = $this->buildColumnIndex();
 
@@ -315,13 +316,13 @@ class SkuImport extends Component
                 }
 
                 try {
-                    $result = $writer->upsert(
+                    $result = DB::transaction(fn () => $writer->upsert(
                         $tenantId,
                         $shopId,
                         $this->buildSkuData($eval['rowData']),
                         $this->buildStockItemData($eval['rowData']),
                         $allowUpsert,
-                    );
+                    ));
 
                     if ($result->isCreated()) {
                         $created++;
@@ -342,6 +343,7 @@ class SkuImport extends Component
         $this->resultSkipped = $skipped;
         $this->resultFailed = $failed;
         $this->errorRows = $errorRows;
+        $this->deleteStoredImportFile();
         $this->step = 'result';
     }
 
@@ -363,6 +365,8 @@ class SkuImport extends Component
 
     public function startOver(): void
     {
+        $this->deleteStoredImportFile();
+
         $this->reset([
             'file', 'fileHeaders', 'sampleRows', 'totalDataRows', 'filePath',
             'mapping', 'validRowCount', 'existsRowCount', 'errorRowCount', 'previewRows',
@@ -617,7 +621,13 @@ class SkuImport extends Component
             return collect();
         }
 
-        return SkuImportMapping::where('tenant_id', $this->tenantId)
+        $tenantId = (int) $this->tenantId;
+
+        if ($tenantId <= 0 || ! in_array($tenantId, $this->allowedTenantIds(), true)) {
+            return collect();
+        }
+
+        return SkuImportMapping::where('tenant_id', $tenantId)
             ->orderBy('name')
             ->get(['id', 'name']);
     }
@@ -687,10 +697,46 @@ class SkuImport extends Component
 
     private function resetFileState(): void
     {
+        $this->deleteStoredImportFile();
+
         $this->fileHeaders = [];
         $this->sampleRows = [];
         $this->totalDataRows = 0;
         $this->filePath = '';
         $this->mapping = [];
+    }
+
+    private function storeImportFile(): string
+    {
+        if (! $this->file) {
+            throw ValidationException::withMessages(['file' => __('validation.required', ['attribute' => 'file'])]);
+        }
+
+        return $this->file->store('tmp/sku-imports', 'local');
+    }
+
+    /**
+     * @return array{headers: list<string>, rows: list<list<mixed>>, total: int}
+     */
+    private function readStoredImportFile(): array
+    {
+        if ($this->filePath === '' || ! Storage::disk('local')->exists($this->filePath)) {
+            $this->resetFileState();
+            $this->step = 'upload';
+
+            throw ValidationException::withMessages([
+                'file' => __('sku_import.file_expired'),
+            ]);
+        }
+
+        return app(SkuImportReader::class)->read(Storage::disk('local')->path($this->filePath));
+    }
+
+    private function deleteStoredImportFile(): void
+    {
+        if ($this->filePath !== '') {
+            Storage::disk('local')->delete($this->filePath);
+            $this->filePath = '';
+        }
     }
 }
