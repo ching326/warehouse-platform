@@ -44,7 +44,7 @@
                 <flux:table.column>{{ __('inbound.col_tenant_warehouse') }}</flux:table.column>
                 <flux:table.column>{{ __('inbound.col_expected_at') }}</flux:table.column>
                 <flux:table.column>{{ __('inbound.col_cartons') }}</flux:table.column>
-                <flux:table.column align="center">{{ __('inbound.col_lines') }}</flux:table.column>
+                <flux:table.column align="center" class="inbound-lines-cell">{{ __('inbound.col_lines') }}</flux:table.column>
                 <flux:table.column>{{ __('inbound.col_status') }}</flux:table.column>
                 <flux:table.column>{{ __('inbound.col_actions') }}</flux:table.column>
             </flux:table.columns>
@@ -80,7 +80,7 @@
                         </flux:table.cell>
                         <flux:table.cell>{{ $order->expected_at ? $order->expected_at->format('Y-m-d') : '-' }}</flux:table.cell>
                         <flux:table.cell>{{ $cartonsLabel }}</flux:table.cell>
-                        <flux:table.cell align="center">{{ number_format($order->lines_count) }}</flux:table.cell>
+                        <flux:table.cell align="center" class="inbound-lines-cell">{{ number_format($order->lines_count) }}</flux:table.cell>
                         <flux:table.cell>
                             <flux:badge color="{{ $this->statusColor($order->status) }}">
                                 {{ $this->statusLabel($order->status) }}
@@ -126,6 +126,15 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
+        }
+
+        .inbound-lines-cell {
+            width: 96px;
+            text-align: center;
+        }
+
+        .inbound-lines-cell > div {
+            justify-content: center;
         }
 
         .inbound-inline-pair {
