@@ -72,6 +72,44 @@ class LocalizedProductNameTest extends TestCase
         $this->assertSame('Base Name', $item->displayName());
     }
 
+    public function test_english_override_is_used_when_base_language_is_not_english(): void
+    {
+        $item = StockItem::factory()->create([
+            'name' => 'Base Japanese Name',
+            'name_en' => 'English Override Name',
+            'name_ja' => null,
+            'short_name' => null,
+        ]);
+
+        $sku = Sku::factory()->for($item, 'stockItem')->create([
+            'name' => 'Base Japanese SKU',
+            'name_en' => 'English SKU Override',
+            'name_ja' => null,
+        ]);
+
+        $this->assertSame('English Override Name', $item->localizedName('en'));
+        $this->assertSame('Base Japanese Name', $item->localizedName('ja'));
+        $this->assertSame('English SKU Override', $sku->localizedName('en'));
+        $this->assertSame('Base Japanese SKU', $sku->localizedName('ja'));
+    }
+
+    public function test_default_english_base_still_falls_back_to_name_for_every_locale(): void
+    {
+        $item = StockItem::factory()->create([
+            'name' => 'Base Name',
+            'name_en' => null,
+            'name_ja' => null,
+            'name_zh_tw' => null,
+            'name_zh_cn' => null,
+            'short_name' => null,
+        ]);
+
+        $this->assertSame('Base Name', $item->localizedName('en'));
+        $this->assertSame('Base Name', $item->localizedName('ja'));
+        $this->assertSame('Base Name', $item->localizedName('zh_TW'));
+        $this->assertSame('Base Name', $item->localizedName('zh_CN'));
+    }
+
     public function test_sku_display_name_delegates_to_stock_item_then_own_localized_name(): void
     {
         $item = StockItem::factory()->create([

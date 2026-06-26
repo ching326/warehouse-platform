@@ -6,14 +6,15 @@ trait HasLocalizedAttributes
 {
     /**
      * Map of app locale => column suffix for per-locale override columns.
-     * A locale absent from this map (e.g. the source locale "en") always uses
-     * the base column.
+     * The base column is the fallback when any locale override, including the
+     * source locale "en", is empty.
      *
      * @return array<string, string>
      */
     protected static function localizedColumnSuffixes(): array
     {
         return [
+            'en' => 'en',
             'ja' => 'ja',
             'zh_TW' => 'zh_tw',
             'zh_CN' => 'zh_cn',

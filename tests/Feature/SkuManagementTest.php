@@ -72,9 +72,11 @@ class SkuManagementTest extends TestCase
             ->set('shopId', (string) $shop->id)
             ->set('sku', 'SKU-LOCALIZED')
             ->set('name', 'Default SKU Name')
+            ->set('nameTranslations.en', 'English SKU Name')
             ->set('nameTranslations.ja', 'SKU日本語名')
             ->set('nameTranslations.zh_TW', 'SKU繁中名')
             ->set('stockItem.name', 'Default Stock Name')
+            ->set('stockItem.name_en', 'English Stock Name')
             ->set('stockItem.name_ja', '在庫日本語名')
             ->set('stockItem.name_zh_cn', '库存简中名')
             ->call('save')
@@ -83,14 +85,18 @@ class SkuManagementTest extends TestCase
 
         $sku = Sku::where('sku', 'SKU-LOCALIZED')->firstOrFail();
 
+        $this->assertSame('English SKU Name', $sku->name_en);
         $this->assertSame('SKU日本語名', $sku->name_ja);
         $this->assertSame('SKU繁中名', $sku->name_zh_tw);
         $this->assertNull($sku->name_zh_cn);
 
+        $this->assertSame('English Stock Name', $sku->stockItem->name_en);
         $this->assertSame('在庫日本語名', $sku->stockItem->name_ja);
         $this->assertNull($sku->stockItem->name_zh_tw);
         $this->assertSame('库存简中名', $sku->stockItem->name_zh_cn);
 
+        $this->assertSame('English SKU Name', $sku->localizedName('en'));
+        $this->assertSame('English Stock Name', $sku->stockItem->localizedName('en'));
         app()->setLocale('ja');
         $this->assertSame('在庫日本語名', $sku->stockItem->displayName());
         app()->setLocale('en');

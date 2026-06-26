@@ -19,6 +19,7 @@ class Sku extends Model
     /** Columns holding the localized SKU name (base + per-locale overrides). */
     public const DISPLAY_NAME_COLUMNS = [
         'name',
+        'name_en',
         'name_ja',
         'name_zh_tw',
         'name_zh_cn',
@@ -31,6 +32,7 @@ class Sku extends Model
         'sku',
         'barcode',
         'name',
+        'name_en',
         'name_ja',
         'name_zh_tw',
         'name_zh_cn',

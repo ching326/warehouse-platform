@@ -53,6 +53,7 @@
                     'required' => true,
                     'baseLocale' => $skuNameBaseLocale,
                     'localeModels' => [
+                        'en' => 'nameTranslations.en',
                         'ja' => 'nameTranslations.ja',
                         'zh_TW' => 'nameTranslations.zh_TW',
                         'zh_CN' => 'nameTranslations.zh_CN',
@@ -147,6 +148,7 @@
                         'baseModel' => 'stockItem.name',
                         'baseLocale' => $stockItemNameBaseLocale,
                         'localeModels' => [
+                            'en' => 'stockItem.name_en',
                             'ja' => 'stockItem.name_ja',
                             'zh_TW' => 'stockItem.name_zh_tw',
                             'zh_CN' => 'stockItem.name_zh_cn',

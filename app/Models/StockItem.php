@@ -23,6 +23,7 @@ class StockItem extends Model
      */
     public const DISPLAY_NAME_COLUMNS = [
         'name',
+        'name_en',
         'name_ja',
         'name_zh_tw',
         'name_zh_cn',
@@ -33,6 +34,7 @@ class StockItem extends Model
         'tenant_id',
         'code',
         'name',
+        'name_en',
         'name_ja',
         'name_zh_tw',
         'name_zh_cn',

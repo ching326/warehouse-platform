@@ -34,7 +34,7 @@ class SkuCreate extends Component
     public string $name = '';
 
     /** Per-locale SKU name overrides keyed by app locale; base name is the fallback. */
-    public array $nameTranslations = ['ja' => '', 'zh_TW' => '', 'zh_CN' => ''];
+    public array $nameTranslations = ['en' => '', 'ja' => '', 'zh_TW' => '', 'zh_CN' => ''];
 
     #[Url(as: 'platform_sku', except: '')]
     public string $platformSku = '';
@@ -65,6 +65,7 @@ class SkuCreate extends Component
 
     public array $stockItem = [
         'name' => '',
+        'name_en' => '',
         'name_ja' => '',
         'name_zh_tw' => '',
         'name_zh_cn' => '',
@@ -142,6 +143,7 @@ class SkuCreate extends Component
                     'stock_item_id' => $stockItemId,
                     'sku' => trim($this->sku),
                     'name' => trim($this->name),
+                    'name_en' => $this->nullableString($this->nameTranslations['en'] ?? ''),
                     'name_ja' => $this->nullableString($this->nameTranslations['ja'] ?? ''),
                     'name_zh_tw' => $this->nullableString($this->nameTranslations['zh_TW'] ?? ''),
                     'name_zh_cn' => $this->nullableString($this->nameTranslations['zh_CN'] ?? ''),
@@ -181,8 +183,8 @@ class SkuCreate extends Component
             'productTypes' => ProductType::orderBy('sort_order')->orderBy('name')->get(['slug', 'name']),
             'showTenantSelect' => $this->isInternalUser(),
             'currentTenant' => $currentTenant,
-            'skuNameBaseLocale' => $currentTenant?->sku_name_locale,
-            'stockItemNameBaseLocale' => $currentTenant?->stock_item_name_locale,
+            'skuNameBaseLocale' => $currentTenant?->sku_name_locale ?: 'en',
+            'stockItemNameBaseLocale' => $currentTenant?->stock_item_name_locale ?: 'en',
         ])->layout('inventory', [
             'title' => __('skus.create_page_title'),
             'subtitle' => __('skus.create_page_subtitle'),
@@ -217,6 +219,7 @@ class SkuCreate extends Component
                 Rule::exists('stock_items', 'id')->where('tenant_id', $tenantId),
             ],
             'stock_item.name' => ['nullable', 'string', 'max:255'],
+            'stock_item.name_en' => ['nullable', 'string', 'max:255'],
             'stock_item.name_ja' => ['nullable', 'string', 'max:255'],
             'stock_item.name_zh_tw' => ['nullable', 'string', 'max:255'],
             'stock_item.name_zh_cn' => ['nullable', 'string', 'max:255'],
@@ -251,6 +254,7 @@ class SkuCreate extends Component
             'tenant_id' => $tenantId,
             'code' => $this->nextStockItemCode($tenantId),
             'name' => trim($this->stockItem['name']) ?: trim($this->name),
+            'name_en' => $this->nullableString($this->stockItem['name_en'] ?? ''),
             'name_ja' => $this->nullableString($this->stockItem['name_ja'] ?? ''),
             'name_zh_tw' => $this->nullableString($this->stockItem['name_zh_tw'] ?? ''),
             'name_zh_cn' => $this->nullableString($this->stockItem['name_zh_cn'] ?? ''),

@@ -26,7 +26,7 @@ class SkuEdit extends Component
 
     public string $name = '';
 
-    public array $nameTranslations = ['ja' => '', 'zh_TW' => '', 'zh_CN' => ''];
+    public array $nameTranslations = ['en' => '', 'ja' => '', 'zh_TW' => '', 'zh_CN' => ''];
 
     public string $platformSku = '';
 
@@ -48,6 +48,7 @@ class SkuEdit extends Component
 
     public array $stockItem = [
         'name' => '',
+        'name_en' => '',
         'name_ja' => '',
         'name_zh_tw' => '',
         'name_zh_cn' => '',
@@ -86,6 +87,7 @@ class SkuEdit extends Component
         $this->shopId = (string) ($sku->shop_id ?? '');
         $this->name = $sku->name;
         $this->nameTranslations = [
+            'en' => $sku->name_en ?? '',
             'ja' => $sku->name_ja ?? '',
             'zh_TW' => $sku->name_zh_tw ?? '',
             'zh_CN' => $sku->name_zh_cn ?? '',
@@ -104,6 +106,7 @@ class SkuEdit extends Component
             $si = $sku->stockItem;
             $this->stockItem = [
                 'name' => $si->name,
+                'name_en' => $si->name_en ?? '',
                 'name_ja' => $si->name_ja ?? '',
                 'name_zh_tw' => $si->name_zh_tw ?? '',
                 'name_zh_cn' => $si->name_zh_cn ?? '',
@@ -143,6 +146,7 @@ class SkuEdit extends Component
                     'sku' => trim($this->skuCode),
                     'shop_id' => $this->nullableId($this->shopId),
                     'name' => trim($this->name),
+                    'name_en' => $this->nullableString($this->nameTranslations['en'] ?? ''),
                     'name_ja' => $this->nullableString($this->nameTranslations['ja'] ?? ''),
                     'name_zh_tw' => $this->nullableString($this->nameTranslations['zh_TW'] ?? ''),
                     'name_zh_cn' => $this->nullableString($this->nameTranslations['zh_CN'] ?? ''),
@@ -162,6 +166,7 @@ class SkuEdit extends Component
                 if ($this->sku->stockItem) {
                     $this->sku->stockItem->update([
                         'name' => trim($this->stockItem['name']) ?: trim($this->name),
+                        'name_en' => $this->nullableString($this->stockItem['name_en'] ?? ''),
                         'name_ja' => $this->nullableString($this->stockItem['name_ja'] ?? ''),
                         'name_zh_tw' => $this->nullableString($this->stockItem['name_zh_tw'] ?? ''),
                         'name_zh_cn' => $this->nullableString($this->stockItem['name_zh_cn'] ?? ''),
@@ -208,10 +213,11 @@ class SkuEdit extends Component
             'packagingMaterials' => $this->packagingMaterialOptions(),
             'shippingMethods' => $this->shippingMethodOptions(),
             'productTypes' => ProductType::orderBy('sort_order')->orderBy('name')->get(['slug', 'name']),
-            'skuNameBaseLocale' => $tenant?->sku_name_locale,
-            'stockItemNameBaseLocale' => $tenant?->stock_item_name_locale,
+            'skuNameBaseLocale' => $tenant?->sku_name_locale ?: 'en',
+            'stockItemNameBaseLocale' => $tenant?->stock_item_name_locale ?: 'en',
             'skuNameHasTranslations' => array_filter($this->nameTranslations) !== [],
             'stockItemHasTranslations' => $this->sku->stockItem !== null && array_filter([
+                $this->stockItem['name_en'],
                 $this->stockItem['name_ja'],
                 $this->stockItem['name_zh_tw'],
                 $this->stockItem['name_zh_cn'],
@@ -249,6 +255,7 @@ class SkuEdit extends Component
             'default_shipping_method_id' => $this->defaultShippingMethodId === '' ? null : $this->defaultShippingMethodId,
             'status' => $this->status,
             'stock_item.name' => $this->stockItem['name'] ?? null,
+            'stock_item.name_en' => $this->stockItem['name_en'] ?? null,
             'stock_item.name_ja' => $this->stockItem['name_ja'] ?? null,
             'stock_item.name_zh_tw' => $this->stockItem['name_zh_tw'] ?? null,
             'stock_item.name_zh_cn' => $this->stockItem['name_zh_cn'] ?? null,
@@ -271,6 +278,7 @@ class SkuEdit extends Component
             'default_shipping_method_id' => ['nullable', Rule::exists('shipping_methods', 'id')->where('status', 'active')],
             'status' => ['required', Rule::in(['active', 'inactive', 'draft', 'archived'])],
             'stock_item.name' => ['nullable', 'string', 'max:255'],
+            'stock_item.name_en' => ['nullable', 'string', 'max:255'],
             'stock_item.name_ja' => ['nullable', 'string', 'max:255'],
             'stock_item.name_zh_tw' => ['nullable', 'string', 'max:255'],
             'stock_item.name_zh_cn' => ['nullable', 'string', 'max:255'],

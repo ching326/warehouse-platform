@@ -1,15 +1,13 @@
 @php
-    $localeLabels = ['ja' => '日本語', 'zh_TW' => '繁體中文', 'zh_CN' => '简体中文'];
+    $localeLabels = ['en' => 'English', 'ja' => '日本語', 'zh_TW' => '繁體中文', 'zh_CN' => '簡體中文'];
     $currentLocale = app()->getLocale();
     $isRequired = $required ?? false;
-    $baseLocale = $baseLocale ?? null;
-    $displayLabel = ($baseLocale && isset($localeLabels[$baseLocale]))
+    $baseLocale = $baseLocale ?? 'en';
+    $displayLabel = ($baseLocale !== 'en' && isset($localeLabels[$baseLocale]))
         ? $label.' ('.$localeLabels[$baseLocale].')'
         : $label;
     $displayLocaleModels = $localeModels;
-    if ($baseLocale) {
-        unset($displayLocaleModels[$baseLocale]);
-    }
+    unset($displayLocaleModels[$baseLocale]);
 @endphp
 
 <div class="localized-field" x-data="{ open: @js($openInitially ?? false) }">
