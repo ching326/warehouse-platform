@@ -968,11 +968,21 @@
                 align-items: flex-start;
                 gap: 12px;
                 border: 1px solid var(--line);
-                border-left: 4px solid var(--muted);
                 border-radius: 10px;
                 background: #fff;
                 box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
-                padding: 14px 16px;
+                padding: 14px 16px 14px 24px;
+            }
+
+            .app-toast::before {
+                content: "";
+                position: absolute;
+                left: 12px;
+                top: 14px;
+                bottom: 14px;
+                width: 4px;
+                border-radius: 999px;
+                background: var(--muted);
             }
 
             .app-toast-body {
@@ -1018,24 +1028,24 @@
                 background: rgba(15, 23, 42, 0.06);
             }
 
-            .app-toast-error {
-                border-left-color: var(--danger);
+            .app-toast-error::before {
+                background: var(--danger);
             }
 
             .app-toast-error .app-toast-title {
                 color: var(--danger);
             }
 
-            .app-toast-success {
-                border-left-color: var(--accent);
+            .app-toast-success::before {
+                background: var(--accent);
             }
 
             .app-toast-success .app-toast-title {
                 color: var(--accent);
             }
 
-            .app-toast-warning {
-                border-left-color: var(--warning);
+            .app-toast-warning::before {
+                background: var(--warning);
             }
 
             .app-toast-warning .app-toast-title {
