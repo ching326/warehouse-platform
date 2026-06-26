@@ -2,15 +2,18 @@
 
 namespace App\Livewire;
 
+use App\Exceptions\AliasCollisionException;
 use App\Models\PackagingMaterial;
 use App\Models\ProductType;
 use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
+use App\Services\Sku\PlatformLabelAliasSync;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 class SkuEdit extends Component
@@ -134,56 +137,62 @@ class SkuEdit extends Component
     {
         $this->validateInput();
 
-        DB::transaction(function () {
-            $this->sku->update([
-                'sku' => trim($this->skuCode),
-                'shop_id' => $this->nullableId($this->shopId),
-                'name' => trim($this->name),
-                'name_ja' => $this->nullableString($this->nameTranslations['ja'] ?? ''),
-                'name_zh_tw' => $this->nullableString($this->nameTranslations['zh_TW'] ?? ''),
-                'name_zh_cn' => $this->nullableString($this->nameTranslations['zh_CN'] ?? ''),
-                'platform_sku' => $this->nullableString($this->platformSku),
-                'platform_product_id' => $this->nullableString($this->platformProductId),
-                'platform_variant_id' => $this->nullableString($this->platformVariantId),
-                'platform_variant_name' => $this->nullableString($this->platformVariantName),
-                'platform_label_code' => $this->nullableString($this->platformLabelCode),
-                'default_packaging_material_id' => $this->nullableId($this->defaultPackagingMaterialId),
-                'default_shipping_method_id' => $this->nullableId($this->defaultShippingMethodId),
-                'status' => $this->status,
-                'note' => $this->nullableString($this->note),
-            ]);
-
-            if ($this->sku->stockItem) {
-                $this->sku->stockItem->update([
-                    'name' => trim($this->stockItem['name']) ?: trim($this->name),
-                    'name_ja' => $this->nullableString($this->stockItem['name_ja'] ?? ''),
-                    'name_zh_tw' => $this->nullableString($this->stockItem['name_zh_tw'] ?? ''),
-                    'name_zh_cn' => $this->nullableString($this->stockItem['name_zh_cn'] ?? ''),
-                    'short_name' => $this->nullableString($this->stockItem['short_name']),
-                    'brand' => $this->nullableString($this->stockItem['brand']),
-                    'model_number' => $this->nullableString($this->stockItem['model_number']),
-                    'variation_code' => $this->nullableString($this->stockItem['variation_code']),
-                    'color' => $this->nullableString($this->stockItem['color']),
-                    'size' => $this->nullableString($this->stockItem['size']),
-                    'barcode' => $this->nullableString($this->stockItem['barcode']),
-                    'barcode_type' => $this->stockItem['barcode_type'] ?: 'unknown',
-                    'product_type' => $this->stockItem['product_type'] ?: 'normal',
-                    'is_dangerous_goods' => (bool) $this->stockItem['is_dangerous_goods'],
-                    'requires_expiry_tracking' => (bool) $this->stockItem['requires_expiry_tracking'],
-                    'requires_lot_tracking' => (bool) $this->stockItem['requires_lot_tracking'],
-                    'description' => $this->nullableString($this->stockItem['description']),
-                    'note' => $this->nullableString($this->stockItem['note']),
-                    'handling_note' => $this->nullableString($this->stockItem['handling_note']),
-                    'weight_value' => $this->nullableDecimal($this->stockItem['weight_value']),
-                    'weight_unit' => $this->stockItem['weight_unit'] ?: 'g',
-                    'length_value' => $this->nullableDecimal($this->stockItem['length_value']),
-                    'width_value' => $this->nullableDecimal($this->stockItem['width_value']),
-                    'height_value' => $this->nullableDecimal($this->stockItem['height_value']),
-                    'dimension_unit' => $this->stockItem['dimension_unit'] ?: 'cm',
-                    'status' => $this->stockItem['status'] ?: 'active',
+        try {
+            DB::transaction(function () {
+                $this->sku->update([
+                    'sku' => trim($this->skuCode),
+                    'shop_id' => $this->nullableId($this->shopId),
+                    'name' => trim($this->name),
+                    'name_ja' => $this->nullableString($this->nameTranslations['ja'] ?? ''),
+                    'name_zh_tw' => $this->nullableString($this->nameTranslations['zh_TW'] ?? ''),
+                    'name_zh_cn' => $this->nullableString($this->nameTranslations['zh_CN'] ?? ''),
+                    'platform_sku' => $this->nullableString($this->platformSku),
+                    'platform_product_id' => $this->nullableString($this->platformProductId),
+                    'platform_variant_id' => $this->nullableString($this->platformVariantId),
+                    'platform_variant_name' => $this->nullableString($this->platformVariantName),
+                    'platform_label_code' => $this->nullableString($this->platformLabelCode),
+                    'default_packaging_material_id' => $this->nullableId($this->defaultPackagingMaterialId),
+                    'default_shipping_method_id' => $this->nullableId($this->defaultShippingMethodId),
+                    'status' => $this->status,
+                    'note' => $this->nullableString($this->note),
                 ]);
-            }
-        });
+
+                app(PlatformLabelAliasSync::class)->sync($this->sku->refresh());
+
+                if ($this->sku->stockItem) {
+                    $this->sku->stockItem->update([
+                        'name' => trim($this->stockItem['name']) ?: trim($this->name),
+                        'name_ja' => $this->nullableString($this->stockItem['name_ja'] ?? ''),
+                        'name_zh_tw' => $this->nullableString($this->stockItem['name_zh_tw'] ?? ''),
+                        'name_zh_cn' => $this->nullableString($this->stockItem['name_zh_cn'] ?? ''),
+                        'short_name' => $this->nullableString($this->stockItem['short_name']),
+                        'brand' => $this->nullableString($this->stockItem['brand']),
+                        'model_number' => $this->nullableString($this->stockItem['model_number']),
+                        'variation_code' => $this->nullableString($this->stockItem['variation_code']),
+                        'color' => $this->nullableString($this->stockItem['color']),
+                        'size' => $this->nullableString($this->stockItem['size']),
+                        'barcode' => $this->nullableString($this->stockItem['barcode']),
+                        'barcode_type' => $this->stockItem['barcode_type'] ?: 'unknown',
+                        'product_type' => $this->stockItem['product_type'] ?: 'normal',
+                        'is_dangerous_goods' => (bool) $this->stockItem['is_dangerous_goods'],
+                        'requires_expiry_tracking' => (bool) $this->stockItem['requires_expiry_tracking'],
+                        'requires_lot_tracking' => (bool) $this->stockItem['requires_lot_tracking'],
+                        'description' => $this->nullableString($this->stockItem['description']),
+                        'note' => $this->nullableString($this->stockItem['note']),
+                        'handling_note' => $this->nullableString($this->stockItem['handling_note']),
+                        'weight_value' => $this->nullableDecimal($this->stockItem['weight_value']),
+                        'weight_unit' => $this->stockItem['weight_unit'] ?: 'g',
+                        'length_value' => $this->nullableDecimal($this->stockItem['length_value']),
+                        'width_value' => $this->nullableDecimal($this->stockItem['width_value']),
+                        'height_value' => $this->nullableDecimal($this->stockItem['height_value']),
+                        'dimension_unit' => $this->stockItem['dimension_unit'] ?: 'cm',
+                        'status' => $this->stockItem['status'] ?: 'active',
+                    ]);
+                }
+            });
+        } catch (AliasCollisionException) {
+            throw ValidationException::withMessages(['platformLabelCode' => __('skus.fnsku_alias_conflict')]);
+        }
 
         session()->flash('status', __('skus.sku_updated'));
 

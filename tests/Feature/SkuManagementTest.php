@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\SkuCreate;
+use App\Livewire\SkuEdit;
 use App\Livewire\SkusIndex;
 use App\Models\AmazonSpapiConnection;
 use App\Models\BarcodeAlias;
@@ -18,6 +19,7 @@ use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Services\Sku\PlatformLabelAliasSync;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -215,6 +217,170 @@ class SkuManagementTest extends TestCase
             'barcode_type' => 'fnsku',
             'is_active' => true,
         ]);
+    }
+
+    public function test_create_sku_with_platform_label_code_creates_managed_alias(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'FNS']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('sku', 'SKU-FNSKU-CREATE')
+            ->set('name', 'FNSKU create')
+            ->set('platformLabelCode', 'x00-abc 123')
+            ->set('stockItem.name', 'FNSKU stock')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('skus.index'));
+
+        $sku = Sku::where('sku', 'SKU-FNSKU-CREATE')->firstOrFail();
+
+        $this->assertDatabaseHas('barcode_aliases', [
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_SKU,
+            'model_id' => $sku->id,
+            'barcode' => 'x00-abc 123',
+            'normalized_barcode' => 'X00ABC123',
+            'barcode_type' => 'platform_label',
+            'is_active' => true,
+            'source' => BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE,
+        ]);
+    }
+
+    public function test_editing_platform_label_code_updates_single_managed_alias(): void
+    {
+        [$tenant, $sku] = $this->skuForAliasSync('SKU-FNSKU-EDIT', 'OLD-FNSKU');
+        app(PlatformLabelAliasSync::class)->sync($sku);
+        $aliasId = BarcodeAlias::where('model_id', $sku->id)->value('id');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuEdit::class, ['sku' => $sku])
+            ->set('platformLabelCode', 'new-fnsku')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('skus.index'));
+
+        $this->assertSame(1, BarcodeAlias::where('model_id', $sku->id)->where('source', BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE)->count());
+        $this->assertDatabaseHas('barcode_aliases', [
+            'id' => $aliasId,
+            'tenant_id' => $tenant->id,
+            'barcode' => 'new-fnsku',
+            'normalized_barcode' => 'NEWFNSKU',
+            'source' => BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE,
+        ]);
+    }
+
+    public function test_clearing_platform_label_code_removes_managed_alias(): void
+    {
+        [, $sku] = $this->skuForAliasSync('SKU-FNSKU-CLEAR', 'CLEAR-ME');
+        app(PlatformLabelAliasSync::class)->sync($sku);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuEdit::class, ['sku' => $sku])
+            ->set('platformLabelCode', '')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('skus.index'));
+
+        $this->assertDatabaseMissing('barcode_aliases', [
+            'model_type' => BarcodeAlias::MODEL_TYPE_SKU,
+            'model_id' => $sku->id,
+            'source' => BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE,
+        ]);
+    }
+
+    public function test_manual_alias_on_same_sku_wins_over_managed_alias(): void
+    {
+        [$tenant, $sku] = $this->skuForAliasSync('SKU-FNSKU-MANUAL', 'MANUAL-1');
+        BarcodeAlias::create([
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_SKU,
+            'model_id' => $sku->id,
+            'barcode' => 'manual 1',
+            'normalized_barcode' => 'MANUAL1',
+            'barcode_type' => 'fnsku',
+            'is_active' => true,
+        ]);
+
+        app(PlatformLabelAliasSync::class)->sync($sku);
+
+        $this->assertSame(1, BarcodeAlias::where('tenant_id', $tenant->id)->where('normalized_barcode', 'MANUAL1')->count());
+        $this->assertDatabaseMissing('barcode_aliases', [
+            'model_type' => BarcodeAlias::MODEL_TYPE_SKU,
+            'model_id' => $sku->id,
+            'source' => BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE,
+        ]);
+    }
+
+    public function test_platform_label_code_collision_rejects_save_and_rolls_back(): void
+    {
+        [$tenant, $firstSku] = $this->skuForAliasSync('SKU-FNSKU-FIRST');
+        $secondStockItem = StockItem::factory()->for($tenant)->create();
+        $secondSku = Sku::factory()->for($tenant)->for($secondStockItem)->create([
+            'sku' => 'SKU-FNSKU-SECOND',
+            'name' => 'Second SKU',
+            'shop_id' => null,
+        ]);
+        BarcodeAlias::create([
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_SKU,
+            'model_id' => $firstSku->id,
+            'barcode' => 'DUP-FNSKU',
+            'normalized_barcode' => 'DUPFNSKU',
+            'barcode_type' => 'platform_label',
+            'is_active' => true,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuEdit::class, ['sku' => $secondSku])
+            ->set('name', 'Should Roll Back')
+            ->set('platformLabelCode', 'dup fnsku')
+            ->call('save')
+            ->assertHasErrors(['platformLabelCode']);
+
+        $this->assertNotSame('Should Roll Back', $secondSku->refresh()->name);
+        $this->assertDatabaseMissing('barcode_aliases', [
+            'model_id' => $secondSku->id,
+            'normalized_barcode' => 'DUPFNSKU',
+        ]);
+    }
+
+    public function test_same_platform_label_code_across_tenants_is_allowed(): void
+    {
+        [$firstTenant, $firstSku] = $this->skuForAliasSync('SKU-FNSKU-TENANT-A', 'SHARED-FNSKU');
+        app(PlatformLabelAliasSync::class)->sync($firstSku);
+        $secondTenant = Tenant::factory()->create(['code' => 'FNB']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuCreate::class)
+            ->set('tenantId', (string) $secondTenant->id)
+            ->set('sku', 'SKU-FNSKU-TENANT-B')
+            ->set('name', 'Cross tenant FNSKU')
+            ->set('platformLabelCode', 'shared fnsku')
+            ->set('stockItem.name', 'Cross tenant stock')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('skus.index'));
+
+        $this->assertSame(1, BarcodeAlias::where('tenant_id', $firstTenant->id)->where('normalized_barcode', 'SHAREDFNSKU')->count());
+        $this->assertSame(1, BarcodeAlias::where('tenant_id', $secondTenant->id)->where('normalized_barcode', 'SHAREDFNSKU')->count());
+    }
+
+    public function test_managed_alias_is_read_only_in_alias_panel(): void
+    {
+        [, $sku] = $this->skuForAliasSync('SKU-FNSKU-READONLY', 'READONLY-FNSKU');
+        app(PlatformLabelAliasSync::class)->sync($sku);
+        $alias = BarcodeAlias::where('model_id', $sku->id)->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openAliasPanel', $sku->id)
+            ->assertSee(__('skus.alias_source_fnsku_field'))
+            ->call('deactivateBarcodeAlias', $alias->id)
+            ->assertForbidden();
+
+        $this->assertTrue($alias->refresh()->is_active);
     }
 
     public function test_duplicate_normalized_barcode_in_same_tenant_is_rejected(): void
@@ -1471,6 +1637,23 @@ class SkuManagementTest extends TestCase
             'service_type' => 'parcel',
             'status' => $status,
         ]);
+    }
+
+    /**
+     * @return array{0: Tenant, 1: Sku}
+     */
+    private function skuForAliasSync(string $skuCode, ?string $platformLabelCode = null): array
+    {
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($stockItem)->create([
+            'sku' => $skuCode,
+            'name' => $skuCode.' name',
+            'platform_label_code' => $platformLabelCode,
+            'shop_id' => null,
+        ]);
+
+        return [$tenant, $sku];
     }
 
     private function amazonConnection(Shop $shop, array $attributes = []): AmazonSpapiConnection

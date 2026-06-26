@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Exceptions\AliasCollisionException;
 use App\Models\PackagingMaterial;
 use App\Models\ProductType;
 use App\Models\ShippingMethod;
@@ -9,6 +10,7 @@ use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\StockItem;
 use App\Models\Tenant;
+use App\Services\Sku\PlatformLabelAliasSync;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -118,42 +120,48 @@ class SkuCreate extends Component
         $tenantId = $this->validatedTenantId();
         $this->validateInput($tenantId);
 
-        DB::transaction(function () use ($tenantId) {
-            $stockItemId = null;
+        try {
+            DB::transaction(function () use ($tenantId) {
+                $stockItemId = null;
 
-            if ($this->skuType !== 'virtual_bundle') {
-                if ($this->stockItemMode === 'create') {
-                    $stockItem = StockItem::create($this->stockItemPayload($tenantId));
-                    $stockItemId = $stockItem->id;
-                } elseif ($this->existingStockItemId !== '') {
-                    $stockItem = StockItem::query()
-                        ->where('tenant_id', $tenantId)
-                        ->findOrFail($this->existingStockItemId);
-                    $stockItemId = $stockItem->id;
+                if ($this->skuType !== 'virtual_bundle') {
+                    if ($this->stockItemMode === 'create') {
+                        $stockItem = StockItem::create($this->stockItemPayload($tenantId));
+                        $stockItemId = $stockItem->id;
+                    } elseif ($this->existingStockItemId !== '') {
+                        $stockItem = StockItem::query()
+                            ->where('tenant_id', $tenantId)
+                            ->findOrFail($this->existingStockItemId);
+                        $stockItemId = $stockItem->id;
+                    }
                 }
-            }
 
-            Sku::create([
-                'tenant_id' => $tenantId,
-                'shop_id' => $this->nullableId($this->shopId),
-                'stock_item_id' => $stockItemId,
-                'sku' => trim($this->sku),
-                'name' => trim($this->name),
-                'name_ja' => $this->nullableString($this->nameTranslations['ja'] ?? ''),
-                'name_zh_tw' => $this->nullableString($this->nameTranslations['zh_TW'] ?? ''),
-                'name_zh_cn' => $this->nullableString($this->nameTranslations['zh_CN'] ?? ''),
-                'platform_sku' => $this->nullableString($this->platformSku),
-                'platform_product_id' => $this->nullableString($this->platformProductId),
-                'platform_variant_id' => $this->nullableString($this->platformVariantId),
-                'platform_variant_name' => $this->nullableString($this->platformVariantName),
-                'platform_label_code' => $this->nullableString($this->platformLabelCode),
-                'sku_type' => $this->skuType,
-                'default_packaging_material_id' => $this->nullableId($this->defaultPackagingMaterialId),
-                'default_shipping_method_id' => $this->nullableId($this->defaultShippingMethodId),
-                'status' => $this->status,
-                'note' => $this->nullableString($this->note),
-            ]);
-        });
+                $sku = Sku::create([
+                    'tenant_id' => $tenantId,
+                    'shop_id' => $this->nullableId($this->shopId),
+                    'stock_item_id' => $stockItemId,
+                    'sku' => trim($this->sku),
+                    'name' => trim($this->name),
+                    'name_ja' => $this->nullableString($this->nameTranslations['ja'] ?? ''),
+                    'name_zh_tw' => $this->nullableString($this->nameTranslations['zh_TW'] ?? ''),
+                    'name_zh_cn' => $this->nullableString($this->nameTranslations['zh_CN'] ?? ''),
+                    'platform_sku' => $this->nullableString($this->platformSku),
+                    'platform_product_id' => $this->nullableString($this->platformProductId),
+                    'platform_variant_id' => $this->nullableString($this->platformVariantId),
+                    'platform_variant_name' => $this->nullableString($this->platformVariantName),
+                    'platform_label_code' => $this->nullableString($this->platformLabelCode),
+                    'sku_type' => $this->skuType,
+                    'default_packaging_material_id' => $this->nullableId($this->defaultPackagingMaterialId),
+                    'default_shipping_method_id' => $this->nullableId($this->defaultShippingMethodId),
+                    'status' => $this->status,
+                    'note' => $this->nullableString($this->note),
+                ]);
+
+                app(PlatformLabelAliasSync::class)->sync($sku);
+            });
+        } catch (AliasCollisionException) {
+            throw ValidationException::withMessages(['platformLabelCode' => __('skus.fnsku_alias_conflict')]);
+        }
 
         session()->flash('status', __('skus.sku_created'));
 

@@ -5,10 +5,30 @@ namespace App\Services\SkuImport;
 use App\Models\Sku;
 use App\Models\StockItem;
 use App\Models\Tenant;
+use App\Services\Sku\PlatformLabelAliasSync;
+use Illuminate\Support\Facades\DB;
 
 class SkuWriter
 {
+    public function __construct(private readonly PlatformLabelAliasSync $platformLabelAliasSync) {}
+
     public function upsert(
+        int $tenantId,
+        ?int $shopId,
+        array $skuData,
+        array $stockItemData,
+        bool $allowUpdate,
+    ): SkuWriteResult {
+        return DB::transaction(fn () => $this->upsertInsideTransaction(
+            $tenantId,
+            $shopId,
+            $skuData,
+            $stockItemData,
+            $allowUpdate,
+        ));
+    }
+
+    private function upsertInsideTransaction(
         int $tenantId,
         ?int $shopId,
         array $skuData,
@@ -43,8 +63,10 @@ class SkuWriter
 
         if ($existing !== null) {
             $existing->update($payload);
+            $existing = $existing->refresh();
+            $this->platformLabelAliasSync->sync($existing);
 
-            return new SkuWriteResult('updated', $existing->refresh());
+            return new SkuWriteResult('updated', $existing);
         }
 
         $sku = Sku::create([
@@ -53,6 +75,7 @@ class SkuWriter
             'sku_type' => 'single',
             ...$payload,
         ]);
+        $this->platformLabelAliasSync->sync($sku);
 
         return new SkuWriteResult('created', $sku);
     }

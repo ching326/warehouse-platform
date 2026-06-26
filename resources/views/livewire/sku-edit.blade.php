@@ -37,7 +37,10 @@
                 <flux:input wire:model="platformProductId" :label="__('skus.field_platform_product_id')" />
                 <flux:input wire:model="platformVariantId" :label="__('skus.field_platform_variant_id')" />
                 <flux:input wire:model="platformVariantName" :label="__('skus.field_platform_variant_name')" />
-                <flux:input wire:model="platformLabelCode" :label="__('skus.field_platform_label_code')" />
+                <div>
+                    <flux:input wire:model="platformLabelCode" :label="__('skus.field_platform_label_code')" />
+                    <small class="field-hint">{{ __('skus.fnsku_also_scannable_hint') }}</small>
+                </div>
                 <flux:select wire:model="defaultPackagingMaterialId" :label="__('skus.field_default_packaging')">
                     <flux:select.option value="">{{ __('skus.no_packaging') }}</flux:select.option>
                     @foreach ($packagingMaterials as $material)
@@ -62,7 +65,7 @@
                 </label>
             </div>
 
-            @foreach (['skuCode', 'name', 'shop_id', 'default_packaging_material_id', 'default_shipping_method_id', 'status'] as $field)
+            @foreach (['skuCode', 'name', 'shop_id', 'platformLabelCode', 'default_packaging_material_id', 'default_shipping_method_id', 'status'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
         </section>

@@ -356,6 +356,10 @@ class SkusIndex extends Component
             abort(404);
         }
 
+        if ($alias->source !== null) {
+            abort(403);
+        }
+
         $alias->update(['is_active' => false]);
         $this->flashStatus(__('skus.alias_deactivated'));
     }

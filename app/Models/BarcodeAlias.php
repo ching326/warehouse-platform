@@ -15,6 +15,8 @@ class BarcodeAlias extends Model
 
     public const MODEL_TYPE_STOCK_ITEM = 'stock_item';
 
+    public const SOURCE_PLATFORM_LABEL_CODE = 'platform_label_code';
+
     public const BARCODE_TYPES = [
         'jan',
         'ean',
@@ -36,6 +38,7 @@ class BarcodeAlias extends Model
         'barcode_type',
         'label',
         'is_active',
+        'source',
     ];
 
     protected function casts(): array

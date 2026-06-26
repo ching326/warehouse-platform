@@ -417,12 +417,15 @@
                                     <div>
                                         <strong>{{ $alias->barcode }}</strong>
                                         <span>{{ $this->barcodeAliasTypeOptions()[$alias->barcode_type] ?? $alias->barcode_type }} @if ($alias->label) / {{ $alias->label }} @endif</span>
+                                        @if ($alias->source === \App\Models\BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE)
+                                            <small>{{ __('skus.alias_source_fnsku_field') }}</small>
+                                        @endif
                                         <small>{{ $alias->normalized_barcode }}</small>
                                     </div>
                                     <flux:badge color="{{ $alias->is_active ? 'green' : 'zinc' }}">
                                         {{ $alias->is_active ? __('skus.alias_active') : __('skus.alias_inactive') }}
                                     </flux:badge>
-                                    <flux:button type="button" size="xs" variant="danger" wire:click="deactivateBarcodeAlias({{ $alias->id }})" :disabled="! $alias->is_active">
+                                    <flux:button type="button" size="xs" variant="danger" wire:click="deactivateBarcodeAlias({{ $alias->id }})" :disabled="! $alias->is_active || $alias->source !== null">
                                         {{ __('skus.alias_deactivate') }}
                                     </flux:button>
                                 </article>
@@ -439,12 +442,15 @@
                                         <div>
                                             <strong>{{ $alias->barcode }}</strong>
                                             <span>{{ $this->barcodeAliasTypeOptions()[$alias->barcode_type] ?? $alias->barcode_type }} @if ($alias->label) / {{ $alias->label }} @endif</span>
+                                            @if ($alias->source === \App\Models\BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE)
+                                                <small>{{ __('skus.alias_source_fnsku_field') }}</small>
+                                            @endif
                                             <small>{{ $alias->normalized_barcode }}</small>
                                         </div>
                                         <flux:badge color="{{ $alias->is_active ? 'green' : 'zinc' }}">
                                             {{ $alias->is_active ? __('skus.alias_active') : __('skus.alias_inactive') }}
                                         </flux:badge>
-                                        <flux:button type="button" size="xs" variant="danger" wire:click="deactivateBarcodeAlias({{ $alias->id }})" :disabled="! $alias->is_active">
+                                        <flux:button type="button" size="xs" variant="danger" wire:click="deactivateBarcodeAlias({{ $alias->id }})" :disabled="! $alias->is_active || $alias->source !== null">
                                             {{ __('skus.alias_deactivate') }}
                                         </flux:button>
                                     </article>

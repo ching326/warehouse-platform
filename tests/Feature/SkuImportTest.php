@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\SkuImport;
+use App\Models\BarcodeAlias;
 use App\Models\ProductType;
 use App\Models\Sku;
 use App\Models\SkuImportMapping;
@@ -16,6 +17,7 @@ use App\Support\SkuImport\SkuImportFields;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Testing\File;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -382,6 +384,72 @@ class SkuImportTest extends TestCase
         $this->assertDatabaseHas('skus', ['sku' => 'UPT-001', 'name' => 'New Name']);
     }
 
+    public function test_import_creates_managed_alias_from_platform_label_code(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'FNI']);
+        $csv = "sku,name,platform_label_code\nFNI-001,Imported FNSKU,x00-import 123\n";
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', $csv))
+            ->call('readFile')
+            ->call('advanceToPreview')
+            ->call('confirmImport')
+            ->assertSet('step', 'result')
+            ->assertSet('resultCreated', 1)
+            ->assertSet('resultFailed', 0);
+
+        $sku = Sku::where('sku', 'FNI-001')->firstOrFail();
+
+        $this->assertDatabaseHas('barcode_aliases', [
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_SKU,
+            'model_id' => $sku->id,
+            'barcode' => 'x00-import 123',
+            'normalized_barcode' => 'X00IMPORT123',
+            'barcode_type' => 'platform_label',
+            'source' => BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE,
+        ]);
+    }
+
+    public function test_import_records_fnsku_collision_as_row_error_without_aborting_batch(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'FNC']);
+        $existing = Sku::factory()->for($tenant)->create(['sku' => 'FNC-EXISTING']);
+        BarcodeAlias::create([
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_SKU,
+            'model_id' => $existing->id,
+            'barcode' => 'DUP-FNSKU',
+            'normalized_barcode' => 'DUPFNSKU',
+            'barcode_type' => 'platform_label',
+            'is_active' => true,
+        ]);
+        $csv = "sku,name,platform_label_code\nFNC-BAD,Bad Row,dup fnsku\nFNC-GOOD,Good Row,good fnsku\n";
+
+        $component = Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', $csv))
+            ->call('readFile')
+            ->call('advanceToPreview')
+            ->call('confirmImport')
+            ->assertSet('step', 'result')
+            ->assertSet('resultCreated', 1)
+            ->assertSet('resultFailed', 1);
+
+        $this->assertSame(__('skus.fnsku_alias_conflict'), $component->get('errorRows')[0]['errors']);
+
+        $this->assertDatabaseMissing('skus', ['sku' => 'FNC-BAD']);
+        $good = Sku::where('sku', 'FNC-GOOD')->firstOrFail();
+        $this->assertDatabaseHas('barcode_aliases', [
+            'model_id' => $good->id,
+            'normalized_barcode' => 'GOODFNSKU',
+            'source' => BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE,
+        ]);
+    }
+
     public function test_duplicate_sku_in_file_is_flagged_as_error(): void
     {
         $tenant = Tenant::factory()->create(['code' => 'DUP']);
@@ -529,6 +597,82 @@ class SkuImportTest extends TestCase
             ->call('readFile')
             ->assertSet('step', 'map')
             ->assertDontSee('Tenant A Template');
+    }
+
+    public function test_tenant_user_cannot_load_another_tenants_template_by_spoofing_tenant_id(): void
+    {
+        [$tenantA] = $this->tenantUser();
+        [$tenantB, $userB] = $this->tenantUser();
+
+        $template = SkuImportMapping::create([
+            'tenant_id' => $tenantA->id,
+            'name' => 'Tenant A Template',
+            'mapping' => ['sku' => 'product_code', 'name' => 'title'],
+        ]);
+
+        Livewire::actingAs($userB)
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenantB->id)
+            ->set('file', File::createWithContent('import.csv', "sku,name\nX001,Prod\n"))
+            ->call('readFile')
+            ->set('tenantId', (string) $tenantA->id)
+            ->call('loadTemplate', $template->id)
+            ->assertHasErrors(['tenantId'])
+            ->assertSet('mapping.sku', 'sku')
+            ->assertSet('mapping.name', 'name');
+    }
+
+    public function test_tenant_user_cannot_delete_another_tenants_template_by_spoofing_tenant_id(): void
+    {
+        [$tenantA] = $this->tenantUser();
+        [$tenantB, $userB] = $this->tenantUser();
+
+        $template = SkuImportMapping::create([
+            'tenant_id' => $tenantA->id,
+            'name' => 'Tenant A Template',
+            'mapping' => ['sku' => 'product_code'],
+        ]);
+
+        Livewire::actingAs($userB)
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenantB->id)
+            ->set('tenantId', (string) $tenantA->id)
+            ->call('deleteTemplate', $template->id)
+            ->assertHasErrors(['tenantId']);
+
+        $this->assertDatabaseHas('sku_import_mappings', [
+            'id' => $template->id,
+            'tenant_id' => $tenantA->id,
+        ]);
+    }
+
+    public function test_import_shows_clean_error_when_stored_file_is_missing_before_confirm(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'EXP']);
+        $csv = "sku,name\nEXP001,Product\n";
+
+        $component = Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', $csv))
+            ->call('readFile')
+            ->call('advanceToPreview')
+            ->assertSet('step', 'preview');
+
+        $path = $component->get('filePath');
+        $this->assertNotSame('', $path);
+        Storage::disk('local')->delete($path);
+
+        $component
+            ->set('allowUpsert', '0')
+            ->call('confirmImport')
+            ->assertHasErrors(['file'])
+            ->assertSet('step', 'upload');
+
+        $this->assertDatabaseMissing('skus', [
+            'tenant_id' => $tenant->id,
+            'sku' => 'EXP001',
+        ]);
     }
 
     // ---- Helpers ----

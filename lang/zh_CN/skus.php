@@ -175,4 +175,7 @@ return [
     'no_components_configured' => '未设置组成品项',
     'bundle_component' => ':code x:qty',
     'bundle_more' => ':composition 等 :count 项',
+    'fnsku_alias_conflict' => 'This FNSKU is already registered as a barcode for another product.',
+    'alias_source_fnsku_field' => 'From FNSKU field',
+    'fnsku_also_scannable_hint' => 'Also registered as a scannable FNSKU barcode.',
 ];

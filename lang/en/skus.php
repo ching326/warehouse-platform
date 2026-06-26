@@ -175,4 +175,7 @@ return [
     'no_components_configured' => 'No components configured',
     'bundle_component' => ':code x:qty',
     'bundle_more' => ':composition +:count more',
+    'fnsku_alias_conflict' => 'This FNSKU is already registered as a barcode for another product.',
+    'alias_source_fnsku_field' => 'From FNSKU field',
+    'fnsku_also_scannable_hint' => 'Also registered as a scannable FNSKU barcode.',
 ];

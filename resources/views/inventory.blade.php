@@ -2302,6 +2302,14 @@
                 font-weight: 700;
             }
 
+            .field-hint {
+                display: block;
+                margin-top: 4px;
+                color: var(--muted);
+                font-size: 12px;
+                font-weight: 600;
+            }
+
             /* ---- SKU import wizard ---- */
             .sku-import-page {
                 display: grid;

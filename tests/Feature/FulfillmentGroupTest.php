@@ -31,6 +31,7 @@ use App\Services\Courier\TrackingImport\TrackingImportService;
 use App\Services\Fulfillment\FulfillmentPackService;
 use App\Services\Fulfillment\OutboundConsolidationService;
 use App\Services\InventoryService;
+use App\Services\Sku\PlatformLabelAliasSync;
 use App\Support\CourierCarrier;
 use App\Support\SalesOrderFilters;
 use App\Support\TrackingNumber;
@@ -1931,6 +1932,30 @@ class FulfillmentGroupTest extends TestCase
             ->assertDontSee('Ready to mark shipped.');
 
         $this->assertSame(1, (int) FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->sum('quantity'));
+    }
+
+    public function test_pack_page_accepts_managed_fnsku_alias_from_platform_label_code(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $sku->update(['platform_label_code' => 'x00-pack 123']);
+        app(PlatformLabelAliasSync::class)->sync($sku->refresh());
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-FNSKU');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $outbound = OutboundOrder::firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPack::class, ['order' => $outbound])
+            ->set('barcode', 'x00-pack 123')
+            ->call('scan')
+            ->assertSee('Ready to mark shipped.');
+
+        $this->assertDatabaseHas('fulfillment_pack_scans', [
+            'sku_id' => $sku->id,
+            'stock_item_id' => $sku->stock_item_id,
+            'barcode_scanned' => 'x00-pack 123',
+            'normalized_barcode' => 'X00PACK123',
+            'result' => FulfillmentPackScan::RESULT_ACCEPTED,
+        ]);
     }
 
     public function test_pack_page_prefers_remaining_line_when_skus_share_stock_item_barcode(): void
