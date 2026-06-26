@@ -138,7 +138,7 @@ class SkuCreate extends Component
                         $stockItemId = $stockItem->id;
                     }
 
-                    if ($stockItem) {
+                    if ($stockItem && trim((string) ($this->stockItem['barcode'] ?? '')) !== '') {
                         $barcodeAliases->setPrimaryProductBarcode(
                             $stockItem,
                             $this->stockItem['barcode'] ?? '',

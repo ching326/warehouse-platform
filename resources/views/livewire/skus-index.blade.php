@@ -383,12 +383,6 @@
                     </div>
 
                     <form class="alias-form" wire:submit="createBarcodeAlias">
-                        <flux:select wire:model="aliasTarget" :label="__('skus.alias_target')">
-                            <flux:select.option value="sku">{{ __('skus.alias_target_sku') }}</flux:select.option>
-                            @if ($managedAliasSku->stockItem)
-                                <flux:select.option value="stock_item">{{ __('skus.alias_target_stock_item') }}</flux:select.option>
-                            @endif
-                        </flux:select>
                         <flux:input wire:model="aliasBarcode" required :label="__('skus.alias_barcode')" />
                         <flux:select wire:model="aliasBarcodeType" :label="__('skus.alias_barcode_type')">
                             @foreach ($this->barcodeAliasTypeOptions() as $type => $label)
@@ -403,7 +397,7 @@
                         <flux:button type="submit" size="sm" variant="primary">{{ __('skus.alias_add') }}</flux:button>
                     </form>
 
-                    @foreach (['aliasBarcode', 'aliasTarget', 'aliasBarcodeType', 'aliasLabel', 'normalized_barcode'] as $field)
+                    @foreach (['aliasBarcode', 'aliasBarcodeType', 'aliasLabel', 'normalized_barcode'] as $field)
                         @error($field)
                             <span class="field-error">{{ $message }}</span>
                         @enderror

@@ -96,7 +96,7 @@
                 </label>
             </div>
 
-            @foreach (['sku', 'name', 'sku_type', 'platformLabelCode', 'default_packaging_material_id', 'default_shipping_method_id', 'status'] as $field)
+            @foreach (['sku', 'name', 'sku_type', 'default_packaging_material_id', 'default_shipping_method_id', 'status'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
         </section>

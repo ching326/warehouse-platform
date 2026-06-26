@@ -182,7 +182,7 @@ class SkuManagementTest extends TestCase
         $this->assertDatabaseMissing('skus', ['sku' => 'SKU-CROSS-LINK']);
     }
 
-    public function test_can_create_active_sku_barcode_alias(): void
+    public function test_platform_label_alias_is_automatically_attached_to_sku(): void
     {
         $tenant = Tenant::factory()->create();
         $stockItem = StockItem::factory()->for($tenant)->create();
@@ -191,9 +191,8 @@ class SkuManagementTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(SkusIndex::class)
             ->call('openAliasPanel', $sku->id)
-            ->set('aliasTarget', BarcodeAlias::MODEL_TYPE_SKU)
             ->set('aliasBarcode', ' 49-0123 4567894 ')
-            ->set('aliasBarcodeType', 'jan')
+            ->set('aliasBarcodeType', 'platform_label')
             ->set('aliasLabel', 'Old package barcode')
             ->call('createBarcodeAlias')
             ->assertSee(__('skus.alias_created'));
@@ -204,13 +203,13 @@ class SkuManagementTest extends TestCase
             'model_id' => $sku->id,
             'barcode' => '49-0123 4567894',
             'normalized_barcode' => '4901234567894',
-            'barcode_type' => 'jan',
+            'barcode_type' => 'platform_label',
             'label' => 'Old package barcode',
             'is_active' => true,
         ]);
     }
 
-    public function test_can_create_active_stock_item_barcode_alias(): void
+    public function test_product_barcode_alias_is_automatically_attached_to_stock_item(): void
     {
         $tenant = Tenant::factory()->create();
         $stockItem = StockItem::factory()->for($tenant)->create();
@@ -219,7 +218,6 @@ class SkuManagementTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(SkusIndex::class)
             ->call('openAliasPanel', $sku->id)
-            ->set('aliasTarget', BarcodeAlias::MODEL_TYPE_STOCK_ITEM)
             ->set('aliasBarcode', 'x00abc123')
             ->set('aliasBarcodeType', 'fnsku')
             ->call('createBarcodeAlias');
@@ -233,6 +231,18 @@ class SkuManagementTest extends TestCase
             'barcode_type' => 'fnsku',
             'is_active' => true,
         ]);
+    }
+
+    public function test_barcode_alias_panel_does_not_expose_storage_target(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($stockItem)->create(['sku' => 'SKU-ALIAS-NO-TARGET']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openAliasPanel', $sku->id)
+            ->assertDontSee(__('skus.alias_target'));
     }
 
     public function test_create_sku_with_platform_label_code_creates_managed_alias(): void
@@ -308,6 +318,69 @@ class SkuManagementTest extends TestCase
             'source' => BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE,
         ]);
         $this->assertNull($sku->refresh()->platform_label_code);
+    }
+
+    public function test_clearing_platform_label_code_removes_imported_alias_and_mirror(): void
+    {
+        [$tenant, $sku] = $this->skuForAliasSync('SKU-FNSKU-CLEAR-IMPORT');
+        BarcodeAlias::create([
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_SKU,
+            'model_id' => $sku->id,
+            'barcode' => 'IMPORTED-FNSKU',
+            'normalized_barcode' => 'IMPORTEDFNSKU',
+            'barcode_type' => 'platform_label',
+            'is_primary' => true,
+            'is_active' => true,
+            'source' => BarcodeAlias::SOURCE_IMPORT,
+        ]);
+        $sku->update(['platform_label_code' => 'IMPORTED-FNSKU']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuEdit::class, ['sku' => $sku])
+            ->set('platformLabelCode', '')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('skus.index'));
+
+        $this->assertDatabaseMissing('barcode_aliases', [
+            'model_type' => BarcodeAlias::MODEL_TYPE_SKU,
+            'model_id' => $sku->id,
+            'barcode_type' => 'platform_label',
+        ]);
+        $this->assertNull($sku->refresh()->platform_label_code);
+    }
+
+    public function test_edit_page_reads_and_clears_stock_item_primary_barcode_alias(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create(['barcode' => null]);
+        $shop = Shop::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create(['sku' => 'SKU-EDIT-ALIAS-BARCODE']);
+        BarcodeAlias::create([
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
+            'model_id' => $stockItem->id,
+            'barcode' => 'PRIMARY-ALIAS-BAR',
+            'normalized_barcode' => 'PRIMARYALIASBAR',
+            'barcode_type' => 'jan',
+            'is_primary' => true,
+            'is_active' => true,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuEdit::class, ['sku' => $sku])
+            ->assertSet('stockItem.barcode', 'PRIMARY-ALIAS-BAR')
+            ->set('stockItem.barcode', '')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('skus.index'));
+
+        $this->assertDatabaseMissing('barcode_aliases', [
+            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
+            'model_id' => $stockItem->id,
+            'barcode' => 'PRIMARY-ALIAS-BAR',
+        ]);
     }
 
     public function test_manual_alias_on_same_sku_wins_over_managed_alias(): void
@@ -795,7 +868,7 @@ class SkuManagementTest extends TestCase
             'variation_code' => 'BLUE-M',
             'size' => 'M',
             'color' => 'Blue',
-            'barcode' => '4900000000001',
+            'barcode' => null,
             'product_type' => 'normal',
         ]);
         $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create([
@@ -805,6 +878,16 @@ class SkuManagementTest extends TestCase
             'platform_product_id' => 'B000ASIN',
             'platform_label_code' => 'FNSKU123',
             'platform_variant_name' => 'Blue / M',
+        ]);
+        BarcodeAlias::create([
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
+            'model_id' => $stockItem->id,
+            'barcode' => '4900000000001',
+            'normalized_barcode' => '4900000000001',
+            'barcode_type' => 'jan',
+            'is_primary' => true,
+            'is_active' => true,
         ]);
 
         Livewire::actingAs($this->internalUser())
@@ -844,6 +927,12 @@ class SkuManagementTest extends TestCase
             ->assertSee('B000ASIN')
             ->assertSee('FNSKU123')
             ->assertDontSee('Blue / M');
+
+        Livewire::actingAs($this->internalUser())
+            ->withQueryParams(['view' => 'catalog'])
+            ->test(SkusIndex::class)
+            ->set('search', '4900 0000 00001')
+            ->assertSee('SKU-FLAT-VIEWS');
 
         Livewire::actingAs($this->internalUser())
             ->withQueryParams(['view' => 'unknown'])

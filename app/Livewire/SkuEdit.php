@@ -3,11 +3,13 @@
 namespace App\Livewire;
 
 use App\Exceptions\AliasCollisionException;
+use App\Models\BarcodeAlias;
 use App\Models\PackagingMaterial;
 use App\Models\ProductType;
 use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
+use App\Models\StockItem;
 use App\Services\BarcodeAliasService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -80,7 +82,7 @@ class SkuEdit extends Component
     {
         $this->authorizeAccess($sku);
 
-        $sku->load(['stockItem', 'tenant']);
+        $sku->load(['stockItem.barcodeAliases', 'tenant']);
         $this->sku = $sku;
 
         $this->skuCode = $sku->sku;
@@ -116,8 +118,8 @@ class SkuEdit extends Component
                 'variation_code' => $si->variation_code ?? '',
                 'color' => $si->color ?? '',
                 'size' => $si->size ?? '',
-                'barcode' => $si->barcode ?? '',
-                'barcode_type' => $si->barcode_type ?? 'unknown',
+                'barcode' => $this->stockItemPrimaryBarcode($si) ?? $si->barcode ?? '',
+                'barcode_type' => $this->stockItemPrimaryBarcodeType($si) ?? $si->barcode_type ?? 'unknown',
                 'product_type' => $si->product_type ?? 'normal',
                 'is_dangerous_goods' => (bool) $si->is_dangerous_goods,
                 'requires_expiry_tracking' => (bool) $si->requires_expiry_tracking,
@@ -244,6 +246,26 @@ class SkuEdit extends Component
         if (! in_array($sku->tenant_id, $allowed, true)) {
             abort(403);
         }
+    }
+
+    private function stockItemPrimaryBarcode(StockItem $stockItem): ?string
+    {
+        $alias = $stockItem->barcodeAliases
+            ->where('is_active', true)
+            ->sortByDesc('is_primary')
+            ->first();
+
+        return $alias instanceof BarcodeAlias ? $alias->barcode : null;
+    }
+
+    private function stockItemPrimaryBarcodeType(StockItem $stockItem): ?string
+    {
+        $alias = $stockItem->barcodeAliases
+            ->where('is_active', true)
+            ->sortByDesc('is_primary')
+            ->first();
+
+        return $alias instanceof BarcodeAlias ? $alias->barcode_type : null;
     }
 
     private function validateInput(): void

@@ -208,7 +208,7 @@ class SkuWriter
 
     private function syncBarcodeAliases(Sku $sku, ?StockItem $stockItem, array $skuData, array $stockItemData): void
     {
-        if ($stockItem !== null) {
+        if ($stockItem !== null && trim((string) ($stockItemData['barcode'] ?? '')) !== '') {
             $this->barcodeAliases->setPrimaryProductBarcode(
                 $stockItem,
                 $stockItemData['barcode'] ?? '',

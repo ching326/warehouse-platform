@@ -72,8 +72,6 @@ class SkusIndex extends Component
 
     public ?int $managingAliasSkuId = null;
 
-    public string $aliasTarget = BarcodeAlias::MODEL_TYPE_SKU;
-
     public string $aliasBarcode = '';
 
     public string $aliasBarcodeType = 'unknown';
@@ -288,10 +286,12 @@ class SkusIndex extends Component
     public function createBarcodeAlias(): void
     {
         $sku = $this->managedAliasSku();
-        $target = $this->aliasTarget;
+        $target = $this->aliasBarcodeType === 'platform_label'
+            ? BarcodeAlias::MODEL_TYPE_SKU
+            : BarcodeAlias::MODEL_TYPE_STOCK_ITEM;
 
         if ($target === BarcodeAlias::MODEL_TYPE_STOCK_ITEM && ! $sku->stockItem) {
-            abort(404);
+            throw ValidationException::withMessages(['aliasBarcodeType' => __('skus.missing_stock_item')]);
         }
 
         $modelId = $target === BarcodeAlias::MODEL_TYPE_STOCK_ITEM
@@ -301,13 +301,11 @@ class SkusIndex extends Component
 
         validator([
             'aliasBarcode' => $this->aliasBarcode,
-            'aliasTarget' => $target,
             'aliasBarcodeType' => $this->aliasBarcodeType,
             'aliasLabel' => $this->aliasLabel,
             'normalized_barcode' => $normalized,
         ], [
             'aliasBarcode' => ['required', 'string', 'max:255'],
-            'aliasTarget' => ['required', Rule::in([BarcodeAlias::MODEL_TYPE_SKU, BarcodeAlias::MODEL_TYPE_STOCK_ITEM])],
             'aliasBarcodeType' => ['required', Rule::in(BarcodeAlias::BARCODE_TYPES)],
             'aliasLabel' => ['nullable', 'string', 'max:255'],
             'normalized_barcode' => ['required'],
@@ -752,7 +750,7 @@ class SkusIndex extends Component
             'name' => $sku->name,
             'brand' => $sku->stockItem?->brand,
             'variation_code' => $sku->stockItem?->variation_code,
-            'barcode' => $sku->stockItem?->barcode,
+            'barcode' => $this->stockItemPrimaryBarcode($sku) ?? $sku->stockItem?->barcode,
             'size' => $sku->stockItem?->size,
             'color' => $sku->stockItem?->color,
             'shop_code' => $sku->shop?->code,
@@ -786,8 +784,10 @@ class SkusIndex extends Component
             ->when($this->productType !== '', fn ($query) => $query->whereHas('stockItem', fn ($query) => $query->where('product_type', $this->productType)))
             ->when($this->search !== '', function ($query) {
                 $search = '%'.$this->search.'%';
+                $normalized = BarcodeAlias::normalize($this->search);
+                $normalizedSearch = $normalized === '' ? null : '%'.$normalized.'%';
 
-                $query->where(function ($query) use ($search) {
+                $query->where(function ($query) use ($search, $normalizedSearch) {
                     $query
                         ->where('sku', 'like', $search)
                         ->orWhere('name', 'like', $search)
@@ -795,11 +795,27 @@ class SkusIndex extends Component
                         ->orWhere('platform_product_id', 'like', $search)
                         ->orWhere('platform_variant_id', 'like', $search)
                         ->orWhere('platform_label_code', 'like', $search)
+                        ->orWhereHas('barcodeAliases', function ($query) use ($search, $normalizedSearch): void {
+                            $query
+                                ->where('is_active', true)
+                                ->where(function ($query) use ($search, $normalizedSearch): void {
+                                    $query->where('barcode', 'like', $search)
+                                        ->when($normalizedSearch !== null, fn ($query) => $query->orWhere('normalized_barcode', 'like', $normalizedSearch));
+                                });
+                        })
                         ->orWhereHas('stockItem', function ($query) use ($search) {
                             $query
                                 ->where('code', 'like', $search)
                                 ->orWhere('name', 'like', $search)
                                 ->orWhere('barcode', 'like', $search);
+                        })
+                        ->orWhereHas('stockItem.barcodeAliases', function ($query) use ($search, $normalizedSearch): void {
+                            $query
+                                ->where('is_active', true)
+                                ->where(function ($query) use ($search, $normalizedSearch): void {
+                                    $query->where('barcode', 'like', $search)
+                                        ->when($normalizedSearch !== null, fn ($query) => $query->orWhere('normalized_barcode', 'like', $normalizedSearch));
+                                });
                         });
                 });
             });
@@ -1172,11 +1188,26 @@ class SkusIndex extends Component
 
     private function resetAliasForm(): void
     {
-        $this->aliasTarget = BarcodeAlias::MODEL_TYPE_SKU;
         $this->aliasBarcode = '';
         $this->aliasBarcodeType = 'unknown';
         $this->aliasLabel = '';
         $this->aliasIsActive = true;
+    }
+
+    private function stockItemPrimaryBarcode(Sku $sku): ?string
+    {
+        $stockItem = $sku->stockItem;
+
+        if (! $stockItem instanceof StockItem) {
+            return null;
+        }
+
+        $alias = $stockItem->barcodeAliases
+            ->where('is_active', true)
+            ->sortByDesc('is_primary')
+            ->first();
+
+        return $alias instanceof BarcodeAlias ? $alias->barcode : null;
     }
 
     public function barcodeAliasTypeOptions(): array

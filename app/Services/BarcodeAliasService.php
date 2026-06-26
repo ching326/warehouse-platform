@@ -46,6 +46,8 @@ class BarcodeAliasService
         $barcode = trim((string) $barcode);
 
         if ($barcode === '') {
+            $this->clearPrimaryProductBarcode($stockItem);
+
             return null;
         }
 
@@ -61,6 +63,17 @@ class BarcodeAliasService
         );
     }
 
+    public function clearPrimaryProductBarcode(StockItem $stockItem): void
+    {
+        BarcodeAlias::query()
+            ->where('tenant_id', $stockItem->tenant_id)
+            ->where('model_type', BarcodeAlias::MODEL_TYPE_STOCK_ITEM)
+            ->where('model_id', $stockItem->id)
+            ->where('is_primary', true)
+            ->where('is_active', true)
+            ->delete();
+    }
+
     public function setSkuPlatformLabel(Sku $sku, ?string $barcode, ?string $source = null): void
     {
         $source ??= BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE;
@@ -73,7 +86,7 @@ class BarcodeAliasService
                     ->where('model_type', BarcodeAlias::MODEL_TYPE_SKU)
                     ->where('model_id', $sku->id)
                     ->where('barcode_type', 'platform_label')
-                    ->where('source', $source)
+                    ->where('is_active', true)
                     ->delete();
 
                 $this->syncSkuPlatformLabelMirror($sku);
