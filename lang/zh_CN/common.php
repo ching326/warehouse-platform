@@ -79,4 +79,11 @@ return [
         'ean' => 'EAN',
         'upc' => 'UPC',
     ],
+
+    'toast' => [
+        'error' => '错误',
+        'success' => '成功',
+        'warning' => '警告',
+        'close' => '关闭',
+    ],
 ];

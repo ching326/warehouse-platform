@@ -80,4 +80,11 @@ return [
         'supplier_label' => 'Supplier label',
         'other' => 'Other',
     ],
+
+    'toast' => [
+        'error' => 'Error',
+        'success' => 'Success',
+        'warning' => 'Warning',
+        'close' => 'Close',
+    ],
 ];

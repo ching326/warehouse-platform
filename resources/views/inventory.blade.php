@@ -954,54 +954,92 @@
                 padding: 10px 12px;
             }
 
-            .app-toast-message {
+            .app-toast {
                 position: fixed;
                 top: 64px;
                 left: 0;
                 right: 0;
                 z-index: 90;
                 width: fit-content;
-                max-width: min(720px, calc(100vw - 48px));
+                min-width: 300px;
+                max-width: min(420px, calc(100vw - 48px));
                 margin-inline: auto;
-                display: inline-flex;
-                align-items: center;
+                display: flex;
+                align-items: flex-start;
                 gap: 12px;
-                border: 1px solid #bbf7d0;
-                border-radius: 8px;
-                background: #f0fdf4;
+                border: 1px solid var(--line);
+                border-left: 4px solid var(--muted);
+                border-radius: 10px;
+                background: #fff;
                 box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
-                color: #166534;
-                font-weight: 700;
-                line-height: 1.5;
-                padding: 10px 14px;
+                padding: 14px 16px;
+            }
+
+            .app-toast-body {
+                flex: 1 1 auto;
+                min-width: 0;
+                display: grid;
+                gap: 3px;
+            }
+
+            .app-toast-title {
+                font-size: 15px;
+                font-weight: 800;
+                line-height: 1.2;
+            }
+
+            .app-toast-text {
+                color: var(--muted);
+                font-size: 13px;
+                line-height: 1.45;
                 white-space: pre-line;
+                overflow-wrap: anywhere;
             }
 
-            .app-toast-message-error {
-                border-color: #fbcfe8;
-                background: #fdf2f8;
-                color: #be123c;
-            }
-
-            .app-toast-message button {
+            .app-toast-close {
+                flex: 0 0 auto;
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                width: 22px;
-                height: 22px;
+                width: 24px;
+                height: 24px;
                 border: none;
-                border-radius: 999px;
+                border-radius: 6px;
                 background: transparent;
-                color: inherit;
+                color: var(--muted);
                 cursor: pointer;
                 font: inherit;
-                font-weight: 800;
+                font-size: 18px;
                 line-height: 1;
                 padding: 0;
             }
 
-            .app-toast-message button:hover {
-                background: rgba(180, 35, 24, 0.1);
+            .app-toast-close:hover {
+                background: rgba(15, 23, 42, 0.06);
+            }
+
+            .app-toast-error {
+                border-left-color: var(--danger);
+            }
+
+            .app-toast-error .app-toast-title {
+                color: var(--danger);
+            }
+
+            .app-toast-success {
+                border-left-color: var(--accent);
+            }
+
+            .app-toast-success .app-toast-title {
+                color: var(--accent);
+            }
+
+            .app-toast-warning {
+                border-left-color: var(--warning);
+            }
+
+            .app-toast-warning .app-toast-title {
+                color: var(--warning);
             }
 
             .sku-toolbar {

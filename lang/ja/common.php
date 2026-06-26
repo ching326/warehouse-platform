@@ -84,4 +84,11 @@ return [
         'supplier_label' => 'Supplier label',
         'other' => 'Other',
     ],
+
+    'toast' => [
+        'error' => 'エラー',
+        'success' => '成功',
+        'warning' => '警告',
+        'close' => '閉じる',
+    ],
 ];
