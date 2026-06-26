@@ -66,6 +66,7 @@ return [
     'required_fields_missing' => '次の必須フィールドが対応付けられていません: :fields。',
     'template_name_required' => 'テンプレート名を入力してください。',
     'template_name_duplicate' => 'この荷主には同名のテンプレートがすでに存在します。',
+    'error_mode_required' => '既存のSKUが含まれています。処理方法を選択してください: 挿入のみ (スキップ) またはアップサート (更新)。',
 
     'error_sku_required' => 'SKUコードは必須です。',
     'error_name_required' => 'SKU名は必須です。',

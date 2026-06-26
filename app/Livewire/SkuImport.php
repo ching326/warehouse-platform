@@ -54,7 +54,7 @@ class SkuImport extends Component
 
     public array $previewRows = [];
 
-    public bool $allowUpsert = false;
+    public string $allowUpsert = '';
 
     public bool $doSaveTemplate = false;
 
@@ -240,6 +240,7 @@ class SkuImport extends Component
         $this->existsRowCount = $existsCount;
         $this->errorRowCount = $errorCount;
         $this->previewRows = $previewRows;
+        $this->allowUpsert = '';
         $this->step = 'preview';
     }
 
@@ -250,6 +251,12 @@ class SkuImport extends Component
 
     public function confirmImport(): void
     {
+        if ($this->existsRowCount > 0 && $this->allowUpsert === '') {
+            $this->addError('allowUpsert', __('sku_import.error_mode_required'));
+
+            return;
+        }
+
         if ($this->doSaveTemplate && trim($this->saveTemplateName) === '') {
             $this->addError('saveTemplateName', __('sku_import.template_name_required'));
 
@@ -291,7 +298,7 @@ class SkuImport extends Component
         $failed = 0;
         $errorRows = [];
         $seenSkus = [];
-        $allowUpsert = $this->allowUpsert;
+        $allowUpsert = $this->allowUpsert === '1';
         $writer = app(SkuWriter::class);
 
         DB::transaction(function () use (

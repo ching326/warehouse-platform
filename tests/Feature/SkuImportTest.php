@@ -351,7 +351,7 @@ class SkuImportTest extends TestCase
 
         // insert-only: existing is skipped
         $component
-            ->set('allowUpsert', false)
+            ->set('allowUpsert', '0')
             ->call('confirmImport')
             ->assertSet('step', 'result')
             ->assertSet('resultCreated', 1)
@@ -372,7 +372,7 @@ class SkuImportTest extends TestCase
             ->set('file', File::createWithContent('import.csv', $csv))
             ->call('readFile')
             ->call('advanceToPreview')
-            ->set('allowUpsert', true)
+            ->set('allowUpsert', '1')
             ->call('confirmImport')
             ->assertSet('step', 'result')
             ->assertSet('resultUpdated', 1)

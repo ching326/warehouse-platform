@@ -66,6 +66,7 @@ return [
     'required_fields_missing' => '以下必填字段尚未映射: :fields。',
     'template_name_required' => '请输入模板名称。',
     'template_name_duplicate' => '此客户已有同名模板。',
+    'error_mode_required' => '部分SKU已存在，请选择处理方式: 仅插入 (跳过) 或更新插入 (更新)。',
 
     'error_sku_required' => 'SKU 代码为必填项。',
     'error_name_required' => 'SKU 名称为必填项。',

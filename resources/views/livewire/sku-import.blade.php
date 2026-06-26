@@ -52,8 +52,6 @@
 
     {{-- Step 2: Map fields --}}
     @if ($step === 'map')
-        @error('mapping') <p class="field-error">{{ $message }}</p> @enderror
-
         {{-- Saved templates --}}
         <section class="flux-panel import-section">
             <h3 class="section-title">{{ __('sku_import.map_templates_heading') }}</h3>
@@ -141,6 +139,7 @@
             </section>
         @endif
 
+        @error('mapping') <p class="field-error">{{ $message }}</p> @enderror
         <div class="form-actions">
             <flux:button wire:click="backToUpload">{{ __('sku_import.btn_back_to_upload') }}</flux:button>
             <flux:button variant="primary" wire:click="advanceToPreview" wire:loading.attr="disabled">
@@ -168,19 +167,26 @@
             @endif
         </section>
 
-        {{-- Options --}}
-        <section class="flux-panel import-section">
-            <div class="option-row">
-                <label class="option-label">
-                    <input type="radio" wire:model.live="allowUpsert" value="0">
-                    {{ __('sku_import.option_insert_only') }}
-                </label>
-                <label class="option-label">
-                    <input type="radio" wire:model.live="allowUpsert" value="1">
-                    {{ __('sku_import.option_upsert') }}
-                </label>
-            </div>
+        {{-- Insert/upsert mode -- only shown when duplicate SKUs are detected --}}
+        @if ($existsRowCount > 0)
+            <section class="flux-panel import-section">
+                <div class="option-row">
+                    <label class="option-label">
+                        <input type="radio" wire:model.live="allowUpsert" value="0">
+                        {{ __('sku_import.option_insert_only') }}
+                    </label>
+                </div>
+                <div class="option-row">
+                    <label class="option-label">
+                        <input type="radio" wire:model.live="allowUpsert" value="1">
+                        {{ __('sku_import.option_upsert') }}
+                    </label>
+                </div>
+            </section>
+        @endif
 
+        {{-- Template save --}}
+        <section class="flux-panel import-section">
             <div class="option-row">
                 <label class="option-label">
                     <input type="checkbox" wire:model.live="doSaveTemplate">
@@ -229,6 +235,8 @@
             </table>
         </section>
 
+        @error('allowUpsert') <p class="field-error">{{ $message }}</p> @enderror
+        @error('saveTemplateName') <p class="field-error">{{ $message }}</p> @enderror
         <div class="form-actions">
             <flux:button wire:click="backToMap">{{ __('sku_import.btn_back_to_map') }}</flux:button>
             <flux:button

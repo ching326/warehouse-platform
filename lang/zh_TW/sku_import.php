@@ -66,6 +66,7 @@ return [
     'required_fields_missing' => '以下必填欄位尚未對應: :fields。',
     'template_name_required' => '請輸入範本名稱。',
     'template_name_duplicate' => '此客戶已有同名範本。',
+    'error_mode_required' => '部分SKU已存在，請選擇處理方式: 僅插入 (略過) 或更新插入 (更新)。',
 
     'error_sku_required' => 'SKU 代碼為必填。',
     'error_name_required' => 'SKU 名稱為必填。',

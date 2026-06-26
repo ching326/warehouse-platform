@@ -73,6 +73,7 @@ return [
     'required_fields_missing' => 'The following required fields are not mapped: :fields.',
     'template_name_required' => 'Enter a name for the template.',
     'template_name_duplicate' => 'A template with this name already exists for this tenant.',
+    'error_mode_required' => 'Some rows already exist. Choose how to handle them: insert only (skip) or upsert (update).',
 
     // Row-level validation
     'error_sku_required' => 'SKU code is required.',
