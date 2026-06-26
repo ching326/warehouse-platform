@@ -390,10 +390,6 @@
                             @endforeach
                         </flux:select>
                         <flux:input wire:model="aliasLabel" :label="__('skus.alias_label')" />
-                        <label class="default-view-toggle alias-active-toggle">
-                            <input type="checkbox" wire:model="aliasIsActive">
-                            <span>{{ __('skus.alias_active') }}</span>
-                        </label>
                         <flux:button type="submit" size="sm" variant="primary">{{ __('skus.alias_add') }}</flux:button>
                     </form>
 
@@ -465,10 +461,6 @@
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 12px;
             align-items: end;
-        }
-
-        .alias-active-toggle {
-            align-self: center;
         }
 
         .alias-list {

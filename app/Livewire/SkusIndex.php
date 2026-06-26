@@ -78,8 +78,6 @@ class SkusIndex extends Component
 
     public string $aliasLabel = '';
 
-    public bool $aliasIsActive = true;
-
     private const VIEW_DETAILED = 'detailed';
 
     private const VIEW_CATALOG = 'catalog';
@@ -320,7 +318,7 @@ class SkusIndex extends Component
                 barcode: $this->aliasBarcode,
                 barcodeType: $this->aliasBarcodeType,
                 label: $this->nullableString($this->aliasLabel),
-                isActive: $this->aliasIsActive,
+                isActive: true,
             );
 
             if ($target === BarcodeAlias::MODEL_TYPE_SKU && $this->aliasBarcodeType === 'platform_label') {
@@ -1196,7 +1194,6 @@ class SkusIndex extends Component
         $this->aliasBarcode = '';
         $this->aliasBarcodeType = 'unknown';
         $this->aliasLabel = '';
-        $this->aliasIsActive = true;
     }
 
     private function stockItemPrimaryBarcode(Sku $sku): ?string
