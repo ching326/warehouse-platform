@@ -63,6 +63,15 @@ class InboundOrderCreate extends Component
         $this->skuSearches = [''];
     }
 
+    public function updatedSkuSearches(mixed $_value, mixed $key): void
+    {
+        $index = (int) $key;
+
+        if (isset($this->lines[$index])) {
+            $this->lines[$index]['sku_id'] = '';
+        }
+    }
+
     public function addLine(): void
     {
         $this->lines[] = ['sku_id' => '', 'expected_qty' => '', 'note' => ''];
@@ -235,15 +244,14 @@ class InboundOrderCreate extends Component
     {
         $searchTerm = trim((string) ($this->skuSearches[$lineIndex] ?? ''));
         $search = '%'.$searchTerm.'%';
-        $selectedSkuId = (string) ($this->lines[$lineIndex]['sku_id'] ?? '');
 
         return Sku::query()
             ->where('tenant_id', $this->tenantId)
             ->where('sku_type', '!=', 'virtual_bundle')
             ->whereNotNull('stock_item_id')
             ->when($this->shopId !== '', fn ($query) => $query->where('shop_id', $this->shopId))
-            ->when($searchTerm !== '', function ($query) use ($search, $selectedSkuId) {
-                $query->where(function ($query) use ($search, $selectedSkuId) {
+            ->when($searchTerm !== '', function ($query) use ($search) {
+                $query->where(function ($query) use ($search) {
                     $query
                         ->where('sku', 'like', $search)
                         ->orWhere('name', 'like', $search)
@@ -254,10 +262,6 @@ class InboundOrderCreate extends Component
                                 ->where('code', 'like', $search)
                                 ->orWhere('name', 'like', $search);
                         });
-
-                    if ($selectedSkuId !== '') {
-                        $query->orWhere('id', (int) $selectedSkuId);
-                    }
                 });
             })
             ->with(['shop:id,code', 'stockItem:id,code,name'])

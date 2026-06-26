@@ -55,7 +55,7 @@
             @endforeach
         </section>
 
-        <section class="table-shell flux-panel form-panel">
+        <section class="table-shell flux-panel form-panel form-panel-with-overflow">
             <div class="form-panel-header">
                 <div>
                     <strong>{{ __('inbound.section_lines') }}</strong>
@@ -74,7 +74,7 @@
                 @endphp
                 <div class="line-row">
                     <x-searchable-select
-                        wire:key="inbound-sku-picker-{{ $index }}-{{ md5($tenantId.'|'.$shopId.'|'.($skuSearches[$index] ?? '').'|'.($line['sku_id'] ?? '')) }}"
+                        wire:key="inbound-sku-picker-{{ $index }}-{{ md5($tenantId.'|'.$shopId.'|'.($line['sku_id'] ?? '')) }}"
                         :label="__('inbound.field_sku')"
                         model="lines.{{ $index }}.sku_id"
                         search-model="skuSearches.{{ $index }}"

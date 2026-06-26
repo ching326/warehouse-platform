@@ -2231,6 +2231,10 @@
                 margin-top: 12px;
             }
 
+            .form-panel-with-overflow {
+                overflow: visible;
+            }
+
             .searchable-select {
                 position: relative;
                 min-width: 0;
@@ -2243,11 +2247,11 @@
 
             .searchable-select-menu {
                 position: absolute;
-                z-index: 40;
+                z-index: 90;
                 top: calc(100% + 4px);
                 left: 0;
                 right: 0;
-                max-height: 280px;
+                max-height: 336px;
                 overflow-y: auto;
                 border: 1px solid var(--line);
                 border-radius: 8px;
@@ -2267,6 +2271,7 @@
                 cursor: pointer;
                 font: inherit;
                 padding: 8px 9px;
+                min-height: 52px;
                 text-align: left;
             }
 

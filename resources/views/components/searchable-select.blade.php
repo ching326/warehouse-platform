@@ -24,15 +24,10 @@
     x-data="{
         open: false,
         query: @js($selectedLabel),
-        options: {{ Illuminate\Support\Js::from($optionItems) }},
         choose(option) {
             this.query = option.label;
             this.open = false;
             $wire.set(@js($model), option.value);
-            $wire.set(@js($searchModel), option.label);
-        },
-        markTyped() {
-            $wire.set(@js($model), '');
         },
     }"
     x-on:click.outside="open = false"
@@ -43,8 +38,8 @@
             type="text"
             x-model="query"
             x-on:focus="open = true"
-            x-on:input="open = true; markTyped()"
-            wire:model.live.debounce.250ms="{{ $searchModel }}"
+            x-on:input="open = true"
+            wire:model.live.debounce.150ms="{{ $searchModel }}"
             placeholder="{{ $placeholder }}"
             autocomplete="off"
             @required($required)
@@ -52,15 +47,19 @@
     </label>
 
     <div class="searchable-select-menu" x-cloak x-show="open">
-        <template x-if="options.length === 0">
-            <div class="searchable-select-empty">{{ $emptyLabel }}</div>
-        </template>
-
-        <template x-for="option in options" :key="option.value">
-            <button type="button" class="searchable-select-option" x-on:mousedown.prevent="choose(option)">
-                <strong x-text="option.label"></strong>
-                <span x-show="option.meta" x-text="option.meta"></span>
+        @forelse ($optionItems as $option)
+            <button
+                type="button"
+                class="searchable-select-option"
+                x-on:mousedown.prevent="choose(@js($option))"
+            >
+                <strong>{{ $option['label'] }}</strong>
+                @if ($option['meta'] !== '')
+                    <span>{{ $option['meta'] }}</span>
+                @endif
             </button>
-        </template>
+        @empty
+            <div class="searchable-select-empty">{{ $emptyLabel }}</div>
+        @endforelse
     </div>
 </div>
