@@ -1918,8 +1918,8 @@
                 inset: 0;
                 z-index: 40;
                 display: flex;
-                align-items: flex-start;
-                justify-content: flex-end;
+                align-items: center;
+                justify-content: center;
                 background: rgb(15 23 42 / 0.24);
                 padding: 24px;
                 overflow: auto;
@@ -1927,6 +1927,8 @@
 
             .image-panel {
                 width: min(720px, 100%);
+                max-height: calc(100vh - 48px);
+                overflow: auto;
                 background: #fff;
                 padding: 18px;
             }
