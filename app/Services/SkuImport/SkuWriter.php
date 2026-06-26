@@ -2,15 +2,16 @@
 
 namespace App\Services\SkuImport;
 
+use App\Models\BarcodeAlias;
 use App\Models\Sku;
 use App\Models\StockItem;
 use App\Models\Tenant;
-use App\Services\Sku\PlatformLabelAliasSync;
+use App\Services\BarcodeAliasService;
 use Illuminate\Support\Facades\DB;
 
 class SkuWriter
 {
-    public function __construct(private readonly PlatformLabelAliasSync $platformLabelAliasSync) {}
+    public function __construct(private readonly BarcodeAliasService $barcodeAliases) {}
 
     public function upsert(
         int $tenantId,
@@ -60,11 +61,14 @@ class SkuWriter
         );
 
         $payload = $this->buildSkuPayload($skuData, $stockItemId);
+        $stockItem = StockItem::query()
+            ->where('tenant_id', $tenantId)
+            ->find($stockItemId);
 
         if ($existing !== null) {
             $existing->update($payload);
             $existing = $existing->refresh();
-            $this->platformLabelAliasSync->sync($existing);
+            $this->syncBarcodeAliases($existing, $stockItem, $skuData, $stockItemData);
 
             return new SkuWriteResult('updated', $existing);
         }
@@ -75,7 +79,7 @@ class SkuWriter
             'sku_type' => 'single',
             ...$payload,
         ]);
-        $this->platformLabelAliasSync->sync($sku);
+        $this->syncBarcodeAliases($sku, $stockItem, $skuData, $stockItemData);
 
         return new SkuWriteResult('created', $sku);
     }
@@ -107,7 +111,10 @@ class SkuWriter
 
         if ($existingStockItemId !== null) {
             if ($allowUpdate) {
-                $existing = StockItem::lockForUpdate()->find($existingStockItemId);
+                $existing = StockItem::query()
+                    ->where('tenant_id', $tenantId)
+                    ->lockForUpdate()
+                    ->find($existingStockItemId);
                 $existing?->update($this->buildStockItemUpdatePayload($stockItemData, $skuData));
             }
 
@@ -133,7 +140,6 @@ class SkuWriter
             'platform_product_id' => $this->nullableString($skuData['platform_product_id'] ?? ''),
             'platform_variant_id' => $this->nullableString($skuData['platform_variant_id'] ?? ''),
             'platform_variant_name' => $this->nullableString($skuData['platform_variant_name'] ?? ''),
-            'platform_label_code' => $this->nullableString($skuData['platform_label_code'] ?? ''),
             'status' => ($skuData['status'] ?? '') ?: 'active',
             'note' => $this->nullableString($skuData['note'] ?? ''),
         ];
@@ -164,8 +170,6 @@ class SkuWriter
             'variation_code' => $this->nullableString($data['variation_code'] ?? ''),
             'color' => $this->nullableString($data['color'] ?? ''),
             'size' => $this->nullableString($data['size'] ?? ''),
-            'barcode' => $this->nullableString($data['barcode'] ?? ''),
-            'barcode_type' => ($data['barcode_type'] ?? '') ?: 'unknown',
             'product_type' => ($data['product_type'] ?? '') ?: 'normal',
             'is_dangerous_goods' => $this->castBool($data['is_dangerous_goods'] ?? ''),
             'requires_expiry_tracking' => $this->castBool($data['requires_expiry_tracking'] ?? ''),
@@ -200,6 +204,24 @@ class SkuWriter
             : 1;
 
         return $prefix.'-'.str_pad((string) $next, 6, '0', STR_PAD_LEFT);
+    }
+
+    private function syncBarcodeAliases(Sku $sku, ?StockItem $stockItem, array $skuData, array $stockItemData): void
+    {
+        if ($stockItem !== null) {
+            $this->barcodeAliases->setPrimaryProductBarcode(
+                $stockItem,
+                $stockItemData['barcode'] ?? '',
+                ($stockItemData['barcode_type'] ?? '') ?: 'unknown',
+                BarcodeAlias::SOURCE_IMPORT,
+            );
+        }
+
+        $this->barcodeAliases->setSkuPlatformLabel(
+            $sku,
+            $skuData['platform_label_code'] ?? '',
+            BarcodeAlias::SOURCE_IMPORT,
+        );
     }
 
     private function nullableString(?string $value): ?string

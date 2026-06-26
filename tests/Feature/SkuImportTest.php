@@ -402,6 +402,7 @@ class SkuImportTest extends TestCase
 
         $sku = Sku::where('sku', 'FNI-001')->firstOrFail();
 
+        $this->assertSame('x00-import 123', $sku->platform_label_code);
         $this->assertDatabaseHas('barcode_aliases', [
             'tenant_id' => $tenant->id,
             'model_type' => BarcodeAlias::MODEL_TYPE_SKU,
@@ -409,7 +410,38 @@ class SkuImportTest extends TestCase
             'barcode' => 'x00-import 123',
             'normalized_barcode' => 'X00IMPORT123',
             'barcode_type' => 'platform_label',
-            'source' => BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE,
+            'source' => BarcodeAlias::SOURCE_IMPORT,
+        ]);
+    }
+
+    public function test_import_creates_product_barcode_alias_without_writing_legacy_stock_item_barcode(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'PBI']);
+        $csv = "sku,name,barcode,barcode_type\nPBI-001,Imported Product,490-1234567894,jan\n";
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', $csv))
+            ->call('readFile')
+            ->call('advanceToPreview')
+            ->call('confirmImport')
+            ->assertSet('step', 'result')
+            ->assertSet('resultCreated', 1)
+            ->assertSet('resultFailed', 0);
+
+        $sku = Sku::where('sku', 'PBI-001')->firstOrFail();
+
+        $this->assertNull($sku->stockItem->barcode);
+        $this->assertDatabaseHas('barcode_aliases', [
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
+            'model_id' => $sku->stock_item_id,
+            'barcode' => '490-1234567894',
+            'normalized_barcode' => '4901234567894',
+            'barcode_type' => 'jan',
+            'source' => BarcodeAlias::SOURCE_IMPORT,
+            'is_primary' => true,
         ]);
     }
 
@@ -446,7 +478,7 @@ class SkuImportTest extends TestCase
         $this->assertDatabaseHas('barcode_aliases', [
             'model_id' => $good->id,
             'normalized_barcode' => 'GOODFNSKU',
-            'source' => BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE,
+            'source' => BarcodeAlias::SOURCE_IMPORT,
         ]);
     }
 

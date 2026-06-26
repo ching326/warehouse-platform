@@ -10,7 +10,7 @@ use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\StockItem;
 use App\Models\Tenant;
-use App\Services\Sku\PlatformLabelAliasSync;
+use App\Services\BarcodeAliasService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -123,7 +123,9 @@ class SkuCreate extends Component
 
         try {
             DB::transaction(function () use ($tenantId) {
+                $barcodeAliases = app(BarcodeAliasService::class);
                 $stockItemId = null;
+                $stockItem = null;
 
                 if ($this->skuType !== 'virtual_bundle') {
                     if ($this->stockItemMode === 'create') {
@@ -134,6 +136,14 @@ class SkuCreate extends Component
                             ->where('tenant_id', $tenantId)
                             ->findOrFail($this->existingStockItemId);
                         $stockItemId = $stockItem->id;
+                    }
+
+                    if ($stockItem) {
+                        $barcodeAliases->setPrimaryProductBarcode(
+                            $stockItem,
+                            $this->stockItem['barcode'] ?? '',
+                            $this->stockItem['barcode_type'] ?: 'unknown',
+                        );
                     }
                 }
 
@@ -151,7 +161,7 @@ class SkuCreate extends Component
                     'platform_product_id' => $this->nullableString($this->platformProductId),
                     'platform_variant_id' => $this->nullableString($this->platformVariantId),
                     'platform_variant_name' => $this->nullableString($this->platformVariantName),
-                    'platform_label_code' => $this->nullableString($this->platformLabelCode),
+                    'platform_label_code' => null,
                     'sku_type' => $this->skuType,
                     'default_packaging_material_id' => $this->nullableId($this->defaultPackagingMaterialId),
                     'default_shipping_method_id' => $this->nullableId($this->defaultShippingMethodId),
@@ -159,7 +169,7 @@ class SkuCreate extends Component
                     'note' => $this->nullableString($this->note),
                 ]);
 
-                app(PlatformLabelAliasSync::class)->sync($sku);
+                $barcodeAliases->setSkuPlatformLabel($sku, $this->platformLabelCode);
             });
         } catch (AliasCollisionException) {
             throw ValidationException::withMessages(['platformLabelCode' => __('skus.fnsku_alias_conflict')]);
@@ -264,8 +274,6 @@ class SkuCreate extends Component
             'variation_code' => $this->nullableString($this->stockItem['variation_code']),
             'color' => $this->nullableString($this->stockItem['color']),
             'size' => $this->nullableString($this->stockItem['size']),
-            'barcode' => $this->nullableString($this->stockItem['barcode']),
-            'barcode_type' => $this->stockItem['barcode_type'] ?: 'unknown',
             'product_type' => $this->stockItem['product_type'] ?: 'normal',
             'is_dangerous_goods' => (bool) $this->stockItem['is_dangerous_goods'],
             'requires_expiry_tracking' => (bool) $this->stockItem['requires_expiry_tracking'],

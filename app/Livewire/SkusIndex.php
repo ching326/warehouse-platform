@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Exceptions\AliasCollisionException;
 use App\Livewire\Concerns\HasEnumLabels;
 use App\Models\BarcodeAlias;
 use App\Models\MediaAsset;
@@ -14,6 +15,7 @@ use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Services\Amazon\AmazonSpapiApiException;
 use App\Services\Amazon\AmazonSpapiCatalogClient;
+use App\Services\BarcodeAliasService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Collection;
@@ -295,7 +297,6 @@ class SkusIndex extends Component
         $modelId = $target === BarcodeAlias::MODEL_TYPE_STOCK_ITEM
             ? (int) $sku->stockItem->id
             : (int) $sku->id;
-        $tenantId = (int) $sku->tenant_id;
         $normalized = BarcodeAlias::normalize($this->aliasBarcode);
 
         validator([
@@ -309,22 +310,22 @@ class SkusIndex extends Component
             'aliasTarget' => ['required', Rule::in([BarcodeAlias::MODEL_TYPE_SKU, BarcodeAlias::MODEL_TYPE_STOCK_ITEM])],
             'aliasBarcodeType' => ['required', Rule::in(BarcodeAlias::BARCODE_TYPES)],
             'aliasLabel' => ['nullable', 'string', 'max:255'],
-            'normalized_barcode' => [
-                'required',
-                Rule::unique('barcode_aliases', 'normalized_barcode')->where('tenant_id', $tenantId),
-            ],
+            'normalized_barcode' => ['required'],
         ])->validate();
 
-        BarcodeAlias::create([
-            'tenant_id' => $tenantId,
-            'model_type' => $target,
-            'model_id' => $modelId,
-            'barcode' => trim($this->aliasBarcode),
-            'normalized_barcode' => $normalized,
-            'barcode_type' => $this->aliasBarcodeType,
-            'label' => $this->nullableString($this->aliasLabel),
-            'is_active' => $this->aliasIsActive,
-        ]);
+        try {
+            app(BarcodeAliasService::class)->createManualAlias(
+                tenantId: (int) $sku->tenant_id,
+                modelType: $target,
+                modelId: $modelId,
+                barcode: $this->aliasBarcode,
+                barcodeType: $this->aliasBarcodeType,
+                label: $this->nullableString($this->aliasLabel),
+                isActive: $this->aliasIsActive,
+            );
+        } catch (AliasCollisionException $exception) {
+            throw ValidationException::withMessages(['normalized_barcode' => $exception->getMessage()]);
+        }
 
         $this->resetAliasForm();
         $this->flashStatus(__('skus.alias_created'));
@@ -356,11 +357,16 @@ class SkusIndex extends Component
             abort(404);
         }
 
-        if ($alias->source !== null) {
+        if ($alias->source !== null && $alias->source !== BarcodeAlias::SOURCE_MANUAL) {
             abort(403);
         }
 
         $alias->update(['is_active' => false]);
+
+        if ($alias->model_type === BarcodeAlias::MODEL_TYPE_SKU && $alias->barcode_type === 'platform_label') {
+            app(BarcodeAliasService::class)->syncSkuPlatformLabelMirror($sku);
+        }
+
         $this->flashStatus(__('skus.alias_deactivated'));
     }
 

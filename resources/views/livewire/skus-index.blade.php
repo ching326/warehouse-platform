@@ -425,7 +425,7 @@
                                     <flux:badge color="{{ $alias->is_active ? 'green' : 'zinc' }}">
                                         {{ $alias->is_active ? __('skus.alias_active') : __('skus.alias_inactive') }}
                                     </flux:badge>
-                                    <flux:button type="button" size="xs" variant="danger" wire:click="deactivateBarcodeAlias({{ $alias->id }})" :disabled="! $alias->is_active || $alias->source !== null">
+                                    <flux:button type="button" size="xs" variant="danger" wire:click="deactivateBarcodeAlias({{ $alias->id }})" :disabled="! $alias->is_active || ($alias->source !== null && $alias->source !== \App\Models\BarcodeAlias::SOURCE_MANUAL)">
                                         {{ __('skus.alias_deactivate') }}
                                     </flux:button>
                                 </article>
@@ -450,7 +450,7 @@
                                         <flux:badge color="{{ $alias->is_active ? 'green' : 'zinc' }}">
                                             {{ $alias->is_active ? __('skus.alias_active') : __('skus.alias_inactive') }}
                                         </flux:badge>
-                                        <flux:button type="button" size="xs" variant="danger" wire:click="deactivateBarcodeAlias({{ $alias->id }})" :disabled="! $alias->is_active || $alias->source !== null">
+                                        <flux:button type="button" size="xs" variant="danger" wire:click="deactivateBarcodeAlias({{ $alias->id }})" :disabled="! $alias->is_active || ($alias->source !== null && $alias->source !== \App\Models\BarcodeAlias::SOURCE_MANUAL)">
                                             {{ __('skus.alias_deactivate') }}
                                         </flux:button>
                                     </article>

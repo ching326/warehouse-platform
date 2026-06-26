@@ -8,7 +8,7 @@ use App\Models\ProductType;
 use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
-use App\Services\Sku\PlatformLabelAliasSync;
+use App\Services\BarcodeAliasService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -142,6 +142,8 @@ class SkuEdit extends Component
 
         try {
             DB::transaction(function () {
+                $barcodeAliases = app(BarcodeAliasService::class);
+
                 $this->sku->update([
                     'sku' => trim($this->skuCode),
                     'shop_id' => $this->nullableId($this->shopId),
@@ -154,14 +156,13 @@ class SkuEdit extends Component
                     'platform_product_id' => $this->nullableString($this->platformProductId),
                     'platform_variant_id' => $this->nullableString($this->platformVariantId),
                     'platform_variant_name' => $this->nullableString($this->platformVariantName),
-                    'platform_label_code' => $this->nullableString($this->platformLabelCode),
                     'default_packaging_material_id' => $this->nullableId($this->defaultPackagingMaterialId),
                     'default_shipping_method_id' => $this->nullableId($this->defaultShippingMethodId),
                     'status' => $this->status,
                     'note' => $this->nullableString($this->note),
                 ]);
 
-                app(PlatformLabelAliasSync::class)->sync($this->sku->refresh());
+                $barcodeAliases->setSkuPlatformLabel($this->sku->refresh(), $this->platformLabelCode);
 
                 if ($this->sku->stockItem) {
                     $this->sku->stockItem->update([
@@ -176,8 +177,6 @@ class SkuEdit extends Component
                         'variation_code' => $this->nullableString($this->stockItem['variation_code']),
                         'color' => $this->nullableString($this->stockItem['color']),
                         'size' => $this->nullableString($this->stockItem['size']),
-                        'barcode' => $this->nullableString($this->stockItem['barcode']),
-                        'barcode_type' => $this->stockItem['barcode_type'] ?: 'unknown',
                         'product_type' => $this->stockItem['product_type'] ?: 'normal',
                         'is_dangerous_goods' => (bool) $this->stockItem['is_dangerous_goods'],
                         'requires_expiry_tracking' => (bool) $this->stockItem['requires_expiry_tracking'],
@@ -193,6 +192,12 @@ class SkuEdit extends Component
                         'dimension_unit' => $this->stockItem['dimension_unit'] ?: 'cm',
                         'status' => $this->stockItem['status'] ?: 'active',
                     ]);
+
+                    $barcodeAliases->setPrimaryProductBarcode(
+                        $this->sku->stockItem,
+                        $this->stockItem['barcode'] ?? '',
+                        $this->stockItem['barcode_type'] ?: 'unknown',
+                    );
                 }
             });
         } catch (AliasCollisionException) {

@@ -59,6 +59,16 @@ class SkuManagementTest extends TestCase
         $this->assertNotNull($sku->stock_item_id);
         $this->assertSame('ABC-000001', $sku->stockItem->code);
         $this->assertSame('New Stock Item', $sku->stockItem->name);
+        $this->assertNull($sku->stockItem->barcode);
+        $this->assertDatabaseHas('barcode_aliases', [
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
+            'model_id' => $sku->stock_item_id,
+            'barcode' => '4900000000001',
+            'normalized_barcode' => '4900000000001',
+            'is_primary' => true,
+            'is_active' => true,
+        ]);
     }
 
     public function test_create_sku_persists_localized_name_overrides(): void
@@ -242,6 +252,7 @@ class SkuManagementTest extends TestCase
 
         $sku = Sku::where('sku', 'SKU-FNSKU-CREATE')->firstOrFail();
 
+        $this->assertSame('x00-abc 123', $sku->platform_label_code);
         $this->assertDatabaseHas('barcode_aliases', [
             'tenant_id' => $tenant->id,
             'model_type' => BarcodeAlias::MODEL_TYPE_SKU,
@@ -250,6 +261,7 @@ class SkuManagementTest extends TestCase
             'normalized_barcode' => 'X00ABC123',
             'barcode_type' => 'platform_label',
             'is_active' => true,
+            'is_primary' => true,
             'source' => BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE,
         ]);
     }
@@ -275,6 +287,7 @@ class SkuManagementTest extends TestCase
             'normalized_barcode' => 'NEWFNSKU',
             'source' => BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE,
         ]);
+        $this->assertSame('new-fnsku', $sku->refresh()->platform_label_code);
     }
 
     public function test_clearing_platform_label_code_removes_managed_alias(): void
@@ -294,6 +307,7 @@ class SkuManagementTest extends TestCase
             'model_id' => $sku->id,
             'source' => BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE,
         ]);
+        $this->assertNull($sku->refresh()->platform_label_code);
     }
 
     public function test_manual_alias_on_same_sku_wins_over_managed_alias(): void

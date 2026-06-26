@@ -17,12 +17,22 @@ class BarcodeAlias extends Model
 
     public const SOURCE_PLATFORM_LABEL_CODE = 'platform_label_code';
 
+    public const SOURCE_IMPORT = 'import';
+
+    public const SOURCE_MANUAL = 'manual';
+
+    public const SOURCE_SYSTEM = 'system';
+
     public const BARCODE_TYPES = [
         'jan',
         'ean',
         'upc',
+        'gtin',
         'fnsku',
         'platform_label',
+        'internal',
+        'supplier',
+        'carton',
         'internal_label',
         'supplier_label',
         'other',
@@ -37,6 +47,7 @@ class BarcodeAlias extends Model
         'normalized_barcode',
         'barcode_type',
         'label',
+        'is_primary',
         'is_active',
         'source',
     ];
@@ -44,6 +55,7 @@ class BarcodeAlias extends Model
     protected function casts(): array
     {
         return [
+            'is_primary' => 'boolean',
             'is_active' => 'boolean',
         ];
     }
@@ -52,7 +64,7 @@ class BarcodeAlias extends Model
     {
         return LogOptions::defaults()
             ->useLogName('barcode_alias')
-            ->logOnly(['barcode', 'barcode_type', 'label', 'is_active'])
+            ->logOnly(['barcode', 'barcode_type', 'label', 'is_primary', 'is_active'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }
