@@ -111,7 +111,7 @@ return [
     'no_barcode' => 'No barcode',
     'read_only' => 'Read only',
     'manage_images' => 'Images',
-    'manage_aliases' => 'Aliases',
+    'manage_aliases' => 'Barcode',
     'alias_target' => 'Target',
     'alias_target_sku' => 'This SKU',
     'alias_target_stock_item' => 'Linked stock item',

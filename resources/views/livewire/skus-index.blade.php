@@ -140,7 +140,7 @@
                             </flux:table.cell>
                             <flux:table.cell>
                                 <div class="sku-row-actions">
-                                    <flux:button href="{{ route('skus.edit', $sku) }}" size="xs" variant="primary">
+                                    <flux:button href="{{ route('skus.edit', $sku) }}" size="sm" variant="primary">
                                         {{ __('skus.btn_edit') }}
                                     </flux:button>
                                     @if ($this->canImportAmazonImage($sku))
@@ -148,7 +148,7 @@
                                             {{ __('skus.fetch_amazon_image') }}
                                         </flux:button>
                                     @endif
-                                    <flux:button type="button" size="xs" variant="subtle" wire:click="openAliasPanel({{ $sku->id }})">
+                                    <flux:button type="button" size="sm" variant="primary" wire:click="openAliasPanel({{ $sku->id }})">
                                         {{ __('skus.manage_aliases') }}
                                     </flux:button>
                                 </div>

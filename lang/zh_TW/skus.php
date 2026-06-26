@@ -111,7 +111,7 @@ return [
     'no_barcode' => '無條碼',
     'read_only' => '唯讀',
     'manage_images' => '圖片',
-    'manage_aliases' => '別名',
+    'manage_aliases' => '條碼',
     'alias_target' => '對象',
     'alias_target_sku' => '此 SKU',
     'alias_target_stock_item' => '連結的庫存品項',

@@ -111,7 +111,7 @@ return [
     'no_barcode' => 'バーコードなし',
     'read_only' => '読み取り専用',
     'manage_images' => '画像',
-    'manage_aliases' => 'エイリアス',
+    'manage_aliases' => 'バーコード',
     'alias_target' => '対象',
     'alias_target_sku' => 'このSKU',
     'alias_target_stock_item' => '紐付けた在庫品目',
