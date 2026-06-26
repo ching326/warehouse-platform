@@ -16,6 +16,7 @@ return [
     'map_hint' => 'ファイルの列を各フィールドに対応付けてください。「無視」に設定したフィールドはスキップされます。',
     'map_col_field' => 'インポートフィールド',
     'map_col_file_column' => 'ファイルの列',
+    'map_col_sample' => 'サンプル値',
     'map_ignore' => '-- 無視 --',
     'map_required_badge' => '必須',
     'map_group_sku' => 'SKUフィールド',

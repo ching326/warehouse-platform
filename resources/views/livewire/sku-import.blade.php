@@ -1,4 +1,6 @@
 <div class="sku-import-page">
+    <x-flash-toast />
+
     {{-- Step indicator --}}
     @php($stepKeys = ['upload', 'map', 'preview', 'result'])
     @php($currentIdx = array_search($step, $stepKeys, true))
@@ -104,11 +106,13 @@
                         <tr>
                             <th>{{ __('sku_import.map_col_file_column') }}</th>
                             <th>{{ __('sku_import.map_col_field') }}</th>
+                            <th>{{ __('sku_import.map_col_sample') }}</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($fileHeaders as $colIdx => $header)
                             @php($mappedField = $columnToField[$header] ?? '')
+                            @php($sampleValue = $sampleRows[0][$colIdx] ?? '')
                             <tr @class(['is-mapped' => $mappedField !== ''])>
                                 <td><strong>{{ $header }}</strong></td>
                                 <td>
@@ -130,6 +134,7 @@
                                         </optgroup>
                                     </select>
                                 </td>
+                                <td class="map-sample">{{ $sampleValue }}</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -170,7 +175,6 @@
             </section>
         @endif
 
-        @error('mapping') <p class="form-error">{{ $message }}</p> @enderror
         <div class="form-actions">
             <flux:button wire:click="backToUpload">{{ __('sku_import.btn_back_to_upload') }}</flux:button>
             <flux:button variant="primary" wire:click="advanceToPreview" wire:loading.attr="disabled" wire:target="advanceToPreview">
@@ -219,7 +223,6 @@
                         <span>{{ __('sku_import.option_upsert') }}</span>
                     </label>
                 </div>
-                @error('allowUpsert') <p class="form-error">{{ $message }}</p> @enderror
             </section>
         @endif
 
@@ -230,7 +233,6 @@
             </div>
             @if ($doSaveTemplate)
                 <flux:input wire:model="saveTemplateName" :label="__('sku_import.option_template_name')" :placeholder="__('sku_import.option_template_name')" />
-                @error('saveTemplateName') <p class="form-error">{{ $message }}</p> @enderror
             @endif
         </section>
 

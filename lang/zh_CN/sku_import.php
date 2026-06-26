@@ -16,6 +16,7 @@ return [
     'map_hint' => '将文件中的列映射到各导入字段。设为"忽略"的字段将被跳过。',
     'map_col_field' => '导入字段',
     'map_col_file_column' => '文件列',
+    'map_col_sample' => '示例值',
     'map_ignore' => '-- 忽略 --',
     'map_required_badge' => '必填',
     'map_group_sku' => 'SKU 字段',

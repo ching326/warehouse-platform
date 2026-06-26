@@ -183,7 +183,13 @@ class SkuImport extends Component
 
     public function advanceToPreview(): void
     {
-        $this->validateMappingRequiredFields();
+        $missing = $this->missingRequiredFields();
+
+        if ($missing !== []) {
+            session()->flash('error', __('sku_import.required_fields_missing', ['fields' => implode(', ', $missing)]));
+
+            return;
+        }
 
         $tenantId = (int) $this->tenantId;
         $shopId = $this->shopId !== '' ? (int) $this->shopId : null;
@@ -237,13 +243,13 @@ class SkuImport extends Component
     public function confirmImport(): void
     {
         if ($this->existsRowCount > 0 && $this->allowUpsert === '') {
-            $this->addError('allowUpsert', __('sku_import.error_mode_required'));
+            session()->flash('error', __('sku_import.error_mode_required'));
 
             return;
         }
 
         if ($this->doSaveTemplate && trim($this->saveTemplateName) === '') {
-            $this->addError('saveTemplateName', __('sku_import.template_name_required'));
+            session()->flash('error', __('sku_import.template_name_required'));
 
             return;
         }
@@ -257,7 +263,7 @@ class SkuImport extends Component
                 ->exists();
 
             if ($exists) {
-                $this->addError('saveTemplateName', __('sku_import.template_name_duplicate'));
+                session()->flash('error', __('sku_import.template_name_duplicate'));
 
                 return;
             }
@@ -591,7 +597,8 @@ class SkuImport extends Component
         return ProductType::pluck('slug')->flip()->all();
     }
 
-    private function validateMappingRequiredFields(): void
+    /** @return list<string> labels of required fields that are not yet mapped */
+    private function missingRequiredFields(): array
     {
         $missing = [];
 
@@ -601,11 +608,7 @@ class SkuImport extends Component
             }
         }
 
-        if ($missing !== []) {
-            throw ValidationException::withMessages([
-                'mapping' => __('sku_import.required_fields_missing', ['fields' => implode(', ', $missing)]),
-            ]);
-        }
+        return $missing;
     }
 
     private function savedTemplates(): Collection

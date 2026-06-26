@@ -19,6 +19,7 @@ return [
     'map_hint' => 'Match each field to a column from your file. Fields set to "Ignore" are skipped.',
     'map_col_field' => 'Import field',
     'map_col_file_column' => 'Your column',
+    'map_col_sample' => 'Sample value',
     'map_ignore' => '-- ignore --',
     'map_required_badge' => 'required',
     'map_group_sku' => 'SKU fields',

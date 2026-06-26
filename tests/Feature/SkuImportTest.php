@@ -311,7 +311,8 @@ class SkuImportTest extends TestCase
             ->set('mapping.sku', '')
             ->set('mapping.name', '')
             ->call('advanceToPreview')
-            ->assertHasErrors(['mapping']);
+            ->assertSet('step', 'map')
+            ->assertSee('required fields are not mapped');
     }
 
     public function test_advance_to_preview_validates_all_rows(): void
@@ -503,8 +504,11 @@ class SkuImportTest extends TestCase
             ->set('doSaveTemplate', true)
             ->set('saveTemplateName', 'Existing Template')
             ->call('confirmImport')
-            ->assertHasErrors(['saveTemplateName'])
-            ->assertSet('step', 'preview');
+            ->assertSet('step', 'preview')
+            ->assertSee('already exists');
+
+        // guard fired: no second template row created
+        $this->assertSame(1, SkuImportMapping::where('tenant_id', $tenant->id)->count());
     }
 
     public function test_template_scoped_to_tenant(): void

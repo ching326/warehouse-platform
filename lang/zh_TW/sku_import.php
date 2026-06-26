@@ -16,6 +16,7 @@ return [
     'map_hint' => '將檔案中的欄位對應至各匯入欄位。設為「略過」的欄位將被跳過。',
     'map_col_field' => '匯入欄位',
     'map_col_file_column' => '檔案欄位',
+    'map_col_sample' => '範例值',
     'map_ignore' => '-- 略過 --',
     'map_required_badge' => '必填',
     'map_group_sku' => 'SKU 欄位',

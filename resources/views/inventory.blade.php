@@ -2325,9 +2325,19 @@
                 min-width: 0;
             }
 
-            .mapping-table th,
-            .mapping-table td {
-                width: 50%;
+            .mapping-table th:nth-child(1),
+            .mapping-table td:nth-child(1) {
+                width: 26%;
+            }
+
+            .mapping-table th:nth-child(2),
+            .mapping-table td:nth-child(2) {
+                width: 40%;
+            }
+
+            .mapping-table th:nth-child(3),
+            .mapping-table td:nth-child(3) {
+                width: 34%;
             }
 
             .mapping-table select {
@@ -2336,6 +2346,15 @@
 
             .mapping-table tr.is-mapped td:first-child {
                 color: var(--accent);
+            }
+
+            .map-sample {
+                max-width: 0;
+                overflow: hidden;
+                color: var(--muted);
+                font-size: 13px;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
 
             .segmented-row.stacked {
