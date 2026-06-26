@@ -76,7 +76,7 @@
                         <flux:table.cell>
                             @if ($order->status === 'pending')
                                 <div class="outbound-row-actions">
-                                    <flux:button href="{{ route('outbound.ship', $order) }}" variant="primary" wire:navigate>
+                                    <flux:button href="{{ route('outbound.ship', $order) }}" size="sm" variant="primary" wire:navigate>
                                         {{ __('outbound.btn_ship') }}
                                     </flux:button>
                                 </div>
@@ -101,21 +101,6 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
-        }
-
-        .outbound-row-actions > * {
-            width: 92px;
-        }
-
-        .outbound-row-actions button,
-        .outbound-row-actions a {
-            height: 26px !important;
-            min-height: 26px !important;
-            padding-top: 2px !important;
-            padding-bottom: 2px !important;
-            font-size: 12px;
-            line-height: 1;
-            justify-content: center;
         }
 
         .outbound-inline-pair {

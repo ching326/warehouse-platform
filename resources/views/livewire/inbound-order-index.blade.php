@@ -84,6 +84,7 @@
                                 <div class="inbound-row-actions">
                                     <flux:button
                                         type="button"
+                                        size="sm"
                                         variant="primary"
                                         wire:click="markArrived({{ $order->id }})"
                                         wire:confirm="{{ __('inbound.confirm_arrive') }}"
@@ -93,7 +94,7 @@
                                 </div>
                             @elseif (in_array($order->status, ['arrived', 'partially_received'], true))
                                 <div class="inbound-row-actions">
-                                    <flux:button href="{{ route('inbound.receive', $order) }}" variant="primary">
+                                    <flux:button href="{{ route('inbound.receive', $order) }}" size="sm" variant="primary">
                                         {{ __('inbound.btn_receive') }}
                                     </flux:button>
                                 </div>
@@ -118,21 +119,6 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
-        }
-
-        .inbound-row-actions > * {
-            width: 92px;
-        }
-
-        .inbound-row-actions button,
-        .inbound-row-actions a {
-            height: 26px !important;
-            min-height: 26px !important;
-            padding-top: 2px !important;
-            padding-bottom: 2px !important;
-            font-size: 12px;
-            line-height: 1;
-            justify-content: center;
         }
 
         .inbound-inline-pair {

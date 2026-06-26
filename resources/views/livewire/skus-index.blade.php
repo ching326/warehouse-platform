@@ -9,7 +9,7 @@
                 <span>{{ __('skus.page_subtitle') }}</span>
             </div>
             <div style="display:flex;gap:0.5rem;align-items:center;">
-                <flux:button href="{{ route('skus.import') }}" variant="subtle">{{ __('sku_import.btn_import') }}</flux:button>
+                <flux:button href="{{ route('skus.import') }}" variant="primary">{{ __('sku_import.btn_import') }}</flux:button>
                 <flux:button href="{{ route('skus.create') }}" variant="primary">{{ __('skus.btn_create') }}</flux:button>
             </div>
         </div>
@@ -400,7 +400,7 @@
                             <input type="checkbox" wire:model="aliasIsActive">
                             <span>{{ __('skus.alias_active') }}</span>
                         </label>
-                        <flux:button type="submit" variant="primary">{{ __('skus.alias_add') }}</flux:button>
+                        <flux:button type="submit" size="sm" variant="primary">{{ __('skus.alias_add') }}</flux:button>
                     </form>
 
                     @foreach (['aliasBarcode', 'aliasTarget', 'aliasBarcodeType', 'aliasLabel', 'normalized_barcode'] as $field)

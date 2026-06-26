@@ -944,6 +944,51 @@
                 font-size: 13px;
             }
 
+            .localized-field {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            .localized-field-toggle {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                align-self: flex-start;
+                padding: 0;
+                background: none;
+                border: none;
+                cursor: pointer;
+                font-size: 12px;
+                color: var(--accent);
+            }
+
+            .localized-field-toggle:hover {
+                text-decoration: underline;
+            }
+
+            .localized-field-toggle-icon {
+                width: 14px;
+                height: 14px;
+            }
+
+            .localized-field-panel {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                margin-top: 4px;
+                padding: 10px 12px;
+                border: 1px solid var(--line);
+                border-radius: 8px;
+                background: color-mix(in oklab, var(--accent), transparent 96%);
+            }
+
+            .localized-field-locale.is-current {
+                padding: 6px 8px;
+                border-radius: 6px;
+                background: color-mix(in oklab, var(--accent), transparent 88%);
+            }
+
             .status-message {
                 margin-bottom: 14px;
                 border: 1px solid #b7e4d4;
