@@ -312,7 +312,8 @@ class SkusIndex extends Component
         ])->validate();
 
         try {
-            app(BarcodeAliasService::class)->createManualAlias(
+            $barcodeAliases = app(BarcodeAliasService::class);
+            $barcodeAliases->createManualAlias(
                 tenantId: (int) $sku->tenant_id,
                 modelType: $target,
                 modelId: $modelId,
@@ -321,6 +322,10 @@ class SkusIndex extends Component
                 label: $this->nullableString($this->aliasLabel),
                 isActive: $this->aliasIsActive,
             );
+
+            if ($target === BarcodeAlias::MODEL_TYPE_SKU && $this->aliasBarcodeType === 'platform_label') {
+                $barcodeAliases->syncSkuPlatformLabelMirror($sku);
+            }
         } catch (AliasCollisionException $exception) {
             throw ValidationException::withMessages(['normalized_barcode' => $exception->getMessage()]);
         }

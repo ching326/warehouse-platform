@@ -207,6 +207,7 @@ class SkuManagementTest extends TestCase
             'label' => 'Old package barcode',
             'is_active' => true,
         ]);
+        $this->assertSame('49-0123 4567894', $sku->refresh()->platform_label_code);
     }
 
     public function test_product_barcode_alias_is_automatically_attached_to_stock_item(): void
