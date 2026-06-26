@@ -64,6 +64,7 @@ return [
 
     'empty_file' => '檔案中沒有資料列。',
     'row_cap_exceeded' => '檔案有 :count 列，上限為 2,000 列。請分割檔案。',
+    'file_expired' => '已上傳的檔案已無法使用。請重新上傳。',
     'required_fields_missing' => '以下必填欄位尚未對應: :fields。',
     'template_name_required' => '請輸入範本名稱。',
     'template_name_duplicate' => '此客戶已有同名範本。',

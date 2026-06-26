@@ -64,6 +64,7 @@ return [
 
     'empty_file' => '文件中没有数据行。',
     'row_cap_exceeded' => '文件有 :count 行，上限为 2,000 行。请分割文件。',
+    'file_expired' => '已上传的文件已无法使用。请重新上传。',
     'required_fields_missing' => '以下必填字段尚未映射: :fields。',
     'template_name_required' => '请输入模板名称。',
     'template_name_duplicate' => '此客户已有同名模板。',

@@ -64,6 +64,7 @@ return [
 
     'empty_file' => 'ファイルにデータ行がありません。',
     'row_cap_exceeded' => 'ファイルに :count 行あります。上限は2,000行です。ファイルを分割してください。',
+    'file_expired' => 'アップロード済みファイルは利用できなくなりました。もう一度アップロードしてください。',
     'required_fields_missing' => '次の必須フィールドが対応付けられていません: :fields。',
     'template_name_required' => 'テンプレート名を入力してください。',
     'template_name_duplicate' => 'この荷主には同名のテンプレートがすでに存在します。',
