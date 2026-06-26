@@ -307,8 +307,8 @@
         @endif
 
         @if ($managedStockItem)
-            <div class="image-panel-backdrop">
-                <section class="image-panel flux-panel" aria-label="{{ __('skus.manage_images') }}">
+            <div class="image-panel-backdrop app-modal-backdrop">
+                <section class="image-panel app-modal-panel flux-panel" style="--app-modal-width: 760px;" aria-label="{{ __('skus.manage_images') }}">
                     <div class="image-panel-header">
                         <div>
                             <strong>{{ __('skus.manage_images') }}</strong>
@@ -372,8 +372,8 @@
         @endif
 
         @if ($managedAliasSku)
-            <div class="image-panel-backdrop">
-                <section class="image-panel flux-panel" aria-label="{{ __('skus.manage_aliases') }}">
+            <div class="image-panel-backdrop app-modal-backdrop">
+                <section class="image-panel app-modal-panel flux-panel" style="--app-modal-width: 760px;" aria-label="{{ __('skus.manage_aliases') }}">
                     <div class="image-panel-header">
                         <div>
                             <strong>{{ __('skus.manage_aliases') }}</strong>

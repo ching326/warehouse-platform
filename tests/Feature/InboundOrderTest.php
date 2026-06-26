@@ -88,6 +88,58 @@ class InboundOrderTest extends TestCase
         $this->assertSame(0, InventoryBalance::count());
     }
 
+    public function test_create_inbound_page_uses_compact_carton_mark_input_and_searchable_sku_picker(): void
+    {
+        [$tenant] = $this->receivableSku();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(InboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->assertSee('wire:model="cartonMark"', false)
+            ->assertDontSee('textarea wire:model="cartonMark"', false)
+            ->assertSee('class="searchable-select"', false);
+    }
+
+    public function test_create_inbound_order_shop_filter_scopes_sku_selection(): void
+    {
+        $tenant = Tenant::factory()->create(['status' => 'active']);
+        $warehouse = Warehouse::factory()->create();
+        $shopA = Shop::factory()->for($tenant)->create(['code' => 'SHOP-A', 'status' => 'active']);
+        $shopB = Shop::factory()->for($tenant)->create(['code' => 'SHOP-B', 'status' => 'active']);
+        $stockA = StockItem::factory()->for($tenant)->create();
+        $stockB = StockItem::factory()->for($tenant)->create();
+        $skuA = Sku::factory()->for($tenant)->for($shopA)->for($stockA)->create(['sku' => 'IB-SHOP-A']);
+        $skuB = Sku::factory()->for($tenant)->for($shopB)->for($stockB)->create(['sku' => 'IB-SHOP-B']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(InboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('shopId', (string) $shopA->id)
+            ->set('skuSearches.0', 'IB-SHOP-A')
+            ->assertSee('IB-SHOP-A')
+            ->assertDontSee('IB-SHOP-B')
+            ->set('lines.0.sku_id', (string) $skuB->id)
+            ->set('lines.0.expected_qty', '1')
+            ->call('save')
+            ->assertHasErrors(['lines.0.sku_id']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(InboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('shopId', (string) $shopA->id)
+            ->set('lines.0.sku_id', (string) $skuA->id)
+            ->set('lines.0.expected_qty', '2')
+            ->call('save')
+            ->assertRedirect(route('inbound.index'));
+
+        $this->assertDatabaseHas('inbound_order_lines', [
+            'sku_id' => $skuA->id,
+            'expected_qty' => 2,
+        ]);
+    }
+
     public function test_create_rejects_duplicate_skus_and_virtual_bundle_skus(): void
     {
         [$tenant, $warehouse, $sku] = $this->receivableSku();

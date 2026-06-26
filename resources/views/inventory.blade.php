@@ -1608,7 +1608,9 @@
                 color: var(--muted);
             }
 
-            .tracking-import-backdrop {
+            .app-modal-backdrop,
+            .tracking-import-backdrop,
+            .image-panel-backdrop {
                 position: fixed;
                 inset: 0;
                 z-index: 80;
@@ -1620,8 +1622,12 @@
                 padding: 72px 18px 32px;
             }
 
-            .tracking-import-modal {
-                width: min(980px, 100%);
+            .app-modal-panel,
+            .tracking-import-modal,
+            .image-panel {
+                width: min(var(--app-modal-width, 980px), 100%);
+                max-height: calc(100vh - 104px);
+                overflow: auto;
                 background: #fff;
                 box-shadow: 0 20px 45px rgba(15, 23, 42, 0.22);
             }
@@ -1913,23 +1919,7 @@
                 white-space: nowrap;
             }
 
-            .image-panel-backdrop {
-                position: fixed;
-                inset: 0;
-                z-index: 40;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                background: rgb(15 23 42 / 0.24);
-                padding: 24px;
-                overflow: auto;
-            }
-
             .image-panel {
-                width: min(720px, 100%);
-                max-height: calc(100vh - 48px);
-                overflow: auto;
-                background: #fff;
                 padding: 18px;
             }
 
@@ -2239,6 +2229,70 @@
                 gap: 12px;
                 align-items: end;
                 margin-top: 12px;
+            }
+
+            .searchable-select {
+                position: relative;
+                min-width: 0;
+            }
+
+            .searchable-select label {
+                display: grid;
+                gap: 6px;
+            }
+
+            .searchable-select-menu {
+                position: absolute;
+                z-index: 40;
+                top: calc(100% + 4px);
+                left: 0;
+                right: 0;
+                max-height: 280px;
+                overflow-y: auto;
+                border: 1px solid var(--line);
+                border-radius: 8px;
+                background: #fff;
+                box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
+                padding: 4px;
+            }
+
+            .searchable-select-option {
+                display: grid;
+                gap: 2px;
+                width: 100%;
+                border: 0;
+                border-radius: 6px;
+                background: transparent;
+                color: var(--ink);
+                cursor: pointer;
+                font: inherit;
+                padding: 8px 9px;
+                text-align: left;
+            }
+
+            .searchable-select-option:hover {
+                background: var(--accent-soft);
+            }
+
+            .searchable-select-option strong {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                font-size: 12px;
+                font-weight: 700;
+            }
+
+            .searchable-select-option span,
+            .searchable-select-empty {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                color: var(--muted);
+                font-size: 11px;
+            }
+
+            .searchable-select-empty {
+                padding: 9px;
             }
 
             .remove-line-btn {

@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\InboundOrder;
+use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\Tenant;
 use App\Models\Warehouse;
@@ -23,6 +24,8 @@ class InboundOrderCreate extends Component
     #[Url(as: 'warehouse_id', except: '')]
     public string $warehouseId = '';
 
+    public string $shopId = '';
+
     public string $ref = '';
 
     public string $expectedAt = '';
@@ -37,6 +40,8 @@ class InboundOrderCreate extends Component
         ['sku_id' => '', 'expected_qty' => '', 'note' => ''],
     ];
 
+    public array $skuSearches = [''];
+
     public function mount(): void
     {
         if (! $this->isInternalUser() && $this->tenantId === '') {
@@ -47,12 +52,21 @@ class InboundOrderCreate extends Component
     public function updatedTenantId(): void
     {
         $this->warehouseId = '';
+        $this->shopId = '';
         $this->lines = [['sku_id' => '', 'expected_qty' => '', 'note' => '']];
+        $this->skuSearches = [''];
+    }
+
+    public function updatedShopId(): void
+    {
+        $this->lines = [['sku_id' => '', 'expected_qty' => '', 'note' => '']];
+        $this->skuSearches = [''];
     }
 
     public function addLine(): void
     {
         $this->lines[] = ['sku_id' => '', 'expected_qty' => '', 'note' => ''];
+        $this->skuSearches[] = '';
     }
 
     public function removeLine(int $index): void
@@ -62,7 +76,9 @@ class InboundOrderCreate extends Component
         }
 
         array_splice($this->lines, $index, 1);
+        array_splice($this->skuSearches, $index, 1);
         $this->lines = array_values($this->lines);
+        $this->skuSearches = array_values($this->skuSearches);
     }
 
     public function save()
@@ -119,7 +135,8 @@ class InboundOrderCreate extends Component
         return view('livewire.inbound-order-create', [
             'tenants' => $this->tenantOptions(),
             'warehouses' => $this->warehouseOptions(),
-            'skus' => $this->skuOptions(),
+            'shops' => $this->shopOptions(),
+            'skuOptionsByLine' => $this->skuOptionsByLine(),
             'showTenantSelect' => $this->isInternalUser(),
             'currentTenant' => $this->currentTenant(),
         ])->layout('inventory', [
@@ -130,13 +147,20 @@ class InboundOrderCreate extends Component
 
     private function validateInput(int $tenantId): void
     {
+        $skuExistsRule = Rule::exists('skus', 'id')->where('tenant_id', $tenantId);
+
+        if ($this->shopId !== '') {
+            $skuExistsRule->where('shop_id', (int) $this->shopId);
+        }
+
         validator($this->formData(), [
             'tenant_id' => ['required', 'integer'],
             'warehouse_id' => ['required', 'integer', Rule::exists('warehouses', 'id')],
+            'shop_id' => ['nullable', 'integer', Rule::exists('shops', 'id')->where('tenant_id', $tenantId)],
             'ref' => ['nullable', 'string', 'max:255'],
             'expected_at' => ['nullable', 'date'],
             'expected_carton_count' => ['nullable', 'integer', 'min:0'],
-            'carton_mark' => ['nullable', 'string', 'max:2000'],
+            'carton_mark' => ['nullable', 'string', 'max:255'],
             'note' => ['nullable', 'string', 'max:1000'],
             'lines' => [
                 'required',
@@ -150,7 +174,7 @@ class InboundOrderCreate extends Component
                     }
                 },
             ],
-            'lines.*.sku_id' => ['required', 'integer', Rule::exists('skus', 'id')->where('tenant_id', $tenantId)],
+            'lines.*.sku_id' => ['required', 'integer', $skuExistsRule],
             'lines.*.expected_qty' => ['required', 'integer', 'min:1'],
             'lines.*.note' => ['nullable', 'string', 'max:500'],
         ])->validate();
@@ -161,6 +185,7 @@ class InboundOrderCreate extends Component
         return [
             'tenant_id' => $this->tenantId,
             'warehouse_id' => $this->warehouseId,
+            'shop_id' => $this->shopId,
             'ref' => $this->ref,
             'expected_at' => $this->expectedAt,
             'expected_carton_count' => $this->expectedCartonCount,
@@ -185,14 +210,59 @@ class InboundOrderCreate extends Component
             ->get(['id', 'code', 'name']);
     }
 
-    private function skuOptions(): Collection
+    private function shopOptions(): Collection
     {
+        if ($this->tenantId === '') {
+            return collect();
+        }
+
+        return Shop::query()
+            ->where('tenant_id', $this->tenantId)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'code', 'name']);
+    }
+
+    private function skuOptionsByLine(): array
+    {
+        return collect($this->lines)
+            ->keys()
+            ->mapWithKeys(fn ($index) => [$index => $this->skuOptions((int) $index)])
+            ->all();
+    }
+
+    private function skuOptions(int $lineIndex): Collection
+    {
+        $searchTerm = trim((string) ($this->skuSearches[$lineIndex] ?? ''));
+        $search = '%'.$searchTerm.'%';
+        $selectedSkuId = (string) ($this->lines[$lineIndex]['sku_id'] ?? '');
+
         return Sku::query()
             ->where('tenant_id', $this->tenantId)
             ->where('sku_type', '!=', 'virtual_bundle')
             ->whereNotNull('stock_item_id')
+            ->when($this->shopId !== '', fn ($query) => $query->where('shop_id', $this->shopId))
+            ->when($searchTerm !== '', function ($query) use ($search, $selectedSkuId) {
+                $query->where(function ($query) use ($search, $selectedSkuId) {
+                    $query
+                        ->where('sku', 'like', $search)
+                        ->orWhere('name', 'like', $search)
+                        ->orWhere('platform_sku', 'like', $search)
+                        ->orWhere('platform_label_code', 'like', $search)
+                        ->orWhereHas('stockItem', function ($query) use ($search) {
+                            $query
+                                ->where('code', 'like', $search)
+                                ->orWhere('name', 'like', $search);
+                        });
+
+                    if ($selectedSkuId !== '') {
+                        $query->orWhere('id', (int) $selectedSkuId);
+                    }
+                });
+            })
             ->with(['shop:id,code', 'stockItem:id,code,name'])
             ->orderBy('sku')
+            ->limit(50)
             ->get(['id', 'tenant_id', 'shop_id', 'stock_item_id', 'sku', 'name', 'platform_sku', 'platform_label_code', 'sku_type']);
     }
 

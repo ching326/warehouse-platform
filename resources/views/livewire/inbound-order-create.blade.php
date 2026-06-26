@@ -24,6 +24,13 @@
                     </label>
                 @endif
 
+                <flux:select wire:model.live="shopId" :label="__('skus.field_shop')">
+                    <flux:select.option value="">{{ __('skus.no_shop') }}</flux:select.option>
+                    @foreach ($shops as $shop)
+                        <flux:select.option value="{{ $shop->id }}">{{ $shop->code }} - {{ $shop->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+
                 <flux:select wire:model.live="warehouseId" required :label="__('inbound.field_warehouse')">
                     <flux:select.option value="">{{ __('stock_adjustments.select_warehouse') }}</flux:select.option>
                     @foreach ($warehouses as $warehouse)
@@ -36,17 +43,14 @@
                 <flux:input wire:model="expectedCartonCount" type="number" min="0" step="1" :label="__('inbound.field_expected_carton_count')" />
             </div>
 
-            <label style="margin-top: 12px; display: block;">
-                <span>{{ __('inbound.field_carton_mark') }}</span>
-                <textarea wire:model="cartonMark" rows="2"></textarea>
-            </label>
+            <flux:input wire:model="cartonMark" :label="__('inbound.field_carton_mark')" />
 
             <label style="margin-top: 12px; display: block;">
                 <span>{{ __('inbound.field_note') }}</span>
                 <textarea wire:model="note" rows="3"></textarea>
             </label>
 
-            @foreach (['tenantId', 'tenant_id', 'warehouse_id', 'expected_at', 'expected_carton_count', 'carton_mark', 'note'] as $field)
+            @foreach (['tenantId', 'tenant_id', 'warehouse_id', 'shop_id', 'expected_at', 'expected_carton_count', 'carton_mark', 'note'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
         </section>
@@ -60,15 +64,26 @@
             </div>
 
             @foreach ($lines as $index => $line)
+                @php
+                    $skuOptions = collect($skuOptionsByLine[$index] ?? [])->map(fn ($sku) => [
+                        'value' => $sku->id,
+                        'label' => $sku->sku,
+                        'meta' => trim(($sku->stockItem?->code ? $sku->stockItem->code.' / ' : '').($sku->stockItem?->name ?? $sku->name ?? '')),
+                    ]);
+                    $selectedSku = $skuOptions->firstWhere('value', (int) ($line['sku_id'] ?? 0));
+                @endphp
                 <div class="line-row">
-                    <flux:select wire:model="lines.{{ $index }}.sku_id" required :label="__('inbound.field_sku')">
-                        <flux:select.option value="">{{ __('inbound.select_sku') }}</flux:select.option>
-                        @foreach ($skus as $sku)
-                            <flux:select.option value="{{ $sku->id }}">
-                                {{ $sku->sku }} - {{ $sku->stockItem->code }} {{ $sku->stockItem->name }}
-                            </flux:select.option>
-                        @endforeach
-                    </flux:select>
+                    <x-searchable-select
+                        wire:key="inbound-sku-picker-{{ $index }}-{{ md5($tenantId.'|'.$shopId.'|'.($skuSearches[$index] ?? '').'|'.($line['sku_id'] ?? '')) }}"
+                        :label="__('inbound.field_sku')"
+                        model="lines.{{ $index }}.sku_id"
+                        search-model="skuSearches.{{ $index }}"
+                        :options="$skuOptions"
+                        :selected-label="$selectedSku['label'] ?? ($skuSearches[$index] ?? '')"
+                        :placeholder="__('inventory.search_placeholder')"
+                        empty-label="No results"
+                        required
+                    />
                     <flux:input wire:model="lines.{{ $index }}.expected_qty" type="number" min="1" step="1" required :label="__('inbound.field_expected_qty')" />
                     <flux:input wire:model="lines.{{ $index }}.note" :label="__('inbound.field_line_note')" />
                     <button type="button" class="remove-line-btn {{ count($lines) <= 1 ? 'invisible' : '' }}" wire:click="removeLine({{ $index }})">
