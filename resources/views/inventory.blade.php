@@ -2254,6 +2254,160 @@
                 font-weight: 700;
             }
 
+            /* ---- SKU import wizard ---- */
+            .sku-import-page {
+                display: grid;
+                gap: 14px;
+            }
+
+            .import-stepper {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .import-step {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                border: 1px solid var(--line);
+                border-radius: 999px;
+                background: #fff;
+                color: var(--muted);
+                font-size: 13px;
+                font-weight: 700;
+                padding: 6px 14px 6px 6px;
+            }
+
+            .import-step-num {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 22px;
+                height: 22px;
+                border-radius: 999px;
+                background: #f1f5f9;
+                color: var(--muted);
+                font-size: 12px;
+            }
+
+            .import-step.is-active {
+                border-color: var(--accent);
+                color: var(--accent);
+            }
+
+            .import-step.is-active .import-step-num {
+                background: var(--accent);
+                color: #fff;
+            }
+
+            .import-step.is-done {
+                color: var(--ink);
+            }
+
+            .import-step.is-done .import-step-num {
+                background: var(--accent-soft);
+                color: var(--accent);
+            }
+
+            .import-summary {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .import-badge-total {
+                background: #f1f5f9;
+                color: var(--muted);
+            }
+
+            .mapping-table {
+                min-width: 0;
+            }
+
+            .mapping-table th,
+            .mapping-table td {
+                width: 50%;
+            }
+
+            .mapping-table select {
+                margin: 0;
+            }
+
+            .mapping-table tr.is-mapped td:first-child {
+                color: var(--accent);
+            }
+
+            .segmented-row.stacked {
+                flex-direction: column;
+            }
+
+            .segmented-row.stacked label {
+                width: 100%;
+                min-width: 0;
+            }
+
+            .template-list {
+                display: grid;
+                gap: 8px;
+            }
+
+            .template-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                border: 1px solid var(--line);
+                border-radius: 8px;
+                padding: 10px 12px;
+            }
+
+            .template-name {
+                font-weight: 700;
+            }
+
+            .template-actions {
+                display: inline-flex;
+                gap: 8px;
+            }
+
+            .import-stats {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                gap: 12px;
+            }
+
+            .import-stat {
+                display: grid;
+                gap: 4px;
+                border: 1px solid var(--line);
+                border-radius: 8px;
+                padding: 14px 16px;
+                text-align: center;
+            }
+
+            .import-stat strong {
+                font-size: 26px;
+                line-height: 1;
+            }
+
+            .import-stat span {
+                color: var(--muted);
+                font-size: 13px;
+            }
+
+            .import-stat.is-created strong {
+                color: var(--accent);
+            }
+
+            .import-stat.is-failed {
+                border-color: var(--danger-soft);
+            }
+
+            .import-stat.is-failed strong {
+                color: var(--danger);
+            }
+
             /* Horizontal-scroll safety net: on narrow screens a wide table scrolls
                instead of overlapping or squishing its columns. */
             .table-scroll {

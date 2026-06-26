@@ -1,11 +1,12 @@
 <div class="sku-import-page">
     {{-- Step indicator --}}
-    <div class="import-steps">
+    @php($stepKeys = ['upload', 'map', 'preview', 'result'])
+    @php($currentIdx = array_search($step, $stepKeys, true))
+    <div class="import-stepper">
         @foreach (['upload' => __('sku_import.step_upload'), 'map' => __('sku_import.step_map'), 'preview' => __('sku_import.step_preview'), 'result' => __('sku_import.step_result')] as $stepKey => $stepLabel)
-            @php($stepKeys = ['upload', 'map', 'preview', 'result'])
-            @php($currentIdx = array_search($step, $stepKeys))
-            @php($thisIdx = array_search($stepKey, $stepKeys))
+            @php($thisIdx = array_search($stepKey, $stepKeys, true))
             <span @class(['import-step', 'is-active' => $step === $stepKey, 'is-done' => $thisIdx < $currentIdx])>
+                <span class="import-step-num">{{ $thisIdx + 1 }}</span>
                 {{ $stepLabel }}
             </span>
         @endforeach
@@ -13,35 +14,46 @@
 
     {{-- Step 1: Upload --}}
     @if ($step === 'upload')
-        <section class="flux-panel import-section">
-            <form wire:submit="readFile">
-                @if ($showTenantSelect)
-                    <flux:select wire:model.live="tenantId" label="{{ __('skus.field_tenant') }}" required>
-                        <option value="">{{ __('skus.select_tenant') }}</option>
-                        @foreach ($tenants as $tenant)
-                            <option value="{{ $tenant->id }}">{{ $tenant->name }}</option>
+        <section class="table-shell flux-panel form-panel">
+            <div class="form-panel-header">
+                <div>
+                    <strong>{{ __('sku_import.page_title') }}</strong>
+                    <span>{{ __('sku_import.upload_hint') }}</span>
+                </div>
+                <flux:button href="{{ route('skus.index') }}" variant="subtle" wire:navigate>{{ __('sku_import.btn_view_skus') }}</flux:button>
+            </div>
+
+            <form wire:submit="readFile" class="form-panel">
+                <div class="form-grid">
+                    @if ($showTenantSelect)
+                        <flux:select wire:model.live="tenantId" :label="__('skus.field_tenant')" required>
+                            <flux:select.option value="">{{ __('skus.select_tenant') }}</flux:select.option>
+                            @foreach ($tenants as $tenant)
+                                <flux:select.option value="{{ $tenant->id }}">{{ $tenant->code }} - {{ $tenant->name }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
+                        @error('tenantId') <p class="form-error">{{ $message }}</p> @enderror
+                    @endif
+
+                    <flux:select wire:model.live="shopId" :label="__('skus.field_shop')">
+                        <flux:select.option value="">{{ __('skus.no_shop') }}</flux:select.option>
+                        @foreach ($shops as $shop)
+                            <flux:select.option value="{{ $shop->id }}">{{ $shop->code }} - {{ $shop->name }}</flux:select.option>
                         @endforeach
                     </flux:select>
-                    @error('tenantId') <p class="field-error">{{ $message }}</p> @enderror
-                @endif
-
-                <flux:select wire:model.live="shopId" label="{{ __('skus.field_shop') }}">
-                    <option value="">{{ __('skus.no_shop') }}</option>
-                    @foreach ($shops as $shop)
-                        <option value="{{ $shop->id }}">{{ $shop->name }}</option>
-                    @endforeach
-                </flux:select>
-                @error('shopId') <p class="field-error">{{ $message }}</p> @enderror
-
-                <div class="field-group">
-                    <label class="field-label">{{ __('skus.field_sku') }} CSV / Excel</label>
-                    <p class="field-hint">{{ __('sku_import.upload_hint') }}</p>
-                    <input type="file" wire:model="file" accept=".csv,.txt,.xlsx,.xls" class="file-input">
-                    @error('file') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
+                @error('shopId') <p class="form-error">{{ $message }}</p> @enderror
+
+                <label>
+                    <span>{{ __('skus.field_sku') }} CSV / Excel</span>
+                    <input type="file" wire:model="file" accept=".csv,.txt,.xlsx,.xls">
+                    <span class="subtle" wire:loading wire:target="file">...</span>
+                </label>
+                @error('file') <p class="form-error">{{ $message }}</p> @enderror
 
                 <div class="form-actions">
-                    <flux:button type="submit" variant="primary" wire:loading.attr="disabled">
+                    <span></span>
+                    <flux:button type="submit" variant="primary" wire:loading.attr="disabled" wire:target="file,readFile">
                         <span wire:loading.remove wire:target="readFile">{{ __('sku_import.btn_upload') }}</span>
                         <span wire:loading wire:target="readFile">...</span>
                     </flux:button>
@@ -53,70 +65,89 @@
     {{-- Step 2: Map fields --}}
     @if ($step === 'map')
         {{-- Saved templates --}}
-        <section class="flux-panel import-section">
-            <h3 class="section-title">{{ __('sku_import.map_templates_heading') }}</h3>
-            @if ($savedTemplates->isEmpty())
-                <p class="muted-hint">{{ __('sku_import.map_no_templates') }}</p>
-            @else
+        <section class="table-shell flux-panel form-panel">
+            <div class="form-panel-header">
+                <div>
+                    <strong>{{ __('sku_import.map_templates_heading') }}</strong>
+                    @if ($savedTemplates->isEmpty())
+                        <span>{{ __('sku_import.map_no_templates') }}</span>
+                    @endif
+                </div>
+            </div>
+            @if ($savedTemplates->isNotEmpty())
                 <div class="template-list">
                     @foreach ($savedTemplates as $template)
                         <div class="template-row">
-                            <span>{{ $template->name }}</span>
-                            <flux:button size="sm" wire:click="loadTemplate({{ $template->id }})">{{ __('sku_import.map_btn_load') }}</flux:button>
-                            <flux:button size="sm" variant="danger" wire:click="deleteTemplate({{ $template->id }})" wire:confirm="Delete this template?">{{ __('sku_import.map_btn_delete') }}</flux:button>
+                            <span class="template-name">{{ $template->name }}</span>
+                            <div class="template-actions">
+                                <flux:button size="sm" wire:click="loadTemplate({{ $template->id }})">{{ __('sku_import.map_btn_load') }}</flux:button>
+                                <flux:button size="sm" variant="danger" wire:click="deleteTemplate({{ $template->id }})" wire:confirm="{{ __('sku_import.map_btn_delete') }}?">{{ __('sku_import.map_btn_delete') }}</flux:button>
+                            </div>
                         </div>
                     @endforeach
                 </div>
             @endif
         </section>
 
-        {{-- Column-to-field mapping table --}}
-        <section class="flux-panel import-section">
-            <h3 class="section-title">{{ __('sku_import.map_heading') }}</h3>
-            <p class="field-hint">{{ __('sku_import.map_hint') }}</p>
-            <table class="mapping-table">
-                <thead>
-                    <tr>
-                        <th>{{ __('sku_import.map_col_file_column') }}</th>
-                        <th>{{ __('sku_import.map_col_field') }}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($fileHeaders as $colIdx => $header)
+        {{-- Column-to-field mapping --}}
+        <section class="table-shell flux-panel form-panel">
+            <div class="form-panel-header">
+                <div>
+                    <strong>{{ __('sku_import.map_heading') }}</strong>
+                    <span>{{ __('sku_import.map_hint') }}</span>
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                <table class="data-table mapping-table">
+                    <thead>
                         <tr>
-                            <td>{{ $header }}</td>
-                            <td>
-                                <select wire:change="setFieldForColumn({{ $colIdx }}, $event.target.value)" class="map-select">
-                                    <option value="">{{ __('sku_import.map_ignore') }}</option>
-                                    <optgroup label="{{ __('sku_import.map_group_sku') }}">
-                                        @foreach ($fields as $field)
-                                            @if ($field->target === 'sku')
-                                                <option value="{{ $field->key }}" {{ ($columnToField[$header] ?? '') === $field->key ? 'selected' : '' }}>{{ __($field->labelKey) }}{{ $field->required ? ' *' : '' }}</option>
-                                            @endif
-                                        @endforeach
-                                    </optgroup>
-                                    <optgroup label="{{ __('sku_import.map_group_stock_item') }}">
-                                        @foreach ($fields as $field)
-                                            @if ($field->target === 'stock_item')
-                                                <option value="{{ $field->key }}" {{ ($columnToField[$header] ?? '') === $field->key ? 'selected' : '' }}>{{ __($field->labelKey) }}</option>
-                                            @endif
-                                        @endforeach
-                                    </optgroup>
-                                </select>
-                            </td>
+                            <th>{{ __('sku_import.map_col_file_column') }}</th>
+                            <th>{{ __('sku_import.map_col_field') }}</th>
                         </tr>
-                    @endforeach
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @foreach ($fileHeaders as $colIdx => $header)
+                            @php($mappedField = $columnToField[$header] ?? '')
+                            <tr @class(['is-mapped' => $mappedField !== ''])>
+                                <td><strong>{{ $header }}</strong></td>
+                                <td>
+                                    <select wire:change="setFieldForColumn({{ $colIdx }}, $event.target.value)">
+                                        <option value="">{{ __('sku_import.map_ignore') }}</option>
+                                        <optgroup label="{{ __('sku_import.map_group_sku') }}">
+                                            @foreach ($fields as $field)
+                                                @if ($field->target === 'sku')
+                                                    <option value="{{ $field->key }}" @selected($mappedField === $field->key)>{{ __($field->labelKey) }}{{ $field->required ? ' *' : '' }}</option>
+                                                @endif
+                                            @endforeach
+                                        </optgroup>
+                                        <optgroup label="{{ __('sku_import.map_group_stock_item') }}">
+                                            @foreach ($fields as $field)
+                                                @if ($field->target === 'stock_item')
+                                                    <option value="{{ $field->key }}" @selected($mappedField === $field->key)>{{ __($field->labelKey) }}</option>
+                                                @endif
+                                            @endforeach
+                                        </optgroup>
+                                    </select>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
         </section>
 
         {{-- Sample preview --}}
         @php($mappedFields = array_filter($fields, fn ($f) => ($mapping[$f->key] ?? '') !== ''))
         @if (!empty($mappedFields) && !empty($sampleRows))
-            <section class="flux-panel import-section">
-                <h3 class="section-title">{{ __('sku_import.map_sample_heading') }}</h3>
-                <div class="table-responsive">
-                    <table class="preview-table">
+            <section class="table-shell flux-panel form-panel">
+                <div class="form-panel-header">
+                    <div>
+                        <strong>{{ __('sku_import.map_sample_heading') }}</strong>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table">
                         <thead>
                             <tr>
                                 @foreach ($mappedFields as $field)
@@ -139,10 +170,10 @@
             </section>
         @endif
 
-        @error('mapping') <p class="field-error">{{ $message }}</p> @enderror
+        @error('mapping') <p class="form-error">{{ $message }}</p> @enderror
         <div class="form-actions">
             <flux:button wire:click="backToUpload">{{ __('sku_import.btn_back_to_upload') }}</flux:button>
-            <flux:button variant="primary" wire:click="advanceToPreview" wire:loading.attr="disabled">
+            <flux:button variant="primary" wire:click="advanceToPreview" wire:loading.attr="disabled" wire:target="advanceToPreview">
                 <span wire:loading.remove wire:target="advanceToPreview">{{ __('sku_import.btn_advance_to_preview') }}</span>
                 <span wire:loading wire:target="advanceToPreview">...</span>
             </flux:button>
@@ -151,98 +182,107 @@
 
     {{-- Step 3: Preview + options --}}
     @if ($step === 'preview')
-        {{-- Summary badges --}}
-        <section class="flux-panel import-section">
-            <div class="preview-summary">
-                <span class="summary-badge badge-valid">{{ __('sku_import.preview_valid_count', ['count' => $validRowCount]) }}</span>
-                <span class="summary-badge badge-exists">{{ __('sku_import.preview_exists_count', ['count' => $existsRowCount]) }}</span>
-                @if ($errorRowCount > 0)
-                    <span class="summary-badge badge-error">{{ __('sku_import.preview_error_count', ['count' => $errorRowCount]) }}</span>
+        {{-- Summary --}}
+        <section class="table-shell flux-panel form-panel">
+            <div class="import-summary">
+                <span class="badge badge-success">{{ __('sku_import.preview_valid_count', ['count' => $validRowCount]) }}</span>
+                @if ($existsRowCount > 0)
+                    <span class="badge badge-warning">{{ __('sku_import.preview_exists_count', ['count' => $existsRowCount]) }}</span>
                 @endif
-                <span class="summary-badge">{{ __('sku_import.preview_total_count', ['count' => $totalDataRows]) }}</span>
+                @if ($errorRowCount > 0)
+                    <span class="badge badge-danger">{{ __('sku_import.preview_error_count', ['count' => $errorRowCount]) }}</span>
+                @endif
+                <span class="badge import-badge-total">{{ __('sku_import.preview_total_count', ['count' => $totalDataRows]) }}</span>
             </div>
 
             @if ($validRowCount === 0 && $existsRowCount === 0)
-                <p class="field-error">{{ __('sku_import.preview_no_valid_rows') }}</p>
+                <p class="form-error">{{ __('sku_import.preview_no_valid_rows') }}</p>
             @endif
         </section>
 
-        {{-- Insert/upsert mode -- only shown when duplicate SKUs are detected --}}
+        {{-- Insert / upsert mode -- only shown when existing SKUs are detected --}}
         @if ($existsRowCount > 0)
-            <section class="flux-panel import-section">
-                <div class="option-row">
-                    <label class="option-label">
+            <section class="table-shell flux-panel form-panel">
+                <div class="form-panel-header">
+                    <div>
+                        <strong>{{ __('sku_import.preview_exists_count', ['count' => $existsRowCount]) }}</strong>
+                        <span>{{ __('sku_import.error_mode_required') }}</span>
+                    </div>
+                </div>
+                <div class="segmented-row stacked">
+                    <label>
                         <input type="radio" wire:model.live="allowUpsert" value="0">
-                        {{ __('sku_import.option_insert_only') }}
+                        <span>{{ __('sku_import.option_insert_only') }}</span>
                     </label>
-                </div>
-                <div class="option-row">
-                    <label class="option-label">
+                    <label>
                         <input type="radio" wire:model.live="allowUpsert" value="1">
-                        {{ __('sku_import.option_upsert') }}
+                        <span>{{ __('sku_import.option_upsert') }}</span>
                     </label>
                 </div>
+                @error('allowUpsert') <p class="form-error">{{ $message }}</p> @enderror
             </section>
         @endif
 
-        {{-- Template save --}}
-        <section class="flux-panel import-section">
-            <div class="option-row">
-                <label class="option-label">
-                    <input type="checkbox" wire:model.live="doSaveTemplate">
-                    {{ __('sku_import.option_save_template') }}
-                </label>
-                @if ($doSaveTemplate)
-                    <flux:input wire:model="saveTemplateName" placeholder="{{ __('sku_import.option_template_name') }}" />
-                    @error('saveTemplateName') <p class="field-error">{{ $message }}</p> @enderror
-                @endif
+        {{-- Save template --}}
+        <section class="table-shell flux-panel form-panel">
+            <div class="checkbox-stack">
+                <label><input type="checkbox" wire:model.live="doSaveTemplate"> {{ __('sku_import.option_save_template') }}</label>
+            </div>
+            @if ($doSaveTemplate)
+                <flux:input wire:model="saveTemplateName" :label="__('sku_import.option_template_name')" :placeholder="__('sku_import.option_template_name')" />
+                @error('saveTemplateName') <p class="form-error">{{ $message }}</p> @enderror
+            @endif
+        </section>
+
+        {{-- Row preview --}}
+        <section class="table-shell flux-panel form-panel">
+            <div class="form-panel-header">
+                <div>
+                    <strong>{{ __('sku_import.preview_heading') }}</strong>
+                    <span>{{ __('sku_import.preview_hint') }}</span>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>{{ __('sku_import.col_row') }}</th>
+                            <th>{{ __('sku_import.col_sku') }}</th>
+                            <th>{{ __('sku_import.col_name') }}</th>
+                            <th>{{ __('sku_import.col_status') }}</th>
+                            <th>{{ __('sku_import.col_errors') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($previewRows as $previewRow)
+                            <tr>
+                                <td>{{ $previewRow['row'] }}</td>
+                                <td><strong>{{ $previewRow['sku'] }}</strong></td>
+                                <td>{{ $previewRow['name'] }}</td>
+                                <td>
+                                    @if ($previewRow['status'] === 'valid')
+                                        <span class="badge badge-success">{{ __('sku_import.status_valid') }}</span>
+                                    @elseif ($previewRow['status'] === 'exists')
+                                        <span class="badge badge-warning">{{ __('sku_import.status_exists') }}</span>
+                                    @else
+                                        <span class="badge badge-danger">{{ __('sku_import.status_error') }}</span>
+                                    @endif
+                                </td>
+                                <td>{{ implode(' | ', $previewRow['errors']) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
         </section>
 
-        {{-- Row preview table --}}
-        <section class="flux-panel import-section">
-            <h3 class="section-title">{{ __('sku_import.preview_heading') }}</h3>
-            <p class="field-hint">{{ __('sku_import.preview_hint') }}</p>
-            <table class="preview-table">
-                <thead>
-                    <tr>
-                        <th>{{ __('sku_import.col_row') }}</th>
-                        <th>{{ __('sku_import.col_sku') }}</th>
-                        <th>{{ __('sku_import.col_name') }}</th>
-                        <th>{{ __('sku_import.col_status') }}</th>
-                        <th>{{ __('sku_import.col_errors') }}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($previewRows as $previewRow)
-                        <tr @class(['row-valid' => $previewRow['status'] === 'valid', 'row-exists' => $previewRow['status'] === 'exists', 'row-error' => $previewRow['status'] === 'error'])>
-                            <td>{{ $previewRow['row'] }}</td>
-                            <td>{{ $previewRow['sku'] }}</td>
-                            <td>{{ $previewRow['name'] }}</td>
-                            <td>
-                                @if ($previewRow['status'] === 'valid')
-                                    <span class="badge-valid">{{ __('sku_import.status_valid') }}</span>
-                                @elseif ($previewRow['status'] === 'exists')
-                                    <span class="badge-exists">{{ __('sku_import.status_exists') }}</span>
-                                @else
-                                    <span class="badge-error">{{ __('sku_import.status_error') }}</span>
-                                @endif
-                            </td>
-                            <td>{{ implode(' | ', $previewRow['errors']) }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </section>
-
-        @error('allowUpsert') <p class="field-error">{{ $message }}</p> @enderror
-        @error('saveTemplateName') <p class="field-error">{{ $message }}</p> @enderror
         <div class="form-actions">
             <flux:button wire:click="backToMap">{{ __('sku_import.btn_back_to_map') }}</flux:button>
             <flux:button
                 variant="primary"
                 wire:click="confirmImport"
                 wire:loading.attr="disabled"
+                wire:target="confirmImport"
                 :disabled="$validRowCount === 0 && $existsRowCount === 0"
             >
                 <span wire:loading.remove wire:target="confirmImport">{{ __('sku_import.btn_confirm_import') }}</span>
@@ -253,36 +293,44 @@
 
     {{-- Step 4: Result --}}
     @if ($step === 'result')
-        <section class="flux-panel import-section">
-            <h3 class="section-title">{{ __('sku_import.result_heading') }}</h3>
-            <div class="result-counts">
-                <div class="result-item">
+        <section class="table-shell flux-panel form-panel">
+            <div class="form-panel-header">
+                <div>
+                    <strong>{{ __('sku_import.result_heading') }}</strong>
+                </div>
+            </div>
+
+            <div class="import-stats">
+                <div class="import-stat is-created">
                     <strong>{{ $resultCreated }}</strong>
                     <span>{{ __('sku_import.result_created', ['count' => $resultCreated]) }}</span>
                 </div>
-                <div class="result-item">
+                <div class="import-stat is-updated">
                     <strong>{{ $resultUpdated }}</strong>
                     <span>{{ __('sku_import.result_updated', ['count' => $resultUpdated]) }}</span>
                 </div>
-                <div class="result-item">
+                <div class="import-stat is-skipped">
                     <strong>{{ $resultSkipped }}</strong>
                     <span>{{ __('sku_import.result_skipped', ['count' => $resultSkipped]) }}</span>
                 </div>
                 @if ($resultFailed > 0)
-                    <div class="result-item result-failed">
+                    <div class="import-stat is-failed">
                         <strong>{{ $resultFailed }}</strong>
                         <span>{{ __('sku_import.result_failed', ['count' => $resultFailed]) }}</span>
                     </div>
                 @endif
             </div>
 
-            @if ($resultFailed > 0)
-                <flux:button wire:click="downloadErrors">{{ __('sku_import.btn_download_errors') }}</flux:button>
-            @endif
-
             <div class="form-actions">
-                <flux:button href="{{ route('skus.index') }}" variant="subtle">{{ __('sku_import.btn_view_skus') }}</flux:button>
-                <flux:button variant="primary" wire:click="startOver">{{ __('sku_import.btn_import_more') }}</flux:button>
+                @if ($resultFailed > 0)
+                    <flux:button wire:click="downloadErrors">{{ __('sku_import.btn_download_errors') }}</flux:button>
+                @else
+                    <span></span>
+                @endif
+                <div class="template-actions">
+                    <flux:button href="{{ route('skus.index') }}" variant="subtle" wire:navigate>{{ __('sku_import.btn_view_skus') }}</flux:button>
+                    <flux:button variant="primary" wire:click="startOver">{{ __('sku_import.btn_import_more') }}</flux:button>
+                </div>
             </div>
         </section>
     @endif

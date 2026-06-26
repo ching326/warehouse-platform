@@ -202,36 +202,21 @@ class SkuImport extends Component
         $seenSkus = [];
 
         foreach ($rows as $idx => $row) {
-            $rowNo = $idx + 1;
-            $rowData = $this->extractRowData($row, $columnIndex);
-            $skuCode = trim($rowData['sku'] ?? '');
+            $eval = $this->evaluateRow($row, $columnIndex, $existingSkuCodes, $validProductTypes, $seenSkus);
 
-            $isDupInFile = $skuCode !== '' && isset($seenSkus[$skuCode]);
-            if ($skuCode !== '') {
-                $seenSkus[$skuCode] = true;
-            }
-
-            $errors = $this->validateRowData($rowData, $existingSkuCodes, $validProductTypes, $isDupInFile);
-            $skuExists = $skuCode !== '' && isset($existingSkuCodes[$skuCode]);
-
-            if ($errors !== []) {
-                $status = 'error';
-                $errorCount++;
-            } elseif ($skuExists) {
-                $status = 'exists';
-                $existsCount++;
-            } else {
-                $status = 'valid';
-                $validCount++;
-            }
+            match ($eval['status']) {
+                'error' => $errorCount++,
+                'exists' => $existsCount++,
+                default => $validCount++,
+            };
 
             if (count($previewRows) < 20) {
                 $previewRows[] = [
-                    'row' => $rowNo,
-                    'status' => $status,
-                    'sku' => $skuCode,
-                    'name' => trim($rowData['name'] ?? ''),
-                    'errors' => $errors,
+                    'row' => $idx + 1,
+                    'status' => $eval['status'],
+                    'sku' => $eval['sku'],
+                    'name' => trim($eval['rowData']['name'] ?? ''),
+                    'errors' => $eval['errors'],
                 ];
             }
         }
@@ -308,26 +293,16 @@ class SkuImport extends Component
         ) {
             foreach ($rows as $idx => $row) {
                 $rowNo = $idx + 1;
-                $rowData = $this->extractRowData($row, $columnIndex);
-                $skuCode = trim($rowData['sku'] ?? '');
+                $eval = $this->evaluateRow($row, $columnIndex, $existingSkuCodes, $validProductTypes, $seenSkus);
 
-                $isDupInFile = $skuCode !== '' && isset($seenSkus[$skuCode]);
-                if ($skuCode !== '') {
-                    $seenSkus[$skuCode] = true;
-                }
-
-                $errors = $this->validateRowData($rowData, $existingSkuCodes, $validProductTypes, $isDupInFile);
-
-                if ($errors !== []) {
+                if ($eval['status'] === 'error') {
                     $failed++;
-                    $errorRows[] = ['row' => $rowNo, 'sku' => $skuCode, 'errors' => implode('; ', $errors)];
+                    $errorRows[] = ['row' => $rowNo, 'sku' => $eval['sku'], 'errors' => implode('; ', $eval['errors'])];
 
                     continue;
                 }
 
-                $skuExists = $skuCode !== '' && isset($existingSkuCodes[$skuCode]);
-
-                if ($skuExists && ! $allowUpsert) {
+                if ($eval['status'] === 'exists' && ! $allowUpsert) {
                     $skipped++;
 
                     continue;
@@ -337,8 +312,8 @@ class SkuImport extends Component
                     $result = $writer->upsert(
                         $tenantId,
                         $shopId,
-                        $this->buildSkuData($rowData),
-                        $this->buildStockItemData($rowData),
+                        $this->buildSkuData($eval['rowData']),
+                        $this->buildStockItemData($eval['rowData']),
                         $allowUpsert,
                     );
 
@@ -351,7 +326,7 @@ class SkuImport extends Component
                     }
                 } catch (\Throwable $e) {
                     $failed++;
-                    $errorRows[] = ['row' => $rowNo, 'sku' => $skuCode, 'errors' => $e->getMessage()];
+                    $errorRows[] = ['row' => $rowNo, 'sku' => $eval['sku'], 'errors' => $e->getMessage()];
                 }
             }
         });
@@ -420,6 +395,41 @@ class SkuImport extends Component
         }
 
         return $columnIndex;
+    }
+
+    /**
+     * Extract one raw row's mapped data and classify it as valid, exists, or error.
+     * Shared by the preview pass and the import pass so both stay in sync.
+     *
+     * @param  array<string, bool>  $seenSkus  mutated to track in-file duplicates
+     * @return array{rowData: array<string, string>, sku: string, status: string, errors: list<string>}
+     */
+    private function evaluateRow(
+        array $row,
+        array $columnIndex,
+        array $existingSkuCodes,
+        array $validProductTypes,
+        array &$seenSkus,
+    ): array {
+        $rowData = $this->extractRowData($row, $columnIndex);
+        $skuCode = trim($rowData['sku'] ?? '');
+
+        $isDupInFile = $skuCode !== '' && isset($seenSkus[$skuCode]);
+        if ($skuCode !== '') {
+            $seenSkus[$skuCode] = true;
+        }
+
+        $errors = $this->validateRowData($rowData, $existingSkuCodes, $validProductTypes, $isDupInFile);
+
+        if ($errors !== []) {
+            $status = 'error';
+        } elseif ($skuCode !== '' && isset($existingSkuCodes[$skuCode])) {
+            $status = 'exists';
+        } else {
+            $status = 'valid';
+        }
+
+        return ['rowData' => $rowData, 'sku' => $skuCode, 'status' => $status, 'errors' => $errors];
     }
 
     private function extractRowData(array $row, array $columnIndex): array
