@@ -8,19 +8,26 @@
 <section class="table-shell flux-panel form-panel">
         <div class="form-panel-header">
             <div>
-                <strong>{{ $order->platform_order_id ?: '#'.$order->id }}</strong>
+                <div class="sales-order-detail-title-row">
+                    <strong>{{ $order->platform_order_id ?: '#'.$order->id }}</strong>
+                    <div class="active-filter-row">
+                        <flux:badge color="{{ $this->orderStatusColor($order->order_status) }}">
+                            {{ $this->orderStatusLabel($order->order_status) }}
+                        </flux:badge>
+                        <flux:badge color="{{ $this->fulfillmentStatusColor($order->fulfillment_status) }}">
+                            {{ $this->fulfillmentStatusLabel($order->fulfillment_status) }}
+                        </flux:badge>
+                        @if ($order->isPacking())
+                            <flux:badge color="amber">{{ __('sales_orders.label_packing') }}</flux:badge>
+                        @endif
+                    </div>
+                </div>
                 <span>{{ $order->shop->name }} / {{ $order->shop->platform }} / {{ $order->created_at->format('Y-m-d H:i') }}</span>
             </div>
-            <div class="active-filter-row">
-                <flux:badge color="{{ $this->orderStatusColor($order->order_status) }}">
-                    {{ $this->orderStatusLabel($order->order_status) }}
-                </flux:badge>
-                <flux:badge color="{{ $this->fulfillmentStatusColor($order->fulfillment_status) }}">
-                    {{ $this->fulfillmentStatusLabel($order->fulfillment_status) }}
-                </flux:badge>
-                @if ($order->isPacking())
-                    <flux:badge color="amber">{{ __('sales_orders.label_packing') }}</flux:badge>
-                @endif
+            <div class="sales-order-detail-header-actions" data-testid="sales-order-detail-header-actions">
+                <flux:button href="{{ route('sales.orders.index') }}" variant="outline" wire:navigate>
+                    {{ __('sales_orders.btn_back_orders') }}
+                </flux:button>
             </div>
         </div>
 
@@ -47,7 +54,7 @@
                     <option value="">{{ __('sales_orders.shipping_method_unset') }}</option>
                     @foreach ($shippingMethods as $method)
                         <option value="{{ $method->id }}" @selected((string) ($order->shipping_method_id ?? '') === (string) $method->id)>
-                            {{ $method->name }} / {{ $method->carrier->name }}
+                            {{ $method->name }}
                             @if ($method->status !== 'active')
                                 ({{ __('shipping.status_inactive') }})
                             @endif
@@ -107,7 +114,7 @@
                     </flux:button>
                 @endif
 
-                <flux:button href="{{ route('sales.orders.issues.create', $order) }}" variant="outline" wire:navigate>
+                <flux:button href="{{ route('sales.orders.issues.create', $order) }}" variant="primary" wire:navigate>
                     {{ __('issues.btn_create_from_order') }}
                 </flux:button>
             </div>
@@ -345,9 +352,4 @@
         </section>
     @endif
 
-    <div class="form-actions" data-testid="sales-order-detail-bottom-actions">
-        <flux:button href="{{ route('sales.orders.index') }}" variant="outline" wire:navigate>
-            {{ __('sales_orders.btn_back_orders') }}
-        </flux:button>
-    </div>
 </div>

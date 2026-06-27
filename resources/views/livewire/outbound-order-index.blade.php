@@ -1,7 +1,7 @@
 <div class="outbound-index-page">
     <x-flash-toast />
 <section class="table-shell flux-panel">
-        <div class="movement-toolbar">
+        <div class="movement-toolbar outbound-index-toolbar">
             <flux:select wire:model.live="tenantId" :label="__('outbound.field_tenant')">
                 <flux:select.option value="">{{ __('common.all_tenants') }}</flux:select.option>
                 @foreach ($tenants as $tenant)
@@ -122,6 +122,14 @@
             gap: 8px;
         }
 
+        .outbound-index-toolbar {
+            grid-template-columns: repeat(4, minmax(130px, 1fr)) max-content;
+        }
+
+        .outbound-index-toolbar > :last-child {
+            justify-self: end;
+        }
+
         .outbound-inline-pair {
             display: inline-flex;
             align-items: center;
@@ -164,6 +172,14 @@
         }
 
         @media (max-width: 760px) {
+            .outbound-index-toolbar {
+                grid-template-columns: 1fr;
+            }
+
+            .outbound-index-toolbar > :last-child {
+                justify-self: stretch;
+            }
+
             .outbound-row-actions {
                 flex-wrap: wrap;
             }

@@ -87,10 +87,10 @@
                 <flux:button href="{{ route('outbound.ship', $order) }}" variant="primary" wire:navigate>
                     {{ __('outbound.btn_ship') }}
                 </flux:button>
-                <flux:button type="button" variant="outline" wire:click="exportYamato">
+                <flux:button type="button" variant="primary" wire:click="exportYamato">
                     {{ __('fulfillment.batch_export_yamato') }}
                 </flux:button>
-                <flux:button type="button" variant="outline" wire:click="exportSagawa">
+                <flux:button type="button" variant="primary" wire:click="exportSagawa">
                     {{ __('fulfillment.batch_export_sagawa') }}
                 </flux:button>
                 <flux:button
@@ -379,7 +379,7 @@
 
     <style>
         .outbound-detail-actions {
-            justify-content: space-between;
+            justify-content: flex-start;
             margin-top: 0;
         }
 

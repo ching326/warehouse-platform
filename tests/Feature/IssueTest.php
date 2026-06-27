@@ -484,14 +484,17 @@ class IssueTest extends TestCase
             ->assertDontSee($other->issue_no);
     }
 
-    public function test_issue_index_order_filters_are_on_second_row_and_global_search_is_wide(): void
+    public function test_issue_index_search_is_on_second_row_and_create_button_is_in_primary_filters(): void
     {
         Livewire::actingAs($this->internalUser())
             ->test(IssueIndex::class)
-            ->assertSee('issue-filter-row-orders', false)
+            ->assertSee('issue-filter-row-primary', false)
+            ->assertSee('issue-filter-row-search', false)
             ->assertSee('issue-global-search', false)
-            ->assertSee(__('issues.sales_order_search_placeholder'))
-            ->assertSee(__('issues.outbound_order_search_placeholder'));
+            ->assertSee(__('issues.btn_create'))
+            ->assertDontSee('issue-filter-row-orders', false)
+            ->assertDontSee(__('issues.sales_order_search_placeholder'))
+            ->assertDontSee(__('issues.outbound_order_search_placeholder'));
     }
 
     public function test_create_issue_does_not_preload_all_sales_orders(): void

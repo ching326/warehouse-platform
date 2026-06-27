@@ -1818,7 +1818,7 @@ class SalesOrderTest extends TestCase
             ->assertSee(__('sales_orders.empty_state'));
     }
 
-    public function test_sales_order_detail_cancel_button_is_in_actions_header_area(): void
+    public function test_sales_order_detail_cancel_button_stays_in_actions_and_back_button_is_in_summary_header(): void
     {
         [, $shop, $sku] = $this->salesSku();
         $order = $this->createPersistedOrder($shop, $sku, [
@@ -1834,10 +1834,16 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString('data-testid="sales-order-detail-actions-danger"', $html);
         $this->assertStringContainsString(__('sales_orders.btn_cancel_order'), $html);
 
-        preg_match('/data-testid="sales-order-detail-bottom-actions"[\s\S]*?<\/div>/', $html, $bottomMatches);
-        $this->assertNotEmpty($bottomMatches);
-        $this->assertStringContainsString(__('sales_orders.btn_back_orders'), $bottomMatches[0]);
-        $this->assertStringNotContainsString(__('sales_orders.btn_cancel_order'), $bottomMatches[0]);
+        $headerActionsPosition = strpos($html, 'data-testid="sales-order-detail-header-actions"');
+        $backButtonPosition = strpos($html, __('sales_orders.btn_back_orders'));
+        $detailActionsPosition = strpos($html, 'data-testid="sales-order-detail-actions"');
+
+        $this->assertIsInt($headerActionsPosition);
+        $this->assertIsInt($backButtonPosition);
+        $this->assertIsInt($detailActionsPosition);
+        $this->assertGreaterThan($headerActionsPosition, $backButtonPosition);
+        $this->assertLessThan($detailActionsPosition, $backButtonPosition);
+        $this->assertStringNotContainsString('data-testid="sales-order-detail-bottom-actions"', $html);
     }
 
     public function test_sales_order_detail_main_actions_use_teal_style(): void

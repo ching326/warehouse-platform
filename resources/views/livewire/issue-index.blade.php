@@ -27,30 +27,18 @@
                     @endforeach
                 </flux:select>
 
+                <flux:button href="{{ route('issues.create') }}" variant="primary" wire:navigate>
+                    {{ __('issues.btn_create') }}
+                </flux:button>
+            </div>
+
+            <div class="issue-filter-row issue-filter-row-search">
                 <flux:input
                     class="issue-global-search"
                     wire:model.live.debounce.300ms="search"
                     :label="__('common.search')"
                     :placeholder="__('issues.search_placeholder')"
                 />
-            </div>
-
-            <div class="issue-filter-row issue-filter-row-orders">
-                <flux:input
-                    wire:model.live.debounce.300ms="salesOrderSearch"
-                    :label="__('issues.field_sales_order')"
-                    :placeholder="__('issues.sales_order_search_placeholder')"
-                />
-
-                <flux:input
-                    wire:model.live.debounce.300ms="outboundOrderSearch"
-                    :label="__('issues.field_outbound_order')"
-                    :placeholder="__('issues.outbound_order_search_placeholder')"
-                />
-
-                <flux:button href="{{ route('issues.create') }}" variant="primary" wire:navigate>
-                    {{ __('issues.btn_create') }}
-                </flux:button>
             </div>
         </div>
 
@@ -132,27 +120,21 @@
         }
 
         .issue-filter-row-primary {
-            grid-template-columns: repeat(3, minmax(150px, 190px)) minmax(280px, 1fr);
+            grid-template-columns: repeat(3, minmax(150px, 190px)) max-content;
         }
 
-        .issue-filter-row-orders {
-            grid-template-columns: minmax(240px, 1fr) minmax(220px, 1fr) max-content;
+        .issue-filter-row-search {
+            grid-template-columns: minmax(280px, 520px);
         }
 
         .issue-global-search {
-            justify-self: end;
-            width: min(100%, 460px);
+            width: 100%;
         }
 
         @media (max-width: 900px) {
             .issue-filter-row-primary,
-            .issue-filter-row-orders {
+            .issue-filter-row-search {
                 grid-template-columns: 1fr;
-            }
-
-            .issue-global-search {
-                justify-self: stretch;
-                width: 100%;
             }
         }
     </style>

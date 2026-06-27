@@ -2914,6 +2914,21 @@
                 color: var(--danger);
             }
 
+            .sales-order-detail-header-actions {
+                display: inline-flex;
+                align-items: center;
+                justify-content: flex-end;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+
+            .sales-order-detail-title-row {
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+
             .sales-order-detail-actions {
                 display: flex;
                 align-items: center;
