@@ -247,7 +247,7 @@
                     </a>
                     <a
                         href="{{ route('setup.other-settings') }}"
-                        class="{{ request()->routeIs('setup.other-settings') ? 'is-active' : '' }}"
+                        class="{{ request()->routeIs('setup.other-settings', 'setup.product-types.*', 'setup.fba-warehouses.*') ? 'is-active' : '' }}"
                         wire:navigate
                         @click="open = false"
                     >

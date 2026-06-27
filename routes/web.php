@@ -33,6 +33,7 @@ use App\Livewire\OutboundOrderShip;
 use App\Livewire\PackagingMaterialCreate;
 use App\Livewire\PackagingMaterialEdit;
 use App\Livewire\PackagingMaterialIndex;
+use App\Livewire\ProductTypeSettings;
 use App\Livewire\ReturnOrderCreate;
 use App\Livewire\ReturnOrderDisposition;
 use App\Livewire\ReturnOrderIndex;
@@ -167,5 +168,6 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/setup/packagings/create', PackagingMaterialCreate::class)->name('setup.packagings.create');
     Route::get('/setup/packagings/{packaging}/edit', PackagingMaterialEdit::class)->name('setup.packagings.edit');
     Route::get('/setup/other-settings', OtherSettings::class)->name('setup.other-settings');
+    Route::get('/setup/product-types', ProductTypeSettings::class)->name('setup.product-types.index');
     Route::get('/stock-adjustments/create', StockAdjustmentCreate::class)->name('stock-adjustments.create');
 });

@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\OtherSettings;
+use App\Livewire\ProductTypeSettings;
 use App\Models\ProductType;
 use App\Models\Tenant;
 use App\Models\TenantUser;
@@ -21,7 +21,17 @@ class OtherSettingsTest extends TestCase
     {
         $this->actingAs($this->internalUser())
             ->get('/setup/other-settings')
-            ->assertOk();
+            ->assertOk()
+            ->assertSee('Product Types')
+            ->assertSee('FBA Warehouse');
+    }
+
+    public function test_internal_user_can_access_product_types_page(): void
+    {
+        $this->actingAs($this->internalUser())
+            ->get('/setup/product-types')
+            ->assertOk()
+            ->assertSee('Product Types');
     }
 
     public function test_tenant_user_cannot_access_other_settings(): void
@@ -29,12 +39,16 @@ class OtherSettingsTest extends TestCase
         $this->actingAs($this->tenantUser())
             ->get('/setup/other-settings')
             ->assertForbidden();
+
+        $this->actingAs($this->tenantUser())
+            ->get('/setup/product-types')
+            ->assertForbidden();
     }
 
     public function test_tenant_user_cannot_save_via_livewire(): void
     {
         Livewire::actingAs($this->tenantUser())
-            ->test(OtherSettings::class)
+            ->test(ProductTypeSettings::class)
             ->assertForbidden();
 
         $this->assertSame(0, ProductType::count());
@@ -45,7 +59,7 @@ class OtherSettingsTest extends TestCase
     public function test_save_creates_new_product_type(): void
     {
         Livewire::actingAs($this->internalUser())
-            ->test(OtherSettings::class)
+            ->test(ProductTypeSettings::class)
             ->call('addType')
             ->set('types.0.slug', 'electronics')
             ->set('types.0.name', 'Electronics')
@@ -68,7 +82,7 @@ class OtherSettingsTest extends TestCase
         ]);
 
         Livewire::actingAs($this->internalUser())
-            ->test(OtherSettings::class)
+            ->test(ProductTypeSettings::class)
             ->set('types.0.name', 'New Name')
             ->set('types.0.translations.en', 'New Name')
             ->call('save');
@@ -84,7 +98,7 @@ class OtherSettingsTest extends TestCase
         ProductType::create(['slug' => 'to-delete', 'name' => 'To Delete', 'sort_order' => 10]);
 
         Livewire::actingAs($this->internalUser())
-            ->test(OtherSettings::class)
+            ->test(ProductTypeSettings::class)
             ->call('removeType', 0)
             ->call('save');
 
