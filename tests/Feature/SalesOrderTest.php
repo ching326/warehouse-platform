@@ -1501,6 +1501,17 @@ class SalesOrderTest extends TestCase
             ->assertDontSee('OLD-SHIPPED-RESET');
     }
 
+    public function test_sales_order_index_removes_shipped_when_date_is_the_only_other_filter_removed(): void
+    {
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('fulfillmentStatusesFilter', [SalesOrder::FULFILLMENT_STATUS_SHIPPED])
+            ->assertSet('dateRange', SalesOrderFilters::DATE_LAST_30_DAYS)
+            ->call('removeFilterChip', 'date')
+            ->assertSet('dateRange', SalesOrderFilters::DATE_ALL)
+            ->assertSet('fulfillmentStatusesFilter', []);
+    }
+
     public function test_sales_order_index_custom_date_range_cannot_exceed_365_days(): void
     {
         [, $shop, $sku] = $this->salesSku();

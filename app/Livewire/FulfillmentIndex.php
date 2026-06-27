@@ -14,6 +14,7 @@ use App\Services\Outbound\ShipOutboundOrderService;
 use App\Support\CourierCarrier;
 use App\Support\SalesOrderFilters;
 use App\Support\TrackingNumber;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -52,6 +53,15 @@ class FulfillmentIndex extends Component
     #[Url(as: 'shipping', except: [])]
     public array $shippingMethodsFilter = [];
 
+    #[Url(as: 'date_range', except: SalesOrderFilters::DATE_ALL)]
+    public string $dateRange = SalesOrderFilters::DATE_ALL;
+
+    #[Url(as: 'date_from', except: '')]
+    public string $dateFrom = '';
+
+    #[Url(as: 'date_to', except: '')]
+    public string $dateTo = '';
+
     /** @var array<int, string> */
     #[Url(as: 'others', except: [])]
     public array $othersFilter = [];
@@ -85,6 +95,7 @@ class FulfillmentIndex extends Component
     public function mount(): void
     {
         $this->authorizeTenantAccess();
+        $this->coerceShippedDateRange();
     }
 
     public function updatedTenantIds(): void
@@ -99,6 +110,7 @@ class FulfillmentIndex extends Component
 
     public function updatedStatusesFilter(): void
     {
+        $this->coerceShippedDateRange();
         $this->resetPage();
     }
 
@@ -108,6 +120,21 @@ class FulfillmentIndex extends Component
     }
 
     public function updatedShippingMethodsFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateRange(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateFrom(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateTo(): void
     {
         $this->resetPage();
     }
@@ -129,11 +156,13 @@ class FulfillmentIndex extends Component
             'warehouse' => $this->warehouseId = '',
             'status' => $this->statusesFilter = $this->removeFilterValue($this->statusesFilter, $value),
             'shipping' => $this->shippingMethodsFilter = $this->removeFilterValue($this->shippingMethodsFilter, $value),
+            'date' => $this->resetDateFilter(),
             'other' => $this->othersFilter = $this->removeFilterValue($this->othersFilter, $value),
             'search' => $this->search = '',
             default => null,
         };
 
+        $this->removeShippedIfOnlyRemainingFilter();
         $this->resetPage();
     }
 
@@ -143,6 +172,7 @@ class FulfillmentIndex extends Component
         $this->warehouseId = '';
         $this->statusesFilter = [];
         $this->shippingMethodsFilter = [];
+        $this->resetDateFilter();
         $this->othersFilter = [];
         $this->search = '';
         $this->resetPage();
@@ -390,6 +420,17 @@ class FulfillmentIndex extends Component
             ->when($this->statusesFilter !== [], fn ($query) => $query
                 ->whereIn('status', array_map(fn ($status) => self::STATUS_MAP[$status] ?? $status, $this->statusesFilter)))
             ->when($this->printWaiting, fn ($query) => $query->whereNull('courier_csv_exported_at'))
+            ->when($this->dateRange !== SalesOrderFilters::DATE_ALL || $this->dateFrom !== '' || $this->dateTo !== '', function ($query) {
+                [$from, $toExclusive] = $this->dateWindow();
+
+                if ($from) {
+                    $query->where('created_at', '>=', $from);
+                }
+
+                if ($toExclusive) {
+                    $query->where('created_at', '<', $toExclusive);
+                }
+            })
             ->when(in_array(SalesOrderFilters::OTHER_PRINTED, $this->othersFilter, true), fn ($query) => $query
                 ->whereNotNull('courier_csv_exported_at'))
             ->when(in_array(SalesOrderFilters::OTHER_NOT_PRINTED, $this->othersFilter, true), fn ($query) => $query
@@ -463,6 +504,7 @@ class FulfillmentIndex extends Component
             'shippingMethods' => $shippingMethods,
             'shippingMethodFilterOptions' => $shippingMethodFilterOptions,
             'statuses' => $this->statuses(),
+            'dateRanges' => $this->dateRanges(),
             'showTenantFilter' => $this->isInternalUser(),
             'visibleOrderIds' => $this->visibleOrderIds,
             'activeFilterChips' => $this->activeFilterChips($tenants, $warehouses, $shippingMethodFilterOptions),
@@ -513,6 +555,10 @@ class FulfillmentIndex extends Component
             $chips[] = $this->chip('shipping', (string) $method, __('fulfillment.filter_shipping'), $shippingMethodFilterOptions[(string) $method] ?? (string) $method);
         }
 
+        if ($this->dateRange !== SalesOrderFilters::DATE_ALL || $this->dateFrom !== '' || $this->dateTo !== '') {
+            $chips[] = $this->chip('date', '', __('fulfillment.filter_order_date'), $this->dateChipLabel());
+        }
+
         $otherLabels = [
             SalesOrderFilters::OTHER_MULTI_ITEM => __('fulfillment.other_multi_item'),
             SalesOrderFilters::OTHER_PRINTED => __('fulfillment.other_printed'),
@@ -544,6 +590,112 @@ class FulfillmentIndex extends Component
     private function removeFilterValue(mixed $values, string $value): array
     {
         return array_values(array_filter((array) $values, fn ($item) => (string) $item !== $value));
+    }
+
+    private function removeShippedIfOnlyRemainingFilter(): void
+    {
+        $statuses = array_values(array_map('strval', (array) $this->statusesFilter));
+
+        if (! in_array('shipped', $statuses, true)) {
+            return;
+        }
+
+        $nonShippedStatuses = array_values(array_filter($statuses, fn (string $status): bool => $status !== 'shipped'));
+        $hasOtherFilter = $this->tenantIds !== []
+            || $this->warehouseId !== ''
+            || $nonShippedStatuses !== []
+            || $this->printWaiting
+            || $this->shippingMethodsFilter !== []
+            || $this->dateRange !== SalesOrderFilters::DATE_ALL
+            || $this->dateFrom !== ''
+            || $this->dateTo !== ''
+            || $this->othersFilter !== []
+            || trim($this->search) !== '';
+
+        if ($hasOtherFilter) {
+            return;
+        }
+
+        $this->statusesFilter = $nonShippedStatuses;
+    }
+
+    private function coerceShippedDateRange(): void
+    {
+        if (in_array('shipped', $this->statusesFilter, true) && $this->dateRange === SalesOrderFilters::DATE_ALL) {
+            $this->dateRange = SalesOrderFilters::DATE_LAST_30_DAYS;
+        }
+    }
+
+    private function dateRanges(): array
+    {
+        return [
+            SalesOrderFilters::DATE_TODAY => __('sales_orders.date_today'),
+            SalesOrderFilters::DATE_LAST_3_DAYS => __('sales_orders.date_last_3_days'),
+            SalesOrderFilters::DATE_LAST_7_DAYS => __('sales_orders.date_last_7_days'),
+            SalesOrderFilters::DATE_LAST_30_DAYS => __('sales_orders.date_last_30_days'),
+            SalesOrderFilters::DATE_LAST_3_MONTHS => __('sales_orders.date_last_3_months'),
+            SalesOrderFilters::DATE_LAST_1_YEAR => __('sales_orders.date_last_1_year'),
+            SalesOrderFilters::DATE_CUSTOM => __('sales_orders.date_custom'),
+        ];
+    }
+
+    private function dateChipLabel(): string
+    {
+        if ($this->dateRange === SalesOrderFilters::DATE_CUSTOM) {
+            return match (true) {
+                $this->dateFrom !== '' && $this->dateTo !== '' => __('sales_orders.date_custom_between', [
+                    'from' => $this->dateFrom,
+                    'to' => $this->dateTo,
+                ]),
+                $this->dateFrom !== '' => __('sales_orders.date_custom_from', ['from' => $this->dateFrom]),
+                $this->dateTo !== '' => __('sales_orders.date_custom_to', ['to' => $this->dateTo]),
+                default => __('sales_orders.date_custom'),
+            };
+        }
+
+        return $this->dateRanges()[$this->dateRange] ?? $this->dateRange;
+    }
+
+    private function resetDateFilter(): void
+    {
+        $this->dateRange = SalesOrderFilters::DATE_ALL;
+        $this->dateFrom = '';
+        $this->dateTo = '';
+    }
+
+    private function dateWindow(): array
+    {
+        return match ($this->dateRange) {
+            SalesOrderFilters::DATE_TODAY => [now()->startOfDay(), now()->addDay()->startOfDay()],
+            SalesOrderFilters::DATE_LAST_3_DAYS => [now()->subDays(3)->startOfDay(), null],
+            SalesOrderFilters::DATE_LAST_7_DAYS => [now()->subDays(7)->startOfDay(), null],
+            SalesOrderFilters::DATE_LAST_30_DAYS => [now()->subDays(30)->startOfDay(), null],
+            SalesOrderFilters::DATE_LAST_3_MONTHS => [now()->subMonths(3)->startOfDay(), null],
+            SalesOrderFilters::DATE_LAST_1_YEAR => [now()->subYear()->startOfDay(), null],
+            SalesOrderFilters::DATE_CUSTOM => $this->customDateWindow(),
+            default => [null, null],
+        };
+    }
+
+    private function customDateWindow(): array
+    {
+        $from = $this->parseDate($this->dateFrom)?->startOfDay();
+        $to = $this->parseDate($this->dateTo)?->addDay()->startOfDay();
+
+        return [$from, $to];
+    }
+
+    private function parseDate(string $date): ?Carbon
+    {
+        if ($date === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($date);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function performCourierExport(string $carrier, bool $confirmedReExport, ?array $outboundOrderIds = null): mixed

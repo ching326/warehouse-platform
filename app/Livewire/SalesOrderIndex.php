@@ -195,6 +195,7 @@ class SalesOrderIndex extends Component
             default => null,
         };
 
+        $this->removeShippedIfOnlyRemainingFilter();
         $this->filterChanged();
     }
 
@@ -1170,6 +1171,38 @@ class SalesOrderIndex extends Component
     private function removeFilterValue(mixed $values, string $value): array
     {
         return array_values(array_filter((array) $values, fn ($item) => (string) $item !== $value));
+    }
+
+    private function removeShippedIfOnlyRemainingFilter(): void
+    {
+        $fulfillmentStatuses = array_values(array_map('strval', (array) $this->fulfillmentStatusesFilter));
+
+        if (! in_array(SalesOrder::FULFILLMENT_STATUS_SHIPPED, $fulfillmentStatuses, true)) {
+            return;
+        }
+
+        $nonShippedStatuses = array_values(array_filter(
+            $fulfillmentStatuses,
+            fn (string $status): bool => $status !== SalesOrder::FULFILLMENT_STATUS_SHIPPED,
+        ));
+
+        $hasOtherFilter = $this->platforms !== []
+            || $this->shopIds !== []
+            || $nonShippedStatuses !== []
+            || $this->orderStatusesFilter !== []
+            || $this->shippingMethodsFilter !== []
+            || $this->othersFilter !== []
+            || $this->dateRange !== SalesOrderFilters::DATE_ALL
+            || $this->dateFrom !== ''
+            || $this->dateTo !== ''
+            || trim($this->search) !== '';
+
+        if ($hasOtherFilter) {
+            return;
+        }
+
+        $this->fulfillmentStatusesFilter = $nonShippedStatuses;
+        $this->activeOnly = true;
     }
 
     private function resetDateFilter(): void

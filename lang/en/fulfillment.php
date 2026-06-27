@@ -70,6 +70,7 @@ return [
     'col_added' => 'Added',
     'filter_print_waiting' => 'Print waiting',
     'filter_shipping' => 'Shipping',
+    'filter_order_date' => 'Order date',
     'filter_others' => 'Others',
     'clear_all_filters' => 'Clear all',
     'other_multi_item' => 'Multi-item parcel',

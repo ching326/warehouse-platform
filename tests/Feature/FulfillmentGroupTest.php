@@ -561,6 +561,82 @@ class FulfillmentGroupTest extends TestCase
             ->assertDontSee($printedGroup->ref);
     }
 
+    public function test_fulfillment_index_filters_by_added_date_range(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $recentOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-RECENT-DATE');
+        $oldOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-OLD-DATE', '2 Old Date Street');
+
+        $this->createGroup($tenant, $warehouse, $recentOrder->ship_together_key, [$recentOrder]);
+        $recentGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+        DB::table('outbound_orders')->where('id', $recentGroup->id)->update([
+            'created_at' => now()->subDays(3),
+            'updated_at' => now()->subDays(3),
+        ]);
+
+        $this->createGroup($tenant, $warehouse, $oldOrder->ship_together_key, [$oldOrder]);
+        $oldGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+        DB::table('outbound_orders')->where('id', $oldGroup->id)->update([
+            'created_at' => now()->subDays(20),
+            'updated_at' => now()->subDays(20),
+        ]);
+
+        Livewire::withQueryParams(['date_range' => SalesOrderFilters::DATE_LAST_7_DAYS])
+            ->actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->assertSet('dateRange', SalesOrderFilters::DATE_LAST_7_DAYS)
+            ->assertSee($recentGroup->ref)
+            ->assertDontSee($oldGroup->ref);
+    }
+
+    public function test_fulfillment_index_shipped_filter_defaults_to_last_30_days(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $recentOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-SHIPPED-RECENT');
+        $oldOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-SHIPPED-OLD', '2 Shipped Old Street');
+
+        $this->createGroup($tenant, $warehouse, $recentOrder->ship_together_key, [$recentOrder]);
+        $recentGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+        DB::table('outbound_orders')->where('id', $recentGroup->id)->update([
+            'status' => OutboundOrder::STATUS_SHIPPED,
+            'created_at' => now()->subDays(5),
+            'updated_at' => now()->subDays(5),
+            'shipped_at' => now()->subDays(4),
+        ]);
+
+        $this->createGroup($tenant, $warehouse, $oldOrder->ship_together_key, [$oldOrder]);
+        $oldGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+        DB::table('outbound_orders')->where('id', $oldGroup->id)->update([
+            'status' => OutboundOrder::STATUS_SHIPPED,
+            'created_at' => now()->subDays(60),
+            'updated_at' => now()->subDays(60),
+            'shipped_at' => now()->subDays(59),
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('statusesFilter', ['shipped'])
+            ->assertSet('dateRange', SalesOrderFilters::DATE_LAST_30_DAYS);
+
+        Livewire::withQueryParams(['statuses' => ['shipped']])
+            ->actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->assertSet('dateRange', SalesOrderFilters::DATE_LAST_30_DAYS)
+            ->assertSee($recentGroup->ref)
+            ->assertDontSee($oldGroup->ref);
+    }
+
+    public function test_fulfillment_index_removes_shipped_when_date_is_the_only_other_filter_removed(): void
+    {
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('statusesFilter', ['shipped'])
+            ->assertSet('dateRange', SalesOrderFilters::DATE_LAST_30_DAYS)
+            ->call('removeFilterChip', 'date')
+            ->assertSet('dateRange', SalesOrderFilters::DATE_ALL)
+            ->assertSet('statusesFilter', []);
+    }
+
     public function test_fulfillment_index_filter_chips_render_and_remove_individual_filters(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);

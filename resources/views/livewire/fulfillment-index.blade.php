@@ -107,6 +107,37 @@
             </details>
 
             <details
+                @class(['filter-menu', 'is-active' => $dateRange !== \App\Support\SalesOrderFilters::DATE_ALL || $dateFrom !== '' || $dateTo !== ''])
+                x-bind:class="{ 'is-active': $wire.dateRange !== '{{ \App\Support\SalesOrderFilters::DATE_ALL }}' || $wire.dateFrom !== '' || $wire.dateTo !== '' }"
+                wire:ignore.self
+                x-bind:open="openFilter === 'date'"
+                x-on:click.outside="if (openFilter === 'date') openFilter = null"
+            >
+                <summary
+                    class="filter-button"
+                    x-on:click.prevent="openFilter = openFilter === 'date' ? null : 'date'"
+                    x-bind:aria-expanded="openFilter === 'date'"
+                >
+                    <span>{{ __('fulfillment.filter_order_date') }}</span>
+                </summary>
+                <div class="filter-panel date-filter-panel">
+                    @foreach ($dateRanges as $range => $label)
+                        <label>
+                            <input type="radio" wire:model.live="dateRange" value="{{ $range }}">
+                            {{ $label }}
+                        </label>
+                    @endforeach
+
+                    @if ($dateRange === \App\Support\SalesOrderFilters::DATE_CUSTOM)
+                        <div class="date-custom-grid">
+                            <flux:input type="date" wire:model.live="dateFrom" :label="__('sales_orders.field_date_from')" />
+                            <flux:input type="date" wire:model.live="dateTo" :label="__('sales_orders.field_date_to')" />
+                        </div>
+                    @endif
+                </div>
+            </details>
+
+            <details
                 @class(['filter-menu', 'is-active' => count((array) $othersFilter) > 0])
                 x-bind:class="{ 'is-active': $wire.othersFilter.length > 0 }"
                 wire:ignore.self
