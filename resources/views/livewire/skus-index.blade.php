@@ -59,8 +59,7 @@
                 @endforeach
             </flux:select>
 
-            <flux:select wire:model.live="status" :label="__('common.status')">
-                <flux:select.option value="">{{ __('skus.all_statuses') }}</flux:select.option>
+            <flux:select wire:model.live="status" :label="__('skus.filter_status')">
                 @foreach ($statuses as $option)
                     <flux:select.option value="{{ $option }}">{{ $this->statusLabel($option) }}</flux:select.option>
                 @endforeach
@@ -103,6 +102,9 @@
                                 <strong>{{ $sku->sku }}</strong>
                                 <span>{{ $sku->name }}</span>
                                 <small>{{ $this->skuTypeLabel($sku->sku_type) }}</small>
+                                @if ($sku->status === 'inactive')
+                                    <flux:badge color="zinc">{{ __('skus.status_inactive') }}</flux:badge>
+                                @endif
                             </flux:table.cell>
                             <flux:table.cell class="sku-stock-cell">
                                 @if ($sku->stockItem)
@@ -151,6 +153,20 @@
                                     <flux:button type="button" size="sm" variant="primary" wire:click="openAliasPanel({{ $sku->id }})">
                                         {{ __('skus.manage_aliases') }}
                                     </flux:button>
+                                    @if ($sku->status === 'inactive')
+                                        <flux:button type="button" size="sm" variant="outline" wire:click="reactivateSku({{ $sku->id }})">
+                                            {{ __('skus.action_reactivate') }}
+                                        </flux:button>
+                                    @else
+                                        <flux:button type="button" size="sm" variant="outline" wire:click="deactivateSku({{ $sku->id }})" wire:confirm="{{ __('skus.confirm_deactivate') }}">
+                                            {{ __('skus.action_deactivate') }}
+                                        </flux:button>
+                                    @endif
+                                    @if ($sku->canBeDeleted())
+                                        <flux:button type="button" size="sm" variant="danger" wire:click="deleteSku({{ $sku->id }})" wire:confirm="{{ __('skus.confirm_delete_permanently') }}">
+                                            {{ __('skus.action_delete_permanently') }}
+                                        </flux:button>
+                                    @endif
                                 </div>
                             </flux:table.cell>
                         </flux:table.row>
@@ -197,6 +213,9 @@
                             </flux:table.cell>
                             <flux:table.cell class="sku-primary-cell">
                                 <strong>{{ $sku->sku }}</strong>
+                                @if ($sku->status === 'inactive')
+                                    <flux:badge color="zinc">{{ __('skus.status_inactive') }}</flux:badge>
+                                @endif
                             </flux:table.cell>
                             <flux:table.cell class="sku-primary-cell">
                                 <span title="{{ $sku->name }}">{{ $sku->name }}</span>
@@ -291,6 +310,9 @@
                                     @else
                                         @php($cellValue = $this->flatCellValue($sku, $key))
                                         <span title="{{ $cellValue }}">{{ $cellValue }}</span>
+                                        @if ($key === 'sku' && $sku->status === 'inactive')
+                                            <flux:badge color="zinc">{{ __('skus.status_inactive') }}</flux:badge>
+                                        @endif
                                     @endif
                                 </flux:table.cell>
                             @endforeach

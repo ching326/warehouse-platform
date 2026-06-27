@@ -148,6 +148,7 @@ class SalesOrderImport extends Component
         }
 
         $skuMap = $this->skuMapForShop($shop);
+        $inactiveSkuMap = $this->inactiveSkuMapForShop($shop);
         $existingOrderIds = $this->existingPlatformOrderIds($shop);
 
         $parsed = [];
@@ -179,6 +180,8 @@ class SalesOrderImport extends Component
 
                 if ($skuCode === '') {
                     $errors[] = __('sales_orders.import_missing_sku');
+                } elseif ($inactiveSkuMap->has($skuCode)) {
+                    $errors[] = __('skus.inactive_import_blocked');
                 } elseif (! $skuMap->has($skuCode)) {
                     $skuNotFound = true;
                     $errors[] = __('sales_orders.import_unknown_sku', ['sku' => $skuCode]);
@@ -237,6 +240,7 @@ class SalesOrderImport extends Component
         }
 
         $skuMap = $this->skuMapForShop($shop);
+        $inactiveSkuMap = $this->inactiveSkuMapForShop($shop);
         $existingOrderIds = $this->existingPlatformOrderIds($shop);
         $parsed = [];
         $hasErrors = false;
@@ -265,6 +269,8 @@ class SalesOrderImport extends Component
 
                 if ($skuCode === '') {
                     $errors[] = __('sales_orders.import_missing_sku');
+                } elseif ($inactiveSkuMap->has($skuCode)) {
+                    $errors[] = __('skus.inactive_import_blocked');
                 } elseif (! $skuMap->has($skuCode)) {
                     $skuNotFound = true;
                     $errors[] = __('sales_orders.import_unknown_sku', ['sku' => $skuCode]);
@@ -510,6 +516,15 @@ class SalesOrderImport extends Component
             ->where(fn ($query) => $query
                 ->where('sku_type', 'virtual_bundle')
                 ->orWhereNotNull('stock_item_id'))
+            ->pluck('id', 'sku');
+    }
+
+    private function inactiveSkuMapForShop(Shop $shop): Collection
+    {
+        return Sku::query()
+            ->where('tenant_id', $shop->tenant_id)
+            ->where('shop_id', $shop->id)
+            ->where('status', 'inactive')
             ->pluck('id', 'sku');
     }
 

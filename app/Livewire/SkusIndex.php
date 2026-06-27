@@ -17,6 +17,7 @@ use App\Services\Amazon\AmazonSpapiApiException;
 use App\Services\Amazon\AmazonSpapiCatalogClient;
 use App\Services\BarcodeAliasService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -45,7 +46,8 @@ class SkusIndex extends Component
 
     public string $shopId = '';
 
-    public string $status = '';
+    #[Url(except: 'active')]
+    public string $status = 'active';
 
     public string $skuType = '';
 
@@ -130,6 +132,10 @@ class SkusIndex extends Component
 
     public function updatedStatus(): void
     {
+        if (! $this->isAllowedStatus($this->status)) {
+            $this->status = 'active';
+        }
+
         $this->resetPage();
     }
 
@@ -321,7 +327,7 @@ class SkusIndex extends Component
                 isActive: true,
             );
 
-            if ($target === BarcodeAlias::MODEL_TYPE_SKU && $this->aliasBarcodeType === 'platform_label') {
+            if ($target === BarcodeAlias::MODEL_TYPE_SKU) {
                 $barcodeAliases->syncSkuPlatformLabelMirror($sku);
             }
         } catch (AliasCollisionException $exception) {
@@ -330,6 +336,48 @@ class SkusIndex extends Component
 
         $this->resetAliasForm();
         $this->flashStatus(__('skus.alias_created'));
+    }
+
+    public function deactivateSku(int $skuId): void
+    {
+        $sku = $this->skuForAction($skuId);
+
+        $sku->update(['status' => 'inactive']);
+
+        $this->flashStatus(__('skus.deactivated'));
+    }
+
+    public function reactivateSku(int $skuId): void
+    {
+        $sku = $this->skuForAction($skuId);
+
+        $sku->update(['status' => 'active']);
+
+        $this->flashStatus(__('skus.reactivated'));
+    }
+
+    public function deleteSku(int $skuId): void
+    {
+        $sku = $this->skuForAction($skuId);
+
+        if (! $sku->canBeDeleted()) {
+            $this->flashError(__('skus.delete_blocked_deactivate_instead'));
+
+            return;
+        }
+
+        try {
+            DB::transaction(function () use ($sku): void {
+                $sku->deleteOwnedBarcodeAliases();
+                $sku->delete();
+            });
+        } catch (QueryException) {
+            $this->flashError(__('skus.delete_blocked_deactivate_instead'));
+
+            return;
+        }
+
+        $this->flashStatus(__('skus.deleted'));
     }
 
     public function deactivateBarcodeAlias(int $aliasId): void
@@ -658,6 +706,10 @@ class SkusIndex extends Component
             $this->view = self::VIEW_DETAILED;
         }
 
+        if (! $this->isAllowedStatus($this->status)) {
+            $this->status = 'active';
+        }
+
         $skus = $this->skus();
         $this->prepareCatalogDrafts($skus->getCollection());
         $this->prepareLogisticsDrafts($skus->getCollection());
@@ -743,7 +795,12 @@ class SkusIndex extends Component
 
     public function statusLabel(string $status): string
     {
-        return $this->enumLabel('statuses', $status);
+        return match ($status) {
+            'active' => __('skus.status_active'),
+            'inactive' => __('skus.status_inactive'),
+            'all' => __('skus.status_all'),
+            default => $this->enumLabel('statuses', $status),
+        };
     }
 
     public function flatCellValue(Sku $sku, string $key): string
@@ -782,7 +839,7 @@ class SkusIndex extends Component
         return $this->scopedSkuQuery()
             ->when($this->tenantId !== '', fn ($query) => $query->where('tenant_id', $this->tenantId))
             ->when($this->shopId !== '', fn ($query) => $query->where('shop_id', $this->shopId))
-            ->when($this->status !== '', fn ($query) => $query->where('status', $this->status))
+            ->when($this->status !== 'all', fn ($query) => $query->where('status', $this->status))
             ->when($this->skuType !== '', fn ($query) => $query->where('sku_type', $this->skuType))
             ->when($this->productType !== '', fn ($query) => $query->whereHas('stockItem', fn ($query) => $query->where('product_type', $this->productType)))
             ->when($this->search !== '', function ($query) {
@@ -849,12 +906,7 @@ class SkusIndex extends Component
 
     private function statusOptions(): Collection
     {
-        return Sku::query()
-            ->when($this->visibleTenantIds() !== null, fn ($query) => $query->whereIn('tenant_id', $this->visibleTenantIds()))
-            ->select('status')
-            ->distinct()
-            ->orderBy('status')
-            ->pluck('status');
+        return collect(['active', 'inactive', 'all']);
     }
 
     private function skuTypeOptions(): Collection
@@ -1056,6 +1108,11 @@ class SkusIndex extends Component
         return in_array($view, [self::VIEW_DETAILED, self::VIEW_CATALOG, self::VIEW_MARKETPLACE, self::VIEW_LOGISTICS], true);
     }
 
+    private function isAllowedStatus(string $status): bool
+    {
+        return in_array($status, ['active', 'inactive', 'all'], true);
+    }
+
     private function isInternalUser(): bool
     {
         $user = Auth::user();
@@ -1089,6 +1146,19 @@ class SkusIndex extends Component
     {
         return StockItem::query()
             ->when($this->visibleTenantIds() !== null, fn ($query) => $query->whereIn('tenant_id', $this->visibleTenantIds()));
+    }
+
+    private function skuForAction(int $skuId): Sku
+    {
+        $sku = Sku::query()
+            ->when($this->visibleTenantIds() !== null, fn ($query) => $query->whereIn('tenant_id', $this->visibleTenantIds()))
+            ->find($skuId);
+
+        if (! $sku) {
+            abort(404);
+        }
+
+        return $sku;
     }
 
     private function scopedMediaAssetQuery(): Builder

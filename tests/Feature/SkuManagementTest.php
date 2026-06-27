@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\SalesOrderImport;
 use App\Livewire\SkuCreate;
 use App\Livewire\SkuEdit;
 use App\Livewire\SkusIndex;
@@ -11,6 +12,8 @@ use App\Models\Carrier;
 use App\Models\MediaAsset;
 use App\Models\PackagingMaterial;
 use App\Models\ProductType;
+use App\Models\SalesOrder;
+use App\Models\SalesOrderLine;
 use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
@@ -1695,6 +1698,160 @@ class SkuManagementTest extends TestCase
             ->assertDontSee(__('skus.col_platform_ids'));
     }
 
+    public function test_sku_can_be_deactivated(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($stockItem)->create(['status' => 'active']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('deactivateSku', $sku->id)
+            ->assertSee(__('skus.deactivated'));
+
+        $sku->refresh();
+        $this->assertSame('inactive', $sku->status);
+        $this->assertSame($stockItem->id, $sku->stock_item_id);
+        $this->assertDatabaseHas('stock_items', ['id' => $stockItem->id]);
+    }
+
+    public function test_deactivated_sku_is_hidden_from_default_sku_index(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $active = Sku::factory()->for($tenant)->create(['sku' => 'SKU-ACTIVE-VISIBLE', 'status' => 'active']);
+        $inactive = Sku::factory()->for($tenant)->create(['sku' => 'SKU-INACTIVE-HIDDEN', 'status' => 'inactive']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->assertSee($active->sku)
+            ->assertDontSee($inactive->sku)
+            ->set('status', 'inactive')
+            ->assertSee($inactive->sku)
+            ->assertDontSee($active->sku)
+            ->set('status', 'all')
+            ->assertSee($active->sku)
+            ->assertSee($inactive->sku);
+    }
+
+    public function test_sku_can_be_reactivated(): void
+    {
+        $sku = Sku::factory()->create(['status' => 'inactive']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->set('status', 'inactive')
+            ->call('reactivateSku', $sku->id)
+            ->assertSee(__('skus.reactivated'));
+
+        $this->assertSame('active', $sku->refresh()->status);
+    }
+
+    public function test_unused_sku_can_be_permanently_deleted(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($stockItem)->create();
+
+        BarcodeAlias::create([
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_SKU,
+            'model_id' => $sku->id,
+            'barcode' => 'DELETE-ME',
+            'normalized_barcode' => 'DELETE-ME',
+            'barcode_type' => 'unknown',
+            'is_primary' => false,
+            'is_active' => true,
+            'source' => BarcodeAlias::SOURCE_MANUAL,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('deleteSku', $sku->id)
+            ->assertSee(__('skus.deleted'));
+
+        $this->assertDatabaseMissing('skus', ['id' => $sku->id]);
+        $this->assertDatabaseMissing('barcode_aliases', [
+            'model_type' => BarcodeAlias::MODEL_TYPE_SKU,
+            'model_id' => $sku->id,
+        ]);
+        $this->assertDatabaseHas('stock_items', ['id' => $stockItem->id]);
+    }
+
+    public function test_used_sku_cannot_be_permanently_deleted(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($shop)->create(['status' => 'active']);
+        $order = SalesOrder::factory()->for($tenant)->for($shop)->create();
+        SalesOrderLine::factory()->for($order)->for($sku)->create();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('deleteSku', $sku->id)
+            ->assertSee(__('skus.delete_blocked_deactivate_instead'))
+            ->call('deactivateSku', $sku->id)
+            ->assertSee(__('skus.deactivated'));
+
+        $this->assertDatabaseHas('skus', ['id' => $sku->id, 'status' => 'inactive']);
+    }
+
+    public function test_tenant_user_cannot_deactivate_other_tenants_sku(): void
+    {
+        [, $user] = $this->tenantUser();
+        $otherTenant = Tenant::factory()->create();
+        $sku = Sku::factory()->for($otherTenant)->create(['status' => 'active']);
+
+        Livewire::actingAs($user)
+            ->test(SkusIndex::class)
+            ->call('deactivateSku', $sku->id)
+            ->assertNotFound();
+
+        $this->assertSame('active', $sku->refresh()->status);
+    }
+
+    public function test_inactive_sku_is_rejected_by_sales_order_import(): void
+    {
+        $tenant = Tenant::factory()->create(['status' => 'active']);
+        $shop = Shop::factory()->for($tenant)->create(['status' => 'active']);
+        $sku = Sku::factory()
+            ->for($tenant)
+            ->for($shop)
+            ->for(StockItem::factory()->for($tenant)->create())
+            ->create(['sku' => 'SKU-INACTIVE-IMPORT', 'status' => 'inactive']);
+
+        $file = UploadedFile::fake()->createWithContent(
+            'orders.csv',
+            $this->salesOrderImportCsv([['SO-INACTIVE', $sku->sku, '1']]),
+        );
+
+        $component = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderImport::class)
+            ->set('shopId', (string) $shop->id)
+            ->set('file', $file)
+            ->call('parse')
+            ->assertSee(__('skus.inactive_import_blocked'));
+
+        $this->assertTrue($component->get('hasErrors'));
+        $this->assertSame([__('skus.inactive_import_blocked')], $component->get('parsedRows')[0]['errors']);
+    }
+
+    public function test_existing_order_with_inactive_sku_still_renders(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($shop)->create([
+            'sku' => 'SKU-INACTIVE-HISTORY',
+            'status' => 'inactive',
+        ]);
+        $order = SalesOrder::factory()->for($tenant)->for($shop)->create(['platform_order_id' => 'SO-INACTIVE-HISTORY']);
+        SalesOrderLine::factory()->for($order)->for($sku)->create();
+
+        $this->actingAs($this->internalUser())
+            ->get(route('sales.orders.show', $order))
+            ->assertOk()
+            ->assertSee('SKU-INACTIVE-HISTORY');
+    }
+
     public function test_guest_user_is_not_treated_as_internal_on_sku_index(): void
     {
         $tenant = Tenant::factory()->create();
@@ -1731,6 +1888,22 @@ class SkuManagementTest extends TestCase
         ]);
 
         return [$tenant, $user];
+    }
+
+    private function salesOrderImportCsv(array $rows): string
+    {
+        $lines = ['platform_order_id,sku,quantity,line_note,recipient_name,recipient_phone,recipient_country_code,recipient_postal_code,recipient_state,recipient_city,recipient_address_line1,recipient_address_line2,order_note'];
+
+        foreach ($rows as $row) {
+            $lines[] = implode(',', array_map(
+                fn ($value) => str_contains((string) $value, ',')
+                    ? '"'.str_replace('"', '""', (string) $value).'"'
+                    : (string) $value,
+                array_pad($row, 13, ''),
+            ));
+        }
+
+        return implode("\n", $lines)."\n";
     }
 
     private function shippingMethod(string $code, ?string $name = null, string $status = 'active'): ShippingMethod

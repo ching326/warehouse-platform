@@ -165,6 +165,7 @@ class OutboundOrderCreate extends Component
             foreach ($this->lines as $index => $lineInput) {
                 $sku = Sku::query()
                     ->where('tenant_id', $tenantId)
+                    ->where('status', 'active')
                     ->with('bundleComponents')
                     ->findOrFail($lineInput['sku_id']);
 
@@ -313,7 +314,7 @@ class OutboundOrderCreate extends Component
 
     private function validateInput(int $tenantId): void
     {
-        $skuExistsRule = Rule::exists('skus', 'id')->where('tenant_id', $tenantId);
+        $skuExistsRule = Rule::exists('skus', 'id')->where('tenant_id', $tenantId)->where('status', 'active');
 
         if ($this->shopId !== '') {
             $skuExistsRule->where('shop_id', (int) $this->shopId);
@@ -419,6 +420,7 @@ class OutboundOrderCreate extends Component
     {
         return Sku::query()
             ->where('tenant_id', $this->tenantId)
+            ->where('status', 'active')
             ->where(fn ($query) => $query
                 ->where('sku_type', 'virtual_bundle')
                 ->orWhereNotNull('stock_item_id'))

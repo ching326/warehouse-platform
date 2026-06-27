@@ -378,7 +378,7 @@ class SalesOrderDetail extends Component
 
         validator(['lines' => $this->draftLines], [
             'lines' => ['required', 'array', 'min:1'],
-            'lines.*.sku_id' => ['required', 'integer', Rule::exists('skus', 'id')->where('tenant_id', $tenantId)],
+            'lines.*.sku_id' => ['required', 'integer', Rule::exists('skus', 'id')->where('tenant_id', $tenantId)->where('status', 'active')],
             'lines.*.quantity' => ['required', 'integer', 'min:1', 'max:9999'],
             'lines.*.note' => ['nullable', 'string', 'max:500'],
         ])->validate();

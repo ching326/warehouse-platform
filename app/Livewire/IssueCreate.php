@@ -330,6 +330,7 @@ class IssueCreate extends Component
             $sku = ($line['sku_id'] ?? '') !== ''
                 ? Sku::query()
                     ->where('tenant_id', $tenantId)
+                    ->where('status', 'active')
                     ->findOrFail((int) $line['sku_id'])
                 : null;
             $stockItem = ($line['stock_item_id'] ?? '') !== ''
@@ -440,6 +441,7 @@ class IssueCreate extends Component
     {
         return Sku::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->where('status', 'active')
             ->when($tenantId, fn ($query) => $query->where('tenant_id', $tenantId))
             ->with('stockItem:id,code,name')
             ->orderBy('sku')

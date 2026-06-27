@@ -93,7 +93,7 @@ class ReturnOrderCreate extends Component
             'payment_type' => ['required', Rule::in(array_keys(ReturnOrder::paymentTypeOptions()))], 'expected_arrival_date' => ['nullable', 'date'],
             'issue_id' => ['nullable', 'integer', Rule::exists('issues', 'id')->where('tenant_id', $tenantId)], 'sales_order_id' => ['nullable', 'integer', Rule::exists('sales_orders', 'id')->where('tenant_id', $tenantId)],
             'tracking_no' => ['nullable', 'string', 'max:255'], 'original_order_no' => ['nullable', 'string', 'max:255'], 'external_return_id' => ['nullable', 'string', 'max:255'], 'customer_name' => ['nullable', 'string', 'max:255'],
-            'lines' => ['required', 'array', 'min:1'], 'lines.*.sku_id' => ['required', 'integer', Rule::exists('skus', 'id')->where('tenant_id', $tenantId)], 'lines.*.expected_qty' => ['required', 'integer', 'min:1'],
+            'lines' => ['required', 'array', 'min:1'], 'lines.*.sku_id' => ['required', 'integer', Rule::exists('skus', 'id')->where('tenant_id', $tenantId)->where('status', 'active')], 'lines.*.expected_qty' => ['required', 'integer', 'min:1'],
         ])->validate();
 
         DB::transaction(function () use ($tenantId): void {
@@ -106,7 +106,7 @@ class ReturnOrderCreate extends Component
             ]);
             $order->update(['return_no' => ReturnOrder::buildReturnNo($order->id, $order->tenant->code)]);
             foreach ($this->lines as $line) {
-                $sku = Sku::query()->where('tenant_id', $tenantId)->findOrFail($line['sku_id']);
+                $sku = Sku::query()->where('tenant_id', $tenantId)->where('status', 'active')->findOrFail($line['sku_id']);
                 $order->lines()->create(['tenant_id' => $tenantId, 'sku_id' => $sku->id, 'stock_item_id' => $sku->stock_item_id, 'expected_qty' => (int) $line['expected_qty'], 'received_qty' => 0, 'note' => $this->nullable($line['note'] ?? '')]);
             }
         });
@@ -117,7 +117,7 @@ class ReturnOrderCreate extends Component
 
     public function render()
     {
-        return view('livewire.return-order-create', ['tenants' => Tenant::query()->whereIn('id', $this->allowedTenantIds())->orderBy('name')->get(['id', 'code', 'name']), 'warehouses' => Warehouse::query()->orderBy('name')->get(['id', 'code', 'name']), 'issues' => Issue::query()->where('tenant_id', $this->tenantId)->latest('id')->get(['id', 'issue_no']), 'salesOrders' => SalesOrder::query()->where('tenant_id', $this->tenantId)->latest('id')->get(['id', 'platform_order_id']), 'skus' => Sku::query()->where('tenant_id', $this->tenantId)->whereNotNull('stock_item_id')->orderBy('sku')->get(['id', 'sku', 'name', 'stock_item_id']), 'types' => ReturnOrder::typeOptions(), 'reasons' => ReturnOrder::reasonOptions(), 'paymentTypes' => ReturnOrder::paymentTypeOptions(), 'showTenantSelect' => $this->isInternalUser()])->layout('inventory', ['title' => __('return_orders.create_page_title'), 'subtitle' => __('return_orders.create_page_subtitle')]);
+        return view('livewire.return-order-create', ['tenants' => Tenant::query()->whereIn('id', $this->allowedTenantIds())->orderBy('name')->get(['id', 'code', 'name']), 'warehouses' => Warehouse::query()->orderBy('name')->get(['id', 'code', 'name']), 'issues' => Issue::query()->where('tenant_id', $this->tenantId)->latest('id')->get(['id', 'issue_no']), 'salesOrders' => SalesOrder::query()->where('tenant_id', $this->tenantId)->latest('id')->get(['id', 'platform_order_id']), 'skus' => Sku::query()->where('tenant_id', $this->tenantId)->where('status', 'active')->whereNotNull('stock_item_id')->orderBy('sku')->get(['id', 'sku', 'name', 'stock_item_id']), 'types' => ReturnOrder::typeOptions(), 'reasons' => ReturnOrder::reasonOptions(), 'paymentTypes' => ReturnOrder::paymentTypeOptions(), 'showTenantSelect' => $this->isInternalUser()])->layout('inventory', ['title' => __('return_orders.create_page_title'), 'subtitle' => __('return_orders.create_page_subtitle')]);
     }
 
     private function payload(int $tenantId): array

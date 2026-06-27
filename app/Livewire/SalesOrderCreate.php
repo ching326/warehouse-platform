@@ -174,7 +174,7 @@ class SalesOrderCreate extends Component
             'lines.*.sku_id' => [
                 'required',
                 'integer',
-                Rule::exists('skus', 'id')->where('tenant_id', $shop->tenant_id),
+                Rule::exists('skus', 'id')->where('tenant_id', $shop->tenant_id)->where('status', 'active'),
             ],
             'lines.*.quantity' => ['required', 'integer', 'min:1'],
             'lines.*.note' => ['nullable', 'string', 'max:500'],
@@ -226,6 +226,7 @@ class SalesOrderCreate extends Component
 
         return Sku::query()
             ->where('tenant_id', $shop->tenant_id)
+            ->where('status', 'active')
             ->where(fn ($query) => $query
                 ->where('sku_type', 'virtual_bundle')
                 ->orWhereNotNull('stock_item_id'))
