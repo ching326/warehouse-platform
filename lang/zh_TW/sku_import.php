@@ -71,7 +71,7 @@ return [
     'error_mode_required' => '部分SKU已存在，請選擇處理方式: 僅插入 (略過) 或更新插入 (更新)。',
 
     'error_sku_required' => 'SKU 代碼為必填。',
-    'error_name_required' => 'SKU 名稱為必填。',
+    'error_name_required' => ':field 為必填。',
     'error_sku_duplicate_in_file' => '此 SKU 代碼在檔案中重複出現。',
     'error_invalid_status' => ':field 必須為以下其中一個值: :values。',
     'error_invalid_barcode_type' => '條碼類型必須為以下其中一個值: :values。',
@@ -80,7 +80,7 @@ return [
     'error_too_long' => ':field 不得超過 255 個字元。',
 
     'field_sku' => 'SKU 代碼',
-    'field_name' => 'SKU 名稱',
+    'field_name' => 'SKU 名稱（英文）',
     'field_name_ja' => 'SKU 名稱 (日文)',
     'field_name_zh_tw' => 'SKU 名稱 (繁體中文)',
     'field_name_zh_cn' => 'SKU 名稱 (簡體中文)',

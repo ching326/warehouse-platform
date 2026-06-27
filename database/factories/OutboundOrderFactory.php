@@ -21,7 +21,6 @@ class OutboundOrderFactory extends Factory
             'ref' => fake()->optional()->bothify('OB-####'),
             'status' => OutboundOrder::STATUS_PENDING,
             'reason' => null,
-            'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
             'note' => fake()->optional()->sentence(),
             'created_by_user_id' => User::factory(),
         ];

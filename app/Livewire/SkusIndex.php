@@ -56,7 +56,12 @@ class SkusIndex extends Component
     #[Url(as: 'view')]
     public string $view = 'detailed';
 
+    #[Url(as: 'per_page', except: 15)]
     public int $perPage = 15;
+
+    public array $selectedIds = [];
+
+    public array $visibleSkuIds = [];
 
     public array $catalogDrafts = [];
 
@@ -87,6 +92,8 @@ class SkusIndex extends Component
     private const VIEW_MARKETPLACE = 'marketplace';
 
     private const VIEW_LOGISTICS = 'logistics';
+
+    private const PER_PAGE_OPTIONS = [15, 30, 50, 100];
 
     private const IMAGE_TYPES = ['main', 'gallery', 'barcode', 'packaging', 'other'];
 
@@ -146,6 +153,12 @@ class SkusIndex extends Component
 
     public function updatedProductType(): void
     {
+        $this->resetPage();
+    }
+
+    public function updatedPerPage(): void
+    {
+        $this->perPage = $this->normalizePerPage($this->perPage);
         $this->resetPage();
     }
 
@@ -384,6 +397,107 @@ class SkusIndex extends Component
         }
 
         $this->flashStatus(__('skus.deleted'));
+    }
+
+    public function editSelectedSku()
+    {
+        $selectedIds = $this->normalizedSelectedIds();
+
+        if (count($selectedIds) !== 1) {
+            $this->flashError(__('skus.select_one_to_edit'));
+
+            return null;
+        }
+
+        $sku = $this->skuForAction($selectedIds[0]);
+
+        return redirect()->route('skus.edit', $sku);
+    }
+
+    public function bulkDeactivate(): void
+    {
+        $selectedIds = $this->normalizedSelectedIds();
+
+        if ($selectedIds === []) {
+            return;
+        }
+
+        $updated = $this->scopedSkuQuery()
+            ->whereIn('id', $selectedIds)
+            ->where('status', 'active')
+            ->update(['status' => 'inactive']);
+
+        $this->clearSelection();
+        $this->flashStatus(__('skus.bulk_deactivated', ['count' => $updated]));
+    }
+
+    public function bulkReactivate(): void
+    {
+        $selectedIds = $this->normalizedSelectedIds();
+
+        if ($selectedIds === []) {
+            return;
+        }
+
+        $updated = $this->scopedSkuQuery()
+            ->whereIn('id', $selectedIds)
+            ->where('status', 'inactive')
+            ->update(['status' => 'active']);
+
+        $this->clearSelection();
+        $this->flashStatus(__('skus.bulk_reactivated', ['count' => $updated]));
+    }
+
+    public function bulkDelete(): void
+    {
+        $selectedIds = $this->normalizedSelectedIds();
+
+        if ($selectedIds === []) {
+            return;
+        }
+
+        $deleted = 0;
+        $blocked = 0;
+
+        $skus = Sku::query()
+            ->when($this->visibleTenantIds() !== null, fn ($query) => $query->whereIn('tenant_id', $this->visibleTenantIds()))
+            ->whereIn('id', $selectedIds)
+            ->get();
+
+        foreach ($skus as $sku) {
+            if (! $sku->canBeDeleted()) {
+                $blocked++;
+
+                continue;
+            }
+
+            try {
+                DB::transaction(function () use ($sku): void {
+                    $sku->deleteOwnedBarcodeAliases();
+                    $sku->delete();
+                });
+
+                $deleted++;
+            } catch (QueryException) {
+                $blocked++;
+            }
+        }
+
+        $this->clearSelection();
+
+        if ($deleted > 0 && $blocked > 0) {
+            $this->flashError(__('skus.bulk_deleted_with_blocked', ['deleted' => $deleted, 'blocked' => $blocked]));
+
+            return;
+        }
+
+        if ($deleted > 0) {
+            $this->flashStatus(__('skus.bulk_deleted', ['count' => $deleted]));
+
+            return;
+        }
+
+        $this->flashError(__('skus.delete_blocked_deactivate_instead'));
     }
 
     public function deactivateBarcodeAlias(int $aliasId): void
@@ -716,7 +830,10 @@ class SkusIndex extends Component
             $this->status = 'active';
         }
 
+        $this->perPage = $this->normalizePerPage($this->perPage);
+
         $skus = $this->skus();
+        $this->visibleSkuIds = $skus->getCollection()->pluck('id')->map(fn ($id) => (int) $id)->all();
         $this->prepareCatalogDrafts($skus->getCollection());
         $this->prepareLogisticsDrafts($skus->getCollection());
 
@@ -731,6 +848,9 @@ class SkusIndex extends Component
             'views' => $this->viewOptions(),
             'flatColumns' => $this->flatColumns(),
             'currentColumnCount' => $this->currentColumnCount(),
+            'perPageOptions' => self::PER_PAGE_OPTIONS,
+            'paginationPages' => $this->paginationPages($skus),
+            'visibleSkuIds' => $this->visibleSkuIds,
             'packagingMaterials' => $this->packagingMaterialOptions(),
             'shippingMethods' => $this->shippingMethodOptions($skus->getCollection()),
             'canSaveDefaultView' => Auth::check(),
@@ -781,6 +901,11 @@ class SkusIndex extends Component
             ->paginate($this->perPage);
     }
 
+    private function normalizePerPage(int $perPage): int
+    {
+        return in_array($perPage, self::PER_PAGE_OPTIONS, true) ? $perPage : 15;
+    }
+
     public function bundleComposition(Sku $sku, int $limit = 2): string
     {
         $components = $sku->bundleComponents->take($limit)->map(function ($component) {
@@ -799,6 +924,19 @@ class SkusIndex extends Component
         return $hiddenCount > 0
             ? __('skus.bundle_more', ['composition' => $composition, 'count' => $hiddenCount])
             : $composition;
+    }
+
+    private function paginationPages($paginator): array
+    {
+        $currentPage = $paginator->currentPage();
+        $lastPage = $paginator->lastPage();
+
+        return collect([1, $currentPage - 2, $currentPage - 1, $currentPage, $currentPage + 1, $currentPage + 2, $lastPage])
+            ->filter(fn ($page) => $page >= 1 && $page <= $lastPage)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
     }
 
     public function skuTypeLabel(string $type): string
@@ -1155,10 +1293,10 @@ class SkusIndex extends Component
     private function currentColumnCount(): int
     {
         return match ($this->view) {
-            self::VIEW_CATALOG => 10,
-            self::VIEW_MARKETPLACE => 5,
-            self::VIEW_LOGISTICS => 11,
-            default => 7,
+            self::VIEW_CATALOG => 11,
+            self::VIEW_MARKETPLACE => 6,
+            self::VIEW_LOGISTICS => 12,
+            default => 8,
         };
     }
 
@@ -1223,6 +1361,16 @@ class SkusIndex extends Component
         }
 
         return $sku;
+    }
+
+    private function normalizedSelectedIds(): array
+    {
+        return array_values(array_unique(array_map('intval', $this->selectedIds)));
+    }
+
+    private function clearSelection(): void
+    {
+        $this->selectedIds = [];
     }
 
     private function scopedMediaAssetQuery(): Builder

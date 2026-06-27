@@ -121,7 +121,7 @@
                                         <optgroup label="{{ __('sku_import.map_group_sku') }}">
                                             @foreach ($fields as $field)
                                                 @if ($field->target === 'sku')
-                                                    <option value="{{ $field->key }}" @selected($mappedField === $field->key)>{{ __($field->labelKey) }}{{ $field->required ? ' *' : '' }}</option>
+                                                    <option value="{{ $field->key }}" @selected($mappedField === $field->key)>{{ __($field->labelKey) }}{{ ($field->required || $field->key === $requiredSkuNameFieldKey) ? ' *' : '' }}</option>
                                                 @endif
                                             @endforeach
                                         </optgroup>

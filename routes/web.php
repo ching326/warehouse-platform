@@ -44,6 +44,7 @@ use App\Livewire\SalesOrderCreate;
 use App\Livewire\SalesOrderDetail;
 use App\Livewire\SalesOrderImport;
 use App\Livewire\SalesOrderIndex;
+use App\Livewire\SalesOrderPasteImport;
 use App\Livewire\ShippingMethodCreate;
 use App\Livewire\ShippingMethodEdit;
 use App\Livewire\ShippingMethodIndex;
@@ -126,6 +127,7 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/sales-orders', SalesOrderIndex::class)->name('sales.orders.index');
     Route::get('/sales-orders/create', SalesOrderCreate::class)->name('sales.orders.create');
     Route::get('/sales-orders/import', SalesOrderImport::class)->name('sales.orders.import');
+    Route::get('/sales-orders/import/paste', SalesOrderPasteImport::class)->name('sales.orders.import.paste');
     Route::get('/sales-orders/import/amazon-api', AmazonSpapiOrderImport::class)->name('sales.orders.import.amazon-api');
     Route::get('/sales-orders/export', SalesOrderExportController::class)->name('sales.orders.export');
     Route::get('/sales-orders/{order}/issues/create', IssueCreate::class)->name('sales.orders.issues.create');

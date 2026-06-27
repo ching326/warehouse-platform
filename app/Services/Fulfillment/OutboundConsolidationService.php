@@ -184,7 +184,6 @@ class OutboundConsolidationService
 
         $outbound = OutboundOrder::create([
             'reason' => OutboundOrder::REASON_CUSTOMER_ORDER,
-            'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
             'shipping_method_id' => $defaultShippingMethodId,
             'tenant_id' => $tenantId,
             'warehouse_id' => $warehouseId,

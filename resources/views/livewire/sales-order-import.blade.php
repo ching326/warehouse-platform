@@ -32,9 +32,6 @@
             <flux:button href="{{ route('sales.orders.index') }}" variant="outline" wire:navigate>
                 {{ __('sales_orders.btn_back_orders') }}
             </flux:button>
-            <flux:button href="{{ route('sales.orders.import.amazon-api') }}" variant="primary" wire:navigate>
-                {{ __('amazon_spapi_import.entrypoint') }}
-            </flux:button>
         </div>
 
         <div class="form-grid">

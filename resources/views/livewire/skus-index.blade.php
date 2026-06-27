@@ -80,9 +80,103 @@
             </flux:select>
         </div>
 
+        <div
+            x-data="{
+                selected: $wire.entangle('selectedIds'),
+                visible: $wire.entangle('visibleSkuIds'),
+                selectedList() { return (this.selected || []).map(String); },
+                visibleList() { return (this.visible || []).map(String); },
+                has() { return this.selectedList().length > 0; },
+                single() { return this.selectedList().length === 1; },
+                isSelected(id) { return this.selectedList().includes(String(id)); },
+                toggleRow(id) {
+                    id = String(id);
+                    const list = this.selectedList();
+                    const i = list.indexOf(id);
+
+                    if (i === -1) {
+                        this.selected = list.concat([id]);
+                        return;
+                    }
+
+                    list.splice(i, 1);
+                    this.selected = list;
+                },
+                get allVisibleSelected() {
+                    const v = this.visibleList();
+                    const selected = this.selectedList();
+                    return v.length > 0 && v.every((id) => selected.includes(id));
+                },
+                get someVisibleSelected() {
+                    const v = this.visibleList();
+                    const selected = this.selectedList();
+                    const n = v.filter((id) => selected.includes(id)).length;
+                    return n > 0 && n < v.length;
+                },
+                toggleAll() {
+                    const v = this.visibleList();
+
+                    if (this.allVisibleSelected) {
+                        this.selected = this.selectedList().filter((id) => ! v.includes(id));
+                        return;
+                    }
+
+                    this.selected = Array.from(new Set(this.selectedList().concat(v)));
+                },
+            }"
+        >
+        <div class="sales-order-action-row sku-selection-action-row" data-testid="sku-selection-actions">
+            <div class="selection-count-slot" aria-live="polite">
+                <flux:badge color="blue" x-show="has()" x-cloak>
+                    <span x-text="selectedList().length"></span>
+                </flux:badge>
+            </div>
+            <div class="selection-action-group" data-testid="sku-bulk-actions">
+                <span>{{ __('skus.bulk_actions_group') }}</span>
+                <flux:button type="button" size="sm" variant="outline" disabled x-show="! single()">
+                    {{ __('skus.btn_edit') }}
+                </flux:button>
+                <flux:button type="button" size="sm" variant="primary" wire:click="editSelectedSku" x-show="single()" x-cloak>
+                    {{ __('skus.btn_edit') }}
+                </flux:button>
+
+                <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
+                    {{ __('skus.action_deactivate') }}
+                </flux:button>
+                <flux:button type="button" size="sm" variant="primary" wire:click="bulkDeactivate" wire:confirm="{{ __('skus.confirm_deactivate') }}" x-show="has()" x-cloak>
+                    {{ __('skus.action_deactivate') }}
+                </flux:button>
+
+                <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
+                    {{ __('skus.action_reactivate') }}
+                </flux:button>
+                <flux:button type="button" size="sm" variant="primary" wire:click="bulkReactivate" x-show="has()" x-cloak>
+                    {{ __('skus.action_reactivate') }}
+                </flux:button>
+
+                <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
+                    {{ __('skus.action_delete_permanently') }}
+                </flux:button>
+                <flux:button type="button" size="sm" variant="danger" wire:click="bulkDelete" wire:confirm="{{ __('skus.confirm_delete_permanently') }}" x-show="has()" x-cloak>
+                    {{ __('skus.action_delete_permanently') }}
+                </flux:button>
+            </div>
+        </div>
+
         @if ($view === 'detailed')
-            <flux:table :paginate="$skus" class="sku-table sku-detailed-table">
+            <flux:table class="sku-table sku-detailed-table">
                 <flux:table.columns>
+                    <flux:table.column>
+                        <label class="so-checkbox-hitbox so-checkbox-hitbox-header" title="{{ __('skus.select_visible_skus') }}">
+                            <input
+                                type="checkbox"
+                                x-bind:checked="allVisibleSelected"
+                                x-bind:indeterminate.prop="someVisibleSelected"
+                                x-on:change="toggleAll()"
+                                aria-label="{{ __('skus.select_visible_skus') }}"
+                            >
+                        </label>
+                    </flux:table.column>
                     <flux:table.column>{{ __('skus.col_image') }}</flux:table.column>
                     <flux:table.column>{{ __('skus.col_sku') }}</flux:table.column>
                     <flux:table.column>{{ __('skus.col_stock_item') }}</flux:table.column>
@@ -95,6 +189,16 @@
                 <flux:table.rows>
                     @forelse ($skus as $sku)
                         <flux:table.row :key="$sku->id">
+                            <flux:table.cell class="so-select-cell">
+                                <label class="so-checkbox-hitbox">
+                                    <input
+                                        type="checkbox"
+                                        x-bind:checked="isSelected({{ $sku->id }})"
+                                        x-on:change="toggleRow({{ $sku->id }})"
+                                        aria-label="{{ __('skus.select_sku') }} {{ $sku->sku }}"
+                                    >
+                                </label>
+                            </flux:table.cell>
                             <flux:table.cell>
                                 @include('livewire.partials.stock-item-thumbnail', ['stockItem' => $sku->stockItem, 'interactive' => true])
                             </flux:table.cell>
@@ -142,9 +246,6 @@
                             </flux:table.cell>
                             <flux:table.cell>
                                 <div class="sku-row-actions">
-                                    <flux:button href="{{ route('skus.edit', $sku) }}" size="sm" variant="primary">
-                                        {{ __('skus.btn_edit') }}
-                                    </flux:button>
                                     @if ($this->canImportAmazonImage($sku))
                                         <flux:button type="button" size="xs" variant="subtle" wire:click="importAmazonImage({{ $sku->id }})">
                                             {{ __('skus.fetch_amazon_image') }}
@@ -153,20 +254,6 @@
                                     <flux:button type="button" size="sm" variant="primary" wire:click="openAliasPanel({{ $sku->id }})">
                                         {{ __('skus.manage_aliases') }}
                                     </flux:button>
-                                    @if ($sku->status === 'inactive')
-                                        <flux:button type="button" size="sm" variant="outline" wire:click="reactivateSku({{ $sku->id }})">
-                                            {{ __('skus.action_reactivate') }}
-                                        </flux:button>
-                                    @else
-                                        <flux:button type="button" size="sm" variant="outline" wire:click="deactivateSku({{ $sku->id }})" wire:confirm="{{ __('skus.confirm_deactivate') }}">
-                                            {{ __('skus.action_deactivate') }}
-                                        </flux:button>
-                                    @endif
-                                    @if ($sku->canBeDeleted())
-                                        <flux:button type="button" size="sm" variant="danger" wire:click="deleteSku({{ $sku->id }})" wire:confirm="{{ __('skus.confirm_delete_permanently') }}">
-                                            {{ __('skus.action_delete_permanently') }}
-                                        </flux:button>
-                                    @endif
                                 </div>
                             </flux:table.cell>
                         </flux:table.row>
@@ -180,8 +267,19 @@
                 </flux:table.rows>
             </flux:table>
         @elseif ($view === 'logistics')
-            <flux:table :paginate="$skus" class="sku-table sku-logistics-table">
+            <flux:table class="sku-table sku-logistics-table">
                 <flux:table.columns>
+                    <flux:table.column>
+                        <label class="so-checkbox-hitbox so-checkbox-hitbox-header" title="{{ __('skus.select_visible_skus') }}">
+                            <input
+                                type="checkbox"
+                                x-bind:checked="allVisibleSelected"
+                                x-bind:indeterminate.prop="someVisibleSelected"
+                                x-on:change="toggleAll()"
+                                aria-label="{{ __('skus.select_visible_skus') }}"
+                            >
+                        </label>
+                    </flux:table.column>
                     <flux:table.column>{{ __('skus.col_image') }}</flux:table.column>
                     <flux:table.column>{{ __('skus.col_stock_item') }}</flux:table.column>
                     <flux:table.column>{{ __('skus.col_sku') }}</flux:table.column>
@@ -198,6 +296,16 @@
                 <flux:table.rows>
                     @forelse ($skus as $sku)
                         <flux:table.row :key="$sku->id">
+                            <flux:table.cell class="so-select-cell">
+                                <label class="so-checkbox-hitbox">
+                                    <input
+                                        type="checkbox"
+                                        x-bind:checked="isSelected({{ $sku->id }})"
+                                        x-on:change="toggleRow({{ $sku->id }})"
+                                        aria-label="{{ __('skus.select_sku') }} {{ $sku->sku }}"
+                                    >
+                                </label>
+                            </flux:table.cell>
                             <flux:table.cell>
                                 @include('livewire.partials.stock-item-thumbnail', ['stockItem' => $sku->stockItem, 'interactive' => true])
                             </flux:table.cell>
@@ -285,8 +393,19 @@
                 </flux:table.rows>
             </flux:table>
         @else
-            <flux:table :paginate="$skus" class="sku-table sku-flat-table sku-{{ $view }}-table">
+            <flux:table class="sku-table sku-flat-table sku-{{ $view }}-table">
                 <flux:table.columns>
+                    <flux:table.column>
+                        <label class="so-checkbox-hitbox so-checkbox-hitbox-header" title="{{ __('skus.select_visible_skus') }}">
+                            <input
+                                type="checkbox"
+                                x-bind:checked="allVisibleSelected"
+                                x-bind:indeterminate.prop="someVisibleSelected"
+                                x-on:change="toggleAll()"
+                                aria-label="{{ __('skus.select_visible_skus') }}"
+                            >
+                        </label>
+                    </flux:table.column>
                     @foreach ($flatColumns as $label)
                         <flux:table.column>{{ $label }}</flux:table.column>
                     @endforeach
@@ -295,6 +414,16 @@
                 <flux:table.rows>
                     @forelse ($skus as $sku)
                         <flux:table.row :key="$sku->id">
+                            <flux:table.cell class="so-select-cell">
+                                <label class="so-checkbox-hitbox">
+                                    <input
+                                        type="checkbox"
+                                        x-bind:checked="isSelected({{ $sku->id }})"
+                                        x-on:change="toggleRow({{ $sku->id }})"
+                                        aria-label="{{ __('skus.select_sku') }} {{ $sku->sku }}"
+                                    >
+                                </label>
+                            </flux:table.cell>
                             @foreach ($flatColumns as $key => $label)
                                 <flux:table.cell @class([
                                     'sku-flat-cell',
@@ -340,6 +469,55 @@
                 </flux:table.rows>
             </flux:table>
         @endif
+
+        <div class="sku-pagination-row">
+            @if ($skus->total() > 0)
+                <div class="sku-pagination-summary">
+                    <select wire:model.live="perPage" class="sku-per-page-select" aria-label="Rows per page">
+                        @foreach ($perPageOptions as $option)
+                            <option value="{{ $option }}">{{ $option }}</option>
+                        @endforeach
+                    </select>
+                    <span>
+                        {!! __('Showing') !!} {{ $skus->firstItem() }} {!! __('to') !!} {{ $skus->lastItem() }} {!! __('of') !!} {{ $skus->total() }} {!! __('results') !!}
+                    </span>
+                </div>
+            @else
+                <div></div>
+            @endif
+
+            @if ($skus->hasPages())
+                <div class="sku-pagination-controls">
+                    @if ($skus->onFirstPage())
+                        <span class="sku-pagination-button is-disabled" aria-disabled="true" aria-label="{{ __('pagination.previous') }}">&lsaquo;</span>
+                    @else
+                        <button type="button" class="sku-pagination-button" wire:click="previousPage('{{ $skus->getPageName() }}')" aria-label="{{ __('pagination.previous') }}">&lsaquo;</button>
+                    @endif
+
+                    @php($previousPaginationPage = null)
+                    @foreach ($paginationPages as $page)
+                        @if ($previousPaginationPage && $page > $previousPaginationPage + 1)
+                            <span class="sku-pagination-ellipsis" aria-hidden="true">...</span>
+                        @endif
+
+                        @if ($page === $skus->currentPage())
+                            <span class="sku-pagination-button is-current" aria-current="page">{{ $page }}</span>
+                        @else
+                            <button type="button" class="sku-pagination-button" wire:click="gotoPage({{ $page }}, '{{ $skus->getPageName() }}')">{{ $page }}</button>
+                        @endif
+
+                        @php($previousPaginationPage = $page)
+                    @endforeach
+
+                    @if ($skus->hasMorePages())
+                        <button type="button" class="sku-pagination-button" wire:click="nextPage('{{ $skus->getPageName() }}')" aria-label="{{ __('pagination.next') }}">&rsaquo;</button>
+                    @else
+                        <span class="sku-pagination-button is-disabled" aria-disabled="true" aria-label="{{ __('pagination.next') }}">&rsaquo;</span>
+                    @endif
+                </div>
+            @endif
+        </div>
+        </div>
 
         @if ($managedStockItem)
             <div class="image-panel-backdrop app-modal-backdrop">

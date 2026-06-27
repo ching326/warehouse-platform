@@ -22,6 +22,16 @@ class Shop extends Model
 
     public const CONSOLIDATION_CROSS_SHOP = 'cross_shop';
 
+    public const MARKETPLACE_JP = 'JP';
+
+    public const MARKETPLACE_US = 'US';
+
+    public const MARKETPLACE_CA = 'CA';
+
+    public const MARKETPLACE_AU = 'AU';
+
+    public const MARKETPLACE_EU = 'EU';
+
     protected $fillable = [
         'tenant_id',
         'platform',
@@ -42,6 +52,32 @@ class Shop extends Model
             self::CONSOLIDATION_SAME_SHOP,
             self::CONSOLIDATION_CROSS_SHOP,
         ];
+    }
+
+    public static function marketplaceOptions(): array
+    {
+        return [
+            self::MARKETPLACE_JP,
+            self::MARKETPLACE_US,
+            self::MARKETPLACE_CA,
+            self::MARKETPLACE_AU,
+            self::MARKETPLACE_EU,
+        ];
+    }
+
+    public static function normalizeMarketplace(?string $marketplace): string
+    {
+        $marketplace = strtoupper(trim((string) $marketplace));
+
+        if ($marketplace === '') {
+            return '';
+        }
+
+        if (str_contains($marketplace, '_')) {
+            $marketplace = substr($marketplace, strrpos($marketplace, '_') + 1);
+        }
+
+        return $marketplace;
     }
 
     public function getActivitylogOptions(): LogOptions

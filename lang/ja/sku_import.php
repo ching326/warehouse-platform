@@ -71,7 +71,7 @@ return [
     'error_mode_required' => '既存のSKUが含まれています。処理方法を選択してください: 挿入のみ (スキップ) またはアップサート (更新)。',
 
     'error_sku_required' => 'SKUコードは必須です。',
-    'error_name_required' => 'SKU名は必須です。',
+    'error_name_required' => ':fieldは必須です。',
     'error_sku_duplicate_in_file' => 'このSKUコードはファイル内に重複しています。',
     'error_invalid_status' => ':field は次のいずれかである必要があります: :values。',
     'error_invalid_barcode_type' => 'バーコード種別は次のいずれかである必要があります: :values。',
@@ -80,7 +80,7 @@ return [
     'error_too_long' => ':field は255文字以内で入力してください。',
 
     'field_sku' => 'SKUコード',
-    'field_name' => 'SKU名',
+    'field_name' => 'SKU名（英語）',
     'field_name_ja' => 'SKU名 (日本語)',
     'field_name_zh_tw' => 'SKU名 (繁体字中国語)',
     'field_name_zh_cn' => 'SKU名 (簡体字中国語)',

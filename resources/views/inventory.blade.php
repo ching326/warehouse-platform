@@ -1828,15 +1828,34 @@
                 padding-right: 10px;
             }
 
-            .sku-image-cell {
-                width: 64px;
+            .sku-table th:nth-child(1),
+            .sku-table td:nth-child(1) {
+                width: 44px;
+                min-width: 44px;
+                max-width: 44px;
+                padding-left: 5px;
+                padding-right: 5px;
+                text-align: center;
+                vertical-align: middle;
             }
 
-            .sku-detailed-table th:nth-child(1),
-            .sku-detailed-table td:nth-child(1) {
-                width: 56px;
-                padding-left: 8px;
-                padding-right: 0;
+            .sku-table .so-select-cell {
+                text-align: center;
+                vertical-align: middle;
+            }
+
+            .sku-table .so-checkbox-hitbox {
+                vertical-align: middle;
+            }
+
+            .sku-image-cell,
+            .sku-detailed-table th:nth-child(2),
+            .sku-detailed-table td:nth-child(2),
+            .sku-logistics-table th:nth-child(2),
+            .sku-logistics-table td:nth-child(2),
+            .sku-catalog-table th:nth-child(2),
+            .sku-catalog-table td:nth-child(2) {
+                width: 64px;
             }
 
             .sku-row-actions {
@@ -1845,54 +1864,49 @@
                 gap: 6px;
             }
 
-            .sku-catalog-table th:nth-child(1),
-            .sku-catalog-table td:nth-child(1) {
-                width: 64px;
-            }
-
-            .sku-catalog-table th:nth-child(3),
-            .sku-catalog-table td:nth-child(3) {
+            .sku-catalog-table th:nth-child(4),
+            .sku-catalog-table td:nth-child(4) {
                 width: 24%;
             }
 
-            .sku-catalog-table th:nth-child(6),
-            .sku-catalog-table td:nth-child(6) {
+            .sku-catalog-table th:nth-child(7),
+            .sku-catalog-table td:nth-child(7) {
                 width: 92px;
-            }
-
-            .sku-catalog-table th:nth-child(9),
-            .sku-catalog-table td:nth-child(9) {
-                width: 86px;
             }
 
             .sku-catalog-table th:nth-child(10),
             .sku-catalog-table td:nth-child(10) {
+                width: 86px;
+            }
+
+            .sku-catalog-table th:nth-child(11),
+            .sku-catalog-table td:nth-child(11) {
                 width: 150px;
             }
 
-            .sku-marketplace-table th:nth-child(2),
-            .sku-marketplace-table td:nth-child(2) {
+            .sku-marketplace-table th:nth-child(3),
+            .sku-marketplace-table td:nth-child(3) {
                 width: 26%;
             }
 
-            .sku-logistics-table th:nth-child(6),
             .sku-logistics-table th:nth-child(7),
             .sku-logistics-table th:nth-child(8),
             .sku-logistics-table th:nth-child(9),
-            .sku-logistics-table td:nth-child(6),
+            .sku-logistics-table th:nth-child(10),
             .sku-logistics-table td:nth-child(7),
             .sku-logistics-table td:nth-child(8),
-            .sku-logistics-table td:nth-child(9) {
-                width: 92px;
-            }
-
-            .sku-logistics-table th:nth-child(10),
+            .sku-logistics-table td:nth-child(9),
             .sku-logistics-table td:nth-child(10) {
-                width: 150px;
+                width: 92px;
             }
 
             .sku-logistics-table th:nth-child(11),
             .sku-logistics-table td:nth-child(11) {
+                width: 150px;
+            }
+
+            .sku-logistics-table th:nth-child(12),
+            .sku-logistics-table td:nth-child(12) {
                 width: 170px;
             }
 
@@ -1920,6 +1934,79 @@
 
             .sku-short-name-cell input {
                 width: 100%;
+            }
+
+            .sku-pagination-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                border-top: 1px solid var(--line);
+                padding-top: 12px;
+            }
+
+            .sku-pagination-summary {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                color: var(--muted);
+                font-size: 12px;
+                font-weight: 700;
+                white-space: nowrap;
+            }
+
+            .sku-per-page-select {
+                width: 66px;
+                min-height: 28px;
+                border: 1px solid var(--line);
+                border-radius: 6px;
+                background: #fff;
+                color: var(--ink);
+                font-size: 12px;
+                font-weight: 700;
+                padding: 3px 8px;
+            }
+
+            .sku-pagination-controls {
+                display: inline-flex;
+                align-items: center;
+                gap: 2px;
+                border: 1px solid var(--line);
+                border-radius: 8px;
+                background: #fff;
+                padding: 1px;
+            }
+
+            .sku-pagination-button,
+            .sku-pagination-ellipsis {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 24px;
+                height: 24px;
+                border: 0;
+                border-radius: 6px;
+                background: transparent;
+                color: var(--muted);
+                font-size: 12px;
+                font-weight: 700;
+            }
+
+            button.sku-pagination-button {
+                cursor: pointer;
+            }
+
+            button.sku-pagination-button:hover {
+                background: #f3f4f6;
+                color: var(--ink);
+            }
+
+            .sku-pagination-button.is-current {
+                color: var(--ink);
+            }
+
+            .sku-pagination-button.is-disabled {
+                color: #cbd5e1;
             }
 
             .sku-primary-cell strong,
@@ -2094,6 +2181,184 @@
 
             .form-grid-wide {
                 grid-column: 1 / -1;
+            }
+
+            .paste-import-instructions {
+                color: var(--muted);
+                font-size: 13px;
+                line-height: 1.45;
+            }
+
+            .paste-import-instructions p {
+                margin: 0;
+            }
+
+            .paste-import-instructions p + p {
+                margin-top: 4px;
+            }
+
+            .paste-import-actions {
+                justify-content: space-between;
+            }
+
+            .paste-import-confirm-actions {
+                justify-content: flex-end;
+            }
+
+            .paste-mapping-panel {
+                display: grid;
+                gap: 12px;
+                border: 1px solid var(--line);
+                border-radius: 6px;
+                background: #fff;
+                padding: 12px;
+            }
+
+            .paste-mapping-toolbar,
+            .paste-template-row {
+                display: flex;
+                align-items: end;
+                gap: 10px;
+            }
+
+            .paste-mapping-toolbar {
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .paste-mapping-toolbar span {
+                display: block;
+                color: var(--muted);
+                font-size: 13px;
+                margin-top: 3px;
+            }
+
+            .paste-template-row {
+                display: grid;
+                align-items: start;
+                grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr) auto;
+            }
+
+            .paste-template-action {
+                align-self: start;
+                margin-top: 28px;
+            }
+
+            .inline-check {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                color: var(--ink);
+                font-size: 13px;
+                font-weight: 700;
+            }
+
+            .inline-check input[type="checkbox"] {
+                width: 16px;
+                height: 16px;
+                accent-color: var(--accent);
+            }
+
+            .paste-grid-shell {
+                max-height: 640px;
+                overflow: auto;
+                border: 1px solid var(--line);
+                border-radius: 6px;
+                background: #fff;
+            }
+
+            .paste-grid {
+                table-layout: fixed;
+                width: max-content;
+                min-width: 100%;
+                border-collapse: separate;
+                border-spacing: 0;
+                font-size: 11px;
+            }
+
+            .paste-grid-row-number {
+                width: 36px;
+            }
+
+            .paste-grid-data-column {
+                width: 126px;
+            }
+
+            .paste-grid th {
+                position: sticky;
+                top: 0;
+                z-index: 2;
+                box-sizing: border-box;
+                height: 24px;
+                border-right: 1px solid var(--line);
+                border-bottom: 1px solid var(--line);
+                background: #f8fafc;
+                color: var(--muted);
+                font-weight: 800;
+                text-align: center;
+            }
+
+            .paste-grid-map-row th {
+                top: 24px;
+                padding: 3px;
+            }
+
+            .paste-column-map-select {
+                width: 100%;
+                height: 24px;
+                border: 1px solid var(--line);
+                border-radius: 4px;
+                background: #fff;
+                color: var(--ink);
+                font-size: 11px;
+                font-weight: 700;
+                padding: 2px 4px;
+            }
+
+            .paste-column-map-select:focus {
+                border-color: var(--accent);
+                outline: none;
+            }
+
+            .paste-grid th:first-child {
+                left: 0;
+                z-index: 3;
+            }
+
+            .paste-grid tbody th {
+                position: sticky;
+                left: 0;
+                z-index: 1;
+                box-sizing: border-box;
+                background: #f8fafc;
+            }
+
+            .paste-grid td {
+                box-sizing: border-box;
+                height: 27px;
+                border-right: 1px solid var(--line);
+                border-bottom: 1px solid var(--line);
+                padding: 0;
+            }
+
+            .paste-grid input {
+                width: 100%;
+                height: 27px;
+                box-sizing: border-box;
+                border: 0;
+                border-radius: 0;
+                background: transparent;
+                color: var(--ink);
+                font: inherit;
+                padding: 4px 7px;
+            }
+
+            .paste-grid input:focus {
+                position: relative;
+                z-index: 1;
+                outline: 2px solid var(--accent);
+                outline-offset: -2px;
+                box-shadow: none;
             }
 
             textarea {

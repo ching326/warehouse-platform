@@ -74,12 +74,7 @@
                             </span>
                         </flux:table.cell>
                         <flux:table.cell>
-                            <span class="outbound-inline-pair">
-                                <strong>{{ $order->reasonLabel() ?? '-' }}</strong>
-                                @if ($order->shipModeLabel())
-                                    <span class="outbound-inline-muted">{{ $order->shipModeLabel() }}</span>
-                                @endif
-                            </span>
+                            <strong>{{ $order->reasonLabel() ?? '-' }}</strong>
                         </flux:table.cell>
                         <flux:table.cell>{{ $order->shipped_at ? $order->shipped_at->format('Y-m-d H:i') : '-' }}</flux:table.cell>
                         <flux:table.cell>

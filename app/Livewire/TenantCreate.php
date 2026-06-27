@@ -25,6 +25,12 @@ class TenantCreate extends Component
 
     public string $notes = '';
 
+    public string $skuNameLocale = '';
+
+    private const STOCK_ITEM_NAME_LOCALE = 'ja';
+
+    private const NAME_LOCALE_OPTIONS = ['en', 'ja', 'zh_TW', 'zh_CN'];
+
     public function mount(): void
     {
         if (! $this->isInternalUser()) {
@@ -47,6 +53,8 @@ class TenantCreate extends Component
             'billing_terms' => $this->nullableString($this->billingTerms),
             'status' => $this->status,
             'notes' => $this->nullableString($this->notes),
+            'sku_name_locale' => $this->skuNameLocale,
+            'stock_item_name_locale' => self::STOCK_ITEM_NAME_LOCALE,
         ]);
 
         session()->flash('status', __('setup.tenant_created'));
@@ -61,6 +69,7 @@ class TenantCreate extends Component
                 'active' => __('setup.status_active'),
                 'inactive' => __('setup.status_inactive'),
             ],
+            'localeOptions' => $this->localeOptions(),
         ])->layout('inventory', [
             'title' => __('setup.tenant_create_page_title'),
             'subtitle' => __('setup.tenant_create_page_subtitle'),
@@ -78,6 +87,7 @@ class TenantCreate extends Component
             'billing_terms' => $this->billingTerms,
             'status' => $this->status,
             'notes' => $this->notes,
+            'sku_name_locale' => $this->skuNameLocale,
         ], [
             'code' => ['required', 'string', 'max:50', Rule::unique('tenants', 'code')],
             'name' => ['required', 'string', 'max:255'],
@@ -87,7 +97,18 @@ class TenantCreate extends Component
             'billing_terms' => ['nullable', 'string', 'max:255'],
             'status' => ['required', 'string', Rule::in(['active', 'inactive'])],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'sku_name_locale' => ['required', 'string', Rule::in(self::NAME_LOCALE_OPTIONS)],
         ])->validate();
+    }
+
+    private function localeOptions(): array
+    {
+        return [
+            'en' => __('setup.locale_en'),
+            'ja' => __('setup.locale_ja'),
+            'zh_TW' => __('setup.locale_zh_TW'),
+            'zh_CN' => __('setup.locale_zh_CN'),
+        ];
     }
 
     private function isInternalUser(): bool

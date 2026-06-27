@@ -51,6 +51,25 @@
                 </div>
             </div>
 
+            <div class="form-grid">
+                <div>
+                    <flux:select wire:model="skuNameLocale" :label="__('setup.field_sku_name_locale')" required>
+                        <flux:select.option value="">{{ __('setup.select_sku_name_locale') }}</flux:select.option>
+                        @foreach ($localeOptions as $value => $label)
+                            <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    @error('sku_name_locale') <p class="form-error">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label>
+                        <span>{{ __('setup.field_stock_item_name_locale') }}</span>
+                        <input type="text" value="{{ __('setup.locale_ja') }}" disabled>
+                    </label>
+                    <span class="subtle">{{ __('setup.stock_item_name_locale_fixed_hint') }}</span>
+                </div>
+            </div>
+
             <label>
                 <span>{{ __('setup.field_notes') }}</span>
                 <textarea wire:model="notes" rows="4"></textarea>

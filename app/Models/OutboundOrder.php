@@ -31,10 +31,6 @@ class OutboundOrder extends Model
 
     public const STATUS_CANCELLED = 'cancelled';
 
-    public const SHIP_MODE_PARCEL = 'parcel';
-
-    public const SHIP_MODE_BULK = 'bulk';
-
     public const REASON_CUSTOMER_ORDER = 'customer_order';
 
     public const REASON_RE_SHIP = 're_ship';
@@ -55,7 +51,6 @@ class OutboundOrder extends Model
 
     protected $fillable = [
         'reason',
-        'ship_mode',
         'source_sales_order_id',
         'courier_csv_exported_at',
         'shipping_method_id',
@@ -98,11 +93,6 @@ class OutboundOrder extends Model
     public function reasonLabel(): ?string
     {
         return $this->reason ? __('outbound.reason_'.$this->reason) : null;
-    }
-
-    public function shipModeLabel(): ?string
-    {
-        return $this->ship_mode ? __('outbound.ship_mode_'.$this->ship_mode) : null;
     }
 
     public function tenant(): BelongsTo

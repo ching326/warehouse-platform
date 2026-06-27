@@ -1090,7 +1090,8 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString(__('sales_orders.import_btn'), $html);
         $this->assertStringContainsString(__('sales_orders.import_orders_menu'), $html);
         $this->assertStringContainsString(__('sales_orders.import_file_upload'), $html);
-        $this->assertStringContainsString(__('sales_orders.import_amazon_api'), $html);
+        $this->assertStringContainsString(__('sales_orders.import_paste_grid'), $html);
+        $this->assertStringNotContainsString(__('sales_orders.import_amazon_api'), $html);
         $this->assertStringContainsString(__('sales_orders.import_manual_input'), $html);
         $this->assertStringNotContainsString(__('sales_orders.import_courier_menu'), $html);
         $this->assertStringNotContainsString(__('sales_orders.import_tracking_numbers'), $html);

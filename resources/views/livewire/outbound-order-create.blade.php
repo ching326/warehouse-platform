@@ -47,11 +47,6 @@
                     @endforeach
                 </flux:select>
 
-                <flux:select wire:model="shipMode" required :label="__('outbound.field_ship_mode')">
-                    <flux:select.option value="{{ \App\Models\OutboundOrder::SHIP_MODE_PARCEL }}">{{ __('outbound.ship_mode_parcel') }}</flux:select.option>
-                    <flux:select.option value="{{ \App\Models\OutboundOrder::SHIP_MODE_BULK }}">{{ __('outbound.ship_mode_bulk') }}</flux:select.option>
-                </flux:select>
-
                 <flux:select wire:model="shippingMethodId" :label="__('outbound.field_shipping_method')">
                     <flux:select.option value="">{{ __('sales_orders.shipping_method_unset') }}</flux:select.option>
                     @foreach ($shippingMethods as $method)
@@ -69,7 +64,7 @@
                 </label>
             </div>
 
-            @foreach (['tenantId', 'tenant_id', 'warehouse_id', 'shop_id', 'ref', 'reason', 'ship_mode', 'shipping_method_id', 'note'] as $field)
+            @foreach (['tenantId', 'tenant_id', 'warehouse_id', 'shop_id', 'ref', 'reason', 'shipping_method_id', 'note'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
         </section>

@@ -6,9 +6,6 @@
                 <strong>{{ __('amazon_spapi_import.page_title') }}</strong>
                 <span>{{ __('amazon_spapi_import.page_subtitle') }}</span>
             </div>
-            <flux:button href="{{ route('sales.orders.import') }}" variant="outline" wire:navigate>
-                {{ __('sales_orders.import_page_title') }}
-            </flux:button>
         </div>
 
         <div class="form-grid">

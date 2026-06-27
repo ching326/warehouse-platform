@@ -42,7 +42,6 @@ class OutboundOrderTest extends TestCase
     {
         foreach ([
             'reason',
-            'ship_mode',
             'source_sales_order_id',
             'courier_csv_exported_at',
             'shipping_method_id',
@@ -150,7 +149,7 @@ class OutboundOrderTest extends TestCase
         $this->assertSame($method->id, OutboundOrder::firstOrFail()->shipping_method_id);
     }
 
-    public function test_create_persists_reason_and_ship_mode(): void
+    public function test_create_persists_reason(): void
     {
         [$tenant, $warehouse, $sku] = $this->skuWithStock(20);
 
@@ -159,7 +158,6 @@ class OutboundOrderTest extends TestCase
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('reason', OutboundOrder::REASON_FBA)
-            ->assertSet('shipMode', OutboundOrder::SHIP_MODE_BULK)
             ->set('lines.0.sku_id', (string) $sku->id)
             ->set('lines.0.qty', '1')
             ->call('save')
@@ -167,7 +165,6 @@ class OutboundOrderTest extends TestCase
 
         $order = OutboundOrder::firstOrFail();
         $this->assertSame(OutboundOrder::REASON_FBA, $order->reason);
-        $this->assertSame(OutboundOrder::SHIP_MODE_BULK, $order->ship_mode);
     }
 
     public function test_create_shop_filter_scopes_sku_selection(): void
@@ -214,14 +211,6 @@ class OutboundOrderTest extends TestCase
         ]);
     }
 
-    public function test_create_defaults_ship_mode_to_parcel_for_gift(): void
-    {
-        Livewire::actingAs($this->internalUser())
-            ->test(OutboundOrderCreate::class)
-            ->set('reason', OutboundOrder::REASON_GIFT)
-            ->assertSet('shipMode', OutboundOrder::SHIP_MODE_PARCEL);
-    }
-
     public function test_create_requires_reason(): void
     {
         [$tenant, $warehouse, $sku] = $this->skuWithStock(20);
@@ -247,7 +236,6 @@ class OutboundOrderTest extends TestCase
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
-            ->set('shipMode', OutboundOrder::SHIP_MODE_PARCEL)
             ->set('lines.0.sku_id', (string) $sku->id)
             ->set('lines.0.qty', '1')
             ->call('save')
@@ -746,7 +734,6 @@ class OutboundOrderTest extends TestCase
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shippingMethodId', (string) $method->id)
             ->set('reason', OutboundOrder::REASON_REPLACEMENT)
-            ->set('shipMode', OutboundOrder::SHIP_MODE_PARCEL)
             ->set('recipientName', 'Test Recipient')
             ->set('recipientCountryCode', 'JP')
             ->set('recipientPostalCode', '100-0001')
@@ -798,7 +785,6 @@ class OutboundOrderTest extends TestCase
             ->create([
                 'status' => OutboundOrder::STATUS_PENDING,
                 'reason' => OutboundOrder::REASON_REPLACEMENT,
-                'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
                 'shipping_method_id' => null,
             ]);
 
@@ -823,7 +809,6 @@ class OutboundOrderTest extends TestCase
             ->create([
                 'status' => OutboundOrder::STATUS_PENDING,
                 'reason' => OutboundOrder::REASON_REPLACEMENT,
-                'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
                 'shipping_method_id' => $method->id,
                 'ref' => 'OB-MANUAL-P13-001',
                 'recipient_name' => 'Manual Export Recipient',
@@ -867,7 +852,6 @@ class OutboundOrderTest extends TestCase
             ->create([
                 'status' => OutboundOrder::STATUS_PENDING,
                 'reason' => OutboundOrder::REASON_GIFT,
-                'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
                 'shipping_method_id' => null,
             ]);
 
@@ -901,7 +885,6 @@ class OutboundOrderTest extends TestCase
             ->create([
                 'status' => OutboundOrder::STATUS_PENDING,
                 'reason' => OutboundOrder::REASON_REPLACEMENT,
-                'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
                 'shipping_method_id' => $method->id,
             ]);
 
@@ -929,7 +912,6 @@ class OutboundOrderTest extends TestCase
             ->create([
                 'status' => OutboundOrder::STATUS_PENDING,
                 'reason' => OutboundOrder::REASON_REPLACEMENT,
-                'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
                 'shipping_method_id' => $method->id,
                 'ref' => 'OB-REEXPORT-P13-001',
                 'courier_csv_exported_at' => now(),

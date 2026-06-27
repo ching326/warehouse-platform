@@ -133,6 +133,7 @@ class SkuWriter
             'stock_item_id' => $stockItemId,
             'sku' => trim($skuData['sku'] ?? ''),
             'name' => trim($skuData['name'] ?? ''),
+            'name_en' => $this->nullableString($skuData['name_en'] ?? ''),
             'name_ja' => $this->nullableString($skuData['name_ja'] ?? ''),
             'name_zh_tw' => $this->nullableString($skuData['name_zh_tw'] ?? ''),
             'name_zh_cn' => $this->nullableString($skuData['name_zh_cn'] ?? ''),

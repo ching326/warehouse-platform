@@ -120,7 +120,6 @@ class FulfillmentGroupTest extends TestCase
 
         $this->assertNotNull($outbound);
         $this->assertSame(OutboundOrder::REASON_CUSTOMER_ORDER, $outbound->reason);
-        $this->assertSame(OutboundOrder::SHIP_MODE_PARCEL, $outbound->ship_mode);
         $this->assertNull($outbound->shipping_method_id);
         $this->assertSame(OutboundOrder::STATUS_PENDING, $outbound->status);
         $this->assertSame(
@@ -958,7 +957,6 @@ class FulfillmentGroupTest extends TestCase
             'warehouse_id' => $warehouse->id,
             'ref' => 'OB-MANUAL-EXPORT-001',
             'reason' => OutboundOrder::REASON_REPLACEMENT,
-            'ship_mode' => OutboundOrder::SHIP_MODE_PARCEL,
             'shipping_method_id' => $method->id,
             'status' => OutboundOrder::STATUS_PENDING,
             'recipient_name' => 'Manual Recipient',

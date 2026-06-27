@@ -29,7 +29,9 @@ class TenantEdit extends Component
 
     public string $skuNameLocale = '';
 
-    public string $stockItemNameLocale = '';
+    private const STOCK_ITEM_NAME_LOCALE = 'ja';
+
+    private const NAME_LOCALE_OPTIONS = ['en', 'ja', 'zh_TW', 'zh_CN'];
 
     public function mount(Tenant $tenant): void
     {
@@ -46,8 +48,7 @@ class TenantEdit extends Component
         $this->billingTerms = $tenant->billing_terms ?? '';
         $this->status = $tenant->status;
         $this->notes = $tenant->notes ?? '';
-        $this->skuNameLocale = $tenant->sku_name_locale ?? '';
-        $this->stockItemNameLocale = $tenant->stock_item_name_locale ?? '';
+        $this->skuNameLocale = $tenant->sku_name_locale ?: 'en';
     }
 
     public function save()
@@ -64,7 +65,6 @@ class TenantEdit extends Component
             'status' => $this->status,
             'notes' => $this->notes,
             'sku_name_locale' => $this->skuNameLocale,
-            'stock_item_name_locale' => $this->stockItemNameLocale,
         ], [
             'code' => ['required', 'string', 'max:50', Rule::unique('tenants', 'code')->ignore($this->tenant->id)],
             'name' => ['required', 'string', 'max:255'],
@@ -74,8 +74,7 @@ class TenantEdit extends Component
             'billing_terms' => ['nullable', 'string', 'max:255'],
             'status' => ['required', 'string', Rule::in(['active', 'inactive'])],
             'notes' => ['nullable', 'string', 'max:2000'],
-            'sku_name_locale' => ['nullable', 'string', Rule::in(['', 'ja', 'zh_TW', 'zh_CN'])],
-            'stock_item_name_locale' => ['nullable', 'string', Rule::in(['', 'ja', 'zh_TW', 'zh_CN'])],
+            'sku_name_locale' => ['required', 'string', Rule::in(self::NAME_LOCALE_OPTIONS)],
         ])->validate();
 
         $this->tenant->update([
@@ -87,8 +86,8 @@ class TenantEdit extends Component
             'billing_terms' => $this->nullableString($this->billingTerms),
             'status' => $this->status,
             'notes' => $this->nullableString($this->notes),
-            'sku_name_locale' => $this->nullableString($this->skuNameLocale),
-            'stock_item_name_locale' => $this->nullableString($this->stockItemNameLocale),
+            'sku_name_locale' => $this->skuNameLocale,
+            'stock_item_name_locale' => self::STOCK_ITEM_NAME_LOCALE,
         ]);
 
         session()->flash('status', __('setup.tenant_updated'));
@@ -103,15 +102,10 @@ class TenantEdit extends Component
                 'active' => __('setup.status_active'),
                 'inactive' => __('setup.status_inactive'),
             ],
-            'localeOptions' => [
-                '' => __('setup.locale_default_en'),
-                'ja' => '日本語',
-                'zh_TW' => '繁體中文',
-                'zh_CN' => '简体中文',
-            ],
+            'localeOptions' => $this->localeOptions(),
         ])->layout('inventory', [
             'title' => __('setup.tenant_edit_page_title'),
-            'subtitle' => $this->tenant->code.'  E'.$this->tenant->name,
+            'subtitle' => $this->tenant->code.' - '.$this->tenant->name,
         ]);
     }
 
@@ -127,5 +121,15 @@ class TenantEdit extends Component
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    private function localeOptions(): array
+    {
+        return [
+            'en' => __('setup.locale_en'),
+            'ja' => __('setup.locale_ja'),
+            'zh_TW' => __('setup.locale_zh_TW'),
+            'zh_CN' => __('setup.locale_zh_CN'),
+        ];
     }
 }

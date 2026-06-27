@@ -711,6 +711,25 @@ class SkuManagementTest extends TestCase
             ->assertSee('Index Visible Stock');
     }
 
+    public function test_sku_index_rows_per_page_control_updates_pagination(): void
+    {
+        $tenant = Tenant::factory()->create();
+
+        foreach (range(1, 20) as $index) {
+            $stockItem = StockItem::factory()->for($tenant)->create();
+            Sku::factory()->for($tenant)->for($stockItem)->create([
+                'sku' => sprintf('SKU-PER-PAGE-%02d', $index),
+            ]);
+        }
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->assertSee('Showing 1 to 15 of 20 results')
+            ->set('perPage', 30)
+            ->assertSet('perPage', 30)
+            ->assertSee('Showing 1 to 20 of 20 results');
+    }
+
     public function test_tenant_user_index_only_shows_own_tenant_skus(): void
     {
         [$tenant, $user] = $this->tenantUser();
@@ -950,17 +969,17 @@ class SkuManagementTest extends TestCase
         $this->actingAs($this->internalUser())
             ->get('/skus?view=catalog')
             ->assertOk()
-            ->assertSee('colspan="10"', false);
+            ->assertSee('colspan="11"', false);
 
         $this->actingAs($this->internalUser())
             ->get('/skus?view=marketplace')
             ->assertOk()
-            ->assertSee('colspan="5"', false);
+            ->assertSee('colspan="6"', false);
 
         $this->actingAs($this->internalUser())
             ->get('/skus?view=logistics')
             ->assertOk()
-            ->assertSee('colspan="11"', false);
+            ->assertSee('colspan="12"', false);
     }
 
     public function test_internal_user_can_upload_stock_item_image(): void
@@ -1774,6 +1793,21 @@ class SkuManagementTest extends TestCase
             ->assertSee($inactive->sku);
     }
 
+    public function test_sku_index_has_selection_actions_and_checkboxes(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $sku = Sku::factory()->for($tenant)->create(['sku' => 'SKU-CHECKBOX-ACTIONS']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->assertSee('data-testid="sku-selection-actions"', false)
+            ->assertSee(__('skus.btn_edit'))
+            ->assertSee(__('skus.action_deactivate'))
+            ->assertSee(__('skus.action_delete_permanently'))
+            ->assertSee(__('skus.select_visible_skus'))
+            ->assertSee(__('skus.select_sku').' '.$sku->sku);
+    }
+
     public function test_sku_can_be_reactivated(): void
     {
         $sku = Sku::factory()->create(['status' => 'inactive']);
@@ -1785,6 +1819,44 @@ class SkuManagementTest extends TestCase
             ->assertSee(__('skus.reactivated'));
 
         $this->assertSame('active', $sku->refresh()->status);
+    }
+
+    public function test_selected_skus_can_be_deactivated_and_reactivated(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $first = Sku::factory()->for($tenant)->create(['status' => 'active']);
+        $second = Sku::factory()->for($tenant)->create(['status' => 'active']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->set('selectedIds', [$first->id, $second->id])
+            ->call('bulkDeactivate')
+            ->assertSee(__('skus.bulk_deactivated', ['count' => 2]))
+            ->assertSet('selectedIds', [])
+            ->set('status', 'inactive')
+            ->set('selectedIds', [$first->id, $second->id])
+            ->call('bulkReactivate')
+            ->assertSee(__('skus.bulk_reactivated', ['count' => 2]));
+
+        $this->assertSame('active', $first->refresh()->status);
+        $this->assertSame('active', $second->refresh()->status);
+    }
+
+    public function test_selected_unused_sku_can_be_deleted(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($stockItem)->create();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->set('selectedIds', [$sku->id])
+            ->call('bulkDelete')
+            ->assertSee(__('skus.bulk_deleted', ['count' => 1]))
+            ->assertSet('selectedIds', []);
+
+        $this->assertDatabaseMissing('skus', ['id' => $sku->id]);
+        $this->assertDatabaseHas('stock_items', ['id' => $stockItem->id]);
     }
 
     public function test_unused_sku_can_be_permanently_deleted(): void

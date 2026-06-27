@@ -38,7 +38,7 @@
             </div>
             <div>
                 <span class="subtle">{{ __('sales_orders.field_source') }}</span>
-                <strong>{{ __('sales_orders.source_'.$order->source) }}</strong>
+                <strong>{{ __('sales_orders.source_'.$order->source) }} / {{ $order->createdBy?->name ?: '-' }}</strong>
             </div>
             <div>
                 <span class="subtle">{{ __('sales_orders.field_platform_order_id') }}</span>
@@ -331,10 +331,6 @@
                     x-on:change="$wire.updateNote($event.target.value)"
                 >{{ $order->note }}</textarea>
             </div>
-            <div>
-                <span class="subtle">{{ __('sales_orders.field_source') }}</span>
-                <strong>{{ $order->createdBy?->name ?: '-' }}</strong>
-            </div>
         </div>
     </section>
 
@@ -351,5 +347,4 @@
             @endforeach
         </section>
     @endif
-
 </div>

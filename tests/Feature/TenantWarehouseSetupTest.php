@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\TenantCreate;
+use App\Livewire\TenantEdit;
 use App\Livewire\TenantIndex;
 use App\Livewire\WarehouseCreate;
 use App\Livewire\WarehouseIndex;
@@ -24,6 +25,7 @@ class TenantWarehouseSetupTest extends TestCase
             ->test(TenantCreate::class)
             ->set('code', 'XYZ')
             ->set('name', 'XYZ Corp')
+            ->set('skuNameLocale', 'zh_TW')
             ->set('contactEmail', 'ops@example.com')
             ->call('save')
             ->assertRedirect(route('setup.tenants.index'));
@@ -33,7 +35,40 @@ class TenantWarehouseSetupTest extends TestCase
             'name' => 'XYZ Corp',
             'contact_email' => 'ops@example.com',
             'status' => 'active',
+            'sku_name_locale' => 'zh_TW',
+            'stock_item_name_locale' => 'ja',
         ]);
+    }
+
+    public function test_create_tenant_requires_sku_name_base_language(): void
+    {
+        Livewire::actingAs($this->internalUser())
+            ->test(TenantCreate::class)
+            ->set('code', 'XYZ')
+            ->set('name', 'XYZ Corp')
+            ->call('save')
+            ->assertHasErrors(['sku_name_locale']);
+    }
+
+    public function test_edit_tenant_keeps_stock_item_name_base_language_fixed_to_japanese(): void
+    {
+        $tenant = Tenant::factory()->create([
+            'sku_name_locale' => 'en',
+            'stock_item_name_locale' => 'zh_TW',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(TenantEdit::class, ['tenant' => $tenant])
+            ->assertSee(__('setup.stock_item_name_locale_fixed_hint'))
+            ->assertDontSee('wire:model="stockItemNameLocale"', false)
+            ->set('skuNameLocale', 'zh_CN')
+            ->call('save')
+            ->assertRedirect(route('setup.tenants.index'));
+
+        $tenant->refresh();
+
+        $this->assertSame('zh_CN', $tenant->sku_name_locale);
+        $this->assertSame('ja', $tenant->stock_item_name_locale);
     }
 
     public function test_create_tenant_rejects_duplicate_code(): void
@@ -44,6 +79,7 @@ class TenantWarehouseSetupTest extends TestCase
             ->test(TenantCreate::class)
             ->set('code', 'abc')
             ->set('name', 'Another ABC')
+            ->set('skuNameLocale', 'en')
             ->call('save')
             ->assertHasErrors(['code']);
     }
@@ -54,6 +90,7 @@ class TenantWarehouseSetupTest extends TestCase
             ->test(TenantCreate::class)
             ->set('code', 'xyz')
             ->set('name', 'XYZ Corp')
+            ->set('skuNameLocale', 'ja')
             ->call('save')
             ->assertRedirect(route('setup.tenants.index'));
 

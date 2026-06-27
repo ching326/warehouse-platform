@@ -122,7 +122,7 @@ class SkuImportTest extends TestCase
         $mapping = SkuImportFields::autoGuess($headers);
 
         $this->assertSame('SKUコード', $mapping['sku']);
-        $this->assertSame('SKU名', $mapping['name']);
+        $this->assertSame('SKU名', $mapping['name_ja']);
         $this->assertSame('ブランド', $mapping['brand']);
     }
 
@@ -317,6 +317,22 @@ class SkuImportTest extends TestCase
             ->assertSee('required fields are not mapped');
     }
 
+    public function test_map_step_requires_the_tenants_base_sku_name_field(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'RJA', 'sku_name_locale' => 'ja']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', "sku,name\nRJA-001,English Name\n"))
+            ->call('readFile')
+            ->assertSet('step', 'map')
+            ->call('advanceToPreview')
+            ->assertSet('step', 'map')
+            ->assertSee('SKU name (Japanese)')
+            ->assertDontSee('SKU name (English), SKU name (Japanese)');
+    }
+
     public function test_advance_to_preview_validates_all_rows(): void
     {
         $tenant = Tenant::factory()->create(['code' => 'PRV']);
@@ -382,6 +398,31 @@ class SkuImportTest extends TestCase
             ->assertSet('resultCreated', 0);
 
         $this->assertDatabaseHas('skus', ['sku' => 'UPT-001', 'name' => 'New Name']);
+    }
+
+    public function test_import_uses_tenant_base_sku_name_language(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'JPN', 'sku_name_locale' => 'ja']);
+        $csv = "sku,name,name_ja\nJPN-001,English Name,譌･譛ｬ隱槫錐\n";
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', $csv))
+            ->call('readFile')
+            ->call('advanceToPreview')
+            ->call('confirmImport')
+            ->assertSet('step', 'result')
+            ->assertSet('resultCreated', 1)
+            ->assertSet('resultFailed', 0);
+
+        $this->assertDatabaseHas('skus', [
+            'sku' => 'JPN-001',
+            'tenant_id' => $tenant->id,
+            'name' => '譌･譛ｬ隱槫錐',
+            'name_en' => 'English Name',
+            'name_ja' => '譌･譛ｬ隱槫錐',
+        ]);
     }
 
     public function test_import_creates_managed_alias_from_platform_label_code(): void

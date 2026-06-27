@@ -60,7 +60,7 @@ class ShopEdit extends Component
         $this->shop = $shop->load('amazonSpapiConnection');
         $this->tenantId = (string) $shop->tenant_id;
         $this->platform = $shop->platform;
-        $this->marketplace = $shop->marketplace ?? '';
+        $this->marketplace = Shop::normalizeMarketplace($shop->marketplace);
         $this->code = $shop->code;
         $this->name = $shop->name;
         $this->consolidationMode = $shop->consolidation_mode ?? Shop::CONSOLIDATION_SAME_SHOP;
@@ -74,7 +74,8 @@ class ShopEdit extends Component
     public function save()
     {
         $this->code = strtoupper(trim($this->code));
-        $marketplace = trim($this->marketplace);
+        $marketplace = Shop::normalizeMarketplace($this->marketplace);
+        $this->marketplace = $marketplace;
 
         validator([
             'tenant_id' => $this->tenantId,
@@ -90,7 +91,7 @@ class ShopEdit extends Component
         ], [
             'tenant_id' => ['required', Rule::exists('tenants', 'id')->where('status', 'active')],
             'platform' => ['required', 'string', Rule::in(array_keys($this->platforms()))],
-            'marketplace' => ['string', 'max:100'],
+            'marketplace' => ['nullable', 'string', Rule::in(Shop::marketplaceOptions())],
             'code' => [
                 'required',
                 'string',
@@ -268,6 +269,7 @@ class ShopEdit extends Component
         return view('livewire.shop-edit', [
             'tenants' => Tenant::where('status', 'active')->orderBy('name')->get(['id', 'code', 'name']),
             'platforms' => $this->platforms(),
+            'marketplaces' => $this->marketplaces(),
             'statuses' => [
                 'active' => __('shop.status_active'),
                 'inactive' => __('shop.status_inactive'),
@@ -306,6 +308,11 @@ class ShopEdit extends Component
             'shopify' => __('shop.platform_shopify'),
             'manual' => __('shop.platform_manual'),
         ];
+    }
+
+    private function marketplaces(): array
+    {
+        return array_combine(Shop::marketplaceOptions(), Shop::marketplaceOptions());
     }
 
     private function consolidationModes(): array

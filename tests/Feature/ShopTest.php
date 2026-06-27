@@ -25,7 +25,7 @@ class ShopTest extends TestCase
             ->test(ShopCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('platform', 'amazon')
-            ->set('marketplace', 'amazon_jp')
+            ->set('marketplace', 'JP')
             ->set('code', 'AMZJP')
             ->set('name', 'Amazon JP')
             ->call('save')
@@ -34,7 +34,7 @@ class ShopTest extends TestCase
         $this->assertDatabaseHas('shops', [
             'tenant_id' => $tenant->id,
             'platform' => 'amazon',
-            'marketplace' => 'amazon_jp',
+            'marketplace' => 'JP',
             'code' => 'AMZJP',
             'name' => 'Amazon JP',
             'status' => 'active',
@@ -89,7 +89,7 @@ class ShopTest extends TestCase
         $tenant = Tenant::factory()->create(['status' => 'active']);
         Shop::factory()->for($tenant)->create([
             'platform' => 'amazon',
-            'marketplace' => 'amazon_jp',
+            'marketplace' => 'JP',
             'code' => 'MAIN',
         ]);
 
@@ -97,7 +97,7 @@ class ShopTest extends TestCase
             ->test(ShopCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('platform', 'amazon')
-            ->set('marketplace', 'amazon_jp')
+            ->set('marketplace', 'JP')
             ->set('code', 'main')
             ->set('name', 'Amazon JP Duplicate')
             ->call('save')
@@ -110,7 +110,7 @@ class ShopTest extends TestCase
         $tenantB = Tenant::factory()->create(['status' => 'active']);
         Shop::factory()->for($tenantA)->create([
             'platform' => 'amazon',
-            'marketplace' => 'amazon_jp',
+            'marketplace' => 'JP',
             'code' => 'MAIN',
         ]);
 
@@ -118,7 +118,7 @@ class ShopTest extends TestCase
             ->test(ShopCreate::class)
             ->set('tenantId', (string) $tenantB->id)
             ->set('platform', 'amazon')
-            ->set('marketplace', 'amazon_jp')
+            ->set('marketplace', 'JP')
             ->set('code', 'MAIN')
             ->set('name', 'Amazon JP Tenant B')
             ->call('save')
@@ -132,7 +132,7 @@ class ShopTest extends TestCase
         $tenant = Tenant::factory()->create(['status' => 'active']);
         Shop::factory()->for($tenant)->create([
             'platform' => 'amazon',
-            'marketplace' => 'amazon_jp',
+            'marketplace' => 'JP',
             'code' => 'MAIN',
         ]);
 
@@ -154,7 +154,7 @@ class ShopTest extends TestCase
         $tenant = Tenant::factory()->create(['status' => 'active']);
         Shop::factory()->for($tenant)->create([
             'platform' => 'amazon',
-            'marketplace' => 'amazon_jp',
+            'marketplace' => 'JP',
             'code' => 'MAIN',
         ]);
 
@@ -162,7 +162,7 @@ class ShopTest extends TestCase
             ->test(ShopCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('platform', 'amazon')
-            ->set('marketplace', 'amazon_us')
+            ->set('marketplace', 'US')
             ->set('code', 'MAIN')
             ->set('name', 'Amazon US Main')
             ->call('save')
@@ -197,6 +197,21 @@ class ShopTest extends TestCase
             ->set('name', 'Invalid Platform')
             ->call('save')
             ->assertHasErrors(['platform']);
+    }
+
+    public function test_create_shop_rejects_invalid_marketplace(): void
+    {
+        $tenant = Tenant::factory()->create(['status' => 'active']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ShopCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('platform', 'amazon')
+            ->set('marketplace', 'HK')
+            ->set('code', 'MAIN')
+            ->set('name', 'Invalid Marketplace')
+            ->call('save')
+            ->assertHasErrors(['marketplace']);
     }
 
     public function test_create_shop_rejects_invalid_consolidation_mode(): void

@@ -7,10 +7,12 @@ use App\Livewire\SalesOrderCreate;
 use App\Livewire\SalesOrderDetail;
 use App\Livewire\SalesOrderImport;
 use App\Livewire\SalesOrderIndex;
+use App\Livewire\SalesOrderPasteImport;
 use App\Models\InventoryBalance;
 use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
+use App\Models\SalesOrderPasteImportMapping;
 use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
@@ -305,6 +307,632 @@ class SalesOrderImportTest extends TestCase
             ->get('/sales-orders/import')
             ->assertOk()
             ->assertSee('Import Sales Orders');
+    }
+
+    public function test_paste_import_route_renders_for_internal_user(): void
+    {
+        $this->actingAs($this->internalUser())
+            ->get(route('sales.orders.import.paste'))
+            ->assertOk()
+            ->assertSee('Paste Sales Orders')
+            ->assertSee('data-testid="paste-import-grid"', false);
+    }
+
+    public function test_paste_import_creates_orders_from_japanese_headers(): void
+    {
+        [, $shop, $skuA] = $this->salesSku('PASTE-A');
+        $shop->update(['marketplace' => 'JP']);
+        $skuB = $this->skuForShop($shop->tenant, $shop, 'PASTE-B');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->set('shopId', (string) $shop->id)
+            ->set('columnFieldMapping', [
+                '1' => 'platform_order_id',
+                '2' => 'platform_ordered_at',
+                '3' => 'platform_product_name',
+                '4' => 'sku',
+                '5' => 'quantity',
+                '6' => 'recipient_name',
+                '8' => 'recipient_postal_code',
+                '9' => 'recipient_address_line1',
+                '10' => 'recipient_address_line2',
+                '12' => 'recipient_phone',
+            ])
+            ->set('dataStartRow', 1)
+            ->set('grid', $this->pasteGrid([
+                ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                ['No.', '*注文番号', '*注文日', '*商品名', '*商品番号', '*個数', '*送付先氏名1', '', '*送付先郵便番号1', '*送付先住所1', '送付先住所2', '', '*送付先電話番号1'],
+                ['1', 'WX-ORDER-1', '2026/06/25', 'Pasted product A', $skuA->sku, '2', '山田 太郎', '', '100-0001', '東京都千代田区1-1', 'ビル101', '', '09011112222'],
+                ['2', 'WX-ORDER-1', '2026/06/25', 'Pasted product B', $skuB->sku, '1', '山田 太郎', '', '100-0001', '東京都千代田区1-1', 'ビル101', '', '09011112222'],
+            ]))
+            ->call('preview')
+            ->assertSet('hasErrors', false)
+            ->call('import')
+            ->assertRedirect(route('sales.orders.index'));
+
+        $order = SalesOrder::query()->where('platform_order_id', 'WX-ORDER-1')->firstOrFail();
+
+        $this->assertSame('山田 太郎', $order->recipient_name);
+        $this->assertSame('東京都', $order->recipient_state);
+        $this->assertSame('千代田区1-1', $order->recipient_address_line1);
+        $this->assertSame('ビル101', $order->recipient_address_line2);
+        $this->assertSame(2, $order->lines()->count());
+        $this->assertDatabaseHas('sales_order_lines', [
+            'sales_order_id' => $order->id,
+            'sku_id' => $skuA->id,
+            'quantity' => 2,
+            'platform_product_name' => 'Pasted product A',
+        ]);
+    }
+
+    public function test_paste_import_skips_existing_orders_and_imports_new_orders(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('PASTE-DUP');
+        SalesOrder::factory()->for($tenant)->for($shop)->create(['platform_order_id' => 'WX-OLD']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->set('shopId', (string) $shop->id)
+            ->set('columnFieldMapping', [
+                '0' => 'platform_order_id',
+                '1' => 'sku',
+                '2' => 'quantity',
+            ])
+            ->set('dataStartRow', 1)
+            ->set('grid', $this->pasteGrid([
+                ['注文番号', '商品番号', '個数'],
+                ['WX-OLD', $sku->sku, '1'],
+                ['WX-NEW', $sku->sku, '2'],
+            ]))
+            ->call('preview')
+            ->assertSet('hasErrors', false)
+            ->call('import');
+
+        $this->assertSame(1, SalesOrder::query()->where('platform_order_id', 'WX-OLD')->count());
+        $this->assertDatabaseHas('sales_orders', ['platform_order_id' => 'WX-NEW']);
+    }
+
+    public function test_paste_import_carries_order_fields_down_for_merged_spreadsheet_rows(): void
+    {
+        [, $shop, $skuA] = $this->salesSku('PASTE-MERGE-A');
+        $skuB = $this->skuForShop($shop->tenant, $shop, 'PASTE-MERGE-B');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->set('shopId', (string) $shop->id)
+            ->set('columnFieldMapping', [
+                '0' => 'platform_order_id',
+                '1' => 'sku',
+                '2' => 'quantity',
+                '3' => 'recipient_name',
+                '4' => 'recipient_postal_code',
+                '5' => 'recipient_address_line1',
+            ])
+            ->set('dataStartRow', 1)
+            ->set('grid', $this->pasteGrid([
+                ['注文番号', '商品番号', '個数', '送付先氏名1', '送付先郵便番号1', '送付先住所1'],
+                ['WX-MERGED', $skuA->sku, '1', '佐藤 花子', '150-0001', '東京都渋谷区1-1'],
+                ['', $skuB->sku, '2', '', '', ''],
+            ]))
+            ->call('preview')
+            ->assertSet('hasErrors', false)
+            ->call('import');
+
+        $order = SalesOrder::query()->where('platform_order_id', 'WX-MERGED')->firstOrFail();
+
+        $this->assertSame('佐藤 花子', $order->recipient_name);
+        $this->assertSame(2, $order->lines()->count());
+        $this->assertDatabaseHas('sales_order_lines', [
+            'sales_order_id' => $order->id,
+            'sku_id' => $skuB->id,
+            'quantity' => 2,
+        ]);
+    }
+
+    public function test_paste_import_repairs_extra_blank_cell_before_sku(): void
+    {
+        [, $shop, $sku] = $this->salesSku('PASTE-TAB-SKU');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->set('shopId', (string) $shop->id)
+            ->set('columnFieldMapping', [
+                '0' => 'platform_order_id',
+                '1' => 'platform_ordered_at',
+                '2' => 'platform_product_name',
+                '3' => 'sku',
+                '4' => 'quantity',
+                '5' => 'recipient_name',
+            ])
+            ->set('dataStartRow', 1)
+            ->set('grid', $this->pasteGrid([
+                ['注文番号', '注文日', '商品名', '商品番号', '個数', '送付先氏名1'],
+                ['WX-TAB', '2026/06/25', 'Product name with trailing tab', '', $sku->sku, '2', '高橋 太郎'],
+            ]))
+            ->call('preview')
+            ->assertSet('hasErrors', false)
+            ->call('import');
+
+        $order = SalesOrder::query()->where('platform_order_id', 'WX-TAB')->firstOrFail();
+
+        $this->assertSame('高橋 太郎', $order->recipient_name);
+        $this->assertDatabaseHas('sales_order_lines', [
+            'sales_order_id' => $order->id,
+            'sku_id' => $sku->id,
+            'quantity' => 2,
+            'platform_product_name' => 'Product name with trailing tab',
+        ]);
+    }
+
+    public function test_paste_import_accepts_wechat_rows_without_header(): void
+    {
+        [, $shop, $skuA] = $this->salesSku('057-CWDWQ-BS');
+        $shop->update(['marketplace' => 'JP']);
+        $skuB = $this->skuForShop($shop->tenant, $shop, '195-C1YX-HS');
+        $skuC = $this->skuForShop($shop->tenant, $shop, '031-F300-HSZ');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->set('shopId', (string) $shop->id)
+            ->set('columnFieldMapping', [
+                '1' => 'platform_order_id',
+                '2' => 'platform_ordered_at',
+                '3' => 'platform_product_name',
+                '4' => 'sku',
+                '5' => 'quantity',
+                '6' => 'recipient_name',
+                '8' => 'recipient_postal_code',
+                '9' => 'recipient_address_line1',
+                '10' => 'recipient_address_line2',
+                '12' => 'recipient_phone',
+                '13' => 'order_note',
+            ])
+            ->set('grid', $this->pasteGrid([
+                ['1', 'D503-9102385-0763840', '2026/6/25', 'F2 首輪型 ペット見守り機（白）', $skuA->sku, '1', '後藤 大史', '', '006-0041', '北海道札幌市手稲区金山1-2-3-17', '', '', '080-5202-0384', '', '4'],
+                ['3', 'A503-3160604-7766225', '2026/6/25', '高精度DUALC1円形GPSトラッカー黒', '', $skuB->sku, '1', '小杉章仁', '', '522-0055', '滋賀県彦根市野瀬町47-1', 'カルミア 202', '', '08083263853', '', '4'],
+                ['', '', '2026/6/25', '追加商品', '', $skuA->sku, '', '2', '', '', '', '', '', '', ''],
+                ['', '', '', '22mm ブラック 3連ステンレスバンド', '', $skuC->sku, '', '1', '', '', '', '', '', '', ''],
+            ]))
+            ->call('preview')
+            ->assertSet('hasErrors', false)
+            ->call('import');
+
+        $first = SalesOrder::query()->where('platform_order_id', 'D503-9102385-0763840')->firstOrFail();
+        $second = SalesOrder::query()->where('platform_order_id', 'A503-3160604-7766225')->firstOrFail();
+
+        $this->assertSame('後藤 大史', $first->recipient_name);
+        $this->assertSame('北海道', $first->recipient_state);
+        $this->assertSame('札幌市手稲区金山1-2-3-17', $first->recipient_address_line1);
+        $this->assertSame('小杉章仁', $second->recipient_name);
+        $this->assertSame(3, $second->lines()->count());
+        $this->assertDatabaseHas('sales_order_lines', [
+            'sales_order_id' => $second->id,
+            'sku_id' => $skuA->id,
+            'quantity' => 2,
+            'platform_product_name' => '追加商品',
+        ]);
+        $this->assertDatabaseHas('sales_order_lines', [
+            'sales_order_id' => $second->id,
+            'sku_id' => $skuC->id,
+            'quantity' => 1,
+            'platform_product_name' => '22mm ブラック 3連ステンレスバンド',
+        ]);
+    }
+
+    public function test_paste_import_flags_unknown_sku(): void
+    {
+        [, $shop] = $this->salesSku('PASTE-KNOWN');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->set('shopId', (string) $shop->id)
+            ->set('columnFieldMapping', [
+                '0' => 'platform_order_id',
+                '1' => 'sku',
+                '2' => 'quantity',
+            ])
+            ->set('dataStartRow', 1)
+            ->set('grid', $this->pasteGrid([
+                ['注文番号', '商品番号', '個数'],
+                ['WX-BAD', 'NO-SUCH-SKU', '1'],
+            ]))
+            ->call('preview')
+            ->assertSet('hasErrors', true)
+            ->assertSee('SKU not found')
+            ->assertSee('/skus/create', false)
+            ->assertSee('sku=NO-SUCH-SKU', false);
+    }
+
+    public function test_paste_import_uses_manual_column_mapping(): void
+    {
+        [, $shop, $sku] = $this->salesSku('PASTE-MAP');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->set('shopId', (string) $shop->id)
+            ->set('columnFieldMapping', [
+                '0' => 'sku',
+                '1' => 'quantity',
+                '2' => 'platform_order_id',
+                '3' => 'recipient_name',
+            ])
+            ->set('dataStartRow', 0)
+            ->set('grid', $this->pasteGrid([
+                [$sku->sku, '3', 'WX-MAPPED', 'Mapped Recipient'],
+            ]))
+            ->call('preview')
+            ->assertSet('hasErrors', false)
+            ->call('import');
+
+        $order = SalesOrder::query()->where('platform_order_id', 'WX-MAPPED')->firstOrFail();
+
+        $this->assertSame('Mapped Recipient', $order->recipient_name);
+        $this->assertDatabaseHas('sales_order_lines', [
+            'sales_order_id' => $order->id,
+            'sku_id' => $sku->id,
+            'quantity' => 3,
+        ]);
+    }
+
+    public function test_paste_import_splits_japanese_prefecture_from_address_line_one(): void
+    {
+        [, $shop, $sku] = $this->salesSku('PASTE-ADDR-SPLIT');
+        $shop->update(['marketplace' => 'JP']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->set('shopId', (string) $shop->id)
+            ->set('columnFieldMapping', [
+                '0' => 'platform_order_id',
+                '1' => 'sku',
+                '2' => 'quantity',
+                '3' => 'recipient_address_line1',
+            ])
+            ->set('dataStartRow', 0)
+            ->set('grid', $this->pasteGrid([
+                ['WX-ADDR-SPLIT', $sku->sku, '1', '東京都千代田区丸の内1-1'],
+            ]))
+            ->call('preview')
+            ->assertSet('hasErrors', false)
+            ->call('import');
+
+        $order = SalesOrder::query()->where('platform_order_id', 'WX-ADDR-SPLIT')->firstOrFail();
+
+        $this->assertSame('東京都', $order->recipient_state);
+        $this->assertSame('千代田区丸の内1-1', $order->recipient_address_line1);
+    }
+
+    public function test_paste_import_keeps_address_line_when_prefecture_is_mapped_separately(): void
+    {
+        [, $shop, $sku] = $this->salesSku('PASTE-ADDR-STATE');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->set('shopId', (string) $shop->id)
+            ->set('columnFieldMapping', [
+                '0' => 'platform_order_id',
+                '1' => 'sku',
+                '2' => 'quantity',
+                '3' => 'recipient_state',
+                '4' => 'recipient_address_line1',
+            ])
+            ->set('dataStartRow', 0)
+            ->set('grid', $this->pasteGrid([
+                ['WX-ADDR-STATE', $sku->sku, '1', '東京都', '千代田区丸の内1-1'],
+            ]))
+            ->call('preview')
+            ->assertSet('hasErrors', false)
+            ->call('import');
+
+        $order = SalesOrder::query()->where('platform_order_id', 'WX-ADDR-STATE')->firstOrFail();
+
+        $this->assertSame('東京都', $order->recipient_state);
+        $this->assertSame('千代田区丸の内1-1', $order->recipient_address_line1);
+    }
+
+    public function test_paste_import_does_not_split_japanese_prefecture_for_non_japan_marketplace(): void
+    {
+        [, $shop, $sku] = $this->salesSku('PASTE-ADDR-US');
+        $shop->update(['marketplace' => 'US']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->set('shopId', (string) $shop->id)
+            ->set('columnFieldMapping', [
+                '0' => 'platform_order_id',
+                '1' => 'sku',
+                '2' => 'quantity',
+                '3' => 'recipient_country_code',
+                '4' => 'recipient_address_line1',
+            ])
+            ->set('dataStartRow', 0)
+            ->set('grid', $this->pasteGrid([
+                ['WX-ADDR-US', $sku->sku, '1', 'JP', '東京都千代田区丸の内1-1'],
+            ]))
+            ->call('preview')
+            ->assertSet('hasErrors', false)
+            ->call('import');
+
+        $order = SalesOrder::query()->where('platform_order_id', 'WX-ADDR-US')->firstOrFail();
+
+        $this->assertNull($order->recipient_state);
+        $this->assertSame('東京都千代田区丸の内1-1', $order->recipient_address_line1);
+    }
+
+    public function test_paste_import_mapping_template_can_be_saved_and_loaded(): void
+    {
+        [, $shop] = $this->salesSku('PASTE-TEMPLATE');
+        $mapping = [
+            'platform_order_id' => '2',
+            'sku' => '0',
+            'quantity' => '1',
+        ];
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->set('shopId', (string) $shop->id)
+            ->set('columnMapping', $mapping)
+            ->set('dataStartRow', 4)
+            ->set('templateName', 'WeChat template')
+            ->call('saveTemplate')
+            ->assertHasNoErrors();
+
+        $template = SalesOrderPasteImportMapping::query()
+            ->where('tenant_id', $shop->tenant_id)
+            ->where('name', 'WeChat template')
+            ->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->set('shopId', (string) $shop->id)
+            ->set('selectedTemplateId', (string) $template->id)
+            ->call('loadTemplate')
+            ->assertSet('columnMapping.platform_order_id', '2')
+            ->assertSet('columnMapping.sku', '0')
+            ->assertSet('columnMapping.quantity', '1')
+            ->assertSet('columnFieldMapping.0', 'sku')
+            ->assertSet('columnFieldMapping.1', 'quantity')
+            ->assertSet('columnFieldMapping.2', 'platform_order_id')
+            ->assertSet('dataStartRow', 4);
+    }
+
+    public function test_paste_import_template_can_be_saved_as_tenant_default(): void
+    {
+        [, $shop] = $this->salesSku('PASTE-DEFAULT');
+        $oldDefault = SalesOrderPasteImportMapping::create([
+            'tenant_id' => $shop->tenant_id,
+            'name' => 'Old default',
+            'mapping' => [
+                'platform_order_id' => 0,
+                'sku' => 1,
+                'quantity' => 2,
+            ],
+            'data_start_row' => 0,
+            'is_default' => true,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->set('shopId', (string) $shop->id)
+            ->set('columnFieldMapping', [
+                '2' => 'platform_order_id',
+                '0' => 'sku',
+                '1' => 'quantity',
+            ])
+            ->set('templateName', 'New default')
+            ->set('saveTemplateAsDefault', true)
+            ->call('saveTemplate')
+            ->assertHasNoErrors();
+
+        $this->assertFalse($oldDefault->refresh()->is_default);
+        $this->assertDatabaseHas('sales_order_paste_import_mappings', [
+            'tenant_id' => $shop->tenant_id,
+            'name' => 'New default',
+            'is_default' => true,
+        ]);
+    }
+
+    public function test_paste_import_checkbox_sets_selected_template_as_default_immediately(): void
+    {
+        [, $shop] = $this->salesSku('PASTE-CHECK-DEFAULT');
+        $oldDefault = SalesOrderPasteImportMapping::create([
+            'tenant_id' => $shop->tenant_id,
+            'name' => 'Old default',
+            'mapping' => [
+                'platform_order_id' => 0,
+                'sku' => 1,
+                'quantity' => 2,
+            ],
+            'data_start_row' => 0,
+            'is_default' => true,
+        ]);
+        $newDefault = SalesOrderPasteImportMapping::create([
+            'tenant_id' => $shop->tenant_id,
+            'name' => 'New default',
+            'mapping' => [
+                'platform_order_id' => 2,
+                'sku' => 0,
+                'quantity' => 1,
+            ],
+            'data_start_row' => 3,
+            'is_default' => false,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->set('shopId', (string) $shop->id)
+            ->set('selectedTemplateId', (string) $newDefault->id)
+            ->call('loadTemplate')
+            ->set('saveTemplateAsDefault', true)
+            ->assertSee(__('sales_orders.paste_import_template_default_saved'));
+
+        $this->assertFalse($oldDefault->refresh()->is_default);
+        $this->assertTrue($newDefault->refresh()->is_default);
+    }
+
+    public function test_paste_import_default_checkbox_requires_saved_template(): void
+    {
+        [, $shop] = $this->salesSku('PASTE-CHECK-NONE');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->set('shopId', (string) $shop->id)
+            ->set('saveTemplateAsDefault', true)
+            ->assertSet('saveTemplateAsDefault', false)
+            ->assertSee(__('sales_orders.paste_import_template_default_requires_saved'));
+    }
+
+    public function test_paste_import_loads_tenant_default_template_when_shop_is_selected(): void
+    {
+        [, $shop] = $this->salesSku('PASTE-AUTO-DEFAULT');
+        SalesOrderPasteImportMapping::create([
+            'tenant_id' => $shop->tenant_id,
+            'name' => 'Auto default',
+            'mapping' => [
+                'platform_order_id' => 2,
+                'sku' => 0,
+                'quantity' => 1,
+            ],
+            'data_start_row' => 3,
+            'is_default' => true,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->set('shopId', (string) $shop->id)
+            ->assertSet('columnFieldMapping.0', 'sku')
+            ->assertSet('columnFieldMapping.1', 'quantity')
+            ->assertSet('columnFieldMapping.2', 'platform_order_id')
+            ->assertSet('dataStartRow', 3);
+    }
+
+    public function test_paste_import_loads_tenant_default_template_from_shop_select_action(): void
+    {
+        [, $shop] = $this->salesSku('PASTE-AUTO-ACTION');
+        SalesOrderPasteImportMapping::create([
+            'tenant_id' => $shop->tenant_id,
+            'name' => 'Action default',
+            'mapping' => [
+                'platform_order_id' => 2,
+                'sku' => 0,
+                'quantity' => 1,
+            ],
+            'data_start_row' => 3,
+            'is_default' => true,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->call('selectShop', (string) $shop->id)
+            ->assertSet('shopId', (string) $shop->id)
+            ->assertSet('columnFieldMapping.0', 'sku')
+            ->assertSet('columnFieldMapping.1', 'quantity')
+            ->assertSet('columnFieldMapping.2', 'platform_order_id')
+            ->assertSet('dataStartRow', 3);
+    }
+
+    public function test_paste_import_loads_only_template_when_no_default_is_marked(): void
+    {
+        [, $shop] = $this->salesSku('PASTE-AUTO-SINGLE');
+        SalesOrderPasteImportMapping::create([
+            'tenant_id' => $shop->tenant_id,
+            'name' => 'Only template',
+            'mapping' => [
+                'platform_order_id' => 2,
+                'sku' => 0,
+                'quantity' => 1,
+            ],
+            'data_start_row' => 3,
+            'is_default' => false,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->call('selectShop', (string) $shop->id)
+            ->assertSet('columnFieldMapping.0', 'sku')
+            ->assertSet('columnFieldMapping.1', 'quantity')
+            ->assertSet('columnFieldMapping.2', 'platform_order_id')
+            ->assertSet('dataStartRow', 3);
+    }
+
+    public function test_paste_import_loads_tenant_default_template_from_shop_query_param(): void
+    {
+        [, $shop] = $this->salesSku('PASTE-AUTO-QUERY');
+        SalesOrderPasteImportMapping::create([
+            'tenant_id' => $shop->tenant_id,
+            'name' => 'Query default',
+            'mapping' => [
+                'platform_order_id' => 2,
+                'sku' => 0,
+                'quantity' => 1,
+            ],
+            'data_start_row' => 3,
+            'is_default' => true,
+        ]);
+
+        Livewire::withQueryParams(['shop_id' => (string) $shop->id])
+            ->actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->assertSet('shopId', (string) $shop->id)
+            ->assertSet('columnFieldMapping.0', 'sku')
+            ->assertSet('columnFieldMapping.1', 'quantity')
+            ->assertSet('columnFieldMapping.2', 'platform_order_id')
+            ->assertSet('dataStartRow', 3);
+    }
+
+    public function test_paste_import_clears_mapping_when_selected_shop_has_no_default_template(): void
+    {
+        [, $shopWithDefault] = $this->salesSku('PASTE-CLEAR-DEFAULT');
+        $otherTenant = Tenant::factory()->create(['status' => 'active']);
+        $shopWithoutDefault = Shop::factory()->for($otherTenant)->create(['status' => 'active']);
+
+        SalesOrderPasteImportMapping::create([
+            'tenant_id' => $shopWithDefault->tenant_id,
+            'name' => 'Default mapping',
+            'mapping' => [
+                'platform_order_id' => 2,
+                'sku' => 0,
+                'quantity' => 1,
+            ],
+            'data_start_row' => 3,
+            'is_default' => true,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->set('shopId', (string) $shopWithDefault->id)
+            ->assertSet('columnFieldMapping.0', 'sku')
+            ->set('shopId', (string) $shopWithoutDefault->id)
+            ->assertSet('selectedTemplateId', '')
+            ->assertSet('columnMapping', [])
+            ->assertSet('columnFieldMapping', [])
+            ->assertSet('dataStartRow', 0);
+    }
+
+    public function test_tenant_user_cannot_load_another_tenants_paste_mapping_template(): void
+    {
+        [$tenant, $user] = $this->tenantUser();
+        $ownShop = Shop::factory()->for($tenant)->create(['status' => 'active']);
+        $otherTenant = Tenant::factory()->create(['status' => 'active']);
+        $template = SalesOrderPasteImportMapping::create([
+            'tenant_id' => $otherTenant->id,
+            'name' => 'Other template',
+            'mapping' => [
+                'platform_order_id' => 2,
+                'sku' => 0,
+                'quantity' => 1,
+            ],
+            'data_start_row' => 3,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(SalesOrderPasteImport::class)
+            ->set('shopId', (string) $ownShop->id)
+            ->set('selectedTemplateId', (string) $template->id)
+            ->call('loadTemplate')
+            ->assertSet('columnMapping', [])
+            ->assertSet('dataStartRow', 0);
     }
 
     public function test_import_validate_button_waits_for_file_upload(): void
@@ -810,6 +1438,16 @@ class SalesOrderImportTest extends TestCase
         $component = $this->parseOnly($shop, $csv);
 
         return $component->call('import');
+    }
+
+    private function pasteGrid(array $rows): array
+    {
+        $blankRow = array_fill(0, 18, '');
+
+        return array_map(
+            fn ($row) => array_slice(array_pad((array) $row, 18, ''), 0, 18),
+            array_slice(array_pad($rows, 60, $blankRow), 0, 60),
+        );
     }
 
     private function parseOnly(Shop $shop, string $csv): Testable

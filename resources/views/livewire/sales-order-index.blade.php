@@ -345,8 +345,8 @@
                         <a href="{{ route('sales.orders.import') }}" wire:navigate>
                             {{ __('sales_orders.import_file_upload') }}
                         </a>
-                        <a href="{{ route('sales.orders.import.amazon-api') }}" wire:navigate>
-                            {{ __('sales_orders.import_amazon_api') }}
+                        <a href="{{ route('sales.orders.import.paste') }}" wire:navigate>
+                            {{ __('sales_orders.import_paste_grid') }}
                         </a>
                         <a href="{{ route('sales.orders.create') }}" wire:navigate>
                             {{ __('sales_orders.import_manual_input') }}

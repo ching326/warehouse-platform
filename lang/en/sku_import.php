@@ -79,7 +79,7 @@ return [
 
     // Row-level validation
     'error_sku_required' => 'SKU code is required.',
-    'error_name_required' => 'SKU name is required.',
+    'error_name_required' => ':field is required.',
     'error_sku_duplicate_in_file' => 'This SKU code appears more than once in the file.',
     'error_invalid_status' => ':field must be one of: :values.',
     'error_invalid_barcode_type' => 'Barcode type must be one of: :values.',
@@ -89,7 +89,7 @@ return [
 
     // Field labels (used in mapping UI and error messages)
     'field_sku' => 'SKU code',
-    'field_name' => 'SKU name',
+    'field_name' => 'SKU name (English)',
     'field_name_ja' => 'SKU name (Japanese)',
     'field_name_zh_tw' => 'SKU name (Traditional Chinese)',
     'field_name_zh_cn' => 'SKU name (Simplified Chinese)',

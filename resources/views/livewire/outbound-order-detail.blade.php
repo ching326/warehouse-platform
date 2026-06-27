@@ -52,10 +52,6 @@
                 <strong>{{ $order->reasonLabel() ?? '-' }}</strong>
             </div>
             <div>
-                <span>{{ __('outbound.field_ship_mode') }}</span>
-                <strong>{{ $order->shipModeLabel() ?? '-' }}</strong>
-            </div>
-            <div>
                 <span>{{ __('outbound.col_shipped_at') }}</span>
                 <strong>{{ $order->shipped_at ? $order->shipped_at->format('Y-m-d H:i') : '-' }}</strong>
             </div>

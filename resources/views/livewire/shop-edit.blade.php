@@ -42,7 +42,12 @@
 
             <div class="form-grid three">
                 <div>
-                    <flux:input wire:model="marketplace" :label="__('shop.field_marketplace')" />
+                    <flux:select wire:model="marketplace" :label="__('shop.field_marketplace')">
+                        <flux:select.option value="">{{ __('shop.field_marketplace') }}</flux:select.option>
+                        @foreach ($marketplaces as $value => $label)
+                            <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
                     <span class="subtle">{{ __('shop.field_marketplace_hint') }}</span>
                     @error('marketplace') <p class="form-error">{{ $message }}</p> @enderror
                 </div>

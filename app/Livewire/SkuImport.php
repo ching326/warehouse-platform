@@ -25,6 +25,8 @@ class SkuImport extends Component
 {
     use WithFileUploads;
 
+    private ?string $skuNameBaseFieldKey = null;
+
     public string $step = 'upload';
 
     // Step 1 inputs
@@ -385,6 +387,7 @@ class SkuImport extends Component
             'savedTemplates' => $this->savedTemplates(),
             'showTenantSelect' => $this->isInternalUser(),
             'columnToField' => $this->buildColumnToFieldMap(),
+            'requiredSkuNameFieldKey' => $this->skuNameBaseFieldKeyForView(),
         ])->layout('inventory', [
             'title' => __('sku_import.page_title'),
             'subtitle' => __('sku_import.page_subtitle'),
@@ -421,7 +424,7 @@ class SkuImport extends Component
         array $validProductTypes,
         array &$seenSkus,
     ): array {
-        $rowData = $this->extractRowData($row, $columnIndex);
+        $rowData = $this->normalizeSkuBaseName($this->extractRowData($row, $columnIndex));
         $skuCode = trim($rowData['sku'] ?? '');
 
         $isDupInFile = $skuCode !== '' && isset($seenSkus[$skuCode]);
@@ -453,6 +456,26 @@ class SkuImport extends Component
         return $data;
     }
 
+    /**
+     * The base skus.name column stores the tenant's chosen SKU-name language.
+     * The visible "name" import field is English, so preserve it as name_en
+     * when another locale is the required base name.
+     */
+    private function normalizeSkuBaseName(array $rowData): array
+    {
+        $baseField = $this->skuNameBaseFieldKey();
+
+        if ($baseField !== 'name') {
+            if (($rowData['name'] ?? '') !== '') {
+                $rowData['name_en'] = $rowData['name'];
+            }
+
+            $rowData['name'] = $rowData[$baseField] ?? '';
+        }
+
+        return $rowData;
+    }
+
     private function validateRowData(
         array $rowData,
         array $existingSkuCodes,
@@ -475,7 +498,9 @@ class SkuImport extends Component
         }
 
         if ($name === '') {
-            $errors[] = __('sku_import.error_name_required');
+            $errors[] = __('sku_import.error_name_required', [
+                'field' => $this->fieldLabel($this->skuNameBaseFieldKey()),
+            ]);
         }
 
         if ($errors !== []) {
@@ -517,7 +542,7 @@ class SkuImport extends Component
         }
 
         $stringFields = [
-            'sku', 'name', 'name_ja', 'name_zh_tw', 'name_zh_cn',
+            'sku', 'name', 'name_en', 'name_ja', 'name_zh_tw', 'name_zh_cn',
             'platform_sku', 'platform_product_id', 'platform_variant_id',
             'platform_variant_name', 'platform_label_code',
             'short_name', 'brand', 'model_number', 'variation_code', 'color', 'size', 'barcode',
@@ -537,6 +562,7 @@ class SkuImport extends Component
         return [
             'sku' => $rowData['sku'] ?? '',
             'name' => $rowData['name'] ?? '',
+            'name_en' => $rowData['name_en'] ?? '',
             'name_ja' => $rowData['name_ja'] ?? '',
             'name_zh_tw' => $rowData['name_zh_tw'] ?? '',
             'name_zh_cn' => $rowData['name_zh_cn'] ?? '',
@@ -608,11 +634,60 @@ class SkuImport extends Component
 
         foreach (SkuImportFields::all() as $field) {
             if ($field->required && ($this->mapping[$field->key] ?? '') === '') {
-                $missing[] = __('sku_import.field_'.$field->key);
+                $missing[] = $this->fieldLabel($field->key);
             }
         }
 
-        return $missing;
+        $baseNameField = $this->skuNameBaseFieldKey();
+
+        if (($this->mapping[$baseNameField] ?? '') === '') {
+            $missing[] = $this->fieldLabel($baseNameField);
+        }
+
+        return array_values(array_unique($missing));
+    }
+
+    private function skuNameBaseFieldKey(): string
+    {
+        if ($this->skuNameBaseFieldKey !== null) {
+            return $this->skuNameBaseFieldKey;
+        }
+
+        $locale = Tenant::query()
+            ->whereKey($this->validatedTenantId())
+            ->value('sku_name_locale') ?: 'en';
+
+        return $this->skuNameBaseFieldKey = $this->skuNameFieldKeyForLocale($locale);
+    }
+
+    private function skuNameBaseFieldKeyForView(): string
+    {
+        $tenantId = (int) $this->tenantId;
+
+        if ($tenantId <= 0 || ! in_array($tenantId, $this->allowedTenantIds(), true)) {
+            return 'name';
+        }
+
+        $locale = Tenant::query()
+            ->whereKey($tenantId)
+            ->value('sku_name_locale') ?: 'en';
+
+        return $this->skuNameFieldKeyForLocale($locale);
+    }
+
+    private function skuNameFieldKeyForLocale(string $locale): string
+    {
+        return match ($locale) {
+            'ja' => 'name_ja',
+            'zh_TW' => 'name_zh_tw',
+            'zh_CN' => 'name_zh_cn',
+            default => 'name',
+        };
+    }
+
+    private function fieldLabel(string $fieldKey): string
+    {
+        return __('sku_import.field_'.$fieldKey);
     }
 
     private function savedTemplates(): Collection

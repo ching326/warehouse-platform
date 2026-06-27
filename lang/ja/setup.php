@@ -147,4 +147,10 @@ return [
     'field_sku_name_locale' => 'SKU名の基本言語',
     'field_stock_item_name_locale' => '在庫品目名の基本言語',
     'locale_default_en' => 'English (デフォルト)',
+    'select_sku_name_locale' => 'Choose SKU name language',
+    'stock_item_name_locale_fixed_hint' => 'Stock item names are fixed to Japanese for warehouse operations.',
+    'locale_en' => 'English',
+    'locale_ja' => 'Japanese',
+    'locale_zh_TW' => 'Traditional Chinese',
+    'locale_zh_CN' => 'Simplified Chinese',
 ];
