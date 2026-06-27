@@ -26,12 +26,21 @@
             <div class="form-grid three">
                 <flux:input wire:model="name" :label="__('locations.field_name')" />
 
-                <flux:select wire:model="type" :label="__('locations.field_type')">
-                    @foreach ($types as $value => $label)
+                <flux:select wire:model="zoneType" :label="__('locations.field_zone_type')">
+                    @foreach ($zoneTypes as $value => $label)
                         <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
                     @endforeach
                 </flux:select>
 
+                <flux:select wire:model="storageUnitType" :label="__('locations.field_storage_unit_type')">
+                    <flux:select.option value="">{{ __('locations.no_storage_unit_type') }}</flux:select.option>
+                    @foreach ($storageUnitTypes as $value => $label)
+                        <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </div>
+
+            <div class="form-grid">
                 <flux:select wire:model="status" :label="__('locations.field_status')">
                     @foreach ($statuses as $value => $label)
                         <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
@@ -44,7 +53,7 @@
                 <textarea wire:model="note" rows="4"></textarea>
             </label>
 
-            @foreach (['warehouse_id', 'code', 'name', 'type', 'status', 'note'] as $field)
+            @foreach (['warehouse_id', 'code', 'name', 'zone_type', 'storage_unit_type', 'status', 'note'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
         </section>

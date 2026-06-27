@@ -18,7 +18,9 @@ class WarehouseLocationEdit extends Component
 
     public string $name = '';
 
-    public string $type = 'storage';
+    public string $zoneType = 'storage';
+
+    public string $storageUnitType = '';
 
     public string $status = 'active';
 
@@ -34,7 +36,8 @@ class WarehouseLocationEdit extends Component
         $this->warehouseId = (string) $location->warehouse_id;
         $this->code = $location->code;
         $this->name = $location->name ?? '';
-        $this->type = $location->type;
+        $this->zoneType = $location->zone_type;
+        $this->storageUnitType = $location->storage_unit_type ?? '';
         $this->status = $location->status;
         $this->note = $location->note ?? '';
     }
@@ -47,7 +50,8 @@ class WarehouseLocationEdit extends Component
             'warehouse_id' => $this->warehouseId,
             'code' => $code,
             'name' => $this->name,
-            'type' => $this->type,
+            'zone_type' => $this->zoneType,
+            'storage_unit_type' => $this->storageUnitType,
             'status' => $this->status,
             'note' => $this->note,
         ], [
@@ -61,7 +65,8 @@ class WarehouseLocationEdit extends Component
                     ->ignore($this->location->id),
             ],
             'name' => ['nullable', 'string', 'max:255'],
-            'type' => ['required', 'string', Rule::in(array_keys($this->locationTypes()))],
+            'zone_type' => ['required', 'string', Rule::in(array_keys($this->zoneTypes()))],
+            'storage_unit_type' => ['nullable', 'string', Rule::in(array_keys($this->storageUnitTypes()))],
             'status' => ['required', 'string', Rule::in(['active', 'inactive'])],
             'note' => ['nullable', 'string', 'max:1000'],
         ], [
@@ -72,7 +77,8 @@ class WarehouseLocationEdit extends Component
             'warehouse_id' => (int) $this->warehouseId,
             'code' => $code,
             'name' => $this->nullableString($this->name),
-            'type' => $this->type,
+            'zone_type' => $this->zoneType,
+            'storage_unit_type' => $this->nullableString($this->storageUnitType),
             'status' => $this->status,
             'note' => $this->nullableString($this->note),
         ]);
@@ -93,7 +99,8 @@ class WarehouseLocationEdit extends Component
                 })
                 ->orderBy('name')
                 ->get(['id', 'code', 'name']),
-            'types' => $this->locationTypes(),
+            'zoneTypes' => $this->zoneTypes(),
+            'storageUnitTypes' => $this->storageUnitTypes(),
             'statuses' => [
                 'active' => __('locations.status_active'),
                 'inactive' => __('locations.status_inactive'),
@@ -104,7 +111,7 @@ class WarehouseLocationEdit extends Component
         ]);
     }
 
-    private function locationTypes(): array
+    private function zoneTypes(): array
     {
         return [
             'storage' => __('locations.type_storage'),
@@ -115,6 +122,20 @@ class WarehouseLocationEdit extends Component
             'hold' => __('locations.type_hold'),
             'damaged' => __('locations.type_damaged'),
             'other' => __('locations.type_other'),
+        ];
+    }
+
+    private function storageUnitTypes(): array
+    {
+        return [
+            'bin' => __('locations.storage_unit_bin'),
+            'rack' => __('locations.storage_unit_rack'),
+            'shelf' => __('locations.storage_unit_shelf'),
+            'pallet' => __('locations.storage_unit_pallet'),
+            'cage' => __('locations.storage_unit_cage'),
+            'floor' => __('locations.storage_unit_floor'),
+            'room' => __('locations.storage_unit_room'),
+            'other' => __('locations.storage_unit_other'),
         ];
     }
 

@@ -45,7 +45,7 @@
                 <flux:select wire:model.live="stockItemId" required :label="__('stock_adjustments.field_stock_item')">
                     <flux:select.option value="">{{ __('skus.no_stock_item') }}</flux:select.option>
                     @foreach ($stockItems as $item)
-                        <flux:select.option value="{{ $item->id }}">{{ $item->code }} - {{ $item->name }}</flux:select.option>
+                        <flux:select.option value="{{ $item->id }}">{{ $item->code }} - {{ $item->displayName() }}</flux:select.option>
                     @endforeach
                 </flux:select>
             </div>
@@ -62,10 +62,18 @@
             </div>
 
             <div class="form-grid">
+                <flux:select wire:model.live="action" required :label="__('stock_adjustments.field_action')">
+                    <flux:select.option value="">{{ __('stock_adjustments.select_action') }}</flux:select.option>
+                    @foreach ($actionOptions as $value => $label)
+                        <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+
                 <div>
                     <flux:input
                         type="number"
                         wire:model="quantity"
+                        min="1"
                         step="1"
                         required
                         :label="__('stock_adjustments.field_quantity')"
@@ -74,6 +82,17 @@
                     @error('quantity') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
 
+                <flux:select wire:model="reason" required :label="__('stock_adjustments.field_reason')" :disabled="$action === ''">
+                    <flux:select.option value="">{{ __('stock_adjustments.select_reason') }}</flux:select.option>
+                    @foreach ($reasonOptions as $value => $label)
+                        <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </div>
+            @error('action') <p class="form-error">{{ $message }}</p> @enderror
+            @error('reason') <p class="form-error">{{ $message }}</p> @enderror
+
+            <div class="form-grid">
                 <div>
                     <flux:input
                         wire:model="refId"

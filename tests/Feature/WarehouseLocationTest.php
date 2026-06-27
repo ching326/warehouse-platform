@@ -27,7 +27,8 @@ class WarehouseLocationTest extends TestCase
             ->set('warehouseId', (string) $warehouse->id)
             ->set('code', 'a-01')
             ->set('name', 'Alpha shelf')
-            ->set('type', 'receiving')
+            ->set('zoneType', 'receiving')
+            ->set('storageUnitType', 'rack')
             ->set('note', 'Near dock')
             ->call('save')
             ->assertRedirect(route('setup.locations.index'));
@@ -36,9 +37,32 @@ class WarehouseLocationTest extends TestCase
             'warehouse_id' => $warehouse->id,
             'code' => 'A-01',
             'name' => 'Alpha shelf',
-            'type' => 'receiving',
+            'zone_type' => 'receiving',
+            'storage_unit_type' => 'rack',
             'status' => 'active',
             'note' => 'Near dock',
+        ]);
+    }
+
+    public function test_create_location_accepts_storage_unit_types_separately_from_zone_type(): void
+    {
+        $warehouse = Warehouse::factory()->create();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(WarehouseLocationCreate::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('code', 'rack-01')
+            ->set('name', 'Rack 01')
+            ->set('zoneType', 'storage')
+            ->set('storageUnitType', 'rack')
+            ->call('save')
+            ->assertRedirect(route('setup.locations.index'));
+
+        $this->assertDatabaseHas('warehouse_locations', [
+            'warehouse_id' => $warehouse->id,
+            'code' => 'RACK-01',
+            'zone_type' => 'storage',
+            'storage_unit_type' => 'rack',
         ]);
     }
 
@@ -51,7 +75,7 @@ class WarehouseLocationTest extends TestCase
             ->test(WarehouseLocationCreate::class)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('code', 'a-01')
-            ->set('type', 'storage')
+            ->set('zoneType', 'storage')
             ->call('save')
             ->assertHasErrors(['code']);
 
@@ -68,7 +92,7 @@ class WarehouseLocationTest extends TestCase
             ->test(WarehouseLocationCreate::class)
             ->set('warehouseId', (string) $warehouseB->id)
             ->set('code', 'a-01')
-            ->set('type', 'storage')
+            ->set('zoneType', 'storage')
             ->call('save')
             ->assertRedirect(route('setup.locations.index'));
 
@@ -83,7 +107,7 @@ class WarehouseLocationTest extends TestCase
             ->test(WarehouseLocationCreate::class)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('code', 'a-01')
-            ->set('type', 'storage')
+            ->set('zoneType', 'storage')
             ->call('save')
             ->assertHasErrors(['warehouse_id']);
 
@@ -149,16 +173,28 @@ class WarehouseLocationTest extends TestCase
             ->assertDontSee('B-01');
     }
 
-    public function test_type_filter_shows_only_matching_type(): void
+    public function test_zone_type_filter_shows_only_matching_zone_type(): void
     {
-        WarehouseLocation::factory()->create(['code' => 'STORAGE-01', 'type' => 'storage']);
-        WarehouseLocation::factory()->create(['code' => 'QC-01', 'type' => 'qc']);
+        WarehouseLocation::factory()->create(['code' => 'STORAGE-01', 'zone_type' => 'storage']);
+        WarehouseLocation::factory()->create(['code' => 'QC-01', 'zone_type' => 'qc']);
 
         Livewire::actingAs($this->internalUser())
             ->test(WarehouseLocationIndex::class)
-            ->set('typeFilter', 'qc')
+            ->set('zoneTypeFilter', 'qc')
             ->assertSee('QC-01')
             ->assertDontSee('STORAGE-01');
+    }
+
+    public function test_storage_unit_type_filter_shows_only_matching_storage_unit_type(): void
+    {
+        WarehouseLocation::factory()->create(['code' => 'BIN-01', 'storage_unit_type' => 'bin']);
+        WarehouseLocation::factory()->create(['code' => 'CAGE-01', 'storage_unit_type' => 'cage']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(WarehouseLocationIndex::class)
+            ->set('storageUnitTypeFilter', 'cage')
+            ->assertSee('CAGE-01')
+            ->assertDontSee('BIN-01');
     }
 
     public function test_status_filter_shows_only_matching_status(): void
@@ -195,13 +231,16 @@ class WarehouseLocationTest extends TestCase
         $warehouse = Warehouse::factory()->create(['status' => 'active']);
         $location = WarehouseLocation::factory()->for($warehouse)->create([
             'code' => 'EDIT-01',
-            'type' => 'storage',
+            'zone_type' => 'storage',
+            'storage_unit_type' => 'bin',
             'status' => 'active',
         ]);
 
         Livewire::actingAs($this->internalUser())
             ->test(WarehouseLocationEdit::class, ['location' => $location])
             ->set('name', 'Updated Name')
+            ->set('zoneType', 'qc')
+            ->set('storageUnitType', 'cage')
             ->set('status', 'inactive')
             ->call('save')
             ->assertRedirect(route('setup.locations.index'));
@@ -209,6 +248,8 @@ class WarehouseLocationTest extends TestCase
         $this->assertDatabaseHas('warehouse_locations', [
             'id' => $location->id,
             'name' => 'Updated Name',
+            'zone_type' => 'qc',
+            'storage_unit_type' => 'cage',
             'status' => 'inactive',
         ]);
     }
@@ -219,7 +260,7 @@ class WarehouseLocationTest extends TestCase
         $inactiveWarehouse = Warehouse::factory()->create(['status' => 'inactive']);
         $location = WarehouseLocation::factory()->for($activeWarehouse)->create([
             'code' => 'EDIT-02',
-            'type' => 'storage',
+            'zone_type' => 'storage',
         ]);
 
         Livewire::actingAs($this->internalUser())
@@ -269,7 +310,7 @@ class WarehouseLocationTest extends TestCase
     {
         $warehouse = Warehouse::factory()->create(['status' => 'active']);
         WarehouseLocation::factory()->for($warehouse)->create(['code' => 'TAKEN-01']);
-        $location = WarehouseLocation::factory()->for($warehouse)->create(['code' => 'MINE-01', 'type' => 'storage']);
+        $location = WarehouseLocation::factory()->for($warehouse)->create(['code' => 'MINE-01', 'zone_type' => 'storage']);
 
         Livewire::actingAs($this->internalUser())
             ->test(WarehouseLocationEdit::class, ['location' => $location])
@@ -281,7 +322,7 @@ class WarehouseLocationTest extends TestCase
     public function test_edit_location_allows_keeping_own_code(): void
     {
         $warehouse = Warehouse::factory()->create(['status' => 'active']);
-        $location = WarehouseLocation::factory()->for($warehouse)->create(['code' => 'KEEP-01', 'type' => 'storage']);
+        $location = WarehouseLocation::factory()->for($warehouse)->create(['code' => 'KEEP-01', 'zone_type' => 'storage']);
 
         Livewire::actingAs($this->internalUser())
             ->test(WarehouseLocationEdit::class, ['location' => $location])

@@ -215,15 +215,19 @@ class WarehousePlatformSeeder extends Seeder
 
     private function seedWarehouseLocations(array $warehouses): void
     {
-        $types = ['bin', 'rack', 'shelf', 'cage'];
+        $storageUnitTypes = ['bin', 'rack', 'shelf', 'cage'];
         $locations = ['A', 'B', 'C', 'D', 'E'];
 
         foreach ($warehouses as $warehouse) {
             foreach ($locations as $loc) {
-                foreach ($types as $type) {
+                foreach ($storageUnitTypes as $type) {
                     WarehouseLocation::updateOrCreate(
                         ['warehouse_id' => $warehouse->id, 'code' => "{$loc}-{$type}"],
-                        ['type' => $type, 'status' => 'active'],
+                        [
+                            'zone_type' => 'storage',
+                            'storage_unit_type' => $type,
+                            'status' => 'active',
+                        ],
                     );
                 }
             }

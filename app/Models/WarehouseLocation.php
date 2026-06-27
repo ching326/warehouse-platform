@@ -13,7 +13,7 @@ class WarehouseLocation extends Model
     /** @use HasFactory<WarehouseLocationFactory> */
     use HasFactory;
 
-    protected $fillable = ['warehouse_id', 'code', 'name', 'type', 'status', 'note'];
+    protected $fillable = ['warehouse_id', 'code', 'name', 'zone_type', 'storage_unit_type', 'status', 'note'];
 
     public function warehouse(): BelongsTo
     {

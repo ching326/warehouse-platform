@@ -10,9 +10,16 @@
                 @endforeach
             </flux:select>
 
-            <flux:select wire:model.live="typeFilter" :label="__('locations.field_type')">
-                <flux:select.option value="">{{ __('locations.all_types') }}</flux:select.option>
-                @foreach ($types as $value => $label)
+            <flux:select wire:model.live="zoneTypeFilter" :label="__('locations.field_zone_type')">
+                <flux:select.option value="">{{ __('locations.all_zone_types') }}</flux:select.option>
+                @foreach ($zoneTypes as $value => $label)
+                    <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
+            <flux:select wire:model.live="storageUnitTypeFilter" :label="__('locations.field_storage_unit_type')">
+                <flux:select.option value="">{{ __('locations.all_storage_unit_types') }}</flux:select.option>
+                @foreach ($storageUnitTypes as $value => $label)
                     <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
                 @endforeach
             </flux:select>
@@ -40,7 +47,8 @@
                 <flux:table.column>{{ __('locations.col_warehouse') }}</flux:table.column>
                 <flux:table.column>{{ __('locations.col_code') }}</flux:table.column>
                 <flux:table.column>{{ __('locations.col_name') }}</flux:table.column>
-                <flux:table.column>{{ __('locations.col_type') }}</flux:table.column>
+                <flux:table.column>{{ __('locations.col_zone_type') }}</flux:table.column>
+                <flux:table.column>{{ __('locations.col_storage_unit_type') }}</flux:table.column>
                 <flux:table.column>{{ __('locations.col_status') }}</flux:table.column>
                 <flux:table.column>{{ __('locations.col_note') }}</flux:table.column>
                 <flux:table.column>{{ __('locations.col_actions') }}</flux:table.column>
@@ -57,7 +65,8 @@
                             <strong>{{ $location->code }}</strong>
                         </flux:table.cell>
                         <flux:table.cell>{{ $location->name ?: '-' }}</flux:table.cell>
-                        <flux:table.cell>{{ $this->typeLabel($location->type) }}</flux:table.cell>
+                        <flux:table.cell>{{ $this->zoneTypeLabel($location->zone_type) }}</flux:table.cell>
+                        <flux:table.cell>{{ $this->storageUnitTypeLabel($location->storage_unit_type) }}</flux:table.cell>
                         <flux:table.cell>
                             <flux:badge color="{{ $this->statusColor($location->status) }}">
                                 {{ $this->statusLabel($location->status) }}
@@ -77,7 +86,7 @@
                     </flux:table.row>
                 @empty
                     <flux:table.row>
-                        <flux:table.cell colspan="7">
+                        <flux:table.cell colspan="8">
                             <div class="empty-state">{{ __('locations.empty_state') }}</div>
                         </flux:table.cell>
                     </flux:table.row>

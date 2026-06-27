@@ -6,11 +6,13 @@ use App\Livewire\TenantCreate;
 use App\Livewire\TenantEdit;
 use App\Livewire\TenantIndex;
 use App\Livewire\WarehouseCreate;
+use App\Livewire\WarehouseEdit;
 use App\Livewire\WarehouseIndex;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Models\WarehouseLocation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -194,6 +196,37 @@ class TenantWarehouseSetupTest extends TestCase
         $this->assertSame('active', $warehouse->refresh()->status);
     }
 
+    public function test_edit_warehouse_can_delete_unused_warehouse(): void
+    {
+        $warehouse = Warehouse::factory()->create(['code' => 'DEL-WH']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(WarehouseEdit::class, ['warehouse' => $warehouse])
+            ->assertSee(__('setup.btn_delete'))
+            ->assertDontSee(__('setup.btn_cancel'))
+            ->call('delete')
+            ->assertRedirect(route('setup.warehouses.index'));
+
+        $this->assertDatabaseMissing('warehouses', [
+            'id' => $warehouse->id,
+        ]);
+    }
+
+    public function test_edit_warehouse_does_not_delete_referenced_warehouse(): void
+    {
+        $warehouse = Warehouse::factory()->create(['code' => 'USED-WH']);
+        WarehouseLocation::factory()->for($warehouse)->create();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(WarehouseEdit::class, ['warehouse' => $warehouse])
+            ->call('delete')
+            ->assertNoRedirect();
+
+        $this->assertDatabaseHas('warehouses', [
+            'id' => $warehouse->id,
+        ]);
+    }
+
     public function test_non_internal_user_cannot_access_setup_pages(): void
     {
         $user = $this->tenantUser();
@@ -210,6 +243,15 @@ class TenantWarehouseSetupTest extends TestCase
         $this->actingAs($this->internalUser())->get('/setup/tenants/create')->assertOk()->assertSee('Create Tenant');
         $this->actingAs($this->internalUser())->get('/setup/warehouses')->assertOk()->assertSee('Warehouses');
         $this->actingAs($this->internalUser())->get('/setup/warehouses/create')->assertOk()->assertSee('Create Warehouse');
+    }
+
+    public function test_other_settings_links_to_warehouses(): void
+    {
+        $this->actingAs($this->internalUser())
+            ->get(route('setup.other-settings'))
+            ->assertOk()
+            ->assertSee(__('common.nav_warehouses'))
+            ->assertSee('setup/warehouses', false);
     }
 
     private function internalUser(): User

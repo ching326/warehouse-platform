@@ -17,7 +17,8 @@ class WarehouseLocationFactory extends Factory
             'warehouse_id' => Warehouse::factory(),
             'code' => fake()->unique()->bothify('LOC-###'),
             'name' => fake()->words(2, true),
-            'type' => 'storage',
+            'zone_type' => 'storage',
+            'storage_unit_type' => 'bin',
             'status' => 'active',
             'note' => fake()->optional()->sentence(),
         ];

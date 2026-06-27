@@ -16,8 +16,11 @@ class WarehouseLocationIndex extends Component
     #[Url(as: 'warehouse_id', except: '')]
     public string $warehouseId = '';
 
-    #[Url(as: 'type', except: '')]
-    public string $typeFilter = '';
+    #[Url(as: 'zone_type', except: '')]
+    public string $zoneTypeFilter = '';
+
+    #[Url(as: 'storage_unit_type', except: '')]
+    public string $storageUnitTypeFilter = '';
 
     #[Url(as: 'status', except: '')]
     public string $statusFilter = '';
@@ -37,7 +40,12 @@ class WarehouseLocationIndex extends Component
         $this->resetPage();
     }
 
-    public function updatedTypeFilter(): void
+    public function updatedZoneTypeFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedStorageUnitTypeFilter(): void
     {
         $this->resetPage();
     }
@@ -66,7 +74,8 @@ class WarehouseLocationIndex extends Component
         $locations = WarehouseLocation::query()
             ->with('warehouse:id,code,name')
             ->when($this->warehouseId !== '', fn ($query) => $query->where('warehouse_id', (int) $this->warehouseId))
-            ->when($this->typeFilter !== '', fn ($query) => $query->where('type', $this->typeFilter))
+            ->when($this->zoneTypeFilter !== '', fn ($query) => $query->where('zone_type', $this->zoneTypeFilter))
+            ->when($this->storageUnitTypeFilter !== '', fn ($query) => $query->where('storage_unit_type', $this->storageUnitTypeFilter))
             ->when($this->statusFilter !== '', fn ($query) => $query->where('status', $this->statusFilter))
             ->when($this->search !== '', function ($query) {
                 $like = '%'.$this->search.'%';
@@ -82,7 +91,8 @@ class WarehouseLocationIndex extends Component
         return view('livewire.warehouse-location-index', [
             'locations' => $locations,
             'warehouses' => Warehouse::query()->orderBy('name')->get(['id', 'code', 'name']),
-            'types' => $this->locationTypes(),
+            'zoneTypes' => $this->zoneTypes(),
+            'storageUnitTypes' => $this->storageUnitTypes(),
             'statuses' => [
                 'active' => __('locations.status_active'),
                 'inactive' => __('locations.status_inactive'),
@@ -94,9 +104,18 @@ class WarehouseLocationIndex extends Component
         ]);
     }
 
-    public function typeLabel(string $type): string
+    public function zoneTypeLabel(string $type): string
     {
-        return $this->locationTypes()[$type] ?? str($type)->replace('_', ' ')->title()->toString();
+        return $this->zoneTypes()[$type] ?? str($type)->replace('_', ' ')->title()->toString();
+    }
+
+    public function storageUnitTypeLabel(?string $type): string
+    {
+        if ($type === null || $type === '') {
+            return '-';
+        }
+
+        return $this->storageUnitTypes()[$type] ?? str($type)->replace('_', ' ')->title()->toString();
     }
 
     public function statusLabel(string $status): string
@@ -120,7 +139,7 @@ class WarehouseLocationIndex extends Component
         return $user?->user_type === 'internal';
     }
 
-    private function locationTypes(): array
+    private function zoneTypes(): array
     {
         return [
             'storage' => __('locations.type_storage'),
@@ -131,6 +150,20 @@ class WarehouseLocationIndex extends Component
             'hold' => __('locations.type_hold'),
             'damaged' => __('locations.type_damaged'),
             'other' => __('locations.type_other'),
+        ];
+    }
+
+    private function storageUnitTypes(): array
+    {
+        return [
+            'bin' => __('locations.storage_unit_bin'),
+            'rack' => __('locations.storage_unit_rack'),
+            'shelf' => __('locations.storage_unit_shelf'),
+            'pallet' => __('locations.storage_unit_pallet'),
+            'cage' => __('locations.storage_unit_cage'),
+            'floor' => __('locations.storage_unit_floor'),
+            'room' => __('locations.storage_unit_room'),
+            'other' => __('locations.storage_unit_other'),
         ];
     }
 }

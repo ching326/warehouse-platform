@@ -18,7 +18,9 @@ class WarehouseLocationCreate extends Component
 
     public string $name = '';
 
-    public string $type = 'storage';
+    public string $zoneType = 'storage';
+
+    public string $storageUnitType = '';
 
     public string $note = '';
 
@@ -37,7 +39,8 @@ class WarehouseLocationCreate extends Component
             'warehouse_id' => (int) $this->warehouseId,
             'code' => $code,
             'name' => $this->nullableString($this->name),
-            'type' => $this->type,
+            'zone_type' => $this->zoneType,
+            'storage_unit_type' => $this->nullableString($this->storageUnitType),
             'status' => 'active',
             'note' => $this->nullableString($this->note),
         ]);
@@ -54,7 +57,8 @@ class WarehouseLocationCreate extends Component
                 ->where('status', 'active')
                 ->orderBy('name')
                 ->get(['id', 'code', 'name']),
-            'types' => $this->locationTypes(),
+            'zoneTypes' => $this->zoneTypes(),
+            'storageUnitTypes' => $this->storageUnitTypes(),
         ])->layout('inventory', [
             'title' => __('locations.create_page_title'),
             'subtitle' => __('locations.create_page_subtitle'),
@@ -69,7 +73,8 @@ class WarehouseLocationCreate extends Component
             'warehouse_id' => $this->warehouseId,
             'code' => $code,
             'name' => $this->name,
-            'type' => $this->type,
+            'zone_type' => $this->zoneType,
+            'storage_unit_type' => $this->storageUnitType,
             'note' => $this->note,
         ], [
             'warehouse_id' => ['required', 'integer', Rule::exists('warehouses', 'id')->where('status', 'active')],
@@ -81,7 +86,8 @@ class WarehouseLocationCreate extends Component
                     ->where('warehouse_id', (int) $this->warehouseId),
             ],
             'name' => ['nullable', 'string', 'max:255'],
-            'type' => ['required', 'string', Rule::in(array_keys($this->locationTypes()))],
+            'zone_type' => ['required', 'string', Rule::in(array_keys($this->zoneTypes()))],
+            'storage_unit_type' => ['nullable', 'string', Rule::in(array_keys($this->storageUnitTypes()))],
             'note' => ['nullable', 'string', 'max:1000'],
         ], [
             'code.unique' => __('locations.duplicate_code'),
@@ -97,7 +103,7 @@ class WarehouseLocationCreate extends Component
         return $user?->user_type === 'internal';
     }
 
-    private function locationTypes(): array
+    private function zoneTypes(): array
     {
         return [
             'storage' => __('locations.type_storage'),
@@ -108,6 +114,20 @@ class WarehouseLocationCreate extends Component
             'hold' => __('locations.type_hold'),
             'damaged' => __('locations.type_damaged'),
             'other' => __('locations.type_other'),
+        ];
+    }
+
+    private function storageUnitTypes(): array
+    {
+        return [
+            'bin' => __('locations.storage_unit_bin'),
+            'rack' => __('locations.storage_unit_rack'),
+            'shelf' => __('locations.storage_unit_shelf'),
+            'pallet' => __('locations.storage_unit_pallet'),
+            'cage' => __('locations.storage_unit_cage'),
+            'floor' => __('locations.storage_unit_floor'),
+            'room' => __('locations.storage_unit_room'),
+            'other' => __('locations.storage_unit_other'),
         ];
     }
 

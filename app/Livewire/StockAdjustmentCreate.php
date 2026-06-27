@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\BarcodeAlias;
 use App\Models\InventoryBalance;
 use App\Models\StockItem;
 use App\Models\Tenant;
@@ -17,6 +18,30 @@ use Livewire\Component;
 
 class StockAdjustmentCreate extends Component
 {
+    private const ACTION_ADD = 'add';
+
+    private const ACTION_DEDUCT = 'deduct';
+
+    private const ADD_REASONS = [
+        'found_stock',
+        'correction',
+        'return_to_stock',
+        'supplier_replacement',
+        'other',
+    ];
+
+    private const DEDUCT_REASONS = [
+        'lost_missing',
+        'package_damage',
+        'product_damage',
+        'write_off',
+        'correction',
+        'internal_use',
+        'sample_demo_units',
+        'marketing_giveaways',
+        'other',
+    ];
+
     #[Url(as: 'tenant_id', except: '')]
     public string $tenantId = '';
 
@@ -28,7 +53,11 @@ class StockAdjustmentCreate extends Component
 
     public string $stockItemSearch = '';
 
+    public string $action = '';
+
     public string $quantity = '';
+
+    public string $reason = '';
 
     public string $note = '';
 
@@ -54,6 +83,11 @@ class StockAdjustmentCreate extends Component
         $this->stockItemSearch = '';
     }
 
+    public function updatedAction(): void
+    {
+        $this->reason = '';
+    }
+
     public function save()
     {
         $tenantId = $this->validatedTenantId();
@@ -64,12 +98,12 @@ class StockAdjustmentCreate extends Component
                 $tenantId,
                 (int) $this->warehouseId,
                 (int) $this->stockItemId,
-                (int) $this->quantity,
+                $this->signedQuantity(),
                 [
                     'ref_type' => 'manual_adjustment',
                     'ref_id' => $this->nullableString($this->refId),
                     'user_id' => Auth::id(),
-                    'note' => $this->nullableString($this->note),
+                    'note' => $this->movementNote(),
                 ],
             );
         } catch (InvalidArgumentException $exception) {
@@ -90,6 +124,8 @@ class StockAdjustmentCreate extends Component
             'currentBalance' => $this->currentBalance(),
             'showTenantSelect' => $this->isInternalUser(),
             'currentTenant' => $this->currentTenant(),
+            'actionOptions' => $this->actionOptions(),
+            'reasonOptions' => $this->reasonOptions(),
         ])->layout('inventory', [
             'title' => __('stock_adjustments.page_title'),
             'subtitle' => __('stock_adjustments.page_subtitle'),
@@ -102,7 +138,9 @@ class StockAdjustmentCreate extends Component
             'tenant_id' => ['required', 'integer'],
             'warehouse_id' => ['required', 'integer', Rule::exists('warehouses', 'id')],
             'stock_item_id' => ['required', 'integer', Rule::exists('stock_items', 'id')->where('tenant_id', $tenantId)],
-            'quantity' => ['required', 'integer', 'not_in:0'],
+            'action' => ['required', Rule::in([self::ACTION_ADD, self::ACTION_DEDUCT])],
+            'quantity' => ['required', 'integer', 'min:1'],
+            'reason' => ['required', Rule::in($this->allowedReasons())],
             'note' => ['nullable', 'string', 'max:1000'],
             'ref_id' => ['nullable', 'string', 'max:255'],
         ])->validate();
@@ -114,7 +152,9 @@ class StockAdjustmentCreate extends Component
             'tenant_id' => $this->tenantId,
             'warehouse_id' => $this->warehouseId,
             'stock_item_id' => $this->stockItemId,
+            'action' => $this->action,
             'quantity' => $this->quantity,
+            'reason' => $this->reason,
             'note' => $this->note,
             'ref_id' => $this->refId,
         ];
@@ -188,21 +228,45 @@ class StockAdjustmentCreate extends Component
 
     private function stockItemOptions(): Collection
     {
-        $search = '%'.$this->stockItemSearch.'%';
+        $searchTerm = trim($this->stockItemSearch);
+        $search = '%'.$searchTerm.'%';
+        $normalizedSearch = BarcodeAlias::normalize($searchTerm);
 
         return StockItem::query()
             ->where('tenant_id', $this->tenantId)
-            ->when($this->stockItemSearch !== '', function ($query) use ($search) {
-                $query->where(function ($query) use ($search) {
+            ->with(['barcodeAliases:id,model_type,model_id,barcode,is_active'])
+            ->when($searchTerm !== '', function ($query) use ($search, $normalizedSearch) {
+                $query->where(function ($query) use ($search, $normalizedSearch) {
                     $query
                         ->where('code', 'like', $search)
                         ->orWhere('name', 'like', $search)
-                        ->orWhere('barcode', 'like', $search);
+                        ->orWhere('name_en', 'like', $search)
+                        ->orWhere('name_ja', 'like', $search)
+                        ->orWhere('name_zh_tw', 'like', $search)
+                        ->orWhere('name_zh_cn', 'like', $search)
+                        ->orWhere('short_name', 'like', $search)
+                        ->orWhere('barcode', 'like', $search)
+                        ->orWhereHas('barcodeAliases', function ($query) use ($search, $normalizedSearch): void {
+                            $query->where('is_active', true)
+                                ->where(function ($query) use ($search, $normalizedSearch): void {
+                                    $query->where('barcode', 'like', $search);
+
+                                    if ($normalizedSearch !== '') {
+                                        $query->orWhere('normalized_barcode', 'like', '%'.$normalizedSearch.'%');
+                                    }
+                                });
+                        })
+                        ->orWhereHas('skus', function ($query) use ($search): void {
+                            $query
+                                ->where('sku', 'like', $search)
+                                ->orWhere('platform_sku', 'like', $search)
+                                ->orWhere('platform_label_code', 'like', $search);
+                        });
                 });
             })
             ->orderBy('code')
             ->limit(30)
-            ->get(['id', 'code', 'name', 'barcode']);
+            ->get(['id', 'code', ...StockItem::DISPLAY_NAME_COLUMNS, 'barcode']);
     }
 
     private function currentTenant(): ?Tenant
@@ -212,6 +276,51 @@ class StockAdjustmentCreate extends Component
         }
 
         return Tenant::query()->find($this->tenantId, ['id', 'code', 'name']);
+    }
+
+    private function signedQuantity(): int
+    {
+        $quantity = (int) $this->quantity;
+
+        return $this->action === self::ACTION_DEDUCT ? -$quantity : $quantity;
+    }
+
+    private function movementNote(): string
+    {
+        $reason = __('stock_adjustments.reasons.'.$this->reason);
+        $note = $this->nullableString($this->note);
+
+        return $note === null
+            ? __('stock_adjustments.movement_note_reason', ['reason' => $reason])
+            : __('stock_adjustments.movement_note_reason_with_note', ['reason' => $reason, 'note' => $note]);
+    }
+
+    private function actionOptions(): array
+    {
+        return [
+            self::ACTION_ADD => __('stock_adjustments.action_add'),
+            self::ACTION_DEDUCT => __('stock_adjustments.action_deduct'),
+        ];
+    }
+
+    private function reasonOptions(): array
+    {
+        $options = [];
+
+        foreach ($this->allowedReasons() as $reason) {
+            $options[$reason] = __('stock_adjustments.reasons.'.$reason);
+        }
+
+        return $options;
+    }
+
+    private function allowedReasons(): array
+    {
+        return match ($this->action) {
+            self::ACTION_ADD => self::ADD_REASONS,
+            self::ACTION_DEDUCT => self::DEDUCT_REASONS,
+            default => [],
+        };
     }
 
     private function nullableString(string $value): ?string

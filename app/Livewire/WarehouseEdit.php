@@ -4,6 +4,8 @@ namespace App\Livewire;
 
 use App\Models\Warehouse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
 
@@ -103,6 +105,21 @@ class WarehouseEdit extends Component
         return redirect()->route('setup.warehouses.index');
     }
 
+    public function delete()
+    {
+        if ($this->warehouseHasReferences()) {
+            session()->flash('error', __('setup.warehouse_delete_failed'));
+
+            return null;
+        }
+
+        $this->warehouse->delete();
+
+        session()->flash('status', __('setup.warehouse_deleted'));
+
+        return redirect()->route('setup.warehouses.index');
+    }
+
     public function render()
     {
         return view('livewire.warehouse-edit', [
@@ -129,5 +146,26 @@ class WarehouseEdit extends Component
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    private function warehouseHasReferences(): bool
+    {
+        $tables = [
+            'warehouse_locations',
+            'inventory_balances',
+            'inventory_movements',
+            'inbound_orders',
+            'inbound_receipts',
+            'outbound_orders',
+            'return_orders',
+        ];
+
+        foreach ($tables as $table) {
+            if (Schema::hasTable($table) && DB::table($table)->where('warehouse_id', $this->warehouse->id)->exists()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

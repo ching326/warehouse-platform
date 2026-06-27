@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Livewire\StockAdjustmentCreate;
+use App\Models\BarcodeAlias;
 use App\Models\InventoryBalance;
 use App\Models\InventoryMovement;
+use App\Models\Sku;
 use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\TenantUser;
@@ -40,7 +42,9 @@ class StockAdjustmentCreateTest extends TestCase
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('stockItemId', (string) $stockItem->id)
+            ->set('action', 'add')
             ->set('quantity', '5')
+            ->set('reason', 'correction')
             ->set('note', 'Cycle count correction')
             ->set('refId', 'ADJ-001')
             ->call('save')
@@ -66,6 +70,7 @@ class StockAdjustmentCreateTest extends TestCase
         $this->assertSame('manual_adjustment', $movement->ref_type);
         $this->assertSame('ADJ-001', $movement->ref_id);
         $this->assertSame($user->id, $movement->user_id);
+        $this->assertSame('Reason: Correction. Cycle count correction', $movement->note);
     }
 
     public function test_stock_adjustment_route_renders_with_query_filters(): void
@@ -104,7 +109,9 @@ class StockAdjustmentCreateTest extends TestCase
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('stockItemId', (string) $stockItem->id)
-            ->set('quantity', '-5')
+            ->set('action', 'deduct')
+            ->set('quantity', '5')
+            ->set('reason', 'lost_missing')
             ->call('save')
             ->assertHasErrors(['quantity']);
 
@@ -131,11 +138,83 @@ class StockAdjustmentCreateTest extends TestCase
             ->set('tenantId', (string) $otherTenant->id)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('stockItemId', (string) $otherStockItem->id)
+            ->set('action', 'add')
             ->set('quantity', '1')
+            ->set('reason', 'found_stock')
             ->call('save')
             ->assertHasErrors(['tenantId']);
 
         $this->assertSame(0, InventoryMovement::count());
+    }
+
+    public function test_stock_adjustment_requires_action_and_reason(): void
+    {
+        [$tenant, $warehouse, $stockItem] = $this->targetModels();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(StockAdjustmentCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('stockItemId', (string) $stockItem->id)
+            ->set('quantity', '1')
+            ->call('save')
+            ->assertHasErrors(['action' => 'required', 'reason' => 'required']);
+    }
+
+    public function test_stock_item_search_matches_linked_sku_code(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $shown = StockItem::factory()->for($tenant)->create(['code' => 'MATCH-STOCK', 'name' => 'Matched Stock']);
+        $hidden = StockItem::factory()->for($tenant)->create(['code' => 'HIDDEN-STOCK', 'name' => 'Hidden Stock']);
+        Sku::factory()->for($tenant)->for($shown)->create(['sku' => 'SKU-SEARCH-001']);
+        Sku::factory()->for($tenant)->for($hidden)->create(['sku' => 'OTHER-SKU-001']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(StockAdjustmentCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('stockItemSearch', 'SKU-SEARCH')
+            ->assertSee('MATCH-STOCK')
+            ->assertDontSee('HIDDEN-STOCK');
+    }
+
+    public function test_stock_item_search_matches_barcode_alias(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $shown = StockItem::factory()->for($tenant)->create(['code' => 'ALIAS-STOCK', 'name' => 'Alias Stock']);
+        $hidden = StockItem::factory()->for($tenant)->create(['code' => 'OTHER-STOCK', 'name' => 'Other Stock']);
+
+        BarcodeAlias::create([
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
+            'model_id' => $shown->id,
+            'barcode' => '490-1234-5678',
+            'normalized_barcode' => BarcodeAlias::normalize('490-1234-5678'),
+            'barcode_type' => 'jan',
+            'is_active' => true,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(StockAdjustmentCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('stockItemSearch', '49012345678')
+            ->assertSee('ALIAS-STOCK')
+            ->assertDontSee('OTHER-STOCK');
+    }
+
+    public function test_stock_adjustment_quantity_must_be_positive(): void
+    {
+        [$tenant, $warehouse, $stockItem] = $this->targetModels();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(StockAdjustmentCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('stockItemId', (string) $stockItem->id)
+            ->set('action', 'add')
+            ->set('quantity', '-1')
+            ->set('reason', 'found_stock')
+            ->call('save')
+            ->assertHasErrors(['quantity']);
     }
 
     public function test_inventory_rows_link_to_prefilled_stock_adjustment_page(): void

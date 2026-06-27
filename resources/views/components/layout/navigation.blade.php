@@ -206,14 +206,6 @@
                         {{ __('common.nav_tenants') }}
                     </a>
                     <a
-                        href="{{ route('setup.warehouses.index') }}"
-                        class="{{ request()->routeIs('setup.warehouses.*') ? 'is-active' : '' }}"
-                        wire:navigate
-                        @click="open = false"
-                    >
-                        {{ __('common.nav_warehouses') }}
-                    </a>
-                    <a
                         href="{{ route('setup.shops.index') }}"
                         class="{{ request()->routeIs('setup.shops.*') ? 'is-active' : '' }}"
                         wire:navigate
@@ -247,7 +239,7 @@
                     </a>
                     <a
                         href="{{ route('setup.other-settings') }}"
-                        class="{{ request()->routeIs('setup.other-settings', 'setup.product-types.*', 'setup.fba-warehouses.*') ? 'is-active' : '' }}"
+                        class="{{ request()->routeIs('setup.other-settings', 'setup.warehouses.*', 'setup.product-types.*', 'setup.fba-warehouses.*') ? 'is-active' : '' }}"
                         wire:navigate
                         @click="open = false"
                     >
