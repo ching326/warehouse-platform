@@ -1658,6 +1658,26 @@
                 font-size: 13px;
             }
 
+            .modal-icon-close {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 32px;
+                height: 32px;
+                border: 0;
+                border-radius: 6px;
+                background: transparent;
+                color: var(--muted);
+                cursor: pointer;
+                font-size: 24px;
+                line-height: 1;
+            }
+
+            .modal-icon-close:hover {
+                background: #f1f5f9;
+                color: var(--ink);
+            }
+
             .tracking-import-dropzone {
                 display: grid;
                 gap: 7px;

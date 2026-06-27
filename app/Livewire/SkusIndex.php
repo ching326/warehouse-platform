@@ -191,6 +191,12 @@ class SkusIndex extends Component
 
         $value = $this->logisticsDrafts[$skuId][$field];
 
+        if ($field === 'localized_name') {
+            $this->saveStockItemField($sku, $field, $value);
+
+            return;
+        }
+
         if (in_array($field, ['short_name', 'weight_value', 'length_value', 'width_value', 'height_value'], true)) {
             $this->saveStockItemField($sku, $field, $value);
 
@@ -745,7 +751,25 @@ class SkusIndex extends Component
                 'tenant:id,code,name',
                 'shop:id,tenant_id,code,name,platform,marketplace',
                 'barcodeAliases',
-                'stockItem:id,tenant_id,code,name,short_name,brand,model_number,variation_code,color,size,barcode,product_type,weight_value,weight_unit,length_value,width_value,height_value,dimension_unit',
+                'stockItem' => fn ($query) => $query->select([
+                    'id',
+                    'tenant_id',
+                    'code',
+                    ...StockItem::DISPLAY_NAME_COLUMNS,
+                    'brand',
+                    'model_number',
+                    'variation_code',
+                    'color',
+                    'size',
+                    'barcode',
+                    'product_type',
+                    'weight_value',
+                    'weight_unit',
+                    'length_value',
+                    'width_value',
+                    'height_value',
+                    'dimension_unit',
+                ]),
                 'stockItem.barcodeAliases',
                 'stockItem.primaryImage:id,tenant_id,model_type,model_id,type,disk,path,file_name,is_primary,sort_order',
                 'bundleComponents' => fn ($query) => $query->with('componentStockItem:id,tenant_id,code,name')->orderBy('id'),
@@ -822,6 +846,19 @@ class SkusIndex extends Component
         };
 
         return filled($value) ? (string) $value : '-';
+    }
+
+    public function logisticsStockItemName(Sku $sku): string
+    {
+        $stockItem = $sku->stockItem;
+
+        if (! $stockItem) {
+            return '';
+        }
+
+        $column = $this->currentStockItemNameColumn();
+
+        return (string) ($stockItem->{$column} ?? '');
     }
 
     public function viewOptions(): array
@@ -954,6 +991,7 @@ class SkusIndex extends Component
     {
         foreach ($skus as $sku) {
             $this->logisticsDrafts[$sku->id] ??= [
+                'localized_name' => $this->logisticsStockItemName($sku),
                 'short_name' => (string) ($sku->stockItem?->short_name ?? ''),
                 'weight_value' => $this->logisticsDraftValue('weight_value', $sku->stockItem?->weight_value),
                 'length_value' => $this->logisticsDraftValue('length_value', $sku->stockItem?->length_value),
@@ -985,6 +1023,7 @@ class SkusIndex extends Component
         }
 
         $rules = [
+            'localized_name' => ['nullable', 'string', 'max:255'],
             'short_name' => ['nullable', 'string', 'max:255'],
             'weight_value' => ['nullable', 'numeric', 'min:0'],
             'length_value' => ['nullable', 'numeric', 'min:0'],
@@ -997,6 +1036,21 @@ class SkusIndex extends Component
         }
 
         validator([$field => $value === '' ? null : $value], [$field => $rules[$field]])->validate();
+
+        if ($field === 'localized_name') {
+            $column = $this->currentStockItemNameColumn();
+
+            $sku->stockItem->update([
+                $column => $this->nullableString((string) $value),
+            ]);
+
+            $sku->stockItem->refresh();
+            $this->refreshSharedStockItemDrafts($sku, $field, $sku->stockItem->{$column});
+
+            $this->flashStatus(__('skus.inline_saved'));
+
+            return;
+        }
 
         $sku->stockItem->update([
             $field => $field === 'short_name' ? $this->nullableString((string) $value) : $this->nullableDecimal((string) $value),
@@ -1032,6 +1086,16 @@ class SkusIndex extends Component
                 $this->logisticsDrafts[$stringKey][$field] = $draftValue;
             }
         }
+    }
+
+    private function currentStockItemNameColumn(): string
+    {
+        return match (app()->getLocale()) {
+            'ja' => 'name_ja',
+            'zh_TW' => 'name_zh_tw',
+            'zh_CN' => 'name_zh_cn',
+            default => 'name_en',
+        };
     }
 
     private function saveDefaultShippingMethod(Sku $sku, string $value): void

@@ -1469,6 +1469,7 @@ class SkuManagementTest extends TestCase
         $stockItem = StockItem::factory()->for($tenant)->create([
             'code' => 'LOG-STOCK',
             'name' => 'Logistics Stock Item',
+            'name_en' => 'English logistics stock item',
             'weight_value' => '12.345',
             'length_value' => '10.50',
             'width_value' => '8.50',
@@ -1491,7 +1492,8 @@ class SkuManagementTest extends TestCase
             ->assertSee(__('skus.col_shipping_method'))
             ->assertSee('LOG-STOCK')
             ->assertDontSee('Logistics Stock Item')
-            ->assertSee('Hidden logistics SKU name')
+            ->assertSee('English logistics stock item')
+            ->assertDontSee('Hidden logistics SKU name')
             ->assertDontSee('<span class="subtle">g</span>', false)
             ->assertDontSee('<span class="subtle">cm</span>', false)
             ->assertDontSee(__('skus.col_default_packaging'))
@@ -1525,6 +1527,45 @@ class SkuManagementTest extends TestCase
         $this->assertSame('3.50', (string) $stockItem->height_value);
         $this->assertSame($packaging->id, $sku->default_packaging_material_id);
         $this->assertSame($method->id, $sku->default_shipping_method_id);
+    }
+
+    public function test_logistics_view_edits_current_locale_stock_item_name_without_fallback(): void
+    {
+        $originalLocale = app()->getLocale();
+        app()->setLocale('zh_CN');
+
+        try {
+            $tenant = Tenant::factory()->create();
+            $stockItem = StockItem::factory()->for($tenant)->create([
+                'name' => 'Base stock item name',
+                'name_en' => 'English stock item name',
+                'name_zh_tw' => '繁中庫存品名',
+                'name_zh_cn' => null,
+            ]);
+            $sku = Sku::factory()->for($tenant)->for($stockItem)->create([
+                'sku' => 'SKU-LOCALE-NAME',
+                'name' => 'SKU fallback name',
+            ]);
+
+            Livewire::actingAs($this->internalUser())
+                ->withQueryParams(['view' => 'logistics'])
+                ->test(SkusIndex::class)
+                ->assertSet("logisticsDrafts.{$sku->id}.localized_name", '')
+                ->assertSee('wire:model="logisticsDrafts.'.$sku->id.'.localized_name"', false)
+                ->assertDontSee('Base stock item name')
+                ->assertDontSee('English stock item name')
+                ->assertDontSee('繁中庫存品名')
+                ->assertDontSee('SKU fallback name')
+                ->set("logisticsDrafts.{$sku->id}.localized_name", '简中库存品名')
+                ->call('saveLogisticsField', $sku->id, 'localized_name')
+                ->assertHasNoErrors();
+
+            $stockItem->refresh();
+            $this->assertSame('简中库存品名', $stockItem->name_zh_cn);
+            $this->assertSame('Base stock item name', $stockItem->name);
+        } finally {
+            app()->setLocale($originalLocale);
+        }
     }
 
     public function test_logistics_view_keeps_null_dropdown_defaults_blank(): void

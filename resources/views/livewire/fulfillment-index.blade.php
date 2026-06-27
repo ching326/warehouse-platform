@@ -536,9 +536,7 @@
                         <h2>{{ __('fulfillment.tracking_import_title') }}</h2>
                         <p>{{ __('fulfillment.tracking_import_subtitle') }}</p>
                     </div>
-                    <flux:button type="button" variant="ghost" size="sm" wire:click="closeTrackingImportModal">
-                        {{ __('fulfillment.tracking_import_close_btn') }}
-                    </flux:button>
+                    <button type="button" class="modal-icon-close" wire:click="closeTrackingImportModal" aria-label="{{ __('fulfillment.tracking_import_close_btn') }}">&times;</button>
                 </header>
 
                 <form

@@ -218,7 +218,20 @@
                                 @endif
                             </flux:table.cell>
                             <flux:table.cell class="sku-primary-cell">
-                                <span title="{{ $sku->name }}">{{ $sku->name }}</span>
+                                @if ($sku->stockItem)
+                                    @php($localizedStockItemName = $this->logisticsStockItemName($sku))
+                                    @if ($localizedStockItemName !== '')
+                                        <span title="{{ $localizedStockItemName }}">{{ $localizedStockItemName }}</span>
+                                    @else
+                                        <input
+                                            type="text"
+                                            wire:model="logisticsDrafts.{{ $sku->id }}.localized_name"
+                                            wire:blur="saveLogisticsField({{ $sku->id }}, 'localized_name')"
+                                        >
+                                    @endif
+                                @else
+                                    <span class="muted-dash">-</span>
+                                @endif
                             </flux:table.cell>
                             @foreach (['short_name', 'weight_value', 'length_value', 'width_value', 'height_value'] as $field)
                                 <flux:table.cell class="{{ $field === 'short_name' ? 'sku-short-name-cell' : 'sku-number-cell' }}">
@@ -336,7 +349,7 @@
                             <strong>{{ __('skus.manage_images') }}</strong>
                             <span>{{ $managedStockItem->code }} - {{ $managedStockItem->name }}</span>
                         </div>
-                        <flux:button type="button" size="sm" variant="subtle" wire:click="closeImagePanel">{{ __('skus.btn_cancel') }}</flux:button>
+                        <button type="button" class="modal-icon-close" wire:click="closeImagePanel" aria-label="{{ __('skus.btn_cancel') }}">&times;</button>
                     </div>
 
                     <form class="image-upload-form" wire:submit="uploadStockImage">
@@ -401,7 +414,7 @@
                             <strong>{{ __('skus.manage_aliases') }}</strong>
                             <span>{{ $managedAliasSku->sku }} - {{ $managedAliasSku->name }}</span>
                         </div>
-                        <flux:button type="button" size="sm" variant="subtle" wire:click="closeAliasPanel">{{ __('skus.btn_cancel') }}</flux:button>
+                        <button type="button" class="modal-icon-close" wire:click="closeAliasPanel" aria-label="{{ __('skus.btn_cancel') }}">&times;</button>
                     </div>
 
                     <form class="alias-form" wire:submit="createBarcodeAlias">

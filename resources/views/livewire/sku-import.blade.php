@@ -325,12 +325,12 @@
 
             <div class="form-actions">
                 @if ($resultFailed > 0)
-                    <flux:button wire:click="downloadErrors">{{ __('sku_import.btn_download_errors') }}</flux:button>
+                    <flux:button variant="primary" wire:click="downloadErrors">{{ __('sku_import.btn_download_errors') }}</flux:button>
                 @else
                     <span></span>
                 @endif
                 <div class="template-actions">
-                    <flux:button href="{{ route('skus.index') }}" variant="subtle" wire:navigate>{{ __('sku_import.btn_view_skus') }}</flux:button>
+                    <flux:button href="{{ route('skus.index') }}" variant="primary" wire:navigate>{{ __('sku_import.btn_view_skus') }}</flux:button>
                     <flux:button variant="primary" wire:click="startOver">{{ __('sku_import.btn_import_more') }}</flux:button>
                 </div>
             </div>
