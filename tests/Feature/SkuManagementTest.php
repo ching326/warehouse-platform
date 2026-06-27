@@ -1040,7 +1040,6 @@ class SkuManagementTest extends TestCase
             ->test(SkusIndex::class)
             ->call('openImagePanel', $stockItem->id)
             ->set('stockImage', UploadedFile::fake()->image('front.jpg', 64, 48))
-            ->set('stockImageType', 'main')
             ->call('uploadStockImage')
             ->assertHasNoErrors();
 
@@ -1049,6 +1048,7 @@ class SkuManagementTest extends TestCase
         $this->assertSame($tenant->id, $asset->tenant_id);
         $this->assertSame('stock_item', $asset->model_type);
         $this->assertSame($stockItem->id, $asset->model_id);
+        $this->assertSame('product', $asset->type);
         $this->assertTrue($asset->is_primary);
         $this->assertSame(64, $asset->width);
         $this->assertSame(48, $asset->height);
@@ -1113,7 +1113,7 @@ class SkuManagementTest extends TestCase
             ->assertHasErrors(['stockImage']);
     }
 
-    public function test_primary_image_logic_follows_primary_flag_not_type(): void
+    public function test_primary_image_logic_uses_first_image_or_primary_flag(): void
     {
         Storage::fake('public');
         $tenant = Tenant::factory()->create();
@@ -1123,10 +1123,8 @@ class SkuManagementTest extends TestCase
             ->test(SkusIndex::class)
             ->call('openImagePanel', $stockItem->id)
             ->set('stockImage', UploadedFile::fake()->image('first.jpg'))
-            ->set('stockImageType', 'gallery')
             ->call('uploadStockImage')
             ->set('stockImage', UploadedFile::fake()->image('main.jpg'))
-            ->set('stockImageType', 'main')
             ->set('stockImageIsPrimary', false)
             ->call('uploadStockImage')
             ->assertHasNoErrors();
@@ -1141,7 +1139,6 @@ class SkuManagementTest extends TestCase
             ->test(SkusIndex::class)
             ->call('openImagePanel', $stockItem->id)
             ->set('stockImage', UploadedFile::fake()->image('packaging.jpg'))
-            ->set('stockImageType', 'packaging')
             ->set('stockImageIsPrimary', true)
             ->call('uploadStockImage')
             ->assertHasNoErrors();

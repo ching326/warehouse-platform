@@ -539,12 +539,6 @@
                             <span class="field-error">{{ $message }}</span>
                         @enderror
 
-                        <flux:select wire:model="stockImageType" :label="__('skus.image_type')">
-                            @foreach ($this->imageTypeOptions() as $type => $label)
-                                <flux:select.option value="{{ $type }}">{{ $label }}</flux:select.option>
-                            @endforeach
-                        </flux:select>
-
                         <label class="default-view-toggle image-primary-toggle">
                             <input type="checkbox" wire:model="stockImageIsPrimary">
                             <span>{{ __('skus.set_as_primary') }}</span>
@@ -559,16 +553,13 @@
                                 <img src="{{ $this->mediaUrl($asset) }}" alt="{{ $asset->file_name }}">
                                 <div>
                                     <strong>{{ $asset->file_name }}</strong>
-                                    <span>{{ $this->imageTypeOptions()[$asset->type] ?? $asset->type }} @if ($asset->is_primary) / {{ __('skus.primary_image') }} @endif</span>
+                                    @if ($asset->is_primary)
+                                        <span>{{ __('skus.primary_image') }}</span>
+                                    @endif
                                     @if ($asset->width && $asset->height)
                                         <small>{{ $asset->width }} x {{ $asset->height }}</small>
                                     @endif
                                 </div>
-                                <select wire:change="updateImageType({{ $asset->id }}, $event.target.value)" aria-label="{{ __('skus.image_type') }}">
-                                    @foreach ($this->imageTypeOptions() as $type => $label)
-                                        <option value="{{ $type }}" @selected($asset->type === $type)>{{ $label }}</option>
-                                    @endforeach
-                                </select>
                                 <flux:button type="button" size="xs" variant="subtle" wire:click="setPrimaryImage({{ $asset->id }})" :disabled="$asset->is_primary">
                                     {{ __('skus.set_primary') }}
                                 </flux:button>

@@ -73,8 +73,6 @@ class SkusIndex extends Component
 
     public ?TemporaryUploadedFile $stockImage = null;
 
-    public string $stockImageType = 'main';
-
     public bool $stockImageIsPrimary = false;
 
     public ?int $managingAliasSkuId = null;
@@ -103,7 +101,7 @@ class SkusIndex extends Component
 
     private const PER_PAGE_OPTIONS = [15, 30, 50, 100];
 
-    private const IMAGE_TYPES = ['main', 'gallery', 'barcode', 'packaging', 'other'];
+    private const STOCK_IMAGE_TYPE = 'product';
 
     public function mount(): void
     {
@@ -623,7 +621,6 @@ class SkusIndex extends Component
 
         $this->validate([
             'stockImage' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'stockImageType' => ['required', Rule::in(self::IMAGE_TYPES)],
             'stockImageIsPrimary' => ['boolean'],
         ]);
 
@@ -644,7 +641,7 @@ class SkusIndex extends Component
                 'tenant_id' => $stockItem->tenant_id,
                 'model_type' => MediaAsset::MODEL_TYPE_STOCK_ITEM,
                 'model_id' => $stockItem->id,
-                'type' => $this->stockImageType,
+                'type' => self::STOCK_IMAGE_TYPE,
                 'disk' => 'public',
                 'path' => $path,
                 'file_name' => $this->stockImage->getClientOriginalName(),
@@ -665,7 +662,6 @@ class SkusIndex extends Component
             ->causedBy(Auth::user())
             ->withProperties([
                 'media_asset_id' => $asset->id,
-                'type' => $asset->type,
                 'is_primary' => $asset->is_primary,
             ])
             ->log('image uploaded');
@@ -700,20 +696,6 @@ class SkusIndex extends Component
             ->log('primary image changed');
 
         $this->flashStatus(__('skus.image_primary_changed'));
-    }
-
-    public function updateImageType(int $mediaAssetId, string $type): void
-    {
-        validator(['type' => $type], ['type' => ['required', Rule::in(self::IMAGE_TYPES)]])->validate();
-
-        $asset = $this->scopedMediaAssetQuery()->find($mediaAssetId);
-
-        if (! $asset) {
-            abort(404);
-        }
-
-        $asset->update(['type' => $type]);
-        $this->flashStatus(__('skus.image_type_updated'));
     }
 
     public function deleteImage(int $mediaAssetId): void
@@ -1572,7 +1554,6 @@ class SkusIndex extends Component
     private function resetImageForm(): void
     {
         $this->stockImage = null;
-        $this->stockImageType = 'main';
         $this->stockImageIsPrimary = false;
     }
 
@@ -1615,17 +1596,6 @@ class SkusIndex extends Component
         return collect(BarcodeAlias::BARCODE_TYPES)
             ->mapWithKeys(fn (string $type): array => [$type => __('common.barcode_types.'.$type)])
             ->all();
-    }
-
-    public function imageTypeOptions(): array
-    {
-        return [
-            'main' => __('skus.image_type_main'),
-            'gallery' => __('skus.image_type_gallery'),
-            'barcode' => __('skus.image_type_barcode'),
-            'packaging' => __('skus.image_type_packaging'),
-            'other' => __('skus.image_type_other'),
-        ];
     }
 
     public function mediaUrl(?MediaAsset $asset): ?string
