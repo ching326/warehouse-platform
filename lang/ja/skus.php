@@ -121,7 +121,7 @@ return [
     'alias_target_stock_item' => '紐付けた在庫品目',
     'alias_barcode' => 'バーコード',
     'alias_barcode_type' => 'タイプ',
-    'alias_label' => 'メモ',
+    'alias_label' => 'ラベル',
     'alias_active' => '有効',
     'alias_inactive' => '無効',
     'alias_add' => 'エイリアスを追加',

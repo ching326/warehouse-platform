@@ -121,7 +121,7 @@ return [
     'alias_target_stock_item' => '关联的库存品项',
     'alias_barcode' => '条码',
     'alias_barcode_type' => '类型',
-    'alias_label' => '备注',
+    'alias_label' => '标签',
     'alias_active' => '启用',
     'alias_inactive' => '停用',
     'alias_add' => '新增别名',

@@ -603,7 +603,7 @@
                             @endforeach
                         </flux:select>
                         <flux:input wire:model="aliasLabel" :label="__('skus.alias_label')" />
-                        <flux:button type="submit" size="sm" variant="primary">{{ __('skus.alias_add') }}</flux:button>
+                        <flux:button class="alias-add-button" type="submit" variant="primary">{{ __('skus.alias_add') }}</flux:button>
                     </form>
 
                     @foreach (['aliasBarcode', 'aliasBarcodeType', 'aliasLabel', 'normalized_barcode'] as $field)
@@ -624,21 +624,21 @@
                                             <flux:badge color="{{ $alias->is_active ? 'green' : 'zinc' }}">
                                                 {{ $alias->is_active ? __('skus.alias_active') : __('skus.alias_inactive') }}
                                             </flux:badge>
+                                            <select class="alias-type-select" wire:change="updateBarcodeAliasType({{ $alias->id }}, $event.target.value)" @disabled(! $aliasCanManage)>
+                                                @foreach ($this->barcodeAliasTypeOptions() as $type => $label)
+                                                    <option value="{{ $type }}" @selected($alias->barcode_type === $type)>{{ $label }}</option>
+                                                @endforeach
+                                            </select>
+                                            @if ($alias->label)
+                                                <span class="alias-note">{{ $alias->label }}</span>
+                                            @endif
                                         </div>
-                                        <select class="alias-type-select" wire:change="updateBarcodeAliasType({{ $alias->id }}, $event.target.value)" @disabled(! $aliasCanManage)>
-                                            @foreach ($this->barcodeAliasTypeOptions() as $type => $label)
-                                                <option value="{{ $type }}" @selected($alias->barcode_type === $type)>{{ $label }}</option>
-                                            @endforeach
-                                        </select>
-                                        @if ($alias->label)
-                                            <span>{{ $alias->label }}</span>
-                                        @endif
                                         @if ($alias->source === \App\Models\BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE)
                                             <small>{{ __('skus.alias_source_fnsku_field') }}</small>
                                         @endif
                                         <small>{{ $alias->normalized_barcode }}</small>
                                     </div>
-                                    <flux:button type="button" size="xs" variant="danger" wire:click="deactivateBarcodeAlias({{ $alias->id }})" :disabled="! $alias->is_active || ! $aliasCanManage">
+                                    <flux:button class="alias-deactivate-button" type="button" size="xs" variant="danger" wire:click="deactivateBarcodeAlias({{ $alias->id }})" :disabled="! $alias->is_active || ! $aliasCanManage">
                                         {{ __('skus.alias_deactivate') }}
                                     </flux:button>
                                 </article>
@@ -659,21 +659,21 @@
                                                 <flux:badge color="{{ $alias->is_active ? 'green' : 'zinc' }}">
                                                     {{ $alias->is_active ? __('skus.alias_active') : __('skus.alias_inactive') }}
                                                 </flux:badge>
+                                                <select class="alias-type-select" wire:change="updateBarcodeAliasType({{ $alias->id }}, $event.target.value)" @disabled(! $aliasCanManage)>
+                                                    @foreach ($this->barcodeAliasTypeOptions() as $type => $label)
+                                                        <option value="{{ $type }}" @selected($alias->barcode_type === $type)>{{ $label }}</option>
+                                                    @endforeach
+                                                </select>
+                                                @if ($alias->label)
+                                                    <span class="alias-note">{{ $alias->label }}</span>
+                                                @endif
                                             </div>
-                                            <select class="alias-type-select" wire:change="updateBarcodeAliasType({{ $alias->id }}, $event.target.value)" @disabled(! $aliasCanManage)>
-                                                @foreach ($this->barcodeAliasTypeOptions() as $type => $label)
-                                                    <option value="{{ $type }}" @selected($alias->barcode_type === $type)>{{ $label }}</option>
-                                                @endforeach
-                                            </select>
-                                            @if ($alias->label)
-                                                <span>{{ $alias->label }}</span>
-                                            @endif
                                             @if ($alias->source === \App\Models\BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE)
                                                 <small>{{ __('skus.alias_source_fnsku_field') }}</small>
                                             @endif
                                             <small>{{ $alias->normalized_barcode }}</small>
                                         </div>
-                                        <flux:button type="button" size="xs" variant="danger" wire:click="deactivateBarcodeAlias({{ $alias->id }})" :disabled="! $alias->is_active || ! $aliasCanManage">
+                                        <flux:button class="alias-deactivate-button" type="button" size="xs" variant="danger" wire:click="deactivateBarcodeAlias({{ $alias->id }})" :disabled="! $alias->is_active || ! $aliasCanManage">
                                             {{ __('skus.alias_deactivate') }}
                                         </flux:button>
                                     </article>
@@ -702,6 +702,15 @@
             margin-top: 18px;
         }
 
+        .alias-add-button {
+            min-height: 42px;
+        }
+
+        .alias-add-button,
+        .alias-add-button * {
+            font-size: 14px;
+        }
+
         .alias-list-group {
             display: grid;
             gap: 8px;
@@ -725,14 +734,21 @@
         }
 
         .alias-heading {
-            display: inline-flex;
+            display: grid;
+            grid-template-columns: minmax(0, 160px) 58px 220px minmax(0, 1fr);
             align-items: center;
             gap: 8px;
             min-width: 0;
         }
 
+        .alias-heading strong {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         .alias-type-select {
-            width: min(220px, 100%);
+            width: 220px;
             min-height: 30px;
             border: 1px solid #cbd5e1;
             border-radius: 6px;
@@ -742,16 +758,33 @@
             padding: 4px 8px;
         }
 
+        .alias-deactivate-button,
+        .alias-deactivate-button * {
+            font-size: 13px;
+        }
+
         .alias-list-item span,
         .alias-list-item small {
             color: #64748b;
             overflow-wrap: anywhere;
         }
 
+        .alias-note {
+            min-width: 0;
+        }
+
         @media (max-width: 760px) {
             .alias-form,
             .alias-list-item {
                 grid-template-columns: 1fr;
+            }
+
+            .alias-heading {
+                grid-template-columns: 1fr;
+            }
+
+            .alias-type-select {
+                width: 100%;
             }
         }
     </style>

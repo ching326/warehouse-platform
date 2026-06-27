@@ -121,7 +121,7 @@ return [
     'alias_target_stock_item' => '連結的庫存品項',
     'alias_barcode' => '條碼',
     'alias_barcode_type' => '類型',
-    'alias_label' => '備註',
+    'alias_label' => '標籤',
     'alias_active' => '啟用',
     'alias_inactive' => '停用',
     'alias_add' => '新增別名',

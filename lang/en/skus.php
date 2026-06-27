@@ -121,7 +121,7 @@ return [
     'alias_target_stock_item' => 'Linked stock item',
     'alias_barcode' => 'Barcode',
     'alias_barcode_type' => 'Type',
-    'alias_label' => 'Note',
+    'alias_label' => 'Label',
     'alias_active' => 'Active',
     'alias_inactive' => 'Inactive',
     'alias_add' => 'Add alias',
