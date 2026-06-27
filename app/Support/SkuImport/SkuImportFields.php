@@ -132,7 +132,7 @@ class SkuImportFields
 
             new SkuImportField('length_value', 'sku_import.field_length_value', 'stock_item', false,
                 ['nullable', 'numeric', 'min:0'], 'decimal',
-                ['length', 'length value', '長さ', '全長']),
+                ['length', 'length value', 'depth', 'depth value', '長さ', '長さ(cm)', '全長', '奥行き', '奥行', '奥行き(cm)']),
 
             new SkuImportField('width_value', 'sku_import.field_width_value', 'stock_item', false,
                 ['nullable', 'numeric', 'min:0'], 'decimal',

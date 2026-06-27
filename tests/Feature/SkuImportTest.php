@@ -117,6 +117,15 @@ class SkuImportTest extends TestCase
         $this->assertSame('barcode', $mapping['barcode']);
     }
 
+    public function test_auto_guess_maps_depth_headers_to_length(): void
+    {
+        foreach (['depth', "\u{5965}\u{884C}\u{304D}", "\u{9577}\u{3055}(cm)"] as $header) {
+            $mapping = SkuImportFields::autoGuess([$header]);
+
+            $this->assertSame($header, $mapping['length_value']);
+        }
+    }
+
     public function test_auto_guess_maps_japanese_headers(): void
     {
         $headers = ['SKUコード', 'SKU名', 'ブランド'];
