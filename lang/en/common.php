@@ -20,6 +20,7 @@ return [
     'nav_locations' => 'Location',
     'nav_tenants' => 'Tenant',
     'nav_warehouses' => 'Warehouse',
+    'nav_fba_warehouses' => 'FBA Warehouse',
     'nav_shops' => 'Shop',
     'nav_shipping_methods' => 'Shipping Method',
     'nav_packagings' => 'Packaging',

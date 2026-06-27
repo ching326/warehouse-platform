@@ -24,6 +24,7 @@ return [
     'nav_locations' => 'ロケーション',
     'nav_tenants' => '荷主',
     'nav_warehouses' => '倉庫',
+    'nav_fba_warehouses' => 'FBA Warehouse',
     'nav_shops' => '店舗',
     'nav_shipping_methods' => '配送方法',
     'nav_packagings' => '梱包資材',

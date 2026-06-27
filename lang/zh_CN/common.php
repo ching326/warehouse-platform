@@ -24,6 +24,7 @@ return [
     'nav_locations' => '库位',
     'nav_tenants' => '客户',
     'nav_warehouses' => '仓库',
+    'nav_fba_warehouses' => 'FBA Warehouse',
     'nav_shops' => '店铺',
     'nav_shipping_methods' => '配送方式',
     'nav_packagings' => '包装材料',
