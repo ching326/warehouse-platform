@@ -127,6 +127,7 @@ return [
     'alias_add' => 'Add alias',
     'alias_deactivate' => 'Deactivate',
     'alias_created' => 'Barcode alias added.',
+    'alias_updated' => 'Barcode updated.',
     'alias_deactivated' => 'Barcode alias deactivated.',
     'action_deactivate' => 'Deactivate',
     'action_reactivate' => 'Reactivate',

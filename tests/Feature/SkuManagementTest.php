@@ -474,10 +474,48 @@ class SkuManagementTest extends TestCase
             ->test(SkusIndex::class)
             ->call('openAliasPanel', $sku->id)
             ->assertSee(__('skus.alias_source_fnsku_field'))
+            ->call('updateBarcodeAliasType', $alias->id, 'jan')
+            ->assertForbidden();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openAliasPanel', $sku->id)
             ->call('deactivateBarcodeAlias', $alias->id)
             ->assertForbidden();
 
         $this->assertTrue($alias->refresh()->is_active);
+        $this->assertSame('platform_label', $alias->barcode_type);
+    }
+
+    public function test_imported_stock_item_barcode_alias_can_be_updated_and_deactivated(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $sku = Sku::factory()->for($tenant)->for($stockItem)->create();
+        $alias = BarcodeAlias::create([
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
+            'model_id' => $stockItem->id,
+            'barcode' => '4912345678901',
+            'normalized_barcode' => '4912345678901',
+            'barcode_type' => 'unknown',
+            'is_active' => true,
+            'source' => BarcodeAlias::SOURCE_IMPORT,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openAliasPanel', $sku->id)
+            ->call('updateBarcodeAliasType', $alias->id, 'jan')
+            ->assertHasNoErrors()
+            ->assertSee(__('skus.alias_updated'))
+            ->call('deactivateBarcodeAlias', $alias->id)
+            ->assertSee(__('skus.alias_deactivated'));
+
+        $alias->refresh();
+
+        $this->assertSame('jan', $alias->barcode_type);
+        $this->assertFalse($alias->is_active);
     }
 
     public function test_duplicate_normalized_barcode_in_same_tenant_is_rejected(): void

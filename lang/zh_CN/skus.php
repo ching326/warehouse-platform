@@ -127,6 +127,7 @@ return [
     'alias_add' => '新增别名',
     'alias_deactivate' => '停用',
     'alias_created' => '已新增条码别名。',
+    'alias_updated' => '已更新条码。',
     'alias_deactivated' => '已停用条码别名。',
     'action_deactivate' => 'Deactivate',
     'action_reactivate' => 'Reactivate',

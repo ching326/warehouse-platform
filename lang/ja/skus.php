@@ -127,6 +127,7 @@ return [
     'alias_add' => 'エイリアスを追加',
     'alias_deactivate' => '無効化',
     'alias_created' => 'バーコードエイリアスを追加しました。',
+    'alias_updated' => 'バーコードを更新しました。',
     'alias_deactivated' => 'バーコードエイリアスを無効化しました。',
     'action_deactivate' => 'Deactivate',
     'action_reactivate' => 'Reactivate',
