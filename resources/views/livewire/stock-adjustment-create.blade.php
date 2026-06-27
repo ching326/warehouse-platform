@@ -36,14 +36,8 @@
             @error('warehouse_id') <p class="form-error">{{ $message }}</p> @enderror
 
             <div class="form-grid">
-                <flux:input
-                    wire:model.live.debounce.300ms="stockItemSearch"
-                    :label="__('skus.search_stock_items_label')"
-                    :placeholder="__('stock_adjustments.search_stock_items_placeholder')"
-                />
-
                 <flux:select wire:model.live="stockItemId" required :label="__('stock_adjustments.field_stock_item')">
-                    <flux:select.option value="">{{ __('skus.no_stock_item') }}</flux:select.option>
+                    <flux:select.option value="">{{ __('stock_adjustments.select_stock_item') }}</flux:select.option>
                     @foreach ($stockItems as $item)
                         <flux:select.option value="{{ $item->id }}">{{ $item->code }} - {{ $item->displayName() }}</flux:select.option>
                     @endforeach

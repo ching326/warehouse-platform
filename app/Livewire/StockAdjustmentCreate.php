@@ -2,7 +2,6 @@
 
 namespace App\Livewire;
 
-use App\Models\BarcodeAlias;
 use App\Models\InventoryBalance;
 use App\Models\StockItem;
 use App\Models\Tenant;
@@ -51,8 +50,6 @@ class StockAdjustmentCreate extends Component
     #[Url(as: 'stock_item_id', except: '')]
     public string $stockItemId = '';
 
-    public string $stockItemSearch = '';
-
     public string $action = '';
 
     public string $quantity = '';
@@ -74,13 +71,11 @@ class StockAdjustmentCreate extends Component
     {
         $this->warehouseId = '';
         $this->stockItemId = '';
-        $this->stockItemSearch = '';
     }
 
     public function updatedWarehouseId(): void
     {
         $this->stockItemId = '';
-        $this->stockItemSearch = '';
     }
 
     public function updatedAction(): void
@@ -228,45 +223,10 @@ class StockAdjustmentCreate extends Component
 
     private function stockItemOptions(): Collection
     {
-        $searchTerm = trim($this->stockItemSearch);
-        $search = '%'.$searchTerm.'%';
-        $normalizedSearch = BarcodeAlias::normalize($searchTerm);
-
         return StockItem::query()
             ->where('tenant_id', $this->tenantId)
-            ->with(['barcodeAliases:id,model_type,model_id,barcode,is_active'])
-            ->when($searchTerm !== '', function ($query) use ($search, $normalizedSearch) {
-                $query->where(function ($query) use ($search, $normalizedSearch) {
-                    $query
-                        ->where('code', 'like', $search)
-                        ->orWhere('name', 'like', $search)
-                        ->orWhere('name_en', 'like', $search)
-                        ->orWhere('name_ja', 'like', $search)
-                        ->orWhere('name_zh_tw', 'like', $search)
-                        ->orWhere('name_zh_cn', 'like', $search)
-                        ->orWhere('short_name', 'like', $search)
-                        ->orWhere('barcode', 'like', $search)
-                        ->orWhereHas('barcodeAliases', function ($query) use ($search, $normalizedSearch): void {
-                            $query->where('is_active', true)
-                                ->where(function ($query) use ($search, $normalizedSearch): void {
-                                    $query->where('barcode', 'like', $search);
-
-                                    if ($normalizedSearch !== '') {
-                                        $query->orWhere('normalized_barcode', 'like', '%'.$normalizedSearch.'%');
-                                    }
-                                });
-                        })
-                        ->orWhereHas('skus', function ($query) use ($search): void {
-                            $query
-                                ->where('sku', 'like', $search)
-                                ->orWhere('platform_sku', 'like', $search)
-                                ->orWhere('platform_label_code', 'like', $search);
-                        });
-                });
-            })
             ->orderBy('code')
-            ->limit(30)
-            ->get(['id', 'code', ...StockItem::DISPLAY_NAME_COLUMNS, 'barcode']);
+            ->get(['id', 'code', ...StockItem::DISPLAY_NAME_COLUMNS]);
     }
 
     private function currentTenant(): ?Tenant

@@ -3,10 +3,8 @@
 namespace Tests\Feature;
 
 use App\Livewire\StockAdjustmentCreate;
-use App\Models\BarcodeAlias;
 use App\Models\InventoryBalance;
 use App\Models\InventoryMovement;
-use App\Models\Sku;
 use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\TenantUser;
@@ -159,46 +157,6 @@ class StockAdjustmentCreateTest extends TestCase
             ->set('quantity', '1')
             ->call('save')
             ->assertHasErrors(['action' => 'required', 'reason' => 'required']);
-    }
-
-    public function test_stock_item_search_matches_linked_sku_code(): void
-    {
-        $tenant = Tenant::factory()->create();
-        $shown = StockItem::factory()->for($tenant)->create(['code' => 'MATCH-STOCK', 'name' => 'Matched Stock']);
-        $hidden = StockItem::factory()->for($tenant)->create(['code' => 'HIDDEN-STOCK', 'name' => 'Hidden Stock']);
-        Sku::factory()->for($tenant)->for($shown)->create(['sku' => 'SKU-SEARCH-001']);
-        Sku::factory()->for($tenant)->for($hidden)->create(['sku' => 'OTHER-SKU-001']);
-
-        Livewire::actingAs($this->internalUser())
-            ->test(StockAdjustmentCreate::class)
-            ->set('tenantId', (string) $tenant->id)
-            ->set('stockItemSearch', 'SKU-SEARCH')
-            ->assertSee('MATCH-STOCK')
-            ->assertDontSee('HIDDEN-STOCK');
-    }
-
-    public function test_stock_item_search_matches_barcode_alias(): void
-    {
-        $tenant = Tenant::factory()->create();
-        $shown = StockItem::factory()->for($tenant)->create(['code' => 'ALIAS-STOCK', 'name' => 'Alias Stock']);
-        $hidden = StockItem::factory()->for($tenant)->create(['code' => 'OTHER-STOCK', 'name' => 'Other Stock']);
-
-        BarcodeAlias::create([
-            'tenant_id' => $tenant->id,
-            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
-            'model_id' => $shown->id,
-            'barcode' => '490-1234-5678',
-            'normalized_barcode' => BarcodeAlias::normalize('490-1234-5678'),
-            'barcode_type' => 'jan',
-            'is_active' => true,
-        ]);
-
-        Livewire::actingAs($this->internalUser())
-            ->test(StockAdjustmentCreate::class)
-            ->set('tenantId', (string) $tenant->id)
-            ->set('stockItemSearch', '49012345678')
-            ->assertSee('ALIAS-STOCK')
-            ->assertDontSee('OTHER-STOCK');
     }
 
     public function test_stock_adjustment_quantity_must_be_positive(): void
