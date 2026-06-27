@@ -13,6 +13,8 @@ return [
     // Step 1
     'upload_hint' => 'Upload a CSV or Excel file (.csv, .xlsx, .xls). Maximum 2,000 data rows.',
     'btn_upload' => 'Upload & Read Headers',
+    'drop_title' => 'Drop here or click to choose',
+    'drop_hint' => 'CSV, TXT, or Excel. Maximum 2,000 data rows.',
 
     // Step 2
     'map_heading' => 'Map your columns to import fields',
@@ -29,6 +31,9 @@ return [
     'map_btn_load' => 'Load',
     'map_btn_delete' => 'Delete',
     'map_sample_heading' => 'Sample preview (first 5 rows)',
+    'default_barcode_type' => 'Barcode type for imported barcodes',
+    'default_barcode_type_placeholder' => 'Choose barcode type',
+    'default_barcode_type_hint' => 'Used when Barcode is mapped but the file does not include a Barcode type column.',
     'btn_back_to_upload' => 'Back',
     'btn_advance_to_preview' => 'Next: Preview',
 

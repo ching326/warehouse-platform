@@ -2795,6 +2795,26 @@
                 color: var(--accent);
             }
 
+            .mapping-extra-option {
+                display: grid;
+                gap: 6px;
+                max-width: 420px;
+                padding: 14px 0 0;
+            }
+
+            .mapping-extra-option label {
+                font-weight: 600;
+            }
+
+            .mapping-extra-option select {
+                margin: 0;
+            }
+
+            .mapping-extra-option span {
+                color: var(--muted);
+                font-size: 13px;
+            }
+
             .map-sample {
                 max-width: 0;
                 overflow: hidden;

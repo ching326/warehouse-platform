@@ -50,9 +50,31 @@
                 @endforeach
             </flux:select>
 
-            <label>
+            <label
+                class="tracking-import-dropzone form-grid-wide"
+                x-data="{ dragging: false, fileName: @js($file?->getClientOriginalName() ?? '') }"
+                x-bind:class="{ 'is-dragging': dragging }"
+                x-on:dragover.prevent="dragging = true"
+                x-on:dragleave.prevent="dragging = false"
+                x-on:drop.prevent="
+                    dragging = false;
+                    const input = $refs.salesOrderImportFile;
+                    input.files = $event.dataTransfer.files;
+                    fileName = input.files.length ? input.files[0].name : '';
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                "
+            >
+                <input
+                    x-ref="salesOrderImportFile"
+                    class="tracking-import-file-input"
+                    type="file"
+                    wire:model="file"
+                    accept="{{ $importFormat === 'amazon_report' ? '.txt' : '.csv,.txt,.xlsx' }}"
+                    x-on:change="fileName = $event.target.files.length ? $event.target.files[0].name : ''"
+                >
+                <strong>{{ __('sales_orders.tracking_import_drop_title') }}</strong>
                 <span>{{ __('sales_orders.import_file_label') }}</span>
-                <input type="file" wire:model="file" accept="{{ $importFormat === 'amazon_report' ? '.txt' : '.csv,.txt,.xlsx' }}">
+                <span class="tracking-import-file-name" x-show="fileName" x-text="fileName"></span>
                 <span class="subtle" wire:loading wire:target="file">
                     {{ __('sales_orders.import_uploading_file') }}
                 </span>
@@ -63,6 +85,7 @@
         @error('file') <p class="form-error">{{ $message }}</p> @enderror
 
         <div class="form-actions">
+            <span></span>
             <flux:button
                 type="button"
                 variant="primary"

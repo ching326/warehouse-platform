@@ -615,33 +615,9 @@
                     <div class="alias-list">
                         <div class="alias-list-group">
                             <strong>{{ __('skus.alias_target_sku') }}</strong>
+                            <span class="alias-group-description">{{ __('skus.alias_target_sku_hint') }}</span>
                             @forelse ($managedAliasSku->barcodeAliases as $alias)
-                                @php($aliasCanManage = $alias->source !== \App\Models\BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE)
-                                <article class="alias-list-item" wire:key="sku-alias-{{ $alias->id }}">
-                                    <div>
-                                        <div class="alias-heading">
-                                            <strong>{{ $alias->barcode }}</strong>
-                                            <flux:badge color="{{ $alias->is_active ? 'green' : 'zinc' }}">
-                                                {{ $alias->is_active ? __('skus.alias_active') : __('skus.alias_inactive') }}
-                                            </flux:badge>
-                                            <select class="alias-type-select" wire:change="updateBarcodeAliasType({{ $alias->id }}, $event.target.value)" @disabled(! $aliasCanManage)>
-                                                @foreach ($this->barcodeAliasTypeOptions() as $type => $label)
-                                                    <option value="{{ $type }}" @selected($alias->barcode_type === $type)>{{ $label }}</option>
-                                                @endforeach
-                                            </select>
-                                            @if ($alias->label)
-                                                <span class="alias-note">{{ $alias->label }}</span>
-                                            @endif
-                                        </div>
-                                        @if ($alias->source === \App\Models\BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE)
-                                            <small>{{ __('skus.alias_source_fnsku_field') }}</small>
-                                        @endif
-                                        <small>{{ $alias->normalized_barcode }}</small>
-                                    </div>
-                                    <flux:button class="alias-deactivate-button" type="button" size="xs" variant="danger" wire:click="deactivateBarcodeAlias({{ $alias->id }})" :disabled="! $alias->is_active || ! $aliasCanManage">
-                                        {{ __('skus.alias_deactivate') }}
-                                    </flux:button>
-                                </article>
+                                @include('livewire.partials.barcode-alias-row', ['alias' => $alias, 'keyPrefix' => 'sku'])
                             @empty
                                 <div class="empty-state">{{ __('skus.no_aliases') }}</div>
                             @endforelse
@@ -650,33 +626,9 @@
                         @if ($managedAliasSku->stockItem)
                             <div class="alias-list-group">
                                 <strong>{{ __('skus.alias_target_stock_item') }} / {{ $managedAliasSku->stockItem->code }}</strong>
+                                <span class="alias-group-description">{{ __('skus.alias_target_stock_item_hint') }}</span>
                                 @forelse ($managedAliasSku->stockItem->barcodeAliases as $alias)
-                                    @php($aliasCanManage = $alias->source !== \App\Models\BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE)
-                                    <article class="alias-list-item" wire:key="stock-alias-{{ $alias->id }}">
-                                        <div>
-                                            <div class="alias-heading">
-                                                <strong>{{ $alias->barcode }}</strong>
-                                                <flux:badge color="{{ $alias->is_active ? 'green' : 'zinc' }}">
-                                                    {{ $alias->is_active ? __('skus.alias_active') : __('skus.alias_inactive') }}
-                                                </flux:badge>
-                                                <select class="alias-type-select" wire:change="updateBarcodeAliasType({{ $alias->id }}, $event.target.value)" @disabled(! $aliasCanManage)>
-                                                    @foreach ($this->barcodeAliasTypeOptions() as $type => $label)
-                                                        <option value="{{ $type }}" @selected($alias->barcode_type === $type)>{{ $label }}</option>
-                                                    @endforeach
-                                                </select>
-                                                @if ($alias->label)
-                                                    <span class="alias-note">{{ $alias->label }}</span>
-                                                @endif
-                                            </div>
-                                            @if ($alias->source === \App\Models\BarcodeAlias::SOURCE_PLATFORM_LABEL_CODE)
-                                                <small>{{ __('skus.alias_source_fnsku_field') }}</small>
-                                            @endif
-                                            <small>{{ $alias->normalized_barcode }}</small>
-                                        </div>
-                                        <flux:button class="alias-deactivate-button" type="button" size="xs" variant="danger" wire:click="deactivateBarcodeAlias({{ $alias->id }})" :disabled="! $alias->is_active || ! $aliasCanManage">
-                                            {{ __('skus.alias_deactivate') }}
-                                        </flux:button>
-                                    </article>
+                                    @include('livewire.partials.barcode-alias-row', ['alias' => $alias, 'keyPrefix' => 'stock'])
                                 @empty
                                     <div class="empty-state">{{ __('skus.no_aliases') }}</div>
                                 @endforelse
@@ -714,6 +666,11 @@
         .alias-list-group {
             display: grid;
             gap: 8px;
+        }
+
+        .alias-group-description {
+            color: #64748b;
+            font-size: 13px;
         }
 
         .alias-list-item {
@@ -758,6 +715,38 @@
             padding: 4px 8px;
         }
 
+        .alias-type-display {
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        .alias-row-actions {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .alias-edit-form {
+            display: grid;
+            grid-template-columns: minmax(160px, 1fr) 220px minmax(160px, 1fr);
+            gap: 8px;
+            align-items: start;
+            min-width: 0;
+        }
+
+        .alias-edit-input {
+            width: 100%;
+            min-height: 30px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background: #fff;
+            color: var(--ink);
+            font-size: 13px;
+            padding: 4px 8px;
+        }
+
         .alias-deactivate-button,
         .alias-deactivate-button * {
             font-size: 13px;
@@ -785,6 +774,10 @@
 
             .alias-type-select {
                 width: 100%;
+            }
+
+            .alias-edit-form {
+                grid-template-columns: 1fr;
             }
         }
     </style>

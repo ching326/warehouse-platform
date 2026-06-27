@@ -223,7 +223,7 @@ class SkuManagementTest extends TestCase
             ->test(SkusIndex::class)
             ->call('openAliasPanel', $sku->id)
             ->set('aliasBarcode', 'x00abc123')
-            ->set('aliasBarcodeType', 'fnsku')
+            ->set('aliasBarcodeType', 'jan')
             ->call('createBarcodeAlias');
 
         $this->assertDatabaseHas('barcode_aliases', [
@@ -232,7 +232,7 @@ class SkuManagementTest extends TestCase
             'model_id' => $stockItem->id,
             'barcode' => 'x00abc123',
             'normalized_barcode' => 'X00ABC123',
-            'barcode_type' => 'fnsku',
+            'barcode_type' => 'jan',
             'is_active' => true,
         ]);
     }
@@ -396,7 +396,7 @@ class SkuManagementTest extends TestCase
             'model_id' => $sku->id,
             'barcode' => 'manual 1',
             'normalized_barcode' => 'MANUAL1',
-            'barcode_type' => 'fnsku',
+            'barcode_type' => 'platform_label',
             'is_active' => true,
         ]);
 
@@ -474,7 +474,7 @@ class SkuManagementTest extends TestCase
             ->test(SkusIndex::class)
             ->call('openAliasPanel', $sku->id)
             ->assertSee(__('skus.alias_source_fnsku_field'))
-            ->call('updateBarcodeAliasType', $alias->id, 'jan')
+            ->call('editBarcodeAlias', $alias->id)
             ->assertForbidden();
 
         Livewire::actingAs($this->internalUser())
@@ -506,16 +506,25 @@ class SkuManagementTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(SkusIndex::class)
             ->call('openAliasPanel', $sku->id)
-            ->call('updateBarcodeAliasType', $alias->id, 'jan')
+            ->call('editBarcodeAlias', $alias->id)
+            ->set('aliasEdit.barcode', '49-1234-5678-902')
+            ->set('aliasEdit.barcode_type', 'jan')
+            ->set('aliasEdit.label', 'Updated package barcode')
+            ->call('saveBarcodeAlias', $alias->id)
             ->assertHasNoErrors()
             ->assertSee(__('skus.alias_updated'))
             ->call('deactivateBarcodeAlias', $alias->id)
-            ->assertSee(__('skus.alias_deactivated'));
+            ->assertSee(__('skus.alias_deactivated'))
+            ->call('reactivateBarcodeAlias', $alias->id)
+            ->assertSee(__('skus.alias_reactivated'));
 
         $alias->refresh();
 
+        $this->assertSame('49-1234-5678-902', $alias->barcode);
+        $this->assertSame('4912345678902', $alias->normalized_barcode);
         $this->assertSame('jan', $alias->barcode_type);
-        $this->assertFalse($alias->is_active);
+        $this->assertSame('Updated package barcode', $alias->label);
+        $this->assertTrue($alias->is_active);
     }
 
     public function test_duplicate_normalized_barcode_in_same_tenant_is_rejected(): void

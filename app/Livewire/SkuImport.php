@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\BarcodeAlias;
 use App\Models\ProductType;
 use App\Models\Shop;
 use App\Models\Sku;
@@ -48,6 +49,8 @@ class SkuImport extends Component
     // Step 2
     public array $mapping = [];
 
+    public string $defaultBarcodeType = '';
+
     // Step 3 computed
     public int $validRowCount = 0;
 
@@ -83,11 +86,14 @@ class SkuImport extends Component
             }
             $this->tenantId = (string) $ids[0];
         }
+
+        $this->autoFillSingleShop();
     }
 
     public function updatedTenantId(): void
     {
         $this->shopId = '';
+        $this->autoFillSingleShop();
     }
 
     public function updatedFile(): void
@@ -101,9 +107,10 @@ class SkuImport extends Component
     public function readFile(): void
     {
         $tenantId = $this->validatedTenantId();
+        $this->autoFillSingleShop();
 
         $this->validate([
-            'shopId' => ['nullable', Rule::exists('shops', 'id')->where('tenant_id', $tenantId)],
+            'shopId' => ['required', Rule::exists('shops', 'id')->where('tenant_id', $tenantId)],
             'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:5120'],
         ]);
 
@@ -190,6 +197,14 @@ class SkuImport extends Component
 
         if ($missing !== []) {
             session()->flash('error', __('sku_import.required_fields_missing', ['fields' => implode(', ', $missing)]));
+
+            return;
+        }
+
+        if ($this->defaultBarcodeType !== '' && ! in_array($this->defaultBarcodeType, BarcodeAlias::BARCODE_TYPES, true)) {
+            session()->flash('error', __('sku_import.error_invalid_barcode_type', [
+                'values' => implode(', ', BarcodeAlias::BARCODE_TYPES),
+            ]));
 
             return;
         }
@@ -372,7 +387,7 @@ class SkuImport extends Component
         $this->reset([
             'file', 'fileHeaders', 'sampleRows', 'totalDataRows', 'filePath',
             'mapping', 'validRowCount', 'existsRowCount', 'errorRowCount', 'previewRows',
-            'allowUpsert', 'doSaveTemplate', 'saveTemplateName',
+            'defaultBarcodeType', 'allowUpsert', 'doSaveTemplate', 'saveTemplateName',
             'resultCreated', 'resultUpdated', 'resultSkipped', 'resultFailed', 'errorRows',
         ]);
         $this->step = 'upload';
@@ -388,6 +403,8 @@ class SkuImport extends Component
             'showTenantSelect' => $this->isInternalUser(),
             'columnToField' => $this->buildColumnToFieldMap(),
             'requiredSkuNameFieldKey' => $this->skuNameBaseFieldKeyForView(),
+            'needsDefaultBarcodeType' => $this->needsDefaultBarcodeType(),
+            'barcodeTypeOptions' => $this->barcodeTypeOptions(),
         ])->layout('inventory', [
             'title' => __('sku_import.page_title'),
             'subtitle' => __('sku_import.page_subtitle'),
@@ -424,7 +441,9 @@ class SkuImport extends Component
         array $validProductTypes,
         array &$seenSkus,
     ): array {
-        $rowData = $this->normalizeSkuBaseName($this->extractRowData($row, $columnIndex));
+        $rowData = $this->applyDefaultBarcodeType(
+            $this->normalizeSkuBaseName($this->extractRowData($row, $columnIndex))
+        );
         $skuCode = trim($rowData['sku'] ?? '');
 
         $isDupInFile = $skuCode !== '' && isset($seenSkus[$skuCode]);
@@ -454,6 +473,19 @@ class SkuImport extends Component
         }
 
         return $data;
+    }
+
+    private function applyDefaultBarcodeType(array $rowData): array
+    {
+        if (
+            $this->needsDefaultBarcodeType()
+            && ($rowData['barcode'] ?? '') !== ''
+            && ($rowData['barcode_type'] ?? '') === ''
+        ) {
+            $rowData['barcode_type'] = $this->defaultBarcodeType;
+        }
+
+        return $rowData;
     }
 
     /**
@@ -508,7 +540,7 @@ class SkuImport extends Component
         }
 
         $validStatuses = ['active', 'inactive', 'draft', 'archived'];
-        $validBarcodeTypes = ['unknown', 'jan', 'ean', 'upc', 'fnsku', 'platform_label', 'internal_label'];
+        $validBarcodeTypes = BarcodeAlias::BARCODE_TYPES;
 
         if (($rowData['status'] ?? '') !== '' && ! in_array($rowData['status'], $validStatuses, true)) {
             $errors[] = __('sku_import.error_invalid_status', [
@@ -644,7 +676,28 @@ class SkuImport extends Component
             $missing[] = $this->fieldLabel($baseNameField);
         }
 
+        if ($this->needsDefaultBarcodeType() && $this->defaultBarcodeType === '') {
+            $missing[] = __('sku_import.default_barcode_type');
+        }
+
         return array_values(array_unique($missing));
+    }
+
+    private function needsDefaultBarcodeType(): bool
+    {
+        return ($this->mapping['barcode'] ?? '') !== ''
+            && ($this->mapping['barcode_type'] ?? '') === '';
+    }
+
+    private function barcodeTypeOptions(): array
+    {
+        $options = [];
+
+        foreach (BarcodeAlias::BARCODE_TYPES as $type) {
+            $options[$type] = __('common.barcode_types.'.$type);
+        }
+
+        return $options;
     }
 
     private function skuNameBaseFieldKey(): string
@@ -721,10 +774,31 @@ class SkuImport extends Component
             return collect();
         }
 
+        $tenantId = (int) $this->tenantId;
+
+        if ($tenantId <= 0 || ! in_array($tenantId, $this->allowedTenantIds(), true)) {
+            return collect();
+        }
+
         return Shop::query()
-            ->where('tenant_id', $this->tenantId)
+            ->where('tenant_id', $tenantId)
             ->orderBy('name')
             ->get(['id', 'code', 'name']);
+    }
+
+    private function autoFillSingleShop(): void
+    {
+        $shops = $this->shopOptions();
+
+        if ($shops->count() === 1) {
+            $this->shopId = (string) $shops->first()->id;
+
+            return;
+        }
+
+        if ($this->shopId !== '' && ! $shops->contains('id', (int) $this->shopId)) {
+            $this->shopId = '';
+        }
     }
 
     private function validatedTenantId(): int

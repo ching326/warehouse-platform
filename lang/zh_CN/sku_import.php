@@ -11,6 +11,8 @@ return [
 
     'upload_hint' => '上传 CSV 或 Excel 文件 (.csv、.xlsx、.xls)。最多 2,000 条数据行。',
     'btn_upload' => '上传并读取标题行',
+    'drop_title' => '拖放到此处，或点击选择',
+    'drop_hint' => 'CSV、TXT 或 Excel。最多 2,000 条数据行。',
 
     'map_heading' => '将列映射到导入字段',
     'map_hint' => '将文件中的列映射到各导入字段。设为"忽略"的字段将被跳过。',
@@ -101,6 +103,9 @@ return [
     'field_variation_code' => '规格代码',
     'field_color' => '颜色',
     'field_size' => '尺寸',
+    'default_barcode_type' => '导入条码的类型',
+    'default_barcode_type_placeholder' => '选择条码类型',
+    'default_barcode_type_hint' => '当已映射 Barcode，但文件没有 Barcode type 字段时使用。',
     'field_barcode' => '条码',
     'field_barcode_type' => '条码类型',
     'field_product_type' => '商品类型',

@@ -11,6 +11,8 @@ return [
 
     'upload_hint' => '上傳 CSV 或 Excel 檔案 (.csv、.xlsx、.xls)。最多 2,000 筆資料列。',
     'btn_upload' => '上傳並讀取標頭',
+    'drop_title' => '拖放到此處，或點擊選擇',
+    'drop_hint' => 'CSV、TXT 或 Excel。最多 2,000 筆資料列。',
 
     'map_heading' => '將欄位對應至匯入欄位',
     'map_hint' => '將檔案中的欄位對應至各匯入欄位。設為「略過」的欄位將被跳過。',
@@ -101,6 +103,9 @@ return [
     'field_variation_code' => '規格代碼',
     'field_color' => '顏色',
     'field_size' => '尺寸',
+    'default_barcode_type' => '匯入條碼的類型',
+    'default_barcode_type_placeholder' => '選擇條碼類型',
+    'default_barcode_type_hint' => '當已對應 Barcode，但檔案沒有 Barcode type 欄位時使用。',
     'field_barcode' => '條碼',
     'field_barcode_type' => '條碼類型',
     'field_product_type' => '商品類型',

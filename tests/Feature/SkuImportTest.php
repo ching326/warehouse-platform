@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Livewire\SkuImport;
 use App\Models\BarcodeAlias;
 use App\Models\ProductType;
+use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\SkuImportMapping;
 use App\Models\StockItem;
@@ -257,7 +258,7 @@ class SkuImportTest extends TestCase
 
     public function test_upload_step_reads_headers_and_advances_to_map(): void
     {
-        $tenant = Tenant::factory()->create(['code' => 'WIZ']);
+        [$tenant, $shop] = $this->tenantWithShop(['code' => 'WIZ']);
         $user = $this->internalUser();
 
         Livewire::actingAs($user)
@@ -266,13 +267,38 @@ class SkuImportTest extends TestCase
             ->set('file', File::createWithContent('import.csv', "sku,name,brand\nSKU001,Prod,Acme\n"))
             ->call('readFile')
             ->assertSet('step', 'map')
+            ->assertSet('shopId', (string) $shop->id)
             ->assertSet('fileHeaders', ['sku', 'name', 'brand'])
             ->assertSet('totalDataRows', 1);
     }
 
+    public function test_single_shop_is_auto_filled_when_tenant_is_selected(): void
+    {
+        [$tenant, $shop] = $this->tenantWithShop(['code' => 'SNG']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->assertSet('shopId', (string) $shop->id);
+    }
+
+    public function test_upload_requires_shop_when_more_than_one_shop_exists(): void
+    {
+        [$tenant] = $this->tenantWithShop(['code' => 'MSH']);
+        Shop::factory()->for($tenant)->create(['status' => 'active']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('shopId', '')
+            ->set('file', File::createWithContent('import.csv', "sku,name\nSKU001,Prod\n"))
+            ->call('readFile')
+            ->assertHasErrors(['shopId' => 'required']);
+    }
+
     public function test_upload_rejects_empty_file(): void
     {
-        $tenant = Tenant::factory()->create(['code' => 'EMP']);
+        [$tenant] = $this->tenantWithShop(['code' => 'EMP']);
 
         Livewire::actingAs($this->internalUser())
             ->test(SkuImport::class)
@@ -284,7 +310,7 @@ class SkuImportTest extends TestCase
 
     public function test_upload_enforces_row_cap(): void
     {
-        $tenant = Tenant::factory()->create(['code' => 'CAP']);
+        [$tenant] = $this->tenantWithShop(['code' => 'CAP']);
         $lines = "sku,name\n";
         for ($i = 1; $i <= 2001; $i++) {
             $lines .= "SKU{$i},Product {$i}\n";
@@ -300,7 +326,7 @@ class SkuImportTest extends TestCase
 
     public function test_map_step_requires_sku_and_name_fields(): void
     {
-        $tenant = Tenant::factory()->create(['code' => 'REQ']);
+        [$tenant] = $this->tenantWithShop(['code' => 'REQ']);
         $component = Livewire::actingAs($this->internalUser())
             ->test(SkuImport::class)
             ->set('tenantId', (string) $tenant->id)
@@ -319,7 +345,7 @@ class SkuImportTest extends TestCase
 
     public function test_map_step_requires_the_tenants_base_sku_name_field(): void
     {
-        $tenant = Tenant::factory()->create(['code' => 'RJA', 'sku_name_locale' => 'ja']);
+        [$tenant] = $this->tenantWithShop(['code' => 'RJA', 'sku_name_locale' => 'ja']);
 
         Livewire::actingAs($this->internalUser())
             ->test(SkuImport::class)
@@ -333,9 +359,25 @@ class SkuImportTest extends TestCase
             ->assertDontSee('SKU name (English), SKU name (Japanese)');
     }
 
+    public function test_map_step_requires_default_barcode_type_when_barcode_has_no_type_column(): void
+    {
+        [$tenant] = $this->tenantWithShop(['code' => 'BTR']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', "sku,name,barcode\nBTR-001,Barcode Product,4901234567894\n"))
+            ->call('readFile')
+            ->assertSet('step', 'map')
+            ->assertSee('Barcode type for imported barcodes')
+            ->call('advanceToPreview')
+            ->assertSet('step', 'map')
+            ->assertSee('Barcode type for imported barcodes');
+    }
+
     public function test_advance_to_preview_validates_all_rows(): void
     {
-        $tenant = Tenant::factory()->create(['code' => 'PRV']);
+        [$tenant] = $this->tenantWithShop(['code' => 'PRV']);
         $csv = "sku,name\nSKU001,Good\n,Missing SKU\nSKU003,Also Good\n";
 
         $component = Livewire::actingAs($this->internalUser())
@@ -354,8 +396,8 @@ class SkuImportTest extends TestCase
 
     public function test_insert_only_counts_existing_sku_as_skipped(): void
     {
-        $tenant = Tenant::factory()->create(['code' => 'INS']);
-        Sku::factory()->for($tenant)->create(['sku' => 'INS-EXIST', 'shop_id' => null]);
+        [$tenant, $shop] = $this->tenantWithShop(['code' => 'INS']);
+        Sku::factory()->for($tenant)->for($shop)->create(['sku' => 'INS-EXIST']);
 
         $csv = "sku,name\nINS-EXIST,Existing\nINS-NEW,New\n";
         $component = Livewire::actingAs($this->internalUser())
@@ -381,8 +423,8 @@ class SkuImportTest extends TestCase
 
     public function test_upsert_updates_existing_sku(): void
     {
-        $tenant = Tenant::factory()->create(['code' => 'UPT']);
-        Sku::factory()->for($tenant)->create(['sku' => 'UPT-001', 'name' => 'Old Name', 'shop_id' => null]);
+        [$tenant, $shop] = $this->tenantWithShop(['code' => 'UPT']);
+        Sku::factory()->for($tenant)->for($shop)->create(['sku' => 'UPT-001', 'name' => 'Old Name']);
 
         $csv = "sku,name\nUPT-001,New Name\n";
         Livewire::actingAs($this->internalUser())
@@ -402,7 +444,7 @@ class SkuImportTest extends TestCase
 
     public function test_import_uses_tenant_base_sku_name_language(): void
     {
-        $tenant = Tenant::factory()->create(['code' => 'JPN', 'sku_name_locale' => 'ja']);
+        [$tenant] = $this->tenantWithShop(['code' => 'JPN', 'sku_name_locale' => 'ja']);
         $csv = "sku,name,name_ja\nJPN-001,English Name,譌･譛ｬ隱槫錐\n";
 
         Livewire::actingAs($this->internalUser())
@@ -427,7 +469,7 @@ class SkuImportTest extends TestCase
 
     public function test_import_creates_managed_alias_from_platform_label_code(): void
     {
-        $tenant = Tenant::factory()->create(['code' => 'FNI']);
+        [$tenant] = $this->tenantWithShop(['code' => 'FNI']);
         $csv = "sku,name,platform_label_code\nFNI-001,Imported FNSKU,x00-import 123\n";
 
         Livewire::actingAs($this->internalUser())
@@ -457,7 +499,7 @@ class SkuImportTest extends TestCase
 
     public function test_import_creates_product_barcode_alias_without_writing_legacy_stock_item_barcode(): void
     {
-        $tenant = Tenant::factory()->create(['code' => 'PBI']);
+        [$tenant] = $this->tenantWithShop(['code' => 'PBI']);
         $csv = "sku,name,barcode,barcode_type\nPBI-001,Imported Product,490-1234567894,jan\n";
 
         Livewire::actingAs($this->internalUser())
@@ -486,10 +528,41 @@ class SkuImportTest extends TestCase
         ]);
     }
 
+    public function test_import_applies_selected_default_barcode_type_when_file_has_no_type_column(): void
+    {
+        [$tenant] = $this->tenantWithShop(['code' => 'DBT']);
+        $csv = "sku,name,barcode\nDBT-001,Default Type Product,490-9876543210\n";
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', $csv))
+            ->call('readFile')
+            ->set('defaultBarcodeType', 'jan')
+            ->call('advanceToPreview')
+            ->call('confirmImport')
+            ->assertSet('step', 'result')
+            ->assertSet('resultCreated', 1)
+            ->assertSet('resultFailed', 0);
+
+        $sku = Sku::where('sku', 'DBT-001')->firstOrFail();
+
+        $this->assertDatabaseHas('barcode_aliases', [
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
+            'model_id' => $sku->stock_item_id,
+            'barcode' => '490-9876543210',
+            'normalized_barcode' => '4909876543210',
+            'barcode_type' => 'jan',
+            'source' => BarcodeAlias::SOURCE_IMPORT,
+            'is_primary' => true,
+        ]);
+    }
+
     public function test_import_records_fnsku_collision_as_row_error_without_aborting_batch(): void
     {
-        $tenant = Tenant::factory()->create(['code' => 'FNC']);
-        $existing = Sku::factory()->for($tenant)->create(['sku' => 'FNC-EXISTING']);
+        [$tenant, $shop] = $this->tenantWithShop(['code' => 'FNC']);
+        $existing = Sku::factory()->for($tenant)->for($shop)->create(['sku' => 'FNC-EXISTING']);
         BarcodeAlias::create([
             'tenant_id' => $tenant->id,
             'model_type' => BarcodeAlias::MODEL_TYPE_SKU,
@@ -525,7 +598,7 @@ class SkuImportTest extends TestCase
 
     public function test_duplicate_sku_in_file_is_flagged_as_error(): void
     {
-        $tenant = Tenant::factory()->create(['code' => 'DUP']);
+        [$tenant] = $this->tenantWithShop(['code' => 'DUP']);
 
         $csv = "sku,name\nDUP-001,First\nDUP-001,Second\n";
         $component = Livewire::actingAs($this->internalUser())
@@ -543,7 +616,7 @@ class SkuImportTest extends TestCase
 
     public function test_invalid_rows_counted_as_failed_in_result(): void
     {
-        $tenant = Tenant::factory()->create(['code' => 'INV']);
+        [$tenant] = $this->tenantWithShop(['code' => 'INV']);
 
         $csv = "sku,name,status\nINV-001,Good,active\nINV-002,Bad Status,invalid_status_xyz\n";
         Livewire::actingAs($this->internalUser())
@@ -583,7 +656,7 @@ class SkuImportTest extends TestCase
 
     public function test_saved_template_can_be_created_and_loaded(): void
     {
-        $tenant = Tenant::factory()->create(['code' => 'TPL']);
+        [$tenant] = $this->tenantWithShop(['code' => 'TPL']);
         $csv = "sku,name,brand\nT001,Product,Acme\n";
 
         // Step through upload and map, then confirm with template save
@@ -606,7 +679,7 @@ class SkuImportTest extends TestCase
 
     public function test_saved_template_can_be_loaded_on_map_step(): void
     {
-        $tenant = Tenant::factory()->create(['code' => 'TLD']);
+        [$tenant] = $this->tenantWithShop(['code' => 'TLD']);
         $template = SkuImportMapping::create([
             'tenant_id' => $tenant->id,
             'name' => 'Load Me',
@@ -628,7 +701,7 @@ class SkuImportTest extends TestCase
 
     public function test_saved_template_name_duplicate_shows_error(): void
     {
-        $tenant = Tenant::factory()->create(['code' => 'TDU']);
+        [$tenant] = $this->tenantWithShop(['code' => 'TDU']);
         SkuImportMapping::create([
             'tenant_id' => $tenant->id,
             'name' => 'Existing Template',
@@ -721,7 +794,7 @@ class SkuImportTest extends TestCase
 
     public function test_import_shows_clean_error_when_stored_file_is_missing_before_confirm(): void
     {
-        $tenant = Tenant::factory()->create(['code' => 'EXP']);
+        [$tenant] = $this->tenantWithShop(['code' => 'EXP']);
         $csv = "sku,name\nEXP001,Product\n";
 
         $component = Livewire::actingAs($this->internalUser())
@@ -766,10 +839,20 @@ class SkuImportTest extends TestCase
         ]);
     }
 
+    /** @return array{0: Tenant, 1: Shop} */
+    private function tenantWithShop(array $attributes = []): array
+    {
+        $tenant = Tenant::factory()->create($attributes);
+        $shop = Shop::factory()->for($tenant)->create(['status' => 'active']);
+
+        return [$tenant, $shop];
+    }
+
     /** @return array{0: Tenant, 1: User} */
     private function tenantUser(): array
     {
         $tenant = Tenant::factory()->create();
+        Shop::factory()->for($tenant)->create(['status' => 'active']);
         $user = User::factory()->create([
             'user_type' => 'tenant',
             'is_active' => true,

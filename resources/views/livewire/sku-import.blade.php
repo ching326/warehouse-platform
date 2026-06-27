@@ -22,7 +22,7 @@
                     <strong>{{ __('sku_import.page_title') }}</strong>
                     <span>{{ __('sku_import.upload_hint') }}</span>
                 </div>
-                <flux:button href="{{ route('skus.index') }}" variant="subtle" wire:navigate>{{ __('sku_import.btn_view_skus') }}</flux:button>
+                <flux:button href="{{ route('skus.index') }}" variant="outline" wire:navigate>{{ __('skus.btn_back') }}</flux:button>
             </div>
 
             <form wire:submit="readFile" class="form-panel">
@@ -37,8 +37,8 @@
                         @error('tenantId') <p class="form-error">{{ $message }}</p> @enderror
                     @endif
 
-                    <flux:select wire:model.live="shopId" :label="__('skus.field_shop')">
-                        <flux:select.option value="">{{ __('skus.no_shop') }}</flux:select.option>
+                    <flux:select wire:model.live="shopId" :label="__('skus.field_shop')" required>
+                        <flux:select.option value="">{{ __('skus.select_shop') }}</flux:select.option>
                         @foreach ($shops as $shop)
                             <flux:select.option value="{{ $shop->id }}">{{ $shop->code }} - {{ $shop->name }}</flux:select.option>
                         @endforeach
@@ -46,9 +46,31 @@
                 </div>
                 @error('shopId') <p class="form-error">{{ $message }}</p> @enderror
 
-                <label>
-                    <span>{{ __('skus.field_sku') }} CSV / Excel</span>
-                    <input type="file" wire:model="file" accept=".csv,.txt,.xlsx,.xls">
+                <label
+                    class="tracking-import-dropzone"
+                    x-data="{ dragging: false, fileName: @js($file?->getClientOriginalName() ?? '') }"
+                    x-bind:class="{ 'is-dragging': dragging }"
+                    x-on:dragover.prevent="dragging = true"
+                    x-on:dragleave.prevent="dragging = false"
+                    x-on:drop.prevent="
+                        dragging = false;
+                        const input = $refs.skuImportFile;
+                        input.files = $event.dataTransfer.files;
+                        fileName = input.files.length ? input.files[0].name : '';
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    "
+                >
+                    <input
+                        x-ref="skuImportFile"
+                        class="tracking-import-file-input"
+                        type="file"
+                        wire:model="file"
+                        accept=".csv,.txt,.xlsx,.xls"
+                        x-on:change="fileName = $event.target.files.length ? $event.target.files[0].name : ''"
+                    >
+                    <strong>{{ __('sku_import.drop_title') }}</strong>
+                    <span>{{ __('sku_import.drop_hint') }}</span>
+                    <span class="tracking-import-file-name" x-show="fileName" x-text="fileName"></span>
                     <span class="subtle" wire:loading wire:target="file">...</span>
                 </label>
                 @error('file') <p class="form-error">{{ $message }}</p> @enderror
@@ -140,6 +162,19 @@
                     </tbody>
                 </table>
             </div>
+
+            @if ($needsDefaultBarcodeType)
+                <div class="mapping-extra-option">
+                    <label for="sku-import-default-barcode-type">{{ __('sku_import.default_barcode_type') }} *</label>
+                    <select id="sku-import-default-barcode-type" wire:model.live="defaultBarcodeType">
+                        <option value="">{{ __('sku_import.default_barcode_type_placeholder') }}</option>
+                        @foreach ($barcodeTypeOptions as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                    <span>{{ __('sku_import.default_barcode_type_hint') }}</span>
+                </div>
+            @endif
         </section>
 
         {{-- Sample preview --}}

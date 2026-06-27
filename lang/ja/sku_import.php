@@ -11,6 +11,8 @@ return [
 
     'upload_hint' => 'CSVまたはExcelファイル (.csv、.xlsx、.xls) をアップロードしてください。最大2,000行。',
     'btn_upload' => 'アップロードしてヘッダーを読み込む',
+    'drop_title' => 'ここにドロップ、またはクリックして選択',
+    'drop_hint' => 'CSV、TXT、Excel。最大2,000行。',
 
     'map_heading' => '列をインポートフィールドに対応付ける',
     'map_hint' => 'ファイルの列を各フィールドに対応付けてください。「無視」に設定したフィールドはスキップされます。',
@@ -101,6 +103,9 @@ return [
     'field_variation_code' => 'バリエーションコード',
     'field_color' => 'カラー',
     'field_size' => 'サイズ',
+    'default_barcode_type' => 'インポートするバーコードのタイプ',
+    'default_barcode_type_placeholder' => 'バーコードタイプを選択',
+    'default_barcode_type_hint' => 'バーコード列を対応付け、ファイルにバーコード種別列がない場合に使用します。',
     'field_barcode' => 'バーコード',
     'field_barcode_type' => 'バーコード種別',
     'field_product_type' => '商品種別',

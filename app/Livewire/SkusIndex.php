@@ -85,6 +85,14 @@ class SkusIndex extends Component
 
     public string $aliasLabel = '';
 
+    public ?int $editingAliasId = null;
+
+    public array $aliasEdit = [
+        'barcode' => '',
+        'barcode_type' => 'unknown',
+        'label' => '',
+    ];
+
     private const VIEW_DETAILED = 'detailed';
 
     private const VIEW_CATALOG = 'catalog';
@@ -517,7 +525,7 @@ class SkusIndex extends Component
         $this->flashStatus(__('skus.alias_deactivated'));
     }
 
-    public function updateBarcodeAliasType(int $aliasId, string $barcodeType): void
+    public function reactivateBarcodeAlias(int $aliasId): void
     {
         [, $alias] = $this->managedBarcodeAlias($aliasId);
 
@@ -525,12 +533,80 @@ class SkusIndex extends Component
             abort(403);
         }
 
-        validator(['barcode_type' => $barcodeType], [
+        $alias->update(['is_active' => true]);
+
+        $this->flashStatus(__('skus.alias_reactivated'));
+    }
+
+    public function editBarcodeAlias(int $aliasId): void
+    {
+        [, $alias] = $this->managedBarcodeAlias($aliasId);
+
+        if (! $this->canManageBarcodeAlias($alias)) {
+            abort(403);
+        }
+
+        $this->editingAliasId = $alias->id;
+        $this->aliasEdit = [
+            'barcode' => $alias->barcode,
+            'barcode_type' => $alias->barcode_type,
+            'label' => $alias->label ?? '',
+        ];
+    }
+
+    public function cancelEditBarcodeAlias(): void
+    {
+        $this->resetAliasEditForm();
+    }
+
+    public function saveBarcodeAlias(int $aliasId): void
+    {
+        [$sku, $alias] = $this->managedBarcodeAlias($aliasId);
+
+        if (! $this->canManageBarcodeAlias($alias)) {
+            abort(403);
+        }
+
+        $validated = validator($this->aliasEdit, [
+            'barcode' => ['required', 'string', 'max:255'],
             'barcode_type' => ['required', Rule::in(BarcodeAlias::BARCODE_TYPES)],
+            'label' => ['nullable', 'string', 'max:255'],
         ])->validate();
 
-        $alias->update(['barcode_type' => $barcodeType]);
+        $normalized = BarcodeAlias::normalize($validated['barcode']);
 
+        if ($normalized === '') {
+            throw ValidationException::withMessages(['aliasEdit.barcode' => __('skus.alias_barcode_required')]);
+        }
+
+        $conflict = BarcodeAlias::query()
+            ->where('tenant_id', $alias->tenant_id)
+            ->where('normalized_barcode', $normalized)
+            ->whereKeyNot($alias->id)
+            ->first();
+
+        if ($conflict) {
+            $message = $conflict->model_type === $alias->model_type && (int) $conflict->model_id === (int) $alias->model_id
+                ? __('skus.alias_duplicate_same_product')
+                : __('skus.alias_conflict_other_product');
+
+            throw ValidationException::withMessages(['aliasEdit.barcode' => $message]);
+        }
+
+        $oldType = $alias->barcode_type;
+
+        $alias->update([
+            'barcode' => trim($validated['barcode']),
+            'normalized_barcode' => $normalized,
+            'barcode_type' => $validated['barcode_type'],
+            'label' => $this->nullableString((string) ($validated['label'] ?? '')),
+        ]);
+
+        if ($alias->model_type === BarcodeAlias::MODEL_TYPE_SKU && ($oldType === 'platform_label' || $alias->barcode_type === 'platform_label')) {
+            app(BarcodeAliasService::class)->syncSkuPlatformLabelMirror($sku);
+        }
+
+        $this->resetAliasEditForm();
         $this->flashStatus(__('skus.alias_updated'));
     }
 
@@ -1505,6 +1581,17 @@ class SkusIndex extends Component
         $this->aliasBarcode = '';
         $this->aliasBarcodeType = 'unknown';
         $this->aliasLabel = '';
+        $this->resetAliasEditForm();
+    }
+
+    private function resetAliasEditForm(): void
+    {
+        $this->editingAliasId = null;
+        $this->aliasEdit = [
+            'barcode' => '',
+            'barcode_type' => 'unknown',
+            'label' => '',
+        ];
     }
 
     private function stockItemPrimaryBarcode(Sku $sku): ?string
