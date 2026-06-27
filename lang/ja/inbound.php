@@ -46,7 +46,7 @@ return [
     'btn_cancel' => 'キャンセル',
     'btn_view' => '表示',
     'btn_submit' => '入庫オーダー作成',
-    'btn_receive' => '受領',
+    'btn_receive' => '検収を始める',
     'btn_submit_receive' => '受領を確定',
     'btn_mark_arrived' => '到着にする',
     'btn_cancel_order' => 'オーダー取消',

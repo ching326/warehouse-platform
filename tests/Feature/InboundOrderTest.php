@@ -230,6 +230,7 @@ class InboundOrderTest extends TestCase
             ->test(InboundOrderIndex::class)
             ->assertSee('IB-PENDING-LINK')
             ->assertSee(route('inbound.show', $pending), false)
+            ->assertSee('inbound-row-action-button', false)
             ->assertSee(__('inbound.btn_mark_arrived'))
             ->assertSee('IB-ARRIVED-LINK')
             ->assertSee('IB-PARTIAL-LINK')

@@ -46,7 +46,7 @@ return [
     'btn_cancel' => '取消',
     'btn_view' => '檢視',
     'btn_submit' => '建立進倉訂單',
-    'btn_receive' => '收貨',
+    'btn_receive' => '開始點收',
     'btn_submit_receive' => '確認收貨',
     'btn_mark_arrived' => '標記到貨',
     'btn_cancel_order' => '取消訂單',

@@ -46,7 +46,7 @@ return [
     'btn_cancel' => '取消',
     'btn_view' => '查看',
     'btn_submit' => '创建入库订单',
-    'btn_receive' => '收货',
+    'btn_receive' => '开始点收',
     'btn_submit_receive' => '确认收货',
     'btn_mark_arrived' => '标记到货',
     'btn_cancel_order' => '取消订单',
