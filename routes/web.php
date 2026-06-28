@@ -120,7 +120,7 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/return-orders/{returnOrder}', ReturnOrderShow::class)->name('return-orders.show');
     Route::get('/outbound', OutboundOrderIndex::class)->name('outbound.index');
     Route::get('/outbound/create', OutboundOrderCreate::class)->name('outbound.create');
-    Route::get('/outbound/{order}/direct-ship', OutboundOrderShip::class)->name('outbound.ship');
+    Route::get('/outbound/{order}/direct-pack', OutboundOrderShip::class)->name('outbound.ship');
     Route::get('/outbound/{order}/scan-pack', FulfillmentPack::class)->name('outbound.pack');
     Route::get('/outbound/{order}', OutboundOrderDetail::class)->name('outbound.show');
     Route::get('/sales-orders', SalesOrderIndex::class)->name('sales.orders.index');

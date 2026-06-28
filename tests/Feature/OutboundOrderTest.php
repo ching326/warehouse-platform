@@ -701,7 +701,7 @@ class OutboundOrderTest extends TestCase
 
         $this->actingAs($this->internalUser())->get('/outbound')->assertOk()->assertSee('Outbound Orders');
         $this->actingAs($this->internalUser())->get('/outbound/create')->assertOk()->assertSee('Create Outbound Order');
-        $this->actingAs($this->internalUser())->get(route('outbound.ship', $order))->assertOk()->assertSee('Direct Ship');
+        $this->actingAs($this->internalUser())->get(route('outbound.ship', $order))->assertOk()->assertSee('Direct Pack');
         $this->actingAs($this->internalUser())->get(route('outbound.show', $order))->assertOk()->assertSee('OB-ROUTE');
     }
 
