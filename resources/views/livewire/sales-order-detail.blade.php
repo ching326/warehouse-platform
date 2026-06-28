@@ -100,6 +100,9 @@
                     <flux:button type="button" variant="primary" wire:click="releaseHold" data-action-variant="primary">
                         {{ __('sales_orders.btn_release_hold') }}
                     </flux:button>
+                    <flux:button type="button" variant="primary" wire:click="remapShippingMethod" data-action-variant="primary">
+                        {{ __('sales_orders.btn_remap_shipping_method') }}
+                    </flux:button>
                 @endif
 
                 @if ($order->order_status === 'backorder' && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true))

@@ -550,7 +550,8 @@ class SalesOrderTest extends TestCase
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderDetail::class, ['order' => $order])
-            ->call('markReady');
+            ->call('markReady')
+            ->assertSee(__('sales_orders.release_hold_before_mark_ready'));
 
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->refresh()->fulfillment_status);
     }
@@ -623,6 +624,28 @@ class SalesOrderTest extends TestCase
             ->call('releaseHold');
 
         $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $order->refresh()->order_status);
+    }
+
+    public function test_remap_shipping_method_uses_sku_default_on_held_order(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->with('carrier:id,code')->firstOrFail();
+        $sku->update(['default_shipping_method_id' => $method->id]);
+        $order = $this->createPersistedOrder($shop, $sku, [
+            'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
+            'shipping_method_id' => null,
+            'shipping_method' => null,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->assertSee(__('sales_orders.btn_remap_shipping_method'))
+            ->call('remapShippingMethod')
+            ->assertSee(__('sales_orders.shipping_method_remapped'));
+
+        $order->refresh();
+        $this->assertSame($method->id, $order->shipping_method_id);
+        $this->assertSame($method->carrier?->code, $order->shipping_method);
     }
 
     public function test_mark_backorder_succeeds(): void

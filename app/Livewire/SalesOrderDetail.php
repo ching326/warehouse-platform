@@ -9,6 +9,7 @@ use App\Models\ShippingMethod;
 use App\Models\Sku;
 use App\Models\Tenant;
 use App\Services\Fulfillment\OutboundConsolidationService;
+use App\Services\SalesOrders\SkuDefaultShippingMethodResolver;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -197,6 +198,12 @@ class SalesOrderDetail extends Component
             $order->order_status !== SalesOrder::ORDER_STATUS_PENDING
             || $order->fulfillment_status !== SalesOrder::FULFILLMENT_STATUS_UNFULFILLED
         ) {
+            if ($order->order_status === SalesOrder::ORDER_STATUS_ON_HOLD) {
+                session()->flash('error', __('sales_orders.release_hold_before_mark_ready'));
+
+                return;
+            }
+
             session()->flash('error', __('sales_orders.cannot_mark_ready'));
 
             return;
@@ -456,6 +463,43 @@ class SalesOrderDetail extends Component
         session()->flash('status', __('sales_orders.shipping_method_updated'));
     }
 
+    public function remapShippingMethod(): void
+    {
+        $order = SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->with('lines:id,sales_order_id,sku_id,line_status')
+            ->findOrFail($this->orderId);
+
+        $skuIds = $order->lines
+            ->where('line_status', SalesOrderLine::STATUS_READY)
+            ->pluck('sku_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $resolved = app(SkuDefaultShippingMethodResolver::class)->resolve($order->tenant_id, $skuIds);
+
+        if ($resolved['status'] === 'none') {
+            session()->flash('error', __('sales_orders.shipping_method_remap_no_default'));
+
+            return;
+        }
+
+        if ($resolved['status'] === 'tie') {
+            session()->flash('error', __('sales_orders.shipping_method_remap_tie'));
+
+            return;
+        }
+
+        $order->update([
+            'shipping_method_id' => $resolved['shipping_method_id'],
+            'shipping_method' => $resolved['shipping_method'],
+        ]);
+
+        session()->flash('status', __('sales_orders.shipping_method_remapped'));
+    }
+
     public function updateNote(string $value): void
     {
         $note = trim($value);
@@ -508,7 +552,7 @@ class SalesOrderDetail extends Component
     {
         return match ($status) {
             SalesOrder::ORDER_STATUS_PENDING => 'blue',
-            SalesOrder::ORDER_STATUS_ON_HOLD => 'amber',
+            SalesOrder::ORDER_STATUS_ON_HOLD => 'pink',
             SalesOrder::ORDER_STATUS_BACKORDER => 'orange',
             SalesOrder::ORDER_STATUS_CANCEL_REQUESTED => 'red',
             SalesOrder::ORDER_STATUS_CANCELLED => 'red',
@@ -652,7 +696,7 @@ class SalesOrderDetail extends Component
         return ShippingMethod::query()
             ->where(function ($query) use ($order) {
                 $query->where('shipping_methods.status', 'active')
-                    ->when($order->shipping_method_id, fn ($query) => $query->orWhereKey($order->shipping_method_id));
+                    ->when($order->shipping_method_id, fn ($query) => $query->orWhere('shipping_methods.id', $order->shipping_method_id));
             })
             ->with('carrier:id,code,name')
             ->ordered()

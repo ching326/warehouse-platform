@@ -566,7 +566,11 @@
                                 </div>
                             </flux:table.cell>
                             <flux:table.cell class="so-created-cell">
-                                <strong>{{ $order->order_date?->format('Y-m-d') ?? $order->created_at->format('Y-m-d') }}</strong>
+                                @php
+                                    $createdDisplay = $order->order_date ?? $order->created_at;
+                                @endphp
+                                <strong>{{ $createdDisplay->format('Y-m-d') }}</strong>
+                                <span>{{ $createdDisplay->format('H:i') }}</span>
                                 @if ($order->isPacking())
                                     <flux:badge color="amber">{{ __('sales_orders.label_packing') }}</flux:badge>
                                 @endif
