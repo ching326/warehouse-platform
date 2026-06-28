@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\FulfillmentCreate;
 use App\Livewire\SalesOrderCreate;
 use App\Livewire\SalesOrderDetail;
 use App\Livewire\SalesOrderImport;
@@ -21,10 +20,12 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Fulfillment\OutboundConsolidationService;
 use App\Services\InventoryService;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Testing\File;
+use Illuminate\Validation\ValidationException;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -1204,15 +1205,19 @@ class SalesOrderImportTest extends TestCase
             'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
         ]);
 
-        Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentCreate::class)
-            ->set('tenantId', (string) $tenant->id)
-            ->set('warehouseId', (string) $warehouse->id)
-            ->set('shipKey', (string) $order->ship_together_key)
-            ->assertDontSee($order->platform_order_id)
-            ->set('selectedOrderIds', [(string) $order->id])
-            ->call('save')
-            ->assertHasErrors(['selectedOrderIds']);
+        $this->actingAs($this->internalUser());
+
+        try {
+            app(OutboundConsolidationService::class)->createGroup(
+                tenantId: (int) $tenant->id,
+                warehouseId: (int) $warehouse->id,
+                salesOrderIds: [$order->id],
+            );
+
+            $this->fail('Cancel-requested order should not be accepted for fulfillment.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('selectedOrderIds', $exception->errors());
+        }
 
         $this->assertSame(0, OutboundOrder::count());
         $this->assertSame(0, $this->balance($tenant, $warehouse, $sku->stockItem)->reserved_qty);
@@ -1234,22 +1239,25 @@ class SalesOrderImportTest extends TestCase
             'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
         ]);
 
-        Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentCreate::class)
-            ->set('tenantId', (string) $tenant->id)
-            ->set('warehouseId', (string) $warehouse->id)
-            ->set('shipKey', (string) $pending->ship_together_key)
-            ->assertSee('AMZ-FG-PENDING-ORDER')
-            ->assertDontSee('AMZ-FG-HOLD-ORDER');
+        $this->actingAs($this->internalUser());
+        app(OutboundConsolidationService::class)->createGroup(
+            tenantId: (int) $tenant->id,
+            warehouseId: (int) $warehouse->id,
+            salesOrderIds: [$pending->id],
+        );
+        $this->assertSame(1, OutboundOrder::count());
 
-        Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentCreate::class)
-            ->set('tenantId', (string) $tenant->id)
-            ->set('warehouseId', (string) $warehouse->id)
-            ->set('shipKey', (string) $onHold->ship_together_key)
-            ->set('selectedOrderIds', [(string) $onHold->id])
-            ->call('save')
-            ->assertHasErrors(['selectedOrderIds']);
+        try {
+            app(OutboundConsolidationService::class)->createGroup(
+                tenantId: (int) $tenant->id,
+                warehouseId: (int) $warehouse->id,
+                salesOrderIds: [$onHold->id],
+            );
+
+            $this->fail('On-hold order should not be accepted for fulfillment.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('selectedOrderIds', $exception->errors());
+        }
     }
 
     public function test_amazon_report_imports_cp932_japanese_text(): void

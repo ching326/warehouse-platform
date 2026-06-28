@@ -3660,7 +3660,7 @@
                 ],
                 request()->routeIs('outbound.*', 'fulfillment.*') => [
                     ['label' => __('common.nav_outbound_orders'), 'href' => route('outbound.index'),             'active' => request()->routeIs('outbound.index', 'outbound.create', 'outbound.show', 'outbound.ship')],
-                    ['label' => __('common.nav_fulfillment'),     'href' => route('fulfillment.index'),          'active' => request()->routeIs('fulfillment.index', 'fulfillment.create')],
+                    ['label' => __('common.nav_fulfillment'),     'href' => route('fulfillment.index'),          'active' => request()->routeIs('fulfillment.index')],
                     ['label' => __('common.nav_pick_summary'),    'href' => route('fulfillment.pick-summary'),   'active' => request()->routeIs('fulfillment.pick-summary')],
                     ['label' => __('common.nav_scan_pack'),       'href' => route('fulfillment.pack.start'),     'active' => request()->routeIs('fulfillment.pack.*', 'fulfillment.pack-scans.*', 'outbound.pack')],
                 ],

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\FulfillmentCreate;
 use App\Livewire\FulfillmentPackStart;
 use App\Models\Carrier;
 use App\Models\OutboundOrder;
@@ -16,6 +15,7 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Fulfillment\OutboundConsolidationService;
 use App\Services\InventoryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -77,6 +77,7 @@ class FulfillmentPackStartQueueTest extends TestCase
     {
         [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku();
         $otherWarehouse = Warehouse::factory()->create();
+        app(InventoryService::class)->adjustStock($tenant->id, $otherWarehouse->id, $sku->stock_item_id, 10);
         $otherMethod = $this->shippingMethod('queue_other_method');
         $shownOrder = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-QUEUE-STATION');
         $otherWarehouseOrder = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-QUEUE-WAREHOUSE', '2 Other Warehouse');
@@ -137,6 +138,7 @@ class FulfillmentPackStartQueueTest extends TestCase
             ->test(FulfillmentPackStart::class)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shippingMethodId', (string) $method->id)
+            ->assertSee(__('fulfillment_pack.queue_pack'))
             ->assertSee(route('outbound.pack', $group), false);
     }
 
@@ -218,13 +220,13 @@ class FulfillmentPackStartQueueTest extends TestCase
 
     private function createGroup(Tenant $tenant, Warehouse $warehouse, string $shipKey, array $orders): void
     {
-        Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentCreate::class)
-            ->set('tenantId', (string) $tenant->id)
-            ->set('warehouseId', (string) $warehouse->id)
-            ->set('shipKey', $shipKey)
-            ->set('selectedOrderIds', collect($orders)->pluck('id')->map(fn ($id) => (string) $id)->all())
-            ->call('save');
+        $this->actingAs($this->internalUser());
+
+        app(OutboundConsolidationService::class)->createGroup(
+            tenantId: (int) $tenant->id,
+            warehouseId: (int) $warehouse->id,
+            salesOrderIds: collect($orders)->pluck('id')->map(fn ($id) => (int) $id)->all(),
+        );
     }
 
     private function shippingMethod(string $code): ShippingMethod

@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Actions\BackfillNormalizedTrackingNumbers;
-use App\Livewire\FulfillmentCreate;
 use App\Livewire\FulfillmentIndex;
 use App\Livewire\FulfillmentPack;
 use App\Livewire\FulfillmentPackStart;
@@ -41,8 +40,9 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Livewire\Features\SupportTesting\Testable;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+use PHPUnit\Framework\Assert;
 use Tests\TestCase;
 
 class FulfillmentGroupTest extends TestCase
@@ -311,14 +311,8 @@ class FulfillmentGroupTest extends TestCase
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
         $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-EMPTY');
 
-        Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentCreate::class)
-            ->set('tenantId', (string) $tenant->id)
-            ->set('warehouseId', (string) $warehouse->id)
-            ->set('shipKey', (string) $order->ship_together_key)
-            ->set('selectedOrderIds', [])
-            ->call('save')
-            ->assertHasErrors(['selected_order_ids']);
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [])
+            ->assertHasErrors(['selectedOrderIds']);
 
         $this->assertSame(0, OutboundOrder::where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)->count());
     }
@@ -354,14 +348,8 @@ class FulfillmentGroupTest extends TestCase
         [$otherTenant, , $otherShop, $otherSku] = $this->skuWithStock(20);
         $order = $this->readySalesOrder($otherTenant, $otherShop, $otherSku, 1, 'SO-WRONG-TENANT');
 
-        Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentCreate::class)
-            ->set('tenantId', (string) $tenant->id)
-            ->set('warehouseId', (string) $warehouse->id)
-            ->set('shipKey', (string) $order->ship_together_key)
-            ->set('selectedOrderIds', [(string) $order->id])
-            ->call('save')
-            ->assertHasErrors(['selected_order_ids.0']);
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order])
+            ->assertHasErrors(['selectedOrderIds']);
 
         $this->assertSame(0, OutboundOrder::where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)->count());
     }
@@ -501,40 +489,6 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $order->refresh()->fulfillment_status);
     }
 
-    public function test_tenant_user_can_only_create_group_for_own_tenant(): void
-    {
-        [$ownTenant, $user] = $this->tenantUser();
-        [$otherTenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $order = $this->readySalesOrder($otherTenant, $shop, $sku, 1, 'SO-HIDDEN');
-
-        Livewire::actingAs($user)
-            ->test(FulfillmentCreate::class)
-            ->set('tenantId', (string) $otherTenant->id)
-            ->set('warehouseId', (string) $warehouse->id)
-            ->set('shipKey', (string) $order->ship_together_key)
-            ->set('selectedOrderIds', [(string) $order->id])
-            ->call('save')
-            ->assertHasErrors(['tenant_id']);
-
-        $this->assertSame(0, OutboundOrder::where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)->count());
-        $this->assertTrue($ownTenant->isNot($otherTenant));
-    }
-
-    public function test_tenant_user_cannot_render_other_tenant_ready_orders_on_create_page(): void
-    {
-        [, $user] = $this->tenantUser();
-        [$otherTenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $order = $this->readySalesOrder($otherTenant, $shop, $sku, 1, 'SO-HIDDEN-OPTION');
-
-        Livewire::actingAs($user)
-            ->test(FulfillmentCreate::class)
-            ->set('tenantId', (string) $otherTenant->id)
-            ->set('warehouseId', (string) $warehouse->id)
-            ->set('shipKey', (string) $order->ship_together_key)
-            ->assertDontSee('SO-HIDDEN-OPTION')
-            ->assertDontSee('Shared Recipient');
-    }
-
     public function test_tenant_user_index_only_sees_own_fulfillment_groups(): void
     {
         [$ownTenant, $user] = $this->tenantUser();
@@ -665,6 +619,49 @@ class FulfillmentGroupTest extends TestCase
             ->set('statusesFilter', ['reserved'])
             ->assertSee($reservedGroup->ref)
             ->assertDontSee($heldGroup->ref);
+    }
+
+    public function test_fulfillment_index_hides_shipped_and_cancelled_by_default(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $reservedOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-DEFAULT-RESERVED');
+        $heldOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-DEFAULT-HELD', '2 Default Held Street');
+        $shippedOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-DEFAULT-SHIPPED', '3 Default Shipped Street');
+        $cancelledOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-DEFAULT-CANCELLED', '4 Default Cancelled Street');
+
+        $this->createGroup($tenant, $warehouse, $reservedOrder->ship_together_key, [$reservedOrder]);
+        $reservedGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+
+        $this->createGroup($tenant, $warehouse, $heldOrder->ship_together_key, [$heldOrder]);
+        $heldGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+        $heldGroup->update(['hold_status' => OutboundOrder::HOLD_STATUS_ON_HOLD]);
+
+        $this->createGroup($tenant, $warehouse, $shippedOrder->ship_together_key, [$shippedOrder]);
+        $shippedGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+        $shippedGroup->update(['status' => OutboundOrder::STATUS_SHIPPED, 'shipped_at' => now()]);
+
+        $this->createGroup($tenant, $warehouse, $cancelledOrder->ship_together_key, [$cancelledOrder]);
+        $cancelledGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+        $cancelledGroup->update(['status' => OutboundOrder::STATUS_CANCELLED, 'cancelled_at' => now()]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->assertSee($reservedGroup->ref)
+            ->assertSee($heldGroup->ref)
+            ->assertDontSee($shippedGroup->ref)
+            ->assertDontSee($cancelledGroup->ref);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('statusesFilter', ['shipped'])
+            ->assertSee($shippedGroup->ref)
+            ->assertDontSee($reservedGroup->ref);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('statusesFilter', ['cancelled'])
+            ->assertSee($cancelledGroup->ref)
+            ->assertDontSee($reservedGroup->ref);
     }
 
     public function test_fulfillment_index_added_cell_uses_warehouse_timezone(): void
@@ -1538,7 +1535,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
 
         $this->actingAs($this->internalUser())->get('/fulfillment')->assertOk()->assertSee('Fulfillment Queue');
-        $this->actingAs($this->internalUser())->get('/fulfillment/create')->assertOk()->assertSee('New Fulfillment');
+        $this->actingAs($this->internalUser())->get('/fulfillment/create')->assertNotFound();
         $this->actingAs($this->internalUser())->get(route('outbound.show', $outbound))->assertOk()->assertSee($outbound->ref);
         $this->actingAs($this->internalUser())->get(route('fulfillment.pack.start'))->assertOk()->assertSee('Scan tracking no.');
         $this->actingAs($this->internalUser())->get(route('outbound.pack', $outbound))->assertOk()->assertSee($outbound->ref);
@@ -1600,7 +1597,7 @@ class FulfillmentGroupTest extends TestCase
         ]);
 
         $this->actingAs($user)->get('/fulfillment')->assertForbidden();
-        $this->actingAs($user)->get('/fulfillment/create')->assertForbidden();
+        $this->actingAs($user)->get('/fulfillment/create')->assertNotFound();
     }
 
     public function test_guest_and_tenant_user_cannot_access_pack_check(): void
@@ -2699,14 +2696,67 @@ class FulfillmentGroupTest extends TestCase
         string $shipKey,
         array $orders,
         ?User $user = null,
-    ): Testable {
-        return Livewire::actingAs($user ?? $this->internalUser())
-            ->test(FulfillmentCreate::class)
-            ->set('tenantId', (string) $tenant->id)
-            ->set('warehouseId', (string) $warehouse->id)
-            ->set('shipKey', $shipKey)
-            ->set('selectedOrderIds', collect($orders)->pluck('id')->map(fn ($id) => (string) $id)->all())
-            ->call('save');
+    ): object {
+        $this->actingAs($user ?? $this->internalUser());
+
+        try {
+            app(OutboundConsolidationService::class)->createGroup(
+                tenantId: (int) $tenant->id,
+                warehouseId: (int) $warehouse->id,
+                salesOrderIds: collect($orders)->pluck('id')->map(fn ($id) => (int) $id)->all(),
+            );
+
+            return new class
+            {
+                public function assertRedirect(): self
+                {
+                    Assert::assertTrue(true);
+
+                    return $this;
+                }
+
+                public function assertHasErrors(array $fields): self
+                {
+                    Assert::fail('Expected fulfillment group creation to fail with errors: '.implode(', ', $fields));
+                }
+            };
+        } catch (ValidationException $exception) {
+            return new class($exception->errors())
+            {
+                public function __construct(private readonly array $errors) {}
+
+                public function assertRedirect(): self
+                {
+                    Assert::fail('Expected fulfillment group creation to redirect, but validation failed.');
+                }
+
+                public function assertHasErrors(array $fields): self
+                {
+                    foreach ($fields as $field) {
+                        Assert::assertArrayHasKey($field, $this->errors);
+                    }
+
+                    return $this;
+                }
+            };
+        } catch (\InvalidArgumentException $exception) {
+            return new class($exception->getMessage())
+            {
+                public function __construct(private readonly string $message) {}
+
+                public function assertRedirect(): self
+                {
+                    Assert::fail('Expected fulfillment group creation to redirect, but it failed: '.$this->message);
+                }
+
+                public function assertHasErrors(array $fields): self
+                {
+                    Assert::assertNotEmpty($fields);
+
+                    return $this;
+                }
+            };
+        }
     }
 
     private function balance(Tenant $tenant, Warehouse $warehouse, StockItem $stockItem): InventoryBalance

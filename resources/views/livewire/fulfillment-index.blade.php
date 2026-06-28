@@ -283,14 +283,6 @@
             }"
         >
         <div class="sales-order-page-actions" data-testid="fulfillment-group-page-actions">
-            <flux:button href="{{ $this->pickSummaryUrl() }}" variant="outline" wire:navigate>
-                {{ __('fulfillment.btn_pick_summary') }}
-            </flux:button>
-
-            <flux:button href="{{ route('fulfillment.create') }}" variant="primary" wire:navigate>
-                {{ __('fulfillment.btn_create') }}
-            </flux:button>
-
             <details
                 class="action-menu primary action-menu-align-left"
                 x-bind:open="openActionMenu === 'import'"

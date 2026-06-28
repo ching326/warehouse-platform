@@ -61,7 +61,7 @@ return [
     'queue_qty' => 'Qty',
     'queue_progress' => 'Progress',
     'queue_action' => 'Action',
-    'queue_pack' => 'Pack',
+    'queue_pack' => 'Scan Pack',
     'queue_empty' => 'No fulfillment groups are waiting at this station.',
     'status_not_started' => 'Not started',
     'status_in_progress' => 'In progress',

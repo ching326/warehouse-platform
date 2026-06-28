@@ -126,7 +126,7 @@
                     </a>
                     <a
                         href="{{ route('fulfillment.index') }}"
-                        class="{{ request()->routeIs('fulfillment.index', 'fulfillment.create', 'fulfillment.pack.start', 'fulfillment.pack-scans.index') ? 'is-active' : '' }}"
+                        class="{{ request()->routeIs('fulfillment.index', 'fulfillment.pack.start', 'fulfillment.pack-scans.index') ? 'is-active' : '' }}"
                         wire:navigate
                         @click="open = false"
                     >

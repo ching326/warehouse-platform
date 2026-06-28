@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\FulfillmentCreate;
 use App\Livewire\FulfillmentIndex;
 use App\Livewire\FulfillmentPickSummary;
 use App\Models\BarcodeAlias;
@@ -22,6 +21,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Models\WarehouseLocation;
+use App\Services\Fulfillment\OutboundConsolidationService;
 use App\Services\InventoryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -62,13 +62,13 @@ class FulfillmentPickSummaryTest extends TestCase
             ->assertSee('Pick rows');
     }
 
-    public function test_single_active_warehouse_is_auto_selected(): void
+    public function test_single_active_warehouse_still_defaults_to_all_warehouses(): void
     {
-        $warehouse = Warehouse::factory()->create(['status' => 'active']);
+        Warehouse::factory()->create(['status' => 'active']);
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPickSummary::class)
-            ->assertSet('warehouseId', (string) $warehouse->id)
+            ->assertSet('warehouseId', '')
             ->assertSee('Pick rows');
     }
 
@@ -82,20 +82,7 @@ class FulfillmentPickSummaryTest extends TestCase
             ->assertSee('Pick rows');
     }
 
-    public function test_user_can_save_default_pick_summary_warehouse(): void
-    {
-        $user = $this->internalUser();
-        $warehouse = Warehouse::factory()->create(['status' => 'active']);
-
-        Livewire::actingAs($user)
-            ->test(FulfillmentPickSummary::class)
-            ->set('warehouseId', (string) $warehouse->id)
-            ->set('currentWarehouseIsDefault', true);
-
-        $this->assertSame((string) $warehouse->id, $user->refresh()->preference('pick_summary_default_warehouse_id'));
-    }
-
-    public function test_saved_default_pick_summary_warehouse_is_selected_when_no_query_param(): void
+    public function test_saved_default_pick_summary_warehouse_is_ignored_when_no_query_param(): void
     {
         $user = $this->internalUser();
         $defaultWarehouse = Warehouse::factory()->create(['status' => 'active']);
@@ -104,22 +91,18 @@ class FulfillmentPickSummaryTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(FulfillmentPickSummary::class)
-            ->assertSet('warehouseId', (string) $defaultWarehouse->id)
-            ->assertSet('currentWarehouseIsDefault', true);
+            ->assertSet('warehouseId', '');
     }
 
-    public function test_query_param_overrides_saved_default_pick_summary_warehouse(): void
+    public function test_query_param_can_select_pick_summary_warehouse(): void
     {
         $user = $this->internalUser();
-        $defaultWarehouse = Warehouse::factory()->create(['status' => 'active']);
         $queryWarehouse = Warehouse::factory()->create(['status' => 'active']);
-        $user->setPreference('pick_summary_default_warehouse_id', (string) $defaultWarehouse->id);
 
         Livewire::withQueryParams(['warehouse_id' => (string) $queryWarehouse->id])
             ->actingAs($user)
             ->test(FulfillmentPickSummary::class)
-            ->assertSet('warehouseId', (string) $queryWarehouse->id)
-            ->assertSet('currentWarehouseIsDefault', false);
+            ->assertSet('warehouseId', (string) $queryWarehouse->id);
     }
 
     public function test_default_date_filters_are_today(): void
@@ -141,7 +124,7 @@ class FulfillmentPickSummaryTest extends TestCase
         Carbon::setTestNow(Carbon::parse('2026-06-24 00:30:00', 'Asia/Tokyo'));
 
         try {
-            $warehouse = Warehouse::factory()->create([
+            Warehouse::factory()->create([
                 'country_code' => 'JP',
                 'timezone' => 'Asia/Tokyo',
                 'status' => 'active',
@@ -149,7 +132,7 @@ class FulfillmentPickSummaryTest extends TestCase
 
             Livewire::actingAs($this->internalUser())
                 ->test(FulfillmentPickSummary::class)
-                ->assertSet('warehouseId', (string) $warehouse->id)
+                ->assertSet('warehouseId', '')
                 ->assertSet('dateFrom', '2026-06-24')
                 ->assertSet('dateTo', '2026-06-24');
         } finally {
@@ -246,7 +229,10 @@ class FulfillmentPickSummaryTest extends TestCase
     public function test_virtual_bundle_component_qty_aggregates(): void
     {
         $tenant = Tenant::factory()->create();
-        $warehouse = Warehouse::factory()->create();
+        $warehouse = Warehouse::factory()->create([
+            'country_code' => 'JP',
+            'timezone' => 'Asia/Tokyo',
+        ]);
         $shop = Shop::factory()->for($tenant)->create();
         $method = $this->shippingMethod('pick_bundle_method');
         $componentStock = StockItem::factory()->for($tenant)->create(['code' => 'STK-COMP-001', 'name' => 'Bundle component stock']);
@@ -395,7 +381,7 @@ class FulfillmentPickSummaryTest extends TestCase
 
             Livewire::actingAs($this->internalUser())
                 ->test(FulfillmentPickSummary::class)
-                ->assertSet('warehouseId', (string) $warehouse->id)
+                ->assertSet('warehouseId', '')
                 ->assertSee('STK-DATE-TODAY')
                 ->assertDontSee('STK-DATE-OLD')
                 ->call('clearDateFilters')
@@ -523,44 +509,11 @@ class FulfillmentPickSummaryTest extends TestCase
         }
     }
 
-    public function test_fulfillment_group_index_has_pick_summary_link(): void
+    public function test_fulfillment_group_index_does_not_show_pick_summary_link(): void
     {
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentIndex::class)
-            ->assertSee('Pick Summary')
-            ->assertSee(route('fulfillment.pick-summary'), false);
-    }
-
-    public function test_pick_summary_link_carries_supported_filters(): void
-    {
-        $tenant = Tenant::factory()->create();
-        $warehouse = Warehouse::factory()->create([
-            'country_code' => 'JP',
-            'timezone' => 'Asia/Tokyo',
-        ]);
-        $method = $this->shippingMethod('pick_link_method');
-
-        $component = Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentIndex::class)
-            ->set('warehouseId', (string) $warehouse->id);
-
-        if (property_exists(FulfillmentIndex::class, 'tenantIds')) {
-            $component->set('tenantIds', [(string) $tenant->id]);
-        } elseif (property_exists(FulfillmentIndex::class, 'tenantId')) {
-            $component->set('tenantId', (string) $tenant->id);
-        }
-
-        if (property_exists(FulfillmentIndex::class, 'shippingMethodsFilter')) {
-            $component->set('shippingMethodsFilter', [(string) $method->id]);
-        }
-
-        $component
-            ->assertSee('warehouse_id='.$warehouse->id, false)
-            ->assertSee('tenant_id='.$tenant->id, false);
-
-        if (property_exists(FulfillmentIndex::class, 'shippingMethodsFilter')) {
-            $component->assertSee('shipping_method_id='.$method->id, false);
-        }
+            ->assertDontSee(route('fulfillment.pick-summary'), false);
     }
 
     public function test_print_view_contains_pick_sheet_context_without_printing_actions(): void
@@ -574,7 +527,7 @@ class FulfillmentPickSummaryTest extends TestCase
 
             Livewire::actingAs($this->internalUser())
                 ->test(FulfillmentPickSummary::class)
-                ->assertSee('Warehouse: '.$warehouse->name)
+                ->assertSee('Warehouse: '.__('common.all_warehouses'))
                 ->assertSee('Date: 2026-06-24 - 2026-06-24')
                 ->assertSee('Generated: 2026-06-24 09:00')
                 ->assertSee('print-pick-table', false)
@@ -617,7 +570,7 @@ class FulfillmentPickSummaryTest extends TestCase
             ->test(FulfillmentPickSummary::class)
             ->assertSee('STK-MANY-GROUPS')
             ->assertSee('+1 more')
-            ->assertSee('Pack first')
+            ->assertSee('Scan Pack')
             ->assertSee('View groups');
     }
 
@@ -811,13 +764,13 @@ class FulfillmentPickSummaryTest extends TestCase
 
     private function createGroup(Tenant $tenant, Warehouse $warehouse, string $shipKey, array $orders): void
     {
-        Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentCreate::class)
-            ->set('tenantId', (string) $tenant->id)
-            ->set('warehouseId', (string) $warehouse->id)
-            ->set('shipKey', $shipKey)
-            ->set('selectedOrderIds', collect($orders)->pluck('id')->map(fn ($id) => (string) $id)->all())
-            ->call('save');
+        $this->actingAs($this->internalUser());
+
+        app(OutboundConsolidationService::class)->createGroup(
+            tenantId: (int) $tenant->id,
+            warehouseId: (int) $warehouse->id,
+            salesOrderIds: collect($orders)->pluck('id')->map(fn ($id) => (int) $id)->all(),
+        );
     }
 
     private function setBalance(

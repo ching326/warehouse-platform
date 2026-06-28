@@ -10,7 +10,6 @@ use App\Livewire\AmazonSpapiOrderImport;
 use App\Livewire\FbaWarehouseCreate;
 use App\Livewire\FbaWarehouseEdit;
 use App\Livewire\FbaWarehouseIndex;
-use App\Livewire\FulfillmentCreate;
 use App\Livewire\FulfillmentIndex;
 use App\Livewire\FulfillmentPack;
 use App\Livewire\FulfillmentPackScanIndex;
@@ -136,7 +135,6 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/marketplace-shipping-notice-batches/{batch}/download', MarketplaceShippingNoticeDownloadController::class)
         ->name('marketplace-shipping-notice-batches.download');
     Route::get('/fulfillment', FulfillmentIndex::class)->name('fulfillment.index');
-    Route::get('/fulfillment/create', FulfillmentCreate::class)->name('fulfillment.create');
     Route::get('/fulfillment/pick-summary', FulfillmentPickSummary::class)->name('fulfillment.pick-summary');
     Route::get('/fulfillment/pack', FulfillmentPackStart::class)->name('fulfillment.pack.start');
     Route::get('/fulfillment/pack-scans', FulfillmentPackScanIndex::class)->name('fulfillment.pack-scans.index');

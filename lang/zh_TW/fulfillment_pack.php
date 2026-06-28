@@ -61,7 +61,7 @@ return [
     'queue_qty' => '數量',
     'queue_progress' => '進度',
     'queue_action' => '操作',
-    'queue_pack' => '包裝',
+    'queue_pack' => 'Scan Pack',
     'queue_empty' => '此工作站沒有等待中的出貨。',
     'status_not_started' => '未開始',
     'status_in_progress' => '進行中',

@@ -217,27 +217,6 @@ class FulfillmentIndex extends Component
         };
     }
 
-    public function pickSummaryUrl(): string
-    {
-        $query = [];
-
-        if ($this->warehouseId !== '') {
-            $query['warehouse_id'] = $this->warehouseId;
-        }
-
-        $tenantIds = array_values(array_filter($this->tenantIds, fn ($id): bool => ctype_digit((string) $id)));
-        if (count($tenantIds) === 1) {
-            $query['tenant_id'] = $tenantIds[0];
-        }
-
-        $shippingMethodIds = array_values(array_filter($this->shippingMethodsFilter, fn ($id): bool => ctype_digit((string) $id)));
-        if (count($shippingMethodIds) === 1) {
-            $query['shipping_method_id'] = $shippingMethodIds[0];
-        }
-
-        return route('fulfillment.pick-summary', $query);
-    }
-
     public function formatWarehouseTime(OutboundOrder $order, ?Carbon $date, string $format): string
     {
         if (! $date) {
@@ -611,6 +590,7 @@ class FulfillmentIndex extends Component
             ->when($this->tenantIds !== [], fn ($query) => $query
                 ->whereIn('tenant_id', array_map('intval', $this->tenantIds)))
             ->when($this->warehouseId !== '', fn ($query) => $query->where('warehouse_id', (int) $this->warehouseId))
+            ->when($this->statusesFilter === [], fn ($query) => $this->applyDefaultStatusFilter($query))
             ->when($this->statusesFilter !== [], fn ($query) => $this->applyStatusFilter($query))
             ->when($this->printWaiting, fn ($query) => $query
                 ->whereNull('courier_csv_exported_at')
@@ -719,6 +699,17 @@ class FulfillmentIndex extends Component
             'shipped' => __('fulfillment.status_shipped'),
             'cancelled' => __('fulfillment.status_cancelled'),
         ];
+    }
+
+    private function applyDefaultStatusFilter($query): void
+    {
+        $query->where(function ($inner): void {
+            $inner
+                ->where(fn ($reserved) => $reserved
+                    ->where('status', OutboundOrder::STATUS_RESERVED)
+                    ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE))
+                ->orWhere('hold_status', OutboundOrder::HOLD_STATUS_ON_HOLD);
+        });
     }
 
     private function applyStatusFilter($query): void

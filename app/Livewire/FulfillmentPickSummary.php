@@ -2,7 +2,6 @@
 
 namespace App\Livewire;
 
-use App\Livewire\Concerns\AutoSelectsSingleActiveWarehouse;
 use App\Models\BarcodeAlias;
 use App\Models\InboundReceipt;
 use App\Models\InventoryBalance;
@@ -20,10 +19,6 @@ use Livewire\Component;
 
 class FulfillmentPickSummary extends Component
 {
-    use AutoSelectsSingleActiveWarehouse;
-
-    private const PREF_DEFAULT_WAREHOUSE_ID = 'pick_summary_default_warehouse_id';
-
     #[Url(as: 'warehouse_id', except: '')]
     public string $warehouseId = '';
 
@@ -42,8 +37,6 @@ class FulfillmentPickSummary extends Component
     #[Url(as: 'q', except: '')]
     public string $q = '';
 
-    public bool $currentWarehouseIsDefault = false;
-
     private bool $allowedTenantIdsResolved = false;
 
     private array $allowedTenantIdsCache = [];
@@ -56,17 +49,6 @@ class FulfillmentPickSummary extends Component
     {
         $this->authorizeInternalUser();
 
-        if ($this->warehouseId === '') {
-            $savedWarehouseId = Auth::user()?->preference(self::PREF_DEFAULT_WAREHOUSE_ID);
-
-            if ($this->validActiveWarehouseId($savedWarehouseId)) {
-                $this->warehouseId = (string) $savedWarehouseId;
-            }
-        }
-
-        $this->autoSelectSingleActiveWarehouse();
-        $this->syncCurrentWarehouseIsDefault();
-
         $today = now($this->warehouseTimezone())->toDateString();
         $this->dateFrom = $this->dateFrom ?: $today;
         $this->dateTo = $this->dateTo ?: $today;
@@ -76,36 +58,13 @@ class FulfillmentPickSummary extends Component
     {
         $this->selectedWarehouseCache = null;
         $this->selectedWarehouseCacheKey = null;
-        $this->syncCurrentWarehouseIsDefault();
-    }
-
-    public function updatedCurrentWarehouseIsDefault(bool $checked): void
-    {
-        $user = Auth::user();
-
-        if (! $user || ! $this->validActiveWarehouseId($this->warehouseId)) {
-            $this->currentWarehouseIsDefault = false;
-
-            return;
-        }
-
-        if ($checked) {
-            $user->setPreference(self::PREF_DEFAULT_WAREHOUSE_ID, (string) $this->warehouseId);
-            session()->flash('status', __('fulfillment_pick.default_warehouse_saved'));
-
-            return;
-        }
-
-        $user->forgetPreference(self::PREF_DEFAULT_WAREHOUSE_ID);
-        session()->flash('status', __('fulfillment_pick.default_warehouse_cleared'));
     }
 
     public function clearWarehouseFilter(): void
     {
-        if ($this->warehouseOptions()->count() > 1) {
-            $this->warehouseId = '';
-            $this->syncCurrentWarehouseIsDefault();
-        }
+        $this->warehouseId = '';
+        $this->selectedWarehouseCache = null;
+        $this->selectedWarehouseCacheKey = null;
     }
 
     public function clearShippingMethodFilter(): void
@@ -143,6 +102,7 @@ class FulfillmentPickSummary extends Component
         ])->layout('inventory', [
             'title' => __('fulfillment_pick.page_title'),
             'subtitle' => __('fulfillment_pick.page_subtitle'),
+            'pageWide' => true,
         ]);
     }
 
@@ -508,24 +468,6 @@ class FulfillmentPickSummary extends Component
     private function warehouseOptions()
     {
         return Warehouse::query()->where('status', 'active')->orderBy('name')->get(['id', 'code', 'name']);
-    }
-
-    private function validActiveWarehouseId(mixed $warehouseId): bool
-    {
-        if (! is_numeric($warehouseId) || (int) $warehouseId <= 0) {
-            return false;
-        }
-
-        return Warehouse::query()
-            ->whereKey((int) $warehouseId)
-            ->where('status', 'active')
-            ->exists();
-    }
-
-    private function syncCurrentWarehouseIsDefault(): void
-    {
-        $this->currentWarehouseIsDefault = $this->warehouseId !== ''
-            && (string) Auth::user()?->preference(self::PREF_DEFAULT_WAREHOUSE_ID) === (string) $this->warehouseId;
     }
 
     private function shippingMethodOptions()
