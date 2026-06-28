@@ -784,7 +784,7 @@ class SalesOrderDetail extends Component
 
         return $order->activeOutboundOrders
             ->contains(fn ($outbound) => $outbound->reason === OutboundOrder::REASON_CUSTOMER_ORDER
-                && $outbound->status === OutboundOrder::STATUS_PENDING);
+                && $outbound->status === OutboundOrder::STATUS_RESERVED);
     }
 
     private function customerOutboundFor(SalesOrder $order): ?OutboundOrder
@@ -795,7 +795,7 @@ class SalesOrderDetail extends Component
 
         $outbound = $order->activeOutboundOrders
             ->first(fn (OutboundOrder $outbound): bool => $outbound->reason === OutboundOrder::REASON_CUSTOMER_ORDER
-                && $outbound->status === OutboundOrder::STATUS_PENDING);
+                && $outbound->status === OutboundOrder::STATUS_RESERVED);
 
         return $outbound instanceof OutboundOrder ? $outbound : null;
     }

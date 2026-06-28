@@ -24,7 +24,7 @@ class ShipOutboundOrderService
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($lockedOrder->status !== OutboundOrder::STATUS_PENDING) {
+            if ($lockedOrder->status !== OutboundOrder::STATUS_RESERVED) {
                 throw new InvalidArgumentException(__('outbound.already_processed'));
             }
 

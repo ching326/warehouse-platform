@@ -19,7 +19,7 @@ class OutboundOrderFactory extends Factory
             'tenant_id' => Tenant::factory(),
             'warehouse_id' => Warehouse::factory(),
             'ref' => fake()->optional()->bothify('OB-####'),
-            'status' => OutboundOrder::STATUS_PENDING,
+            'status' => OutboundOrder::STATUS_RESERVED,
             'reason' => null,
             'note' => fake()->optional()->sentence(),
             'created_by_user_id' => User::factory(),

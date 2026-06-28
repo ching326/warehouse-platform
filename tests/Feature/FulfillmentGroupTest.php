@@ -122,7 +122,7 @@ class FulfillmentGroupTest extends TestCase
         $this->assertNotNull($outbound);
         $this->assertSame(OutboundOrder::REASON_CUSTOMER_ORDER, $outbound->reason);
         $this->assertNull($outbound->shipping_method_id);
-        $this->assertSame(OutboundOrder::STATUS_PENDING, $outbound->status);
+        $this->assertSame(OutboundOrder::STATUS_RESERVED, $outbound->status);
         $this->assertSame(
             [$orderA->id, $orderB->id],
             $outbound->salesOrders()->orderBy('sales_orders.id')->pluck('sales_orders.id')->all(),
@@ -253,6 +253,16 @@ class FulfillmentGroupTest extends TestCase
             ->call('updateShippingMethod', $outbound->id, (string) $inactive->id);
 
         $this->assertSame($yamato->id, $outbound->refresh()->shipping_method_id);
+    }
+
+    public function test_fulfillment_index_keeps_all_warehouses_when_only_one_active_warehouse_exists(): void
+    {
+        Warehouse::query()->delete();
+        Warehouse::factory()->create(['status' => 'active']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->assertSet('warehouseId', '');
     }
 
     public function test_fulfillment_index_remaps_shipping_from_group_skus(): void
@@ -631,6 +641,32 @@ class FulfillmentGroupTest extends TestCase
             ->assertDontSee($heldGroup->ref);
     }
 
+    public function test_fulfillment_index_filters_by_on_hold_status(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $reservedOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-RESERVED-FILTER');
+        $heldOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-HELD-FILTER', '2 Held Filter Street');
+
+        $this->createGroup($tenant, $warehouse, $reservedOrder->ship_together_key, [$reservedOrder]);
+        $reservedGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+        $this->createGroup($tenant, $warehouse, $heldOrder->ship_together_key, [$heldOrder]);
+        $heldGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+        $heldGroup->update(['hold_status' => OutboundOrder::HOLD_STATUS_ON_HOLD]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('statusesFilter', ['on_hold'])
+            ->assertSee($heldGroup->ref)
+            ->assertSee(__('fulfillment.col_status').': '.__('outbound.on_hold'))
+            ->assertDontSee($reservedGroup->ref);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('statusesFilter', ['reserved'])
+            ->assertSee($reservedGroup->ref)
+            ->assertDontSee($heldGroup->ref);
+    }
+
     public function test_fulfillment_index_added_cell_uses_warehouse_timezone(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
@@ -739,14 +775,12 @@ class FulfillmentGroupTest extends TestCase
             ->set('tenantIds', [(string) $tenant->id])
             ->set('warehouseId', (string) $warehouse->id)
             ->set('statusesFilter', ['reserved'])
-            ->set('orderStatusesFilter', [SalesOrder::ORDER_STATUS_PENDING])
             ->set('shippingMethodsFilter', [(string) $yamato->id])
             ->set('othersFilter', [SalesOrderFilters::OTHER_MULTI_ITEM])
             ->set('search', 'SO-FG-CHIPS')
             ->assertSee(__('fulfillment.field_tenant').': '.$tenant->code.' - '.$tenant->name)
             ->assertSee(__('fulfillment.field_warehouse').': '.$warehouse->code.' - '.$warehouse->name)
-            ->assertSee(__('fulfillment.filter_ship_status').': '.__('fulfillment.status_reserved'))
-            ->assertSee(__('fulfillment.filter_order_status').': '.__('sales_orders.order_pending'))
+            ->assertSee(__('fulfillment.col_status').': '.__('fulfillment.status_reserved'))
             ->assertSee(__('fulfillment.filter_shipping').': '.$yamato->name)
             ->assertSee(__('fulfillment.filter_others').': '.__('fulfillment.other_multi_item'))
             ->assertSee(__('common.search').': SO-FG-CHIPS');
@@ -756,34 +790,12 @@ class FulfillmentGroupTest extends TestCase
             ->assertSet('othersFilter', [])
             ->call('removeFilterChip', 'status', 'reserved')
             ->assertSet('statusesFilter', [])
-            ->call('removeFilterChip', 'order-status', SalesOrder::ORDER_STATUS_PENDING)
-            ->assertSet('orderStatusesFilter', [])
             ->call('removeFilterChip', 'warehouse')
             ->assertSet('warehouseId', '')
             ->call('clearAllFilters')
             ->assertSet('tenantIds', [])
             ->assertSet('shippingMethodsFilter', [])
             ->assertSet('search', '');
-    }
-
-    public function test_fulfillment_index_filters_by_member_order_status(): void
-    {
-        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $pendingOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-PENDING-STATUS');
-        $onHoldOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-HOLD-STATUS', '2 Hold Status Street');
-
-        $this->createGroup($tenant, $warehouse, $pendingOrder->ship_together_key, [$pendingOrder]);
-        $pendingGroup = OutboundOrder::query()->latest('id')->firstOrFail();
-        $this->createGroup($tenant, $warehouse, $onHoldOrder->ship_together_key, [$onHoldOrder]);
-        $onHoldGroup = OutboundOrder::query()->latest('id')->firstOrFail();
-        $onHoldOrder->update(['order_status' => SalesOrder::ORDER_STATUS_ON_HOLD]);
-
-        Livewire::actingAs($this->internalUser())
-            ->test(FulfillmentIndex::class)
-            ->set('orderStatusesFilter', [SalesOrder::ORDER_STATUS_ON_HOLD])
-            ->assertSee($onHoldGroup->ref)
-            ->assertSee(__('sales_orders.order_on_hold'))
-            ->assertDontSee($pendingGroup->ref);
     }
 
     public function test_detailed_toggle_shows_sku_lines_and_full_address(): void
@@ -1020,7 +1032,7 @@ class FulfillmentGroupTest extends TestCase
             ->call('markShipped')
             ->assertSet('selectedIds', []);
 
-        $this->assertSame(OutboundOrder::STATUS_PENDING, $outbound->refresh()->status);
+        $this->assertSame(OutboundOrder::STATUS_RESERVED, $outbound->refresh()->status);
         $this->assertSame(OutboundOrder::HOLD_STATUS_ON_HOLD, $outbound->hold_status);
         $this->assertSame(2, $this->balance($tenant, $warehouse, $sku->stockItem)->reserved_qty);
     }
@@ -1276,7 +1288,7 @@ class FulfillmentGroupTest extends TestCase
             'ref' => 'OB-MANUAL-EXPORT-001',
             'reason' => OutboundOrder::REASON_REPLACEMENT,
             'shipping_method_id' => $method->id,
-            'status' => OutboundOrder::STATUS_PENDING,
+            'status' => OutboundOrder::STATUS_RESERVED,
             'recipient_name' => 'Manual Recipient',
             'recipient_phone' => '09012345678',
             'recipient_country_code' => 'JP',
@@ -1387,11 +1399,11 @@ class FulfillmentGroupTest extends TestCase
 
         OutboundOrder::factory()->for($tenant)->for($warehouse)->create([
             'ref' => 'OB-AMBIGUOUS-A-123456789012345',
-            'status' => OutboundOrder::STATUS_PENDING,
+            'status' => OutboundOrder::STATUS_RESERVED,
         ]);
         OutboundOrder::factory()->for($tenant)->for($warehouse)->create([
             'ref' => 'OB-AMBIGUOUS-B-123456789012345',
-            'status' => OutboundOrder::STATUS_PENDING,
+            'status' => OutboundOrder::STATUS_RESERVED,
         ]);
 
         $result = app(TrackingImportService::class)->importOutboundTracking(
@@ -1411,7 +1423,7 @@ class FulfillmentGroupTest extends TestCase
         [$tenant, $warehouse] = $this->skuWithStock(20);
         $outbound = OutboundOrder::factory()->for($tenant)->for($warehouse)->create([
             'ref' => 'OB-MANUAL-TRACKING',
-            'status' => OutboundOrder::STATUS_PENDING,
+            'status' => OutboundOrder::STATUS_RESERVED,
         ]);
 
         $result = app(TrackingImportService::class)->importOutboundTracking(
@@ -1466,13 +1478,13 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
 
         $unlinked = OutboundOrder::factory()->for($tenant)->for($warehouse)->create([
-            'status' => OutboundOrder::STATUS_PENDING,
+            'status' => OutboundOrder::STATUS_RESERVED,
         ]);
         $unlinked->status = OutboundOrder::STATUS_SHIPPED;
         $unlinked->shipped_at = now();
         $unlinked->save();
 
-        $this->assertSame(OutboundOrder::STATUS_PENDING, $outbound->refresh()->status);
+        $this->assertSame(OutboundOrder::STATUS_RESERVED, $outbound->refresh()->status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $order->refresh()->fulfillment_status);
     }
 
@@ -2451,7 +2463,7 @@ class FulfillmentGroupTest extends TestCase
             ->call('markShipped')
             ->assertSee('Scan all required items before shipping.');
 
-        $this->assertSame(OutboundOrder::STATUS_PENDING, $outbound->refresh()->status);
+        $this->assertSame(OutboundOrder::STATUS_RESERVED, $outbound->refresh()->status);
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPack::class, ['order' => $outbound])
@@ -2484,7 +2496,7 @@ class FulfillmentGroupTest extends TestCase
             ->call('markShipped')
             ->assertSee('Confirm or cancel the quantity before marking shipped.');
 
-        $this->assertSame(OutboundOrder::STATUS_PENDING, $outbound->refresh()->status);
+        $this->assertSame(OutboundOrder::STATUS_RESERVED, $outbound->refresh()->status);
         $this->assertSame(0, FulfillmentPackScan::where('result', FulfillmentPackScan::RESULT_ACCEPTED)->count());
     }
 

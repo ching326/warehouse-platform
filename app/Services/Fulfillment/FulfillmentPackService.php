@@ -34,7 +34,7 @@ class FulfillmentPackService
         $candidates = OutboundOrder::query()
             ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
             ->whereIn('tenant_id', $allowedTenantIds)
-            ->where('status', OutboundOrder::STATUS_PENDING)
+            ->where('status', OutboundOrder::STATUS_RESERVED)
             ->where('warehouse_id', $warehouseId)
             ->where('shipping_method_id', $shippingMethodId)
             ->where(function ($query) use ($trackingNo): void {

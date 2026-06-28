@@ -84,9 +84,9 @@ class SalesOrderIndexBulkTest extends TestCase
 
         $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $order->order_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $order->fulfillment_status);
-        $this->assertSame(OutboundOrder::STATUS_PENDING, $group->status);
+        $this->assertSame(OutboundOrder::STATUS_RESERVED, $group->status);
         $this->assertSame(OutboundOrder::HOLD_STATUS_ON_HOLD, $group->hold_status);
-        $this->assertSame(OutboundOrder::STATUS_PENDING, $outbound->status);
+        $this->assertSame(OutboundOrder::STATUS_RESERVED, $outbound->status);
         $this->assertSame(OutboundOrder::HOLD_STATUS_ON_HOLD, $outbound->hold_status);
         $this->assertSame(1, $group->salesOrders()->count());
         $this->assertSame(1, $outbound->salesOrders()->count());
@@ -219,11 +219,11 @@ class SalesOrderIndexBulkTest extends TestCase
 
         $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $printed->refresh()->order_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $printed->fulfillment_status);
-        $this->assertSame(OutboundOrder::STATUS_PENDING, $printedGroup->refresh()->status);
+        $this->assertSame(OutboundOrder::STATUS_RESERVED, $printedGroup->refresh()->status);
         $this->assertSame(OutboundOrder::HOLD_STATUS_ACTIVE, $printedGroup->hold_status);
         $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $notPrinted->refresh()->order_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $notPrinted->fulfillment_status);
-        $this->assertSame(OutboundOrder::STATUS_PENDING, $notPrintedGroup->refresh()->status);
+        $this->assertSame(OutboundOrder::STATUS_RESERVED, $notPrintedGroup->refresh()->status);
         $this->assertSame(OutboundOrder::HOLD_STATUS_ACTIVE, $notPrintedGroup->hold_status);
     }
 
@@ -252,7 +252,7 @@ class SalesOrderIndexBulkTest extends TestCase
 
         $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $allowed->refresh()->order_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $allowed->fulfillment_status);
-        $this->assertSame(OutboundOrder::STATUS_PENDING, $allowedGroup->refresh()->status);
+        $this->assertSame(OutboundOrder::STATUS_RESERVED, $allowedGroup->refresh()->status);
         $this->assertSame(OutboundOrder::HOLD_STATUS_ON_HOLD, $allowedGroup->hold_status);
 
         Livewire::actingAs($this->internalUser())
@@ -262,7 +262,7 @@ class SalesOrderIndexBulkTest extends TestCase
 
         $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $printed->refresh()->order_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $printed->fulfillment_status);
-        $this->assertSame(OutboundOrder::STATUS_PENDING, $printedGroup->refresh()->status);
+        $this->assertSame(OutboundOrder::STATUS_RESERVED, $printedGroup->refresh()->status);
     }
 
     public function test_bulk_hold_skips_non_pending_orders(): void

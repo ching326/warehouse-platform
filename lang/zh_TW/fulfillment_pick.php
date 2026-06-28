@@ -31,7 +31,6 @@ return [
     'col_actions' => '操作',
     'bundle_component' => '組合商品元件',
     'strict_risk' => '嚴格風險',
-    'aliases' => '別名',
     'chip_warehouse' => '倉庫: :value',
     'chip_date' => '日期: :from - :to',
     'chip_shipping' => '配送: :value',

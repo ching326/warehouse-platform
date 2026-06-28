@@ -76,8 +76,6 @@ return [
     'col_added' => '加入時間',
     'filter_print_waiting' => '待列印',
     'filter_shipping' => '配送方式',
-    'filter_ship_status' => '出貨狀態',
-    'filter_order_status' => '訂單狀態',
     'filter_others' => '其他',
     'clear_all_filters' => '全部清除',
     'other_multi_item' => '多品項包裹',

@@ -31,7 +31,6 @@ return [
     'col_actions' => 'Actions',
     'bundle_component' => 'Bundle component',
     'strict_risk' => 'Strict-risk',
-    'aliases' => 'aliases',
     'chip_warehouse' => 'Warehouse: :value',
     'chip_date' => 'Date: :from - :to',
     'chip_shipping' => 'Shipping: :value',

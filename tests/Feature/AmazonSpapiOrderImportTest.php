@@ -342,7 +342,7 @@ class AmazonSpapiOrderImportTest extends TestCase
         $order = $this->existingOrder($connection->shop, 'AMZ-GROUP-CANCEL');
         $outbound = OutboundOrder::factory()->for($connection->shop->tenant)->create([
             'reason' => OutboundOrder::REASON_CUSTOMER_ORDER,
-            'status' => OutboundOrder::STATUS_PENDING,
+            'status' => OutboundOrder::STATUS_RESERVED,
         ]);
         $outbound->salesOrders()->attach($order->id);
         $this->fakeAmazon([

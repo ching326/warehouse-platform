@@ -108,9 +108,14 @@
                             <flux:table.cell><span class="pick-sku-list">{{ implode(', ', $row['sku_codes']) ?: '-' }}</span></flux:table.cell>
                             <flux:table.cell><span class="pick-name">{{ $stockItem?->displayName() ?: collect($row['sku_names'])->first() ?: '-' }}</span></flux:table.cell>
                             <flux:table.cell>
-                                {{ $row['barcode'] ?: '-' }}
-                                @if ($row['alias_count'] > 0)
-                                    <span class="pick-alias-count">+{{ $row['alias_count'] }} {{ __('fulfillment_pick.aliases') }}</span>
+                                @if (count($row['barcodes']) > 0)
+                                    <span class="pick-barcode-list">
+                                        @foreach ($row['barcodes'] as $barcode)
+                                            <span>{{ $barcode }}</span>
+                                        @endforeach
+                                    </span>
+                                @else
+                                    -
                                 @endif
                             </flux:table.cell>
                             <flux:table.cell align="end">{{ number_format($row['required_qty']) }}</flux:table.cell>
@@ -185,7 +190,7 @@
                                     <td>{{ $stockItem?->code ?: '-' }}</td>
                                     <td>{{ implode(', ', $row['sku_codes']) ?: '-' }}</td>
                                     <td>{{ $stockItem?->displayName() ?: collect($row['sku_names'])->first() ?: '-' }}</td>
-                                    <td>{{ $row['barcode'] ?: '-' }}</td>
+                                    <td>{{ implode(', ', $row['barcodes']) ?: '-' }}</td>
                                     <td>{{ number_format($row['required_qty']) }}</td>
                                     <td></td>
                                 </tr>
@@ -269,9 +274,19 @@
             gap: 6px;
         }
 
-        .pick-alias-count {
+        .pick-barcode-list {
+            display: grid;
+            gap: 2px;
             font-size: 12px;
-            font-weight: 700;
+            line-height: 1.25;
+        }
+
+        .pick-barcode-list span {
+            display: block;
+            max-width: 170px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .pick-location-start td {

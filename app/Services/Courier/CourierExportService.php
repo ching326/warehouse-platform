@@ -57,7 +57,7 @@ class CourierExportService
         ];
 
         $blockedStatusOrderIds = $orders
-            ->filter(fn (OutboundOrder $order): bool => $order->status !== OutboundOrder::STATUS_PENDING
+            ->filter(fn (OutboundOrder $order): bool => $order->status !== OutboundOrder::STATUS_RESERVED
                 || $order->salesOrders->contains(fn (SalesOrder $so): bool => in_array($so->order_status, $blockedStatuses, true)))
             ->pluck('id')
             ->values()

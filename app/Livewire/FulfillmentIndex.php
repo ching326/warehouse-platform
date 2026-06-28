@@ -2,7 +2,6 @@
 
 namespace App\Livewire;
 
-use App\Livewire\Concerns\AutoSelectsSingleActiveWarehouse;
 use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\ShippingMethod;
@@ -29,12 +28,12 @@ use RuntimeException;
 
 class FulfillmentIndex extends Component
 {
-    use AutoSelectsSingleActiveWarehouse;
     use WithPagination;
 
     /** Maps the user-facing fulfillment statuses to OutboundOrder statuses. */
     private const STATUS_MAP = [
-        'reserved' => OutboundOrder::STATUS_PENDING,
+        'reserved' => OutboundOrder::STATUS_RESERVED,
+        'on_hold' => OutboundOrder::HOLD_STATUS_ON_HOLD,
         'shipped' => OutboundOrder::STATUS_SHIPPED,
         'cancelled' => OutboundOrder::STATUS_CANCELLED,
     ];
@@ -49,10 +48,6 @@ class FulfillmentIndex extends Component
     /** @var array<int, string> */
     #[Url(as: 'statuses', except: [])]
     public array $statusesFilter = [];
-
-    /** @var array<int, string> */
-    #[Url(as: 'order_status', except: [])]
-    public array $orderStatusesFilter = [];
 
     #[Url(as: 'print_waiting', except: false)]
     public bool $printWaiting = false;
@@ -107,7 +102,6 @@ class FulfillmentIndex extends Component
     public function mount(): void
     {
         $this->authorizeTenantAccess();
-        $this->autoSelectSingleActiveWarehouse();
         $this->coerceShippedDateRange();
     }
 
@@ -124,11 +118,6 @@ class FulfillmentIndex extends Component
     public function updatedStatusesFilter(): void
     {
         $this->coerceShippedDateRange();
-        $this->resetPage();
-    }
-
-    public function updatedOrderStatusesFilter(): void
-    {
         $this->resetPage();
     }
 
@@ -173,7 +162,6 @@ class FulfillmentIndex extends Component
             'tenant' => $this->tenantIds = $this->removeFilterValue($this->tenantIds, $value),
             'warehouse' => $this->warehouseId = '',
             'status' => $this->statusesFilter = $this->removeFilterValue($this->statusesFilter, $value),
-            'order-status' => $this->orderStatusesFilter = $this->removeFilterValue($this->orderStatusesFilter, $value),
             'shipping' => $this->shippingMethodsFilter = $this->removeFilterValue($this->shippingMethodsFilter, $value),
             'date' => $this->resetDateFilter(),
             'other' => $this->othersFilter = $this->removeFilterValue($this->othersFilter, $value),
@@ -190,7 +178,6 @@ class FulfillmentIndex extends Component
         $this->tenantIds = [];
         $this->warehouseId = '';
         $this->statusesFilter = [];
-        $this->orderStatusesFilter = [];
         $this->shippingMethodsFilter = [];
         $this->resetDateFilter();
         $this->othersFilter = [];
@@ -206,7 +193,7 @@ class FulfillmentIndex extends Component
     public function statusLabel(string $status): string
     {
         return match ($status) {
-            OutboundOrder::STATUS_PENDING => __('fulfillment.status_reserved'),
+            OutboundOrder::STATUS_RESERVED => __('fulfillment.status_reserved'),
             OutboundOrder::STATUS_SHIPPED => __('fulfillment.status_shipped'),
             OutboundOrder::STATUS_CANCELLED => __('fulfillment.status_cancelled'),
             default => $status,
@@ -227,23 +214,6 @@ class FulfillmentIndex extends Component
         return match ($holdStatus) {
             OutboundOrder::HOLD_STATUS_ON_HOLD => __('outbound.on_hold'),
             default => '',
-        };
-    }
-
-    public function orderStatusLabel(string $status): string
-    {
-        return $this->orderStatuses()[$status] ?? $status;
-    }
-
-    public function orderStatusColor(string $status): string
-    {
-        return match ($status) {
-            SalesOrder::ORDER_STATUS_ON_HOLD => 'red',
-            SalesOrder::ORDER_STATUS_BACKORDER => 'orange',
-            SalesOrder::ORDER_STATUS_CANCEL_REQUESTED => 'red',
-            SalesOrder::ORDER_STATUS_CANCELLED => 'red',
-            SalesOrder::ORDER_STATUS_COMPLETED => 'green',
-            default => 'zinc',
         };
     }
 
@@ -429,7 +399,7 @@ class FulfillmentIndex extends Component
 
         $orders = $this->scopedOrderQuery()
             ->whereIn('id', $selectedIds)
-            ->where('status', OutboundOrder::STATUS_PENDING)
+            ->where('status', OutboundOrder::STATUS_RESERVED)
             ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
             ->with(['shippingMethod.carrier:id,code,name', 'salesOrders:id'])
             ->get();
@@ -481,7 +451,7 @@ class FulfillmentIndex extends Component
         $printedIds = $this->scopedOrderQuery()
             ->whereIn('id', $selectedIds)
             ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
-            ->where('status', OutboundOrder::STATUS_PENDING)
+            ->where('status', OutboundOrder::STATUS_RESERVED)
             ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
             ->whereNotNull('courier_csv_exported_at')
             ->pluck('id')
@@ -630,7 +600,7 @@ class FulfillmentIndex extends Component
                 'tenant:id,code,name',
                 'warehouse:id,code,name,timezone',
                 'shippingMethod:id,name',
-                'salesOrders:id,shop_id,platform_order_id,order_status',
+                'salesOrders:id,shop_id,platform_order_id',
                 'salesOrders.shop:id,name',
                 'salesOrders.lines:id,sales_order_id,sku_id,quantity',
             ])
@@ -641,11 +611,7 @@ class FulfillmentIndex extends Component
             ->when($this->tenantIds !== [], fn ($query) => $query
                 ->whereIn('tenant_id', array_map('intval', $this->tenantIds)))
             ->when($this->warehouseId !== '', fn ($query) => $query->where('warehouse_id', (int) $this->warehouseId))
-            ->when($this->statusesFilter !== [], fn ($query) => $query
-                ->whereIn('status', array_map(fn ($status) => self::STATUS_MAP[$status] ?? $status, $this->statusesFilter)))
-            ->when($this->orderStatusesFilter !== [], fn ($query) => $query
-                ->whereHas('salesOrders', fn ($salesOrder) => $salesOrder
-                    ->whereIn('order_status', array_map('strval', $this->orderStatusesFilter))))
+            ->when($this->statusesFilter !== [], fn ($query) => $this->applyStatusFilter($query))
             ->when($this->printWaiting, fn ($query) => $query
                 ->whereNull('courier_csv_exported_at')
                 ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
@@ -734,7 +700,6 @@ class FulfillmentIndex extends Component
             'shippingMethods' => $shippingMethods,
             'shippingMethodFilterOptions' => $shippingMethodFilterOptions,
             'statuses' => $this->statuses(),
-            'orderStatuses' => $this->orderStatuses(),
             'dateRanges' => $this->dateRanges(),
             'showTenantFilter' => $this->isInternalUser(),
             'visibleOrderIds' => $this->visibleOrderIds,
@@ -750,21 +715,46 @@ class FulfillmentIndex extends Component
     {
         return [
             'reserved' => __('fulfillment.status_reserved'),
+            'on_hold' => __('outbound.on_hold'),
             'shipped' => __('fulfillment.status_shipped'),
             'cancelled' => __('fulfillment.status_cancelled'),
         ];
     }
 
-    private function orderStatuses(): array
+    private function applyStatusFilter($query): void
     {
-        return [
-            SalesOrder::ORDER_STATUS_PENDING => __('sales_orders.order_pending'),
-            SalesOrder::ORDER_STATUS_ON_HOLD => __('sales_orders.order_on_hold'),
-            SalesOrder::ORDER_STATUS_BACKORDER => __('sales_orders.order_backorder'),
-            SalesOrder::ORDER_STATUS_CANCEL_REQUESTED => __('sales_orders.order_cancel_requested'),
-            SalesOrder::ORDER_STATUS_CANCELLED => __('sales_orders.order_cancelled'),
-            SalesOrder::ORDER_STATUS_COMPLETED => __('sales_orders.order_completed'),
-        ];
+        $statuses = array_values(array_map('strval', (array) $this->statusesFilter));
+
+        $query->where(function ($inner) use ($statuses): void {
+            $hasCondition = false;
+
+            if (in_array('reserved', $statuses, true)) {
+                $inner
+                    ->where('status', OutboundOrder::STATUS_RESERVED)
+                    ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE);
+                $hasCondition = true;
+            }
+
+            if (in_array('on_hold', $statuses, true)) {
+                $hasCondition
+                    ? $inner->orWhere('hold_status', OutboundOrder::HOLD_STATUS_ON_HOLD)
+                    : $inner->where('hold_status', OutboundOrder::HOLD_STATUS_ON_HOLD);
+                $hasCondition = true;
+            }
+
+            $normalStatuses = collect($statuses)
+                ->reject(fn (string $status): bool => in_array($status, ['reserved', 'on_hold'], true))
+                ->map(fn (string $status): string => self::STATUS_MAP[$status] ?? $status)
+                ->unique()
+                ->values()
+                ->all();
+
+            if ($normalStatuses !== []) {
+                $hasCondition
+                    ? $inner->orWhereIn('status', $normalStatuses)
+                    : $inner->whereIn('status', $normalStatuses);
+            }
+        });
     }
 
     /**
@@ -791,12 +781,7 @@ class FulfillmentIndex extends Component
 
         $statusLabels = $this->statuses();
         foreach ((array) $this->statusesFilter as $status) {
-            $chips[] = $this->chip('status', (string) $status, __('fulfillment.filter_ship_status'), $statusLabels[(string) $status] ?? (string) $status);
-        }
-
-        $orderStatusLabels = $this->orderStatuses();
-        foreach ((array) $this->orderStatusesFilter as $status) {
-            $chips[] = $this->chip('order-status', (string) $status, __('fulfillment.filter_order_status'), $orderStatusLabels[(string) $status] ?? (string) $status);
+            $chips[] = $this->chip('status', (string) $status, __('fulfillment.col_status'), $statusLabels[(string) $status] ?? (string) $status);
         }
 
         foreach ((array) $this->shippingMethodsFilter as $method) {
@@ -852,7 +837,6 @@ class FulfillmentIndex extends Component
         $hasOtherFilter = $this->tenantIds !== []
             || $this->warehouseId !== ''
             || $nonShippedStatuses !== []
-            || $this->orderStatusesFilter !== []
             || $this->printWaiting
             || $this->shippingMethodsFilter !== []
             || $this->dateRange !== SalesOrderFilters::DATE_ALL
@@ -1027,7 +1011,7 @@ class FulfillmentIndex extends Component
         return $this->scopedOrderQuery()
             ->whereIn('id', $outboundOrderIds)
             ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
-            ->where('status', OutboundOrder::STATUS_PENDING)
+            ->where('status', OutboundOrder::STATUS_RESERVED)
             ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
             ->whereHas('packScans')
             ->orderBy('ref')
@@ -1043,7 +1027,7 @@ class FulfillmentIndex extends Component
         $orders = $this->scopedOrderQuery()
             ->whereIn('id', $ids)
             ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
-            ->where('status', OutboundOrder::STATUS_PENDING)
+            ->where('status', OutboundOrder::STATUS_RESERVED)
             ->get();
         $updated = 0;
         $service = app(HoldOutboundOrderService::class);

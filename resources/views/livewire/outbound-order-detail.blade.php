@@ -33,7 +33,7 @@
                 @if ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
                     <flux:badge color="amber">{{ __('outbound.on_hold') }}</flux:badge>
                 @endif
-                @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE && $order->reason === \App\Models\OutboundOrder::REASON_CUSTOMER_ORDER)
+                @if ($order->status === \App\Models\OutboundOrder::STATUS_RESERVED && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE && $order->reason === \App\Models\OutboundOrder::REASON_CUSTOMER_ORDER)
                     <flux:button href="{{ route('outbound.pack', $order) }}" size="xs" variant="primary" wire:navigate>
                         {{ __('fulfillment_pack.page_title') }}
                     </flux:button>
@@ -84,7 +84,7 @@
             </div>
         </div>
 
-        @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE)
+        @if ($order->status === \App\Models\OutboundOrder::STATUS_RESERVED && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE)
             <div class="form-actions outbound-detail-actions">
                 <flux:button href="{{ route('outbound.ship', $order) }}" variant="primary" wire:navigate>
                     {{ __('outbound.btn_ship') }}
@@ -116,7 +116,7 @@
             <div>
                 <strong>{{ __('outbound.section_recipient') }}</strong>
             </div>
-            @if (! $editingRecipient && $order->status === \App\Models\OutboundOrder::STATUS_PENDING)
+            @if (! $editingRecipient && $order->status === \App\Models\OutboundOrder::STATUS_RESERVED)
                 <flux:button type="button" variant="outline" wire:click="editRecipient">{{ __('fulfillment.btn_edit') }}</flux:button>
             @endif
         </div>
@@ -182,7 +182,7 @@
             <div>
                 <strong>{{ __('outbound.section_shipment') }}</strong>
             </div>
-            @if (! $editingShipping && $order->status === \App\Models\OutboundOrder::STATUS_PENDING)
+            @if (! $editingShipping && $order->status === \App\Models\OutboundOrder::STATUS_RESERVED)
                 <flux:button type="button" variant="outline" wire:click="editShipping">{{ __('fulfillment.btn_edit') }}</flux:button>
             @endif
         </div>

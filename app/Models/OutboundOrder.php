@@ -26,7 +26,7 @@ class OutboundOrder extends Model
         return 'OB-'.$tenantCode.'-'.$date->format('ymd').'-'.str_pad((string) $id, 4, '0', STR_PAD_LEFT);
     }
 
-    public const STATUS_PENDING = 'pending';
+    public const STATUS_RESERVED = 'reserved';
 
     public const STATUS_SHIPPED = 'shipped';
 

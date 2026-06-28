@@ -93,40 +93,19 @@
                 @class(['filter-menu', 'is-active' => count((array) $statusesFilter) > 0])
                 x-bind:class="{ 'is-active': $wire.statusesFilter.length > 0 }"
                 wire:ignore.self
-                x-bind:open="openFilter === 'ship-status'"
-                x-on:click.outside="if (openFilter === 'ship-status') openFilter = null"
+                x-bind:open="openFilter === 'status'"
+                x-on:click.outside="if (openFilter === 'status') openFilter = null"
             >
                 <summary
                     class="filter-button"
-                    x-on:click.prevent="openFilter = openFilter === 'ship-status' ? null : 'ship-status'"
-                    x-bind:aria-expanded="openFilter === 'ship-status'"
+                    x-on:click.prevent="openFilter = openFilter === 'status' ? null : 'status'"
+                    x-bind:aria-expanded="openFilter === 'status'"
                 >
-                    <span>{{ __('fulfillment.filter_ship_status') }}</span>
+                    <span>{{ __('fulfillment.col_status') }}</span>
                 </summary>
                 <div class="filter-panel compact">
                     @foreach ($statuses as $status => $label)
                         <label><input type="checkbox" wire:model.live="statusesFilter" value="{{ $status }}"> {{ $label }}</label>
-                    @endforeach
-                </div>
-            </details>
-
-            <details
-                @class(['filter-menu', 'is-active' => count((array) $orderStatusesFilter) > 0])
-                x-bind:class="{ 'is-active': $wire.orderStatusesFilter.length > 0 }"
-                wire:ignore.self
-                x-bind:open="openFilter === 'order-status'"
-                x-on:click.outside="if (openFilter === 'order-status') openFilter = null"
-            >
-                <summary
-                    class="filter-button"
-                    x-on:click.prevent="openFilter = openFilter === 'order-status' ? null : 'order-status'"
-                    x-bind:aria-expanded="openFilter === 'order-status'"
-                >
-                    <span>{{ __('fulfillment.filter_order_status') }}</span>
-                </summary>
-                <div class="filter-panel compact">
-                    @foreach ($orderStatuses as $status => $label)
-                        <label><input type="checkbox" wire:model.live="orderStatusesFilter" value="{{ $status }}"> {{ $label }}</label>
                     @endforeach
                 </div>
             </details>
@@ -433,11 +412,6 @@
                             ->unique()
                             ->values();
                         $itemQty = $salesOrders->sum(fn ($so) => (int) $so->lines->sum('quantity'));
-                        $orderStatusValues = $salesOrders
-                            ->pluck('order_status')
-                            ->filter()
-                            ->unique()
-                            ->values();
                         $arranged = $order->created_at;
                         $printed = $order->courier_csv_exported_at;
                     @endphp
@@ -623,24 +597,16 @@
                                 <flux:badge color="{{ $this->statusColor($order->status) }}">
                                     {{ $this->statusLabel($order->status) }}
                                 </flux:badge>
-                                <div class="fg-order-status-stack">
-                                    @forelse ($orderStatusValues as $orderStatus)
-                                        <flux:badge color="{{ $this->orderStatusColor($orderStatus) }}">
-                                            {{ $this->orderStatusLabel($orderStatus) }}
-                                        </flux:badge>
-                                    @empty
-                                        @if ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
-                                            <flux:badge color="red">
-                                                {{ $this->holdStatusLabel($order->hold_status) }}
-                                            </flux:badge>
-                                        @endif
-                                    @endforelse
-                                </div>
+                                @if ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
+                                    <flux:badge color="red">
+                                        {{ $this->holdStatusLabel($order->hold_status) }}
+                                    </flux:badge>
+                                @endif
                             </div>
                         </flux:table.cell>
 
                         <flux:table.cell>
-                            @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE)
+                            @if ($order->status === \App\Models\OutboundOrder::STATUS_RESERVED && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE)
                                 <div class="fg-row-action">
                                     <flux:button href="{{ route('outbound.pack', $order) }}" size="sm" variant="primary" class="fg-scan-pack-button" wire:navigate>
                                         {{ __('fulfillment_pack.page_title') }}
@@ -860,8 +826,7 @@
             gap: 2px;
         }
 
-        .fg-status-stack,
-        .fg-order-status-stack {
+        .fg-status-stack {
             align-items: flex-start;
             display: grid;
             gap: 4px;

@@ -35,7 +35,7 @@ class OutboundOrderShip extends Component
 
         $this->orderId = $order->id;
 
-        if ($order->status !== OutboundOrder::STATUS_PENDING) {
+        if ($order->status !== OutboundOrder::STATUS_RESERVED) {
             session()->flash('error', __('outbound.already_processed'));
             $this->redirectRoute('outbound.index', navigate: true);
 
@@ -56,7 +56,7 @@ class OutboundOrderShip extends Component
         $order = OutboundOrder::whereIn('tenant_id', $this->visibleTenantIds())
             ->findOrFail($this->orderId);
 
-        if ($order->status !== OutboundOrder::STATUS_PENDING) {
+        if ($order->status !== OutboundOrder::STATUS_RESERVED) {
             session()->flash('error', __('outbound.already_processed'));
 
             return redirect()->route('outbound.index');

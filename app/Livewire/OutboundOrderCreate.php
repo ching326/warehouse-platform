@@ -144,7 +144,7 @@ class OutboundOrderCreate extends Component
                 'tenant_id' => $tenantId,
                 'warehouse_id' => (int) $this->warehouseId,
                 'ref' => $this->ref !== '' ? $this->nullableString($this->ref) : 'OB-PENDING-'.Str::uuid(),
-                'status' => OutboundOrder::STATUS_PENDING,
+                'status' => OutboundOrder::STATUS_RESERVED,
                 'reason' => $this->reason,
                 'note' => $this->nullableString($this->note),
                 'recipient_name' => $this->nullableString($this->recipientName),

@@ -23,11 +23,11 @@
                 @if ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
                     <flux:badge color="amber">{{ __('outbound.on_hold') }}</flux:badge>
                 @endif
-                @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE)
+                @if ($order->status === \App\Models\OutboundOrder::STATUS_RESERVED && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE)
                     <flux:button type="button" variant="primary" wire:click="holdOutbound">
                         {{ __('outbound.hold') }}
                     </flux:button>
-                @elseif ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
+                @elseif ($order->status === \App\Models\OutboundOrder::STATUS_RESERVED && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
                     <flux:button type="button" variant="primary" wire:click="releaseHold">
                         {{ __('outbound.release_hold') }}
                     </flux:button>

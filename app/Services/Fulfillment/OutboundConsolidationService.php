@@ -84,7 +84,7 @@ class OutboundConsolidationService
             ->where('tenant_id', $order->tenant_id)
             ->where('warehouse_id', $warehouseId)
             ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
-            ->where('status', OutboundOrder::STATUS_PENDING)
+            ->where('status', OutboundOrder::STATUS_RESERVED)
             ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
             ->whereNull('courier_csv_exported_at')
             ->whereHas('salesOrders', fn ($query) => $query->where('ship_together_key', $order->ship_together_key))
@@ -105,7 +105,7 @@ class OutboundConsolidationService
             'tenant_id' => $tenantId,
             'warehouse_id' => $warehouseId,
             'ref' => 'OB-PENDING-'.Str::uuid(),
-            'status' => OutboundOrder::STATUS_PENDING,
+            'status' => OutboundOrder::STATUS_RESERVED,
             'recipient_name' => $firstOrder->recipient_name,
             'recipient_phone' => $firstOrder->recipient_phone,
             'recipient_country_code' => $firstOrder->recipient_country_code,
@@ -125,7 +125,7 @@ class OutboundConsolidationService
 
     private function appendOrdersToOutbound(OutboundOrder $outbound, Collection $orders): void
     {
-        if ($outbound->status !== OutboundOrder::STATUS_PENDING) {
+        if ($outbound->status !== OutboundOrder::STATUS_RESERVED) {
             throw new InvalidArgumentException(__('fulfillment.group_not_joinable'));
         }
 
@@ -237,7 +237,7 @@ class OutboundConsolidationService
 
     private function validateJoinableOutbound(OutboundOrder $outbound): void
     {
-        if ($outbound->reason !== OutboundOrder::REASON_CUSTOMER_ORDER || $outbound->status !== OutboundOrder::STATUS_PENDING) {
+        if ($outbound->reason !== OutboundOrder::REASON_CUSTOMER_ORDER || $outbound->status !== OutboundOrder::STATUS_RESERVED) {
             throw new InvalidArgumentException(__('fulfillment.group_not_joinable'));
         }
 

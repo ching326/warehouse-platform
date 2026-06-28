@@ -120,7 +120,7 @@ class OutboundOrderTest extends TestCase
         $balance = $this->balance($tenant, $warehouse, $sku->stockItem);
         $reserveMovement = InventoryMovement::where('movement_type', InventoryMovement::TYPE_RESERVE)->firstOrFail();
 
-        $this->assertSame(OutboundOrder::STATUS_PENDING, $order->status);
+        $this->assertSame(OutboundOrder::STATUS_RESERVED, $order->status);
         $this->assertSame($sku->id, $line->sku_id);
         $this->assertSame($sku->stock_item_id, $line->stock_item_id);
         $this->assertSame(5, $line->qty);
@@ -528,7 +528,7 @@ class OutboundOrderTest extends TestCase
             ->get(route('outbound.show', $order))
             ->assertNotFound();
 
-        $this->assertSame(OutboundOrder::STATUS_PENDING, $order->refresh()->status);
+        $this->assertSame(OutboundOrder::STATUS_RESERVED, $order->refresh()->status);
     }
 
     public function test_outbound_detail_shows_virtual_bundle_child_lines(): void
@@ -832,7 +832,7 @@ class OutboundOrderTest extends TestCase
             ->for($tenant)
             ->for($warehouse)
             ->create([
-                'status' => OutboundOrder::STATUS_PENDING,
+                'status' => OutboundOrder::STATUS_RESERVED,
                 'reason' => OutboundOrder::REASON_REPLACEMENT,
                 'shipping_method_id' => null,
             ]);
@@ -856,7 +856,7 @@ class OutboundOrderTest extends TestCase
             ->for($tenant)
             ->for($warehouse)
             ->create([
-                'status' => OutboundOrder::STATUS_PENDING,
+                'status' => OutboundOrder::STATUS_RESERVED,
                 'reason' => OutboundOrder::REASON_REPLACEMENT,
                 'shipping_method_id' => $method->id,
                 'ref' => 'OB-MANUAL-P13-001',
@@ -899,7 +899,7 @@ class OutboundOrderTest extends TestCase
             ->for($tenant)
             ->for($warehouse)
             ->create([
-                'status' => OutboundOrder::STATUS_PENDING,
+                'status' => OutboundOrder::STATUS_RESERVED,
                 'reason' => OutboundOrder::REASON_GIFT,
                 'shipping_method_id' => null,
             ]);
@@ -932,7 +932,7 @@ class OutboundOrderTest extends TestCase
             ->for($tenantA)
             ->for($warehouseA)
             ->create([
-                'status' => OutboundOrder::STATUS_PENDING,
+                'status' => OutboundOrder::STATUS_RESERVED,
                 'reason' => OutboundOrder::REASON_REPLACEMENT,
                 'shipping_method_id' => $method->id,
             ]);
@@ -959,7 +959,7 @@ class OutboundOrderTest extends TestCase
             ->for($tenant)
             ->for($warehouse)
             ->create([
-                'status' => OutboundOrder::STATUS_PENDING,
+                'status' => OutboundOrder::STATUS_RESERVED,
                 'reason' => OutboundOrder::REASON_REPLACEMENT,
                 'shipping_method_id' => $method->id,
                 'ref' => 'OB-REEXPORT-P13-001',

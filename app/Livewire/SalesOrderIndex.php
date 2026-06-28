@@ -304,7 +304,7 @@ class SalesOrderIndex extends Component
                     $query->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_ARRANGED)
                         ->whereHas('activeOutboundOrders', fn ($outbound) => $outbound
                             ->where('outbound_orders.reason', OutboundOrder::REASON_CUSTOMER_ORDER)
-                            ->where('outbound_orders.status', OutboundOrder::STATUS_PENDING));
+                            ->where('outbound_orders.status', OutboundOrder::STATUS_RESERVED));
                 });
             })
             ->with(['activeOutboundOrders.salesOrders:id'])
@@ -1135,7 +1135,7 @@ class SalesOrderIndex extends Component
 
         $outbound = $this->customerOutboundFor($order);
 
-        if (! $outbound || $outbound->status !== OutboundOrder::STATUS_PENDING) {
+        if (! $outbound || $outbound->status !== OutboundOrder::STATUS_RESERVED) {
             return false;
         }
 
@@ -1164,7 +1164,7 @@ class SalesOrderIndex extends Component
         $outbound = $this->customerOutboundFor($order);
 
         return $outbound
-            && $outbound->status === OutboundOrder::STATUS_PENDING
+            && $outbound->status === OutboundOrder::STATUS_RESERVED
             && $outbound->courier_csv_exported_at === null
             && $outbound->salesOrders->count() > 1;
     }
@@ -1185,7 +1185,7 @@ class SalesOrderIndex extends Component
 
         $outbound = $order->activeOutboundOrders
             ->first(fn (OutboundOrder $outbound): bool => $outbound->reason === OutboundOrder::REASON_CUSTOMER_ORDER
-                && $outbound->status === OutboundOrder::STATUS_PENDING);
+                && $outbound->status === OutboundOrder::STATUS_RESERVED);
 
         return $outbound instanceof OutboundOrder ? $outbound : null;
     }
@@ -1203,7 +1203,7 @@ class SalesOrderIndex extends Component
             ->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_ARRANGED)
             ->whereHas('activeOutboundOrders', fn ($outbound) => $outbound
                 ->where('outbound_orders.reason', OutboundOrder::REASON_CUSTOMER_ORDER)
-                ->where('outbound_orders.status', OutboundOrder::STATUS_PENDING)
+                ->where('outbound_orders.status', OutboundOrder::STATUS_RESERVED)
                 ->whereNotNull('outbound_orders.courier_csv_exported_at'))
             ->orderBy('platform_order_id')
             ->pluck('platform_order_id')
@@ -1223,7 +1223,7 @@ class SalesOrderIndex extends Component
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->whereHas('activeOutboundOrders', fn ($outbound) => $outbound
                 ->where('outbound_orders.reason', OutboundOrder::REASON_CUSTOMER_ORDER)
-                ->where('outbound_orders.status', OutboundOrder::STATUS_PENDING)
+                ->where('outbound_orders.status', OutboundOrder::STATUS_RESERVED)
                 ->whereHas('packScans'))
             ->orderBy('platform_order_id')
             ->pluck('platform_order_id')

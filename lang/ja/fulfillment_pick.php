@@ -31,7 +31,6 @@ return [
     'col_actions' => '操作',
     'bundle_component' => 'バンドルコンポーネント',
     'strict_risk' => '厳格リスク',
-    'aliases' => 'エイリアス',
     'chip_warehouse' => '倉庫: :value',
     'chip_date' => '日付: :from - :to',
     'chip_shipping' => '配送: :value',

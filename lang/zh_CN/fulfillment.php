@@ -76,8 +76,6 @@ return [
     'col_added' => '加入时间',
     'filter_print_waiting' => '待打印',
     'filter_shipping' => '配送方式',
-    'filter_ship_status' => '出货状态',
-    'filter_order_status' => '订单状态',
     'filter_others' => '其他',
     'clear_all_filters' => '全部清除',
     'other_multi_item' => '多品项包裹',

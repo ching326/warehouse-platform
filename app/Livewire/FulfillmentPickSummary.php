@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Livewire\Concerns\AutoSelectsSingleActiveWarehouse;
+use App\Models\BarcodeAlias;
 use App\Models\InboundReceipt;
 use App\Models\InventoryBalance;
 use App\Models\OutboundOrder;
@@ -154,9 +155,9 @@ class FulfillmentPickSummary extends Component
             ->with([
                 'tenant:id,code,name',
                 'salesOrders:id,platform_order_id',
-                'leafLines.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
-                'leafLines.stockItem.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
-                'leafLines.parentLine.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
+                'leafLines.sku.barcodeAliases:id,tenant_id,model_type,model_id,barcode,normalized_barcode,is_primary,is_active',
+                'leafLines.stockItem.barcodeAliases:id,tenant_id,model_type,model_id,barcode,normalized_barcode,is_primary,is_active',
+                'leafLines.parentLine.sku.barcodeAliases:id,tenant_id,model_type,model_id,barcode,normalized_barcode,is_primary,is_active',
             ])
             ->get();
 
@@ -177,8 +178,7 @@ class FulfillmentPickSummary extends Component
                     'required_qty' => 0,
                     'outbounds' => [],
                     'orders' => [],
-                    'barcode' => $stockItem?->barcode ?: $sku?->barcode,
-                    'alias_count' => $this->aliasCount($line),
+                    'barcodes' => $this->availableBarcodes($line),
                     'is_strict' => $packService->lineIsStrictOnly($line),
                     'location_hint' => '-',
                     'pickable_qty' => 0,
@@ -248,7 +248,7 @@ class FulfillmentPickSummary extends Component
         return OutboundOrder::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
-            ->where('status', OutboundOrder::STATUS_PENDING)
+            ->where('status', OutboundOrder::STATUS_RESERVED)
             ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
             ->when($this->warehouseId !== '', fn ($query) => $query->where('warehouse_id', (int) $this->warehouseId))
             ->when($this->shippingMethodId !== '', fn ($query) => $query->where('shipping_method_id', (int) $this->shippingMethodId))
@@ -349,7 +349,7 @@ class FulfillmentPickSummary extends Component
             $stockItem?->short_name,
             $stockItem?->barcode,
             implode(' ', $row['sku_codes']),
-            $row['barcode'],
+            implode(' ', $row['barcodes']),
         ];
 
         foreach ($row['outbounds'] as $outbound) {
@@ -363,12 +363,37 @@ class FulfillmentPickSummary extends Component
         return mb_strtolower(implode(' ', array_filter($values)));
     }
 
-    private function aliasCount(array $line): int
+    /**
+     * @param  array<string, mixed>  $line
+     * @return array<int, string>
+     */
+    private function availableBarcodes(array $line): array
     {
-        $skuAliases = $line['sku']?->barcodeAliases?->where('is_active', true)->count() ?? 0;
-        $stockAliases = $line['stock_item']?->barcodeAliases?->where('is_active', true)->count() ?? 0;
+        $sku = $line['sku'];
+        $stockItem = $line['stock_item'];
 
-        return $skuAliases + $stockAliases;
+        return collect()
+            ->merge($this->activeAliasBarcodes($stockItem?->barcodeAliases))
+            ->merge($this->activeAliasBarcodes($sku?->barcodeAliases))
+            ->push($stockItem?->barcode)
+            ->push($sku?->barcode)
+            ->filter(fn ($barcode): bool => filled($barcode))
+            ->map(fn ($barcode): string => (string) $barcode)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function activeAliasBarcodes(?Collection $aliases): Collection
+    {
+        if (! $aliases) {
+            return collect();
+        }
+
+        return $aliases
+            ->filter(fn (BarcodeAlias $alias): bool => $alias->is_active)
+            ->sortByDesc('is_primary')
+            ->pluck('barcode');
     }
 
     private function authorizeInternalUser(): void

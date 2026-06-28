@@ -236,7 +236,7 @@ class OutboundOrderDetail extends Component
             ->with('leafLines')
             ->findOrFail($this->orderId);
 
-        if ($order->status !== OutboundOrder::STATUS_PENDING) {
+        if ($order->status !== OutboundOrder::STATUS_RESERVED) {
             return;
         }
 
@@ -267,7 +267,7 @@ class OutboundOrderDetail extends Component
     public function statusLabel(string $status): string
     {
         return match ($status) {
-            OutboundOrder::STATUS_PENDING => __('outbound.status_pending'),
+            OutboundOrder::STATUS_RESERVED => __('outbound.status_reserved'),
             OutboundOrder::STATUS_SHIPPED => __('outbound.status_shipped'),
             OutboundOrder::STATUS_CANCELLED => __('outbound.status_cancelled'),
             default => $status,
@@ -277,7 +277,7 @@ class OutboundOrderDetail extends Component
     public function statusColor(string $status): string
     {
         return match ($status) {
-            OutboundOrder::STATUS_PENDING => 'amber',
+            OutboundOrder::STATUS_RESERVED => 'amber',
             OutboundOrder::STATUS_SHIPPED => 'green',
             OutboundOrder::STATUS_CANCELLED => 'red',
             default => 'zinc',
@@ -398,7 +398,7 @@ class OutboundOrderDetail extends Component
     {
         $order = $this->scopedOrderQuery()->findOrFail($this->orderId);
 
-        if ($order->status !== OutboundOrder::STATUS_PENDING) {
+        if ($order->status !== OutboundOrder::STATUS_RESERVED) {
             abort(403);
         }
 

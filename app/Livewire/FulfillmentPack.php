@@ -71,7 +71,7 @@ class FulfillmentPack extends Component
             return;
         }
 
-        if ($order->status !== OutboundOrder::STATUS_PENDING) {
+        if ($order->status !== OutboundOrder::STATUS_RESERVED) {
             $this->writeScan($order, [
                 'barcode_scanned' => $barcodeScanned,
                 'normalized_barcode' => $normalized,
@@ -182,7 +182,7 @@ class FulfillmentPack extends Component
         $order = $this->loadOrder();
         $pending = $this->pendingQuantityScan;
 
-        if ($order->status !== OutboundOrder::STATUS_PENDING) {
+        if ($order->status !== OutboundOrder::STATUS_RESERVED) {
             $message = $order->status === OutboundOrder::STATUS_SHIPPED
                 ? __('fulfillment_pack.already_shipped')
                 : __('fulfillment_pack.cancelled_group');
@@ -272,7 +272,7 @@ class FulfillmentPack extends Component
             return;
         }
 
-        if ($order->status !== OutboundOrder::STATUS_PENDING) {
+        if ($order->status !== OutboundOrder::STATUS_RESERVED) {
             $this->error(__('fulfillment_pack.already_shipped'));
 
             return;
@@ -300,7 +300,7 @@ class FulfillmentPack extends Component
                     ->lockForUpdate()
                     ->firstOrFail();
 
-                if ($lockedOrder->status !== OutboundOrder::STATUS_PENDING
+                if ($lockedOrder->status !== OutboundOrder::STATUS_RESERVED
                     || $lockedOrder->hold_status === OutboundOrder::HOLD_STATUS_ON_HOLD
                     || ! $packService->allLinesComplete($lockedOrder)) {
                     throw new InvalidArgumentException(__('fulfillment_pack.scan_all_before_shipping'));
@@ -409,7 +409,7 @@ class FulfillmentPack extends Component
             'lines' => $lines,
             'allComplete' => $allComplete,
             'progress' => $progress,
-            'readOnly' => $order->status !== OutboundOrder::STATUS_PENDING || $order->hold_status === OutboundOrder::HOLD_STATUS_ON_HOLD,
+            'readOnly' => $order->status !== OutboundOrder::STATUS_RESERVED || $order->hold_status === OutboundOrder::HOLD_STATUS_ON_HOLD,
         ])->layout('inventory', [
             'title' => __('fulfillment_pack.page_title'),
             'subtitle' => $reference,

@@ -95,7 +95,7 @@
                             </flux:badge>
                         </flux:table.cell>
                         <flux:table.cell>
-                            @if ($order->status === 'pending')
+                            @if ($order->status === \App\Models\OutboundOrder::STATUS_RESERVED)
                                 <div class="outbound-row-actions">
                                     <flux:button href="{{ route('outbound.ship', $order) }}" size="sm" variant="primary" wire:navigate>
                                         {{ __('outbound.btn_ship') }}

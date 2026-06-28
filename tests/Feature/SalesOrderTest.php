@@ -1438,7 +1438,7 @@ class SalesOrderTest extends TestCase
         $printed = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'OTHER-PRINTED']);
         $printedOutbound = OutboundOrder::factory()->for($tenant)->create([
             'reason' => OutboundOrder::REASON_CUSTOMER_ORDER,
-            'status' => OutboundOrder::STATUS_PENDING,
+            'status' => OutboundOrder::STATUS_RESERVED,
             'courier_csv_exported_at' => now(),
         ]);
         $printedOutbound->salesOrders()->attach($printed->id);

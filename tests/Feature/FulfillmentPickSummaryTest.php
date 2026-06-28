@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Livewire\FulfillmentCreate;
 use App\Livewire\FulfillmentIndex;
 use App\Livewire\FulfillmentPickSummary;
+use App\Models\BarcodeAlias;
 use App\Models\Carrier;
 use App\Models\InboundReceipt;
 use App\Models\InventoryBalance;
@@ -281,6 +282,31 @@ class FulfillmentPickSummaryTest extends TestCase
             ->assertDontSee('Available qty')
             ->assertSeeInOrder(['Required qty', '5', 'Shortage rows', '0'])
             ->assertSeeInOrder(['STK-RESERVED-FIVE', 'SKU-RESERVED-FIVE', '5', '5', '0']);
+    }
+
+    public function test_pick_summary_shows_available_barcodes_instead_of_alias_count(): void
+    {
+        [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-BARCODE-001', 'SKU-BARCODE-001');
+        BarcodeAlias::query()->create([
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
+            'model_id' => $sku->stock_item_id,
+            'barcode' => '4901234567890',
+            'normalized_barcode' => '4901234567890',
+            'barcode_type' => 'jan',
+            'label' => 'Primary product barcode',
+            'is_primary' => true,
+            'is_active' => true,
+            'source' => BarcodeAlias::SOURCE_MANUAL,
+        ]);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-PICK-BARCODE');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPickSummary::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->assertSee('4901234567890')
+            ->assertDontSee('+1 aliases');
     }
 
     public function test_hold_stock_is_not_pickable(): void

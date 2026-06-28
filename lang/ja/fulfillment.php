@@ -76,8 +76,6 @@ return [
     'col_added' => '追加日',
     'filter_print_waiting' => '印刷待ち',
     'filter_shipping' => '配送方法',
-    'filter_ship_status' => '出荷ステータス',
-    'filter_order_status' => '注文ステータス',
     'filter_others' => 'その他',
     'clear_all_filters' => 'すべてクリア',
     'other_multi_item' => '複数商品の出荷',

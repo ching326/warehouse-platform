@@ -2,7 +2,7 @@
 
 return [
     'page_title' => 'Outbound Orders',
-    'page_subtitle' => 'Pending orders have stock reserved. Ship to confirm dispatch.',
+    'page_subtitle' => 'Reserved orders have stock allocated. Ship to confirm dispatch.',
     'create_page_title' => 'Create Outbound Order',
     'create_page_subtitle' => 'Reserve stock for a planned shipment. Stock is reserved immediately on submission.',
     'ship_page_title' => 'Ship Order',
@@ -99,7 +99,7 @@ return [
     'col_lines' => 'SKUS',
     'col_status' => 'Status',
     'col_actions' => 'Actions',
-    'status_pending' => 'Pending (reserved)',
+    'status_reserved' => 'Reserved',
     'status_shipped' => 'Shipped',
     'status_cancelled' => 'Cancelled',
     'empty_state' => 'No outbound orders match the current filters.',

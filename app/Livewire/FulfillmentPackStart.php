@@ -183,7 +183,7 @@ class FulfillmentPackStart extends Component
         return OutboundOrder::query()
             ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
             ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->where('status', OutboundOrder::STATUS_PENDING)
+            ->where('status', OutboundOrder::STATUS_RESERVED)
             ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
             ->where('warehouse_id', (int) $this->warehouseId)
             ->where('shipping_method_id', (int) $this->shippingMethodId)
