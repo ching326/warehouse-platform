@@ -1,4 +1,6 @@
 <div class="fba-warehouse-edit-page">
+    <x-flash-toast />
+
     <form wire:submit="save" class="sku-form">
         <section class="table-shell flux-panel form-panel">
             <div class="form-panel-header">
@@ -89,7 +91,7 @@
             <flux:button
                 type="button"
                 variant="danger"
-                wire:click="delete"
+                wire:click.prevent="delete"
                 wire:confirm="{{ __('setup.fba_warehouse_delete_confirm') }}"
             >
                 {{ __('setup.btn_delete') }}

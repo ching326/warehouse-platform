@@ -930,6 +930,21 @@ class SalesOrderTest extends TestCase
             ->assertSee(route('sales.orders.show', $order), false);
     }
 
+    public function test_sales_order_index_platform_order_id_has_copy_button(): void
+    {
+        [, $shop, $sku] = $this->salesSku();
+        $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'COPY-ORDER-ID']);
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->html();
+
+        $this->assertStringContainsString('so-order-id-copy', $html);
+        $this->assertStringContainsString('data-copy-icon="square-2-stack"', $html);
+        $this->assertStringContainsString(__('sales_orders.copy_order_id').' COPY-ORDER-ID', $html);
+        $this->assertStringContainsString("copy('COPY-ORDER-ID')", $html);
+    }
+
     public function test_sales_order_index_shows_recipient_phone_and_address(): void
     {
         [, $shop, $sku] = $this->salesSku();

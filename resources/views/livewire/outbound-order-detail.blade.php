@@ -38,11 +38,6 @@
                         {{ __('fulfillment_pack.page_title') }}
                     </flux:button>
                 @endif
-                @if ($order->packScans->isNotEmpty())
-                    <flux:button href="{{ route('fulfillment.pack-scans.index', ['outbound_order_id' => $order->id]) }}" size="xs" variant="outline" wire:navigate>
-                        {{ __('fulfillment_pack.scan_history_title') }}
-                    </flux:button>
-                @endif
                 <flux:button href="{{ route('outbound.index') }}" variant="outline" wire:navigate>
                     {{ __('outbound.btn_back_to_index') }}
                 </flux:button>
@@ -347,7 +342,7 @@
                     <strong>{{ __('fulfillment_pack.scan_history_title') }}</strong>
                     <span>{{ __('fulfillment_pack.scan_history_recent_hint') }}</span>
                 </div>
-                <flux:button href="{{ route('fulfillment.pack-scans.index', ['outbound_order_id' => $order->id]) }}" variant="outline" wire:navigate>
+                <flux:button href="{{ route('fulfillment.pack-scans.index', ['outbound_order_id' => $order->id]) }}" variant="primary" wire:navigate>
                     {{ __('fulfillment_pack.view_all_scan_history') }}
                 </flux:button>
             </div>

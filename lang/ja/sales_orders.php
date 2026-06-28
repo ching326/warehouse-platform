@@ -79,6 +79,8 @@ return [
     'col_sku' => 'SKU / 在庫品目',
     'col_qty' => '数量',
     'col_line_status' => '明細ステータス',
+    'copy_order_id' => '注文IDをコピー',
+    'order_id_copied' => 'コピーしました',
 
     'order_created' => '注文を作成しました。',
     'recipient_updated' => '宛先を更新しました。',

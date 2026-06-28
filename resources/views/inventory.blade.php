@@ -3515,6 +3515,12 @@
                 line-height: 1.35;
             }
 
+            .form-panel-header .so-packing-text {
+                display: inline-flex;
+                margin-top: 0;
+                color: var(--accent);
+            }
+
             .tracking-unsaved {
                 display: inline-flex;
                 width: fit-content;

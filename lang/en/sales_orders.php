@@ -81,6 +81,8 @@ return [
     'col_sku' => 'SKU / Stock Item',
     'col_qty' => 'Qty',
     'col_line_status' => 'Line status',
+    'copy_order_id' => 'Copy order ID',
+    'order_id_copied' => 'Copied',
 
     'order_created' => 'Sales order created.',
     'recipient_updated' => 'Recipient updated.',

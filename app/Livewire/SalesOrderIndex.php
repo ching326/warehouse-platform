@@ -276,6 +276,14 @@ class SalesOrderIndex extends Component
         }
 
         $selectedIds = $this->normalizedSelectedIds();
+        $printedOrderIds = $this->printedOrderIds($selectedIds);
+
+        if ($printedOrderIds !== []) {
+            session()->flash('error', __('outbound.hold_printed_sales_blocked')."\n".implode("\n", $printedOrderIds));
+
+            return;
+        }
+
         $packingOrderIds = $this->packingStartedOrderIds($selectedIds);
 
         if ($packingOrderIds !== []) {
@@ -572,9 +580,9 @@ class SalesOrderIndex extends Component
     public function fulfillmentStatusColor(string $status): string
     {
         return match ($status) {
-            SalesOrder::FULFILLMENT_STATUS_UNFULFILLED => 'amber',
+            SalesOrder::FULFILLMENT_STATUS_UNFULFILLED => 'blue',
             SalesOrder::FULFILLMENT_STATUS_READY => 'blue',
-            SalesOrder::FULFILLMENT_STATUS_ARRANGED => 'amber',
+            SalesOrder::FULFILLMENT_STATUS_ARRANGED => 'blue',
             SalesOrder::FULFILLMENT_STATUS_SHIPPED => 'green',
             SalesOrder::FULFILLMENT_STATUS_CANCELLED => 'red',
             default => 'zinc',
@@ -584,7 +592,7 @@ class SalesOrderIndex extends Component
     public function orderStatusColor(string $status): string
     {
         return match ($status) {
-            SalesOrder::ORDER_STATUS_ON_HOLD => 'pink',
+            SalesOrder::ORDER_STATUS_ON_HOLD => 'red',
             SalesOrder::ORDER_STATUS_BACKORDER => 'orange',
             SalesOrder::ORDER_STATUS_CANCEL_REQUESTED => 'red',
             SalesOrder::ORDER_STATUS_CANCELLED => 'red',
@@ -1180,6 +1188,28 @@ class SalesOrderIndex extends Component
                 && $outbound->status === OutboundOrder::STATUS_PENDING);
 
         return $outbound instanceof OutboundOrder ? $outbound : null;
+    }
+
+    /**
+     * @param  array<int, int>  $selectedIds
+     * @return array<int, string>
+     */
+    private function printedOrderIds(array $selectedIds): array
+    {
+        return SalesOrder::query()
+            ->whereIn('id', $selectedIds)
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->where('order_status', SalesOrder::ORDER_STATUS_PENDING)
+            ->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_ARRANGED)
+            ->whereHas('activeOutboundOrders', fn ($outbound) => $outbound
+                ->where('outbound_orders.reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+                ->where('outbound_orders.status', OutboundOrder::STATUS_PENDING)
+                ->whereNotNull('outbound_orders.courier_csv_exported_at'))
+            ->orderBy('platform_order_id')
+            ->pluck('platform_order_id')
+            ->filter()
+            ->values()
+            ->all();
     }
 
     /**

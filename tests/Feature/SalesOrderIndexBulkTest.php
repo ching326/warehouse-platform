@@ -192,7 +192,7 @@ class SalesOrderIndexBulkTest extends TestCase
         $this->assertSame(OutboundOrder::HOLD_STATUS_ACTIVE, $group->refresh()->hold_status);
     }
 
-    public function test_bulk_hold_skips_printed_grouped_order_and_holds_not_printed_grouped_order(): void
+    public function test_bulk_hold_blocks_selection_containing_printed_order(): void
     {
         [$tenant, $shop, $sku] = $this->salesSku('BULK-HOLD-MIXED');
         $warehouse = $this->warehouseWithStock($tenant, [$sku]);
@@ -214,15 +214,17 @@ class SalesOrderIndexBulkTest extends TestCase
             ->test(SalesOrderIndex::class)
             ->set('selectedIds', [(string) $printed->id, (string) $notPrinted->id])
             ->call('bulkHold')
-            ->assertSee(__('sales_orders.bulk_hold_result', ['updated' => 1, 'skipped' => 1]));
+            ->assertSee(__('outbound.hold_printed_sales_blocked'))
+            ->assertSee($printed->platform_order_id);
 
         $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $printed->refresh()->order_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $printed->fulfillment_status);
         $this->assertSame(OutboundOrder::STATUS_PENDING, $printedGroup->refresh()->status);
-        $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $notPrinted->refresh()->order_status);
+        $this->assertSame(OutboundOrder::HOLD_STATUS_ACTIVE, $printedGroup->hold_status);
+        $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $notPrinted->refresh()->order_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $notPrinted->fulfillment_status);
         $this->assertSame(OutboundOrder::STATUS_PENDING, $notPrintedGroup->refresh()->status);
-        $this->assertSame(OutboundOrder::HOLD_STATUS_ON_HOLD, $notPrintedGroup->hold_status);
+        $this->assertSame(OutboundOrder::HOLD_STATUS_ACTIVE, $notPrintedGroup->hold_status);
     }
 
     public function test_detail_hold_allows_not_printed_group_and_blocks_printed_group(): void

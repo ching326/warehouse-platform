@@ -79,6 +79,46 @@ class FulfillmentPickSummaryTest extends TestCase
             ->assertSee('Select a warehouse to view pick summary.');
     }
 
+    public function test_user_can_save_default_pick_summary_warehouse(): void
+    {
+        $user = $this->internalUser();
+        $warehouse = Warehouse::factory()->create(['status' => 'active']);
+
+        Livewire::actingAs($user)
+            ->test(FulfillmentPickSummary::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('currentWarehouseIsDefault', true);
+
+        $this->assertSame((string) $warehouse->id, $user->refresh()->preference('pick_summary_default_warehouse_id'));
+    }
+
+    public function test_saved_default_pick_summary_warehouse_is_selected_when_no_query_param(): void
+    {
+        $user = $this->internalUser();
+        $defaultWarehouse = Warehouse::factory()->create(['status' => 'active']);
+        Warehouse::factory()->create(['status' => 'active']);
+        $user->setPreference('pick_summary_default_warehouse_id', (string) $defaultWarehouse->id);
+
+        Livewire::actingAs($user)
+            ->test(FulfillmentPickSummary::class)
+            ->assertSet('warehouseId', (string) $defaultWarehouse->id)
+            ->assertSet('currentWarehouseIsDefault', true);
+    }
+
+    public function test_query_param_overrides_saved_default_pick_summary_warehouse(): void
+    {
+        $user = $this->internalUser();
+        $defaultWarehouse = Warehouse::factory()->create(['status' => 'active']);
+        $queryWarehouse = Warehouse::factory()->create(['status' => 'active']);
+        $user->setPreference('pick_summary_default_warehouse_id', (string) $defaultWarehouse->id);
+
+        Livewire::withQueryParams(['warehouse_id' => (string) $queryWarehouse->id])
+            ->actingAs($user)
+            ->test(FulfillmentPickSummary::class)
+            ->assertSet('warehouseId', (string) $queryWarehouse->id)
+            ->assertSet('currentWarehouseIsDefault', false);
+    }
+
     public function test_default_date_filters_are_today(): void
     {
         Carbon::setTestNow('2026-06-24 09:00:00');

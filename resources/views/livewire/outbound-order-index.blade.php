@@ -23,6 +23,13 @@
                 @endforeach
             </flux:select>
 
+            <flux:select wire:model.live="reasonFilter" :label="__('outbound.field_reason')">
+                <flux:select.option value="">{{ __('outbound.all_reasons') }}</flux:select.option>
+                @foreach ($reasons as $reason => $label)
+                    <flux:select.option value="{{ $reason }}">{{ $label }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
             <flux:select wire:model.live="statusFilter" :label="__('outbound.col_status')">
                 <flux:select.option value="">{{ __('outbound.all_statuses') }}</flux:select.option>
                 @foreach ($statuses as $status => $label)
@@ -79,7 +86,7 @@
                         <flux:table.cell>{{ $order->shipped_at ? $order->shipped_at->format('Y-m-d H:i') : '-' }}</flux:table.cell>
                         <flux:table.cell>
                             @foreach ($order->parentLines as $line)
-                                <span class="subtle">{{ $line->sku->sku }} x{{ number_format($line->qty) }}</span>
+                                <span class="subtle">{{ number_format($line->qty) }} x {{ $line->sku->sku }}</span>
                             @endforeach
                         </flux:table.cell>
                         <flux:table.cell>
@@ -118,7 +125,7 @@
         }
 
         .outbound-index-toolbar {
-            grid-template-columns: repeat(4, minmax(130px, 1fr)) max-content;
+            grid-template-columns: repeat(5, minmax(130px, 1fr)) max-content;
         }
 
         .outbound-index-toolbar > :last-child {

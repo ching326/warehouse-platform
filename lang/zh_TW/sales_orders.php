@@ -79,6 +79,8 @@ return [
     'col_sku' => 'SKU / 庫存品項',
     'col_qty' => '數量',
     'col_line_status' => '明細狀態',
+    'copy_order_id' => '複製訂單ID',
+    'order_id_copied' => '已複製',
 
     'order_created' => '已建立訂單。',
     'recipient_updated' => '已更新收件人。',

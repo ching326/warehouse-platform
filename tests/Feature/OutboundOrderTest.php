@@ -624,6 +624,34 @@ class OutboundOrderTest extends TestCase
             ->assertDontSee('OB-SHOP-B-FILTER');
     }
 
+    public function test_outbound_index_reason_filter_scopes_orders(): void
+    {
+        [$tenant, $warehouse] = $this->skuWithStock(10);
+
+        OutboundOrder::factory()
+            ->for($tenant)
+            ->for($warehouse)
+            ->create([
+                'reason' => OutboundOrder::REASON_REPLACEMENT,
+                'ref' => 'OB-REASON-REPLACEMENT',
+            ]);
+
+        OutboundOrder::factory()
+            ->for($tenant)
+            ->for($warehouse)
+            ->create([
+                'reason' => OutboundOrder::REASON_SAMPLE,
+                'ref' => 'OB-REASON-SAMPLE',
+            ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderIndex::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('reasonFilter', OutboundOrder::REASON_REPLACEMENT)
+            ->assertSee('OB-REASON-REPLACEMENT')
+            ->assertDontSee('OB-REASON-SAMPLE');
+    }
+
     public function test_outbound_routes_render(): void
     {
         [$tenant, $warehouse, $sku] = $this->skuWithStock(10);

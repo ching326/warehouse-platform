@@ -28,6 +28,9 @@ class OutboundOrderIndex extends Component
     #[Url(as: 'status', except: '')]
     public string $statusFilter = '';
 
+    #[Url(as: 'reason', except: '')]
+    public string $reasonFilter = '';
+
     private bool $visibleTenantIdsResolved = false;
 
     private array $visibleTenantIdsCache = [];
@@ -49,6 +52,11 @@ class OutboundOrderIndex extends Component
     }
 
     public function updatedStatusFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedReasonFilter(): void
     {
         $this->resetPage();
     }
@@ -86,6 +94,7 @@ class OutboundOrderIndex extends Component
                 });
             })
             ->when($this->warehouseId !== '', fn ($query) => $query->where('warehouse_id', (int) $this->warehouseId))
+            ->when($this->reasonFilter !== '', fn ($query) => $query->where('reason', $this->reasonFilter))
             ->when($this->statusFilter !== '', fn ($query) => $query->where('status', $this->statusFilter))
             ->with([
                 'tenant:id,code,name',
@@ -110,6 +119,17 @@ class OutboundOrderIndex extends Component
                 OutboundOrder::STATUS_PENDING => __('outbound.status_pending'),
                 OutboundOrder::STATUS_SHIPPED => __('outbound.status_shipped'),
                 OutboundOrder::STATUS_CANCELLED => __('outbound.status_cancelled'),
+            ],
+            'reasons' => [
+                OutboundOrder::REASON_CUSTOMER_ORDER => __('outbound.reason_customer_order'),
+                OutboundOrder::REASON_RE_SHIP => __('outbound.reason_re_ship'),
+                OutboundOrder::REASON_REPLACEMENT => __('outbound.reason_replacement'),
+                OutboundOrder::REASON_GIFT => __('outbound.reason_gift'),
+                OutboundOrder::REASON_FBA => __('outbound.reason_fba'),
+                OutboundOrder::REASON_RETURN_TO_TENANT => __('outbound.reason_return_to_tenant'),
+                OutboundOrder::REASON_B2B => __('outbound.reason_b2b'),
+                OutboundOrder::REASON_SAMPLE => __('outbound.reason_sample'),
+                OutboundOrder::REASON_OTHER => __('outbound.reason_other'),
             ],
         ])->layout('inventory', [
             'title' => __('outbound.page_title'),

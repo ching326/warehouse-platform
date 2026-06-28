@@ -93,19 +93,40 @@
                 @class(['filter-menu', 'is-active' => count((array) $statusesFilter) > 0])
                 x-bind:class="{ 'is-active': $wire.statusesFilter.length > 0 }"
                 wire:ignore.self
-                x-bind:open="openFilter === 'status'"
-                x-on:click.outside="if (openFilter === 'status') openFilter = null"
+                x-bind:open="openFilter === 'ship-status'"
+                x-on:click.outside="if (openFilter === 'ship-status') openFilter = null"
             >
                 <summary
                     class="filter-button"
-                    x-on:click.prevent="openFilter = openFilter === 'status' ? null : 'status'"
-                    x-bind:aria-expanded="openFilter === 'status'"
+                    x-on:click.prevent="openFilter = openFilter === 'ship-status' ? null : 'ship-status'"
+                    x-bind:aria-expanded="openFilter === 'ship-status'"
                 >
-                    <span>{{ __('fulfillment.col_status') }}</span>
+                    <span>{{ __('fulfillment.filter_ship_status') }}</span>
                 </summary>
                 <div class="filter-panel compact">
                     @foreach ($statuses as $status => $label)
                         <label><input type="checkbox" wire:model.live="statusesFilter" value="{{ $status }}"> {{ $label }}</label>
+                    @endforeach
+                </div>
+            </details>
+
+            <details
+                @class(['filter-menu', 'is-active' => count((array) $orderStatusesFilter) > 0])
+                x-bind:class="{ 'is-active': $wire.orderStatusesFilter.length > 0 }"
+                wire:ignore.self
+                x-bind:open="openFilter === 'order-status'"
+                x-on:click.outside="if (openFilter === 'order-status') openFilter = null"
+            >
+                <summary
+                    class="filter-button"
+                    x-on:click.prevent="openFilter = openFilter === 'order-status' ? null : 'order-status'"
+                    x-bind:aria-expanded="openFilter === 'order-status'"
+                >
+                    <span>{{ __('fulfillment.filter_order_status') }}</span>
+                </summary>
+                <div class="filter-panel compact">
+                    @foreach ($orderStatuses as $status => $label)
+                        <label><input type="checkbox" wire:model.live="orderStatusesFilter" value="{{ $status }}"> {{ $label }}</label>
                     @endforeach
                 </div>
             </details>
@@ -394,7 +415,6 @@
                 <flux:table.column>{{ __('fulfillment.col_note') }}</flux:table.column>
                 <flux:table.column>{{ __('fulfillment.col_added') }}</flux:table.column>
                 <flux:table.column>{{ __('fulfillment.col_status') }}</flux:table.column>
-                <flux:table.column>{{ __('fulfillment.col_actions') }}</flux:table.column>
             </flux:table.columns>
 
             <flux:table.rows>
@@ -412,6 +432,11 @@
                             ->unique()
                             ->values();
                         $itemQty = $salesOrders->sum(fn ($so) => (int) $so->lines->sum('quantity'));
+                        $orderStatusValues = $salesOrders
+                            ->pluck('order_status')
+                            ->filter()
+                            ->unique()
+                            ->values();
                         $arranged = $order->created_at;
                         $printed = $order->courier_csv_exported_at;
                     @endphp
@@ -428,14 +453,64 @@
                         </flux:table.cell>
 
                         <flux:table.cell class="so-order-cell">
-                            <flux:link href="{{ route('outbound.show', $order) }}" wire:navigate>
-                                <strong>{{ $reference }}</strong>
-                            </flux:link>
+                            <div
+                                class="fg-reference-line"
+                                x-data="{
+                                    copied: false,
+                                    async copy(value) {
+                                        if (! value) {
+                                            return;
+                                        }
+
+                                        try {
+                                            await navigator.clipboard.writeText(value);
+                                        } catch (error) {
+                                            const input = document.createElement('textarea');
+                                            input.value = value;
+                                            input.setAttribute('readonly', 'readonly');
+                                            input.style.position = 'fixed';
+                                            input.style.opacity = '0';
+                                            document.body.appendChild(input);
+                                            input.select();
+                                            document.execCommand('copy');
+                                            document.body.removeChild(input);
+                                        }
+
+                                        this.copied = true;
+                                        window.setTimeout(() => { this.copied = false; }, 1200);
+                                    },
+                                }"
+                            >
+                                <flux:link href="{{ route('outbound.show', $order) }}" wire:navigate>
+                                    <strong>{{ $reference }}</strong>
+                                </flux:link>
+                                @if ($reference)
+                                    <button
+                                        type="button"
+                                        class="fg-reference-copy"
+                                        data-copy-icon="square-2-stack"
+                                        x-bind:class="{ 'is-copied': copied }"
+                                        x-on:click.stop.prevent="copy(@js($reference))"
+                                        x-bind:title="copied ? @js(__('fulfillment.reference_copied')) : @js(__('fulfillment.copy_reference_no'))"
+                                        aria-label="{{ __('fulfillment.copy_reference_no') }} {{ $reference }}"
+                                    >
+                                        <flux:icon.square-2-stack x-show="! copied" />
+                                        <flux:icon.check x-cloak x-show="copied" />
+                                    </button>
+                                @endif
+                            </div>
                             @forelse ($orderIds as $orderId)
                                 <span class="subtle">{{ $orderId }}</span>
                             @empty
                                 <span class="subtle">-</span>
                             @endforelse
+                            @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE)
+                                <div class="fg-row-action">
+                                    <flux:button href="{{ route('outbound.pack', $order) }}" size="sm" variant="primary" class="fg-scan-pack-button" wire:navigate>
+                                        {{ __('fulfillment_pack.page_title') }}
+                                    </flux:button>
+                                </div>
+                            @endif
                         </flux:table.cell>
 
                         <flux:table.cell>
@@ -536,37 +611,44 @@
                         </flux:table.cell>
 
                         <flux:table.cell class="fg-added-cell">
-                            @php($dateFormat = $detailed ? 'Y-m-d H:i' : 'm-d H:i')
-                            <div>{{ $this->formatWarehouseTime($order, $arranged, $dateFormat) }}</div>
+                            <div>{{ $this->formatWarehouseTime($order, $arranged, 'Y-m-d') }}</div>
                             <div class="fg-subtle">
-                                {{ $printed ? __('fulfillment.printed_at', ['time' => $this->formatWarehouseTime($order, $printed, $dateFormat)]) : __('fulfillment.not_printed') }}
+                                @if ($printed)
+                                    <span class="fg-printed-stack">
+                                        <span>{{ __('fulfillment.other_printed') }}</span>
+                                        <span>{{ $this->formatWarehouseTime($order, $printed, 'Y-m-d H:i') }}</span>
+                                    </span>
+                                @else
+                                    {{ __('fulfillment.not_printed') }}
+                                @endif
                             </div>
                         </flux:table.cell>
 
                         <flux:table.cell>
-                            <flux:badge color="{{ $this->statusColor($order->status) }}">
-                                {{ $this->statusLabel($order->status) }}
-                            </flux:badge>
-                            @if ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
-                                <flux:badge color="amber">
-                                    {{ $this->holdStatusLabel($order->hold_status) }}
+                            <div class="fg-status-stack">
+                                <flux:badge color="{{ $this->statusColor($order->status) }}">
+                                    {{ $this->statusLabel($order->status) }}
                                 </flux:badge>
-                            @endif
+                                <div class="fg-order-status-stack">
+                                    @forelse ($orderStatusValues as $orderStatus)
+                                        <flux:badge color="{{ $this->orderStatusColor($orderStatus) }}">
+                                            {{ $this->orderStatusLabel($orderStatus) }}
+                                        </flux:badge>
+                                    @empty
+                                        @if ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
+                                            <flux:badge color="red">
+                                                {{ $this->holdStatusLabel($order->hold_status) }}
+                                            </flux:badge>
+                                        @endif
+                                    @endforelse
+                                </div>
+                            </div>
                         </flux:table.cell>
 
-                        <flux:table.cell>
-                            @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE)
-                                <div class="fg-row-action">
-                                    <flux:button href="{{ route('outbound.pack', $order) }}" size="sm" variant="primary" class="fg-scan-pack-button" wire:navigate>
-                                        {{ __('fulfillment_pack.page_title') }}
-                                    </flux:button>
-                                </div>
-                            @endif
-                        </flux:table.cell>
                     </flux:table.row>
                 @empty
                     <flux:table.row>
-                        <flux:table.cell colspan="11">
+                        <flux:table.cell colspan="10">
                             <div class="empty-state">{{ __('fulfillment.empty_state') }}</div>
                         </flux:table.cell>
                     </flux:table.row>
@@ -712,6 +794,42 @@
             border-color: var(--accent);
         }
 
+        .fg-reference-line {
+            align-items: center;
+            display: flex;
+            gap: 6px;
+            max-width: 100%;
+            min-width: 0;
+        }
+
+        .fg-reference-line a {
+            min-width: 0;
+        }
+
+        .fg-reference-copy {
+            align-items: center;
+            background: transparent;
+            border: 0;
+            color: var(--muted);
+            cursor: pointer;
+            display: inline-flex;
+            flex: 0 0 auto;
+            height: 22px;
+            justify-content: center;
+            padding: 0;
+            width: 22px;
+        }
+
+        .fg-reference-copy:hover,
+        .fg-reference-copy.is-copied {
+            color: var(--accent);
+        }
+
+        .fg-reference-copy svg {
+            height: 15px;
+            width: 15px;
+        }
+
         .fg-col-select {
             width: 34px;
         }
@@ -732,6 +850,19 @@
         .fg-added-cell {
             font-size: 13px;
             line-height: 1.25;
+        }
+
+        .fg-printed-stack {
+            display: grid;
+            gap: 2px;
+        }
+
+        .fg-status-stack,
+        .fg-order-status-stack {
+            align-items: flex-start;
+            display: grid;
+            gap: 4px;
+            justify-items: start;
         }
 
         .tracking-import-backdrop {

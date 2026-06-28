@@ -8,12 +8,20 @@
         </div>
 
         <div class="pick-filter-grid">
-            <flux:select wire:model.live="warehouseId" :label="__('fulfillment_pick.field_warehouse')">
-                <flux:select.option value="">{{ __('fulfillment_pick.select_warehouse') }}</flux:select.option>
-                @foreach ($warehouses as $warehouse)
-                    <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} - {{ $warehouse->name }}</flux:select.option>
-                @endforeach
-            </flux:select>
+            <div class="pick-warehouse-filter">
+                <flux:select wire:model.live="warehouseId" :label="__('fulfillment_pick.field_warehouse')">
+                    <flux:select.option value="">{{ __('fulfillment_pick.select_warehouse') }}</flux:select.option>
+                    @foreach ($warehouses as $warehouse)
+                        <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} - {{ $warehouse->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+                @if ($warehouseId !== '')
+                    <label class="default-view-toggle">
+                        <input type="checkbox" wire:model.live="currentWarehouseIsDefault">
+                        <span>{{ __('fulfillment_pick.default_warehouse_checkbox') }}</span>
+                    </label>
+                @endif
+            </div>
             <flux:select wire:model.live="shippingMethodId" :label="__('fulfillment_pick.field_shipping_method')">
                 <flux:select.option value="">{{ __('fulfillment_pick.all_shipping_methods') }}</flux:select.option>
                 @foreach ($shippingMethods as $method)
@@ -199,6 +207,12 @@
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 12px;
+        }
+
+        .pick-warehouse-filter {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
 
         .print-heading {

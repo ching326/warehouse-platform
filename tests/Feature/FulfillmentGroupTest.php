@@ -593,7 +593,8 @@ class FulfillmentGroupTest extends TestCase
             ->test(FulfillmentIndex::class)
             ->set('othersFilter', [SalesOrderFilters::OTHER_PRINTED])
             ->assertSee($printedGroup->ref)
-            ->assertSee(__('fulfillment.printed_at', ['time' => '06-18 19:00']))
+            ->assertSee(__('fulfillment.other_printed'))
+            ->assertSee('2026-06-18 19:00')
             ->assertDontSee($notPrintedGroup->ref);
 
         Livewire::actingAs($this->internalUser())
@@ -645,8 +646,9 @@ class FulfillmentGroupTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentIndex::class)
             ->set('search', $group->ref)
-            ->assertSee('06-17 18:30')
-            ->assertSee(__('fulfillment.printed_at', ['time' => '06-17 19:15']));
+            ->assertSee('2026-06-17')
+            ->assertSee(__('fulfillment.other_printed'))
+            ->assertSee('2026-06-17 19:15');
     }
 
     public function test_fulfillment_index_filters_by_added_date_range(): void
@@ -737,12 +739,14 @@ class FulfillmentGroupTest extends TestCase
             ->set('tenantIds', [(string) $tenant->id])
             ->set('warehouseId', (string) $warehouse->id)
             ->set('statusesFilter', ['reserved'])
+            ->set('orderStatusesFilter', [SalesOrder::ORDER_STATUS_PENDING])
             ->set('shippingMethodsFilter', [(string) $yamato->id])
             ->set('othersFilter', [SalesOrderFilters::OTHER_MULTI_ITEM])
             ->set('search', 'SO-FG-CHIPS')
             ->assertSee(__('fulfillment.field_tenant').': '.$tenant->code.' - '.$tenant->name)
             ->assertSee(__('fulfillment.field_warehouse').': '.$warehouse->code.' - '.$warehouse->name)
-            ->assertSee(__('fulfillment.col_status').': '.__('fulfillment.status_reserved'))
+            ->assertSee(__('fulfillment.filter_ship_status').': '.__('fulfillment.status_reserved'))
+            ->assertSee(__('fulfillment.filter_order_status').': '.__('sales_orders.order_pending'))
             ->assertSee(__('fulfillment.filter_shipping').': '.$yamato->name)
             ->assertSee(__('fulfillment.filter_others').': '.__('fulfillment.other_multi_item'))
             ->assertSee(__('common.search').': SO-FG-CHIPS');
@@ -752,12 +756,34 @@ class FulfillmentGroupTest extends TestCase
             ->assertSet('othersFilter', [])
             ->call('removeFilterChip', 'status', 'reserved')
             ->assertSet('statusesFilter', [])
+            ->call('removeFilterChip', 'order-status', SalesOrder::ORDER_STATUS_PENDING)
+            ->assertSet('orderStatusesFilter', [])
             ->call('removeFilterChip', 'warehouse')
             ->assertSet('warehouseId', '')
             ->call('clearAllFilters')
             ->assertSet('tenantIds', [])
             ->assertSet('shippingMethodsFilter', [])
             ->assertSet('search', '');
+    }
+
+    public function test_fulfillment_index_filters_by_member_order_status(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $pendingOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-PENDING-STATUS');
+        $onHoldOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-HOLD-STATUS', '2 Hold Status Street');
+
+        $this->createGroup($tenant, $warehouse, $pendingOrder->ship_together_key, [$pendingOrder]);
+        $pendingGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+        $this->createGroup($tenant, $warehouse, $onHoldOrder->ship_together_key, [$onHoldOrder]);
+        $onHoldGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+        $onHoldOrder->update(['order_status' => SalesOrder::ORDER_STATUS_ON_HOLD]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('orderStatusesFilter', [SalesOrder::ORDER_STATUS_ON_HOLD])
+            ->assertSee($onHoldGroup->ref)
+            ->assertSee(__('sales_orders.order_on_hold'))
+            ->assertDontSee($pendingGroup->ref);
     }
 
     public function test_detailed_toggle_shows_sku_lines_and_full_address(): void
@@ -1533,6 +1559,25 @@ class FulfillmentGroupTest extends TestCase
             ->get(route('outbound.show', $shipped))
             ->assertOk()
             ->assertDontSee(route('outbound.pack', $shipped));
+    }
+
+    public function test_fulfillment_index_reference_has_copy_button_and_no_actions_column(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-COPY');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $outbound = OutboundOrder::firstOrFail();
+
+        $html = Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->html();
+
+        $this->assertStringContainsString('fg-reference-copy', $html);
+        $this->assertStringContainsString('data-copy-icon="square-2-stack"', $html);
+        $this->assertStringContainsString(__('fulfillment.copy_reference_no').' '.$outbound->ref, $html);
+        $this->assertStringContainsString("copy('{$outbound->ref}')", $html);
+        $this->assertStringContainsString(route('outbound.pack', $outbound), $html);
+        $this->assertStringNotContainsString('<div class="flex in-[.group\\/center-align]:justify-center in-[.group\\/end-align]:justify-end">'.__('fulfillment.col_actions').'</div>', $html);
     }
 
     public function test_tenant_user_without_active_tenant_cannot_access_pages(): void
