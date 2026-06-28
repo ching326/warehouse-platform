@@ -10,8 +10,8 @@ use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\Warehouse;
 use App\Services\Courier\CourierExportService;
-use App\Services\Fulfillment\OutboundConsolidationService;
 use App\Services\Outbound\ShipOutboundOrderService;
+use App\Services\SalesOrders\SkuDefaultShippingMethodResolver;
 use App\Support\CourierCarrier;
 use App\Support\SalesOrderFilters;
 use App\Support\TrackingNumber;
@@ -329,30 +329,42 @@ class FulfillmentIndex extends Component
         $orders = $this->scopedOrderQuery()
             ->whereIn('id', $selectedIds)
             ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
-            ->with('salesOrders:id,shipping_method_id')
+            ->with('lines:id,outbound_order_id,parent_line_id,sku_id')
             ->get();
 
         $updated = 0;
         $skipped = count($selectedIds) - $orders->count();
-        $consolidation = app(OutboundConsolidationService::class);
+        $missingSkuIds = [];
+        $resolver = app(SkuDefaultShippingMethodResolver::class);
 
         foreach ($orders as $order) {
-            $methodId = $consolidation->resolveGroupShippingMethodId($order->salesOrders);
+            $skuIds = $order->lines
+                ->where('parent_line_id', null)
+                ->pluck('sku_id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
 
-            if ($methodId === null) {
+            $resolved = $resolver->resolve((int) $order->tenant_id, $skuIds);
+
+            if ($resolved['status'] !== 'winner') {
+                $missingSkuIds = array_merge($missingSkuIds, $skuIds);
                 $skipped++;
 
                 continue;
             }
 
-            $order->update(['shipping_method_id' => $methodId]);
+            $order->update(['shipping_method_id' => $resolved['shipping_method_id']]);
             $updated++;
         }
 
         $this->selectedIds = [];
 
         if ($updated === 0) {
-            session()->flash('error', __('fulfillment.remap_shipping_none'));
+            session()->flash('error', __('fulfillment.remap_shipping_none', [
+                'skus' => $this->shippingRemapSkuList($missingSkuIds),
+            ]));
 
             return;
         }
@@ -842,6 +854,19 @@ class FulfillmentIndex extends Component
         $this->pendingExportWarning = null;
 
         session()->forget('warning');
+    }
+
+    private function shippingRemapSkuList(array $skuIds): string
+    {
+        $skus = Sku::query()
+            ->whereIn('id', array_values(array_unique(array_map('intval', $skuIds))))
+            ->orderBy('sku')
+            ->pluck('sku')
+            ->filter()
+            ->values()
+            ->all();
+
+        return implode("\n", $skus ?: ['-']);
     }
 
     private function normalizedSelectedIds(): array

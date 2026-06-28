@@ -690,9 +690,9 @@ class OutboundOrderTest extends TestCase
 
     public function test_build_ref_uses_tenant_code_date_and_sequence(): void
     {
-        $ref = OutboundOrder::buildRef(29, 'CN001XIA', CarbonImmutable::create(2026, 6, 28, 0, 0, 0, 'Asia/Tokyo'));
+        $ref = OutboundOrder::buildRef(28, 'CN001XIA', CarbonImmutable::create(2026, 6, 28, 0, 0, 0, 'Asia/Tokyo'));
 
-        $this->assertSame('CN001-260628029', $ref);
+        $this->assertSame('OB-CN001-260628-0028', $ref);
     }
 
     public function test_manual_outbound_without_ref_gets_generated_ob_reference(): void
@@ -703,7 +703,7 @@ class OutboundOrderTest extends TestCase
 
         $order = OutboundOrder::firstOrFail();
         $tenantCode = substr(preg_replace('/[^A-Z0-9]+/', '', strtoupper($tenant->code)) ?: 'TENANT', 0, 5);
-        $this->assertMatchesRegularExpression('/^'.preg_quote($tenantCode, '/').'-\d{9,}$/', $order->ref);
+        $this->assertMatchesRegularExpression('/^OB-'.preg_quote($tenantCode, '/').'-\d{6}-\d{4,}$/', $order->ref);
     }
 
     public function test_ship_stores_total_weight_in_grams_from_kg_input(): void

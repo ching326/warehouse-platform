@@ -47,7 +47,7 @@ class SagawaCsvBuilder
             $row[5] = $address['address2'];
             $row[6] = $address['address3'];
             $row[7] = $order->recipient_name;
-            $row[9] = mb_substr((string) $order->platform_order_id, -15);
+            $row[9] = $this->compactOutboundReference((string) $order->platform_order_id);
             $row[14] = config('courier.sender.phone');
             $row[17] = config('courier.sender.phone');
             $row[18] = config('courier.sender.postal_code');
@@ -65,5 +65,16 @@ class SagawaCsvBuilder
         }
 
         return $this->encodeRows($rows);
+    }
+
+    private function compactOutboundReference(string $reference): string
+    {
+        $reference = trim($reference);
+
+        if (preg_match('/^OB-([A-Z0-9]+)-(\d{6})-(\d+)$/i', $reference, $matches)) {
+            return substr(strtoupper($matches[1]), 0, 5).$matches[2].$matches[3];
+        }
+
+        return mb_substr($reference, -15);
     }
 }

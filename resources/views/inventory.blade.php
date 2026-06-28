@@ -696,36 +696,6 @@
                 white-space: pre-line;
             }
 
-            .export-confirm-toast {
-                width: min(520px, 100%);
-                margin-bottom: 14px;
-                border: 1px solid color-mix(in oklab, var(--warning), transparent 65%);
-                border-radius: 10px;
-                background: #fff;
-                box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
-                padding: 14px 16px;
-            }
-
-            .export-confirm-toast-warning {
-                border-left: 4px solid var(--warning);
-            }
-
-            .export-confirm-toast-message {
-                color: var(--warning);
-                font-size: 13px;
-                font-weight: 700;
-                line-height: 1.55;
-                white-space: pre-line;
-                overflow-wrap: anywhere;
-            }
-
-            .export-confirm-toast-actions {
-                display: flex;
-                justify-content: space-between;
-                gap: 12px;
-                margin-top: 12px;
-            }
-
             .latest-movement-row {
                 display: inline-flex;
                 align-items: baseline;
@@ -1134,6 +1104,18 @@
 
             .app-toast-warning .app-toast-title {
                 color: var(--warning);
+            }
+
+            .app-toast-confirm {
+                z-index: 110;
+                width: min(420px, calc(100vw - 48px));
+            }
+
+            .app-toast-actions {
+                display: flex;
+                justify-content: space-between;
+                gap: 12px;
+                margin-top: 10px;
             }
 
             .sku-toolbar {
@@ -3272,7 +3254,7 @@
 
             .sales-order-table th:nth-child(2),
             .sales-order-table td:nth-child(2) {
-                width: 19%;
+                width: 18%;
                 min-width: 0;
             }
 
@@ -3296,7 +3278,7 @@
 
             .sales-order-table th:nth-child(6),
             .sales-order-table td:nth-child(6) {
-                width: 11%;
+                width: 12%;
                 min-width: 0;
             }
 

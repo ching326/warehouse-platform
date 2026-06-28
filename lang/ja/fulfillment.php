@@ -101,7 +101,7 @@ return [
     'btn_remap_shipping' => '配送再適用',
     'batch_mark_shipped_result' => ':updated 件のグループを出荷済みにしました。:skipped 件スキップ。',
     'remap_shipping_result' => ':updated 件のグループに配送方法を再適用しました。:skipped 件スキップ。',
-    'remap_shipping_none' => '選択したグループに再適用できる注文の配送方法がありません。',
+    'remap_shipping_none' => "配送方法を再適用できません。\n\n先に以下のSKUにデフォルト配送方法を設定してください:\n:skus",
     'courier_export_no_selection' => '配送業者 CSV を出力する前に出荷オーダーを 1 件以上選択してください。',
     'courier_export_confirm_btn' => '再出力',
     'courier_export_reexport_warning' => '以下の出荷オーダーは既に出力済みです。再出力しますか?',

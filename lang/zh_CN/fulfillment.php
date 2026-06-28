@@ -101,7 +101,7 @@ return [
     'btn_remap_shipping' => '重新套用配送',
     'batch_mark_shipped_result' => '已将 :updated 个分组标记为已出货。跳过 :skipped 个。',
     'remap_shipping_result' => '已重新套用 :updated 个分组的配送方式。跳过 :skipped 个。',
-    'remap_shipping_none' => '所选分组没有可重新套用的订单配送方式。',
+    'remap_shipping_none' => "无法重新套用配送方式。\n\n请先为以下 SKU 设置默认配送方式:\n:skus",
     'courier_export_no_selection' => '导出配送商 CSV 前,请至少选择一笔出货订单。',
     'courier_export_confirm_btn' => '再次导出',
     'courier_export_reexport_warning' => '以下出货订单已导出过。要再次导出吗?',

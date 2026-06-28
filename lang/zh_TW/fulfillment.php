@@ -101,7 +101,7 @@ return [
     'btn_remap_shipping' => '重新套用配送',
     'batch_mark_shipped_result' => '已將 :updated 個群組標記為已出貨。略過 :skipped 個。',
     'remap_shipping_result' => '已重新套用 :updated 個群組的配送方式。略過 :skipped 個。',
-    'remap_shipping_none' => '所選群組沒有可重新套用的訂單配送方式。',
+    'remap_shipping_none' => "無法重新套用配送方式。\n\n請先為以下 SKU 設定預設配送方式:\n:skus",
     'courier_export_no_selection' => '匯出配送業者 CSV 前,請至少選擇一筆出貨訂單。',
     'courier_export_confirm_btn' => '再次匯出',
     'courier_export_reexport_warning' => '以下出貨訂單已匯出過。要再次匯出嗎?',

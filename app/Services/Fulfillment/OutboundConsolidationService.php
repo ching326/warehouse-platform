@@ -570,7 +570,7 @@ class OutboundConsolidationService
         }
     }
 
-    public function resolveGroupShippingMethodId(Collection $orders): ?int
+    private function resolveGroupShippingMethodId(Collection $orders): ?int
     {
         $methodIds = $orders->pluck('shipping_method_id');
 

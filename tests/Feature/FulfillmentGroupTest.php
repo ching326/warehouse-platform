@@ -149,7 +149,7 @@ class FulfillmentGroupTest extends TestCase
 
         $this->assertCount(2, $references->unique());
         $tenantCode = substr(preg_replace('/[^A-Z0-9]+/', '', strtoupper($tenant->code)) ?: 'TENANT', 0, 5);
-        $this->assertMatchesRegularExpression('/^'.preg_quote($tenantCode, '/').'-\d{9,}$/', $references->first());
+        $this->assertMatchesRegularExpression('/^OB-'.preg_quote($tenantCode, '/').'-\d{6}-\d{4,}$/', $references->first());
     }
 
     public function test_create_group_snapshots_recipient_from_sales_order(): void
@@ -255,12 +255,14 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame($yamato->id, $outbound->refresh()->shipping_method_id);
     }
 
-    public function test_fulfillment_index_remaps_shipping_from_member_orders(): void
+    public function test_fulfillment_index_remaps_shipping_from_group_skus(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
         $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+        $otherMethod = ShippingMethod::where('code', 'sagawa_thb')->firstOrFail();
+        $sku->update(['default_shipping_method_id' => $method->id]);
         $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-REMAP');
-        $order->update(['shipping_method_id' => $method->id]);
+        $order->update(['shipping_method_id' => $otherMethod->id]);
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
         $outbound->update(['shipping_method_id' => null]);
@@ -273,6 +275,25 @@ class FulfillmentGroupTest extends TestCase
             ->assertSee(__('fulfillment.remap_shipping_result', ['updated' => 1, 'skipped' => 0]));
 
         $this->assertSame($method->id, $outbound->refresh()->shipping_method_id);
+    }
+
+    public function test_fulfillment_index_remap_shipping_lists_skus_without_default_method(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $sku->update(['default_shipping_method_id' => null]);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-REMAP-MISSING');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $outbound = OutboundOrder::firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('selectedIds', [(string) $outbound->id])
+            ->call('remapShipping')
+            ->assertSee('Cannot remap shipping.')
+            ->assertSee('Set default shipping method for these SKUs first:')
+            ->assertSee($sku->sku);
+
+        $this->assertNull($outbound->refresh()->shipping_method_id);
     }
 
     public function test_create_group_rejects_empty_order_selection(): void
@@ -922,6 +943,7 @@ class FulfillmentGroupTest extends TestCase
             'shipping_method_id' => $method->id,
             'ref' => OutboundOrder::buildRef(29, 'CN001XIA', Carbon::parse('2026-06-28', 'Asia/Tokyo')),
         ]);
+        $this->assertSame('OB-CN001-260628-0029', $outbound->refresh()->ref);
 
         $batch = app(CourierExportService::class)->exportOrders(
             outboundOrderIds: [$outbound->id],
@@ -933,7 +955,7 @@ class FulfillmentGroupTest extends TestCase
         $lines = preg_split('/\r\n/', trim(mb_convert_encoding(Storage::disk($batch->disk)->get($batch->path), 'UTF-8', 'SJIS-win')));
         $dataRow = str_getcsv($lines[1] ?? '');
 
-        $this->assertSame('CN001-260628029', $dataRow[9]);
+        $this->assertSame('CN0012606280029', $dataRow[9]);
     }
 
     public function test_fulfillment_courier_export_blocks_wrong_carrier_group(): void

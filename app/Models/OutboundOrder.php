@@ -23,7 +23,7 @@ class OutboundOrder extends Model
         $tenantCode = $tenantCode !== '' ? $tenantCode : 'TENANT';
         $tenantCode = substr($tenantCode, 0, 5);
 
-        return $tenantCode.'-'.$date->format('ymd').str_pad((string) $id, 3, '0', STR_PAD_LEFT);
+        return 'OB-'.$tenantCode.'-'.$date->format('ymd').'-'.str_pad((string) $id, 4, '0', STR_PAD_LEFT);
     }
 
     public const STATUS_PENDING = 'pending';
