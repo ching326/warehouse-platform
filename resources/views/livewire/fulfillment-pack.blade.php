@@ -17,26 +17,17 @@
                 <span>{{ $order->tenant->code }} / {{ $order->recipient_name ?: '-' }}</span>
             </div>
             <div class="active-filter-row">
-                <flux:badge color="{{ $order->status === \App\Models\OutboundOrder::STATUS_SHIPPED ? 'green' : ($order->status === \App\Models\OutboundOrder::STATUS_CANCELLED ? 'red' : 'blue') }}">
+                <flux:badge color="{{ \App\Models\OutboundOrder::statusColorFor($order->status) }}">
                     {{ __('fulfillment.status_'.$statusKey) }}
                 </flux:badge>
                 @if ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
                     <flux:badge color="amber">{{ __('outbound.on_hold') }}</flux:badge>
                 @endif
-                @if ($order->status === \App\Models\OutboundOrder::STATUS_RESERVED && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE)
-                    <flux:button type="button" variant="primary" wire:click="holdOutbound">
-                        {{ __('outbound.hold') }}
-                    </flux:button>
-                @elseif ($order->status === \App\Models\OutboundOrder::STATUS_RESERVED && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
-                    <flux:button type="button" variant="primary" wire:click="releaseHold">
-                        {{ __('outbound.release_hold') }}
-                    </flux:button>
-                @endif
-                <flux:button href="{{ route('fulfillment.pack-scans.index', ['outbound_order_id' => $order->id]) }}" variant="primary" wire:navigate>
+                <flux:button href="{{ route('fulfillment.pack-scans.index', ['outbound_order_id' => $order->id]) }}" variant="outline" wire:navigate>
                     {{ __('fulfillment_pack.scan_history_title') }}
                 </flux:button>
                 <flux:button href="{{ route('outbound.show', $order) }}" variant="outline" wire:navigate>
-                    {{ __('fulfillment.btn_back') }}
+                    {{ __('outbound.btn_back_to_detail') }}
                 </flux:button>
             </div>
         </div>
@@ -48,6 +39,53 @@
             <div><span class="subtle">{{ __('fulfillment.col_shipping') }}</span><strong>{{ $order->shippingMethod?->name ?: '-' }}</strong></div>
             <div><span class="subtle">{{ __('fulfillment.col_orders') }}</span><strong>{{ number_format($order->salesOrders->count()) }}</strong></div>
             <div><span class="subtle">{{ __('fulfillment_pack.overall_progress') }}</span><strong>{{ number_format($progress['qty_scanned']) }} / {{ number_format($progress['qty_required']) }} {{ __('fulfillment_pack.scanned_short') }}</strong></div>
+        </div>
+    </section>
+
+    <section class="table-shell flux-panel form-panel">
+        <div class="form-panel-header">
+            <div>
+                <strong>{{ __('outbound.section_actions') }}</strong>
+                <span @class([
+                    'pack-action-hint',
+                    'is-ready' => $allComplete && ! $pendingQuantityScan && ! $readOnly,
+                    'is-blocked' => (! $allComplete || $pendingQuantityScan || $readOnly),
+                ])>
+                    @if ($pendingQuantityScan)
+                        {{ __('fulfillment_pack.confirm_quantity_before_shipping') }}
+                    @elseif ($allComplete && ! $readOnly)
+                        {{ __('fulfillment_pack.ready_to_mark_shipped') }}
+                    @else
+                        {{ __('fulfillment_pack.scan_all_before_marking_shipped') }}
+                    @endif
+                </span>
+            </div>
+        </div>
+
+        <div class="form-actions pack-actions">
+            @if ($order->hold_status !== \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
+                <flux:button class="action-button-md" type="button" size="sm" variant="primary" wire:click="markShipped" :disabled="! $allComplete || $readOnly || (bool) $pendingQuantityScan">
+                    {{ __('fulfillment_pack.mark_shipped') }}
+                </flux:button>
+            @endif
+
+            <div class="pack-actions-right">
+                @if ($order->hold_status !== \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
+                    <flux:button class="action-button-md" href="{{ route('outbound.ship', $order) }}" size="sm" variant="primary" wire:navigate>
+                        {{ __('outbound.btn_ship') }}
+                    </flux:button>
+                @endif
+
+            @if ($order->status === \App\Models\OutboundOrder::STATUS_RESERVED && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE)
+                <flux:button class="action-button-md" type="button" size="sm" variant="primary" wire:click="holdOutbound">
+                    {{ __('outbound.hold') }}
+                </flux:button>
+            @elseif ($order->status === \App\Models\OutboundOrder::STATUS_RESERVED && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
+                <flux:button class="action-button-md" type="button" size="sm" variant="primary" wire:click="releaseHold">
+                    {{ __('outbound.release_hold') }}
+                </flux:button>
+            @endif
+            </div>
         </div>
     </section>
 
@@ -133,19 +171,22 @@
             </div>
         @endif
 
-        <div class="pack-feedback {{ $feedbackMessage ? $feedbackType : 'idle' }}">
-            @if ($feedbackMessage)
+        @if ($feedbackMessage || $readOnly)
+            <div @class([
+                'pack-feedback',
+                $feedbackMessage ? $feedbackType : 'idle',
+            ])>
+                @if ($feedbackMessage)
                 {{ $feedbackMessage }}
-            @elseif ($readOnly && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
-                {{ __('outbound.cannot_pack_on_hold') }}
-            @elseif ($readOnly && $order->status === \App\Models\OutboundOrder::STATUS_SHIPPED)
-                {{ __('fulfillment_pack.already_shipped') }}
-            @elseif ($readOnly)
-                {{ __('fulfillment_pack.cancelled_group') }}
-            @else
-                &nbsp;
-            @endif
-        </div>
+                @elseif ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
+                    {{ __('outbound.cannot_pack_on_hold') }}
+                @elseif ($order->status === \App\Models\OutboundOrder::STATUS_SHIPPED)
+                    {{ __('fulfillment_pack.already_shipped') }}
+                @else
+                    {{ __('fulfillment_pack.cancelled_group') }}
+                @endif
+            </div>
+        @endif
     </section>
 
     <section class="table-shell flux-panel form-panel">
@@ -207,19 +248,6 @@
             </flux:table.rows>
         </flux:table>
     </section>
-
-    <div class="form-actions pack-actions">
-        @if ($pendingQuantityScan)
-            <div class="pack-waiting">{{ __('fulfillment_pack.confirm_quantity_before_shipping') }}</div>
-        @elseif ($allComplete)
-            <div class="pack-ready">{{ __('fulfillment_pack.ready_to_mark_shipped') }}</div>
-        @else
-            <div class="pack-waiting">{{ __('fulfillment_pack.scan_all_before_marking_shipped') }}</div>
-        @endif
-        <flux:button type="button" variant="primary" wire:click="markShipped" :disabled="! $allComplete || $readOnly || (bool) $pendingQuantityScan">
-            {{ __('fulfillment_pack.mark_shipped') }}
-        </flux:button>
-    </div>
 
     <style>
         .pack-station-header .form-grid > div {
@@ -345,8 +373,7 @@
             align-items: center;
         }
 
-        .pack-feedback.success,
-        .pack-ready {
+        .pack-feedback.success {
             color: #166534;
             background: #f0fdf4;
             border: 1px solid #bbf7d0;
@@ -358,8 +385,7 @@
             border: 1px solid #bfdbfe;
         }
 
-        .pack-feedback.error,
-        .pack-waiting {
+        .pack-feedback.error {
             color: #991b1b;
             background: #fef2f2;
             border: 1px solid #fecaca;
@@ -424,14 +450,26 @@
 
         .pack-actions {
             align-items: center;
+            justify-content: flex-start;
         }
 
-        .pack-ready,
-        .pack-waiting {
-            border-radius: 8px;
-            padding: 12px 14px;
-            font-size: 13px;
+        .pack-actions-right {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .pack-action-hint {
             font-weight: 700;
+        }
+
+        .pack-action-hint.is-ready {
+            color: #166534;
+        }
+
+        .pack-action-hint.is-blocked {
+            color: #991b1b;
         }
 
         @media (max-width: 760px) {

@@ -13,6 +13,7 @@ use App\Services\Courier\CourierExportService;
 use App\Services\Outbound\HoldOutboundOrderService;
 use App\Services\Outbound\ShipOutboundOrderService;
 use App\Services\SalesOrders\SkuDefaultShippingMethodResolver;
+use App\Support\BulkActionMessage;
 use App\Support\CourierCarrier;
 use App\Support\SalesOrderFilters;
 use App\Support\TrackingNumber;
@@ -202,11 +203,7 @@ class FulfillmentIndex extends Component
 
     public function statusColor(string $status): string
     {
-        return match ($status) {
-            OutboundOrder::STATUS_SHIPPED => 'green',
-            OutboundOrder::STATUS_CANCELLED => 'red',
-            default => 'blue',
-        };
+        return OutboundOrder::statusColorFor($status);
     }
 
     public function holdStatusLabel(string $holdStatus): string
@@ -362,10 +359,7 @@ class FulfillmentIndex extends Component
             return;
         }
 
-        session()->flash('status', __('fulfillment.remap_shipping_result', [
-            'updated' => $updated,
-            'skipped' => $skipped,
-        ]));
+        session()->flash('status', BulkActionMessage::make('fulfillment.remap_shipping_result', $updated, $skipped));
     }
 
     public function markShipped(): void
@@ -404,9 +398,7 @@ class FulfillmentIndex extends Component
 
         $this->selectedIds = [];
 
-        session()->flash('status', __('fulfillment.batch_mark_shipped_result', [
-            'updated' => $updated,
-            'skipped' => count($selectedIds) - $updated,
+        session()->flash('status', BulkActionMessage::make('fulfillment.batch_mark_shipped_result', $updated, count($selectedIds) - $updated, [
             'held' => $held,
         ]));
     }
@@ -490,10 +482,7 @@ class FulfillmentIndex extends Component
 
         $this->selectedIds = [];
 
-        session()->flash('status', __('fulfillment.batch_release_hold_result', [
-            'updated' => $updated,
-            'skipped' => count($selectedIds) - $updated,
-        ]));
+        session()->flash('status', BulkActionMessage::make('fulfillment.batch_release_hold_result', $updated, count($selectedIds) - $updated));
     }
 
     public function exportYamato(): mixed
@@ -1047,10 +1036,7 @@ class FulfillmentIndex extends Component
 
         $this->selectedIds = [];
 
-        session()->flash('status', __('fulfillment.batch_hold_result', [
-            'updated' => $updated,
-            'skipped' => count($ids) - $updated,
-        ]));
+        session()->flash('status', BulkActionMessage::make('fulfillment.batch_hold_result', $updated, count($ids) - $updated));
     }
 
     private function clearPendingHold(): void

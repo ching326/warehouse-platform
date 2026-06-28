@@ -590,7 +590,7 @@
                                     {{ $this->statusLabel($order->status) }}
                                 </flux:badge>
                                 @if ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
-                                    <flux:badge color="red">
+                                    <flux:badge color="amber">
                                         {{ $this->holdStatusLabel($order->hold_status) }}
                                     </flux:badge>
                                 @endif

@@ -109,6 +109,16 @@ class OutboundOrder extends Model
         return $this->reason ? __('outbound.reason_'.$this->reason) : null;
     }
 
+    public static function statusColorFor(string $status): string
+    {
+        return match ($status) {
+            self::STATUS_RESERVED => 'blue',
+            self::STATUS_SHIPPED => 'green',
+            self::STATUS_CANCELLED => 'red',
+            default => 'zinc',
+        };
+    }
+
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);

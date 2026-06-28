@@ -90,7 +90,7 @@
                             @if ($order->status === 'pending')
                                 <div class="standard-row-actions inbound-row-actions">
                                     <flux:button
-                                        class="standard-row-action-button inbound-row-action-button"
+                                        class="action-button-md inbound-row-action-button"
                                         type="button"
                                         size="sm"
                                         variant="primary"
@@ -102,7 +102,7 @@
                                 </div>
                             @elseif (in_array($order->status, ['arrived', 'partially_received'], true))
                                 <div class="standard-row-actions inbound-row-actions">
-                                    <flux:button class="standard-row-action-button inbound-row-action-button" href="{{ route('inbound.receive', $order) }}" size="sm" variant="primary">
+                                    <flux:button class="action-button-md inbound-row-action-button" href="{{ route('inbound.receive', $order) }}" size="sm" variant="primary">
                                         {{ __('inbound.btn_receive') }}
                                     </flux:button>
                                 </div>

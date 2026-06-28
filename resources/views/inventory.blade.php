@@ -551,13 +551,19 @@
                 gap: 8px;
             }
 
-            .standard-row-action-button,
+            .action-button-md,
             .inventory-row-actions > *,
             .inventory-row-actions button,
             .inventory-row-actions a {
                 width: 108px;
                 min-width: 0;
+                min-height: 32px;
+                padding: 0 12px;
+                display: inline-flex;
+                align-items: center;
                 justify-content: center;
+                line-height: 1;
+                white-space: nowrap;
             }
 
             .sku-chip small {
@@ -3582,6 +3588,12 @@
                 display: flex;
                 gap: 8px;
                 flex-wrap: wrap;
+            }
+
+            .sales-order-detail-actions .action-button-md,
+            .sales-order-recipient-header .action-button-md {
+                width: auto;
+                min-width: 108px;
             }
 
             .sales-order-detail-actions-danger {

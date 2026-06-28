@@ -26,7 +26,7 @@ return [
     'quantity_prompt_message' => '已扫描 :sku。请确认数量，最多 :remaining。',
     'confirm_or_cancel_quantity' => '发货前请确认或取消待处理的数量。',
     'pack_complete' => '包装检查完成。出货订单已发货。',
-    'pack_mode' => '包装模式',
+    'pack_mode' => '扫码包装模式',
     'mode_normal' => '普通',
     'mode_strict' => '严格',
     'strict_scan' => '严格扫描',

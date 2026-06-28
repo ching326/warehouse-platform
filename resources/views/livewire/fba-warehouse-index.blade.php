@@ -79,10 +79,10 @@
                         </flux:table.cell>
                         <flux:table.cell>
                             <div class="standard-row-actions fba-row-actions">
-                                <flux:button class="standard-row-action-button fba-row-action-button" href="{{ route('setup.fba-warehouses.edit', $fbaWarehouse) }}" size="sm" variant="primary">
+                                <flux:button class="action-button-md fba-row-action-button" href="{{ route('setup.fba-warehouses.edit', $fbaWarehouse) }}" size="sm" variant="primary">
                                     {{ __('setup.btn_edit') }}
                                 </flux:button>
-                                <flux:button class="standard-row-action-button fba-row-action-button" wire:click="toggleStatus({{ $fbaWarehouse->id }})" size="sm" variant="primary">
+                                <flux:button class="action-button-md fba-row-action-button" wire:click="toggleStatus({{ $fbaWarehouse->id }})" size="sm" variant="primary">
                                     {{ $fbaWarehouse->status === 'active' ? __('setup.btn_deactivate') : __('setup.btn_activate') }}
                                 </flux:button>
                             </div>

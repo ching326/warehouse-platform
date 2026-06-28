@@ -26,7 +26,7 @@ return [
     'quantity_prompt_message' => '已掃描 :sku。請確認數量，最多 :remaining。',
     'confirm_or_cancel_quantity' => '出貨前請確認或取消待處理的數量。',
     'pack_complete' => '包裝檢查完成。出貨訂單已出貨。',
-    'pack_mode' => '包裝模式',
+    'pack_mode' => '掃碼包裝模式',
     'mode_normal' => '一般',
     'mode_strict' => '嚴格',
     'strict_scan' => '嚴格掃描',

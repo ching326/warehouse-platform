@@ -13,6 +13,7 @@ use App\Services\Fulfillment\OutboundConsolidationService;
 use App\Services\MarketplaceShippingNotice\MarketplaceShippingNoticeExportService;
 use App\Services\Outbound\HoldOutboundOrderService;
 use App\Services\SalesOrders\SkuDefaultShippingMethodResolver;
+use App\Support\BulkActionMessage;
 use App\Support\SalesOrderFilters;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -483,10 +484,7 @@ class SalesOrderIndex extends Component
             return;
         }
 
-        session()->flash('status', __('sales_orders.bulk_remap_shipping_result', [
-            'updated' => $updated,
-            'skipped' => $skipped,
-        ]));
+        session()->flash('status', BulkActionMessage::make('sales_orders.bulk_remap_shipping_result', $updated, $skipped));
     }
 
     public function bulkCancel(): void
@@ -579,26 +577,12 @@ class SalesOrderIndex extends Component
 
     public function fulfillmentStatusColor(string $status): string
     {
-        return match ($status) {
-            SalesOrder::FULFILLMENT_STATUS_UNFULFILLED => 'blue',
-            SalesOrder::FULFILLMENT_STATUS_READY => 'blue',
-            SalesOrder::FULFILLMENT_STATUS_ARRANGED => 'blue',
-            SalesOrder::FULFILLMENT_STATUS_SHIPPED => 'green',
-            SalesOrder::FULFILLMENT_STATUS_CANCELLED => 'red',
-            default => 'zinc',
-        };
+        return SalesOrder::fulfillmentStatusColorFor($status);
     }
 
     public function orderStatusColor(string $status): string
     {
-        return match ($status) {
-            SalesOrder::ORDER_STATUS_ON_HOLD => 'red',
-            SalesOrder::ORDER_STATUS_BACKORDER => 'orange',
-            SalesOrder::ORDER_STATUS_CANCEL_REQUESTED => 'red',
-            SalesOrder::ORDER_STATUS_CANCELLED => 'red',
-            SalesOrder::ORDER_STATUS_COMPLETED => 'green',
-            default => 'zinc',
-        };
+        return SalesOrder::orderStatusColorFor($status);
     }
 
     public function updateShippingMethod(int $orderId, string $value): void
@@ -1432,10 +1416,7 @@ class SalesOrderIndex extends Component
     {
         $this->selectedIds = [];
 
-        session()->flash('status', __($messageKey, [
-            'updated' => $updated,
-            'skipped' => $selectedCount - $updated,
-        ]));
+        session()->flash('status', BulkActionMessage::make($messageKey, $updated, $selectedCount - $updated));
     }
 
     private function otherFilterOptions(): array

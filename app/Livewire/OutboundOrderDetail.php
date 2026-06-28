@@ -8,12 +8,15 @@ use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Services\Courier\CourierExportService;
 use App\Services\InventoryService;
+use App\Services\Outbound\HoldOutboundOrderService;
+use App\Support\BulkActionMessage;
 use App\Support\CourierCarrier;
 use App\Support\TrackingNumber;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use InvalidArgumentException;
 use Livewire\Component;
 use RuntimeException;
 
@@ -54,6 +57,10 @@ class OutboundOrderDetail extends Component
     public array $pendingCourierExportOrderIds = [];
 
     public ?string $pendingExportWarning = null;
+
+    public bool $pendingPrintedHoldConfirmation = false;
+
+    public ?string $pendingHoldWarning = null;
 
     private bool $visibleTenantIdsResolved = false;
 
@@ -230,6 +237,71 @@ class OutboundOrderDetail extends Component
         $this->clearPendingExport();
     }
 
+    public function holdOutbound(HoldOutboundOrderService $service): void
+    {
+        $order = $this->loadPendingOrder();
+
+        try {
+            $result = $service->holdOutbound(
+                outbound: $order,
+                source: 'fulfillment',
+                confirmedPrinted: false,
+            );
+        } catch (InvalidArgumentException $exception) {
+            session()->flash('error', $exception->getMessage());
+
+            return;
+        }
+
+        if ($result->requiresConfirmation) {
+            $this->pendingPrintedHoldConfirmation = true;
+            $this->pendingHoldWarning = __('outbound.hold_printed_confirm_body');
+
+            return;
+        }
+
+        session()->flash('status', BulkActionMessage::make('fulfillment.batch_hold_result', 1, 0));
+    }
+
+    public function confirmPrintedHold(HoldOutboundOrderService $service): void
+    {
+        $this->pendingPrintedHoldConfirmation = false;
+        $this->pendingHoldWarning = null;
+
+        try {
+            $service->holdOutbound(
+                outbound: $this->loadPendingOrder(),
+                source: 'fulfillment',
+                confirmedPrinted: true,
+            );
+        } catch (InvalidArgumentException $exception) {
+            session()->flash('error', $exception->getMessage());
+
+            return;
+        }
+
+        session()->flash('status', BulkActionMessage::make('fulfillment.batch_hold_result', 1, 0));
+    }
+
+    public function cancelPrintedHold(): void
+    {
+        $this->pendingPrintedHoldConfirmation = false;
+        $this->pendingHoldWarning = null;
+    }
+
+    public function releaseHold(HoldOutboundOrderService $service): void
+    {
+        try {
+            $service->releaseOutbound($this->loadPendingOrder(), source: 'fulfillment');
+        } catch (InvalidArgumentException $exception) {
+            session()->flash('error', $exception->getMessage());
+
+            return;
+        }
+
+        session()->flash('status', BulkActionMessage::make('fulfillment.batch_release_hold_result', 1, 0));
+    }
+
     public function cancel(): void
     {
         $order = $this->scopedOrderQuery()
@@ -276,12 +348,7 @@ class OutboundOrderDetail extends Component
 
     public function statusColor(string $status): string
     {
-        return match ($status) {
-            OutboundOrder::STATUS_RESERVED => 'amber',
-            OutboundOrder::STATUS_SHIPPED => 'green',
-            OutboundOrder::STATUS_CANCELLED => 'red',
-            default => 'zinc',
-        };
+        return OutboundOrder::statusColorFor($status);
     }
 
     public function render()

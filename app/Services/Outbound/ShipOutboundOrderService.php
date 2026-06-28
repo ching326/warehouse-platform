@@ -3,6 +3,7 @@
 namespace App\Services\Outbound;
 
 use App\Models\OutboundOrder;
+use App\Models\ShippingMethod;
 use App\Services\InventoryService;
 use App\Support\TrackingNumber;
 use Illuminate\Support\Facades\Auth;
@@ -50,13 +51,25 @@ class ShipOutboundOrderService
             }
 
             $shippedAt = now();
-            $courier = $this->nullableString($input['courier'] ?? null);
+            $shippingMethodId = array_key_exists('shipping_method_id', $input)
+                ? $this->nullableInt($input['shipping_method_id'])
+                : $lockedOrder->shipping_method_id;
+            $carrierCode = $shippingMethodId
+                ? ShippingMethod::query()
+                    ->join('carriers', 'shipping_methods.carrier_id', '=', 'carriers.id')
+                    ->where('shipping_methods.id', $shippingMethodId)
+                    ->value('carriers.code')
+                : null;
+            $courier = is_string($carrierCode)
+                ? $carrierCode
+                : $this->nullableString($input['courier'] ?? null);
             $trackingNo = TrackingNumber::normalize($this->nullableString($input['tracking_no'] ?? null));
 
             $lockedOrder->update([
                 'status' => OutboundOrder::STATUS_SHIPPED,
                 'shipped_at' => $shippedAt,
                 'shipped_by_user_id' => Auth::id(),
+                'shipping_method_id' => $shippingMethodId,
                 'courier' => $courier,
                 'tracking_no' => $trackingNo,
                 'package_count' => $this->nullableInt($input['package_count'] ?? null),

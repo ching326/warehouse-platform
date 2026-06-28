@@ -8,6 +8,7 @@ use App\Models\Tenant;
 use App\Services\Fulfillment\FulfillmentPackService;
 use App\Services\Outbound\HoldOutboundOrderService;
 use App\Services\Outbound\ShipOutboundOrderService;
+use App\Support\BulkActionMessage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -346,7 +347,8 @@ class FulfillmentPack extends Component
             return;
         }
 
-        $this->success(__('fulfillment.batch_hold_result', ['updated' => 1, 'skipped' => 0]));
+        session()->flash('status', BulkActionMessage::make('fulfillment.batch_hold_result', 1, 0));
+        $this->focusScanner();
     }
 
     public function confirmPrintedHold(HoldOutboundOrderService $service): void
@@ -368,7 +370,8 @@ class FulfillmentPack extends Component
             return;
         }
 
-        $this->success(__('fulfillment.batch_hold_result', ['updated' => 1, 'skipped' => 0]));
+        session()->flash('status', BulkActionMessage::make('fulfillment.batch_hold_result', 1, 0));
+        $this->focusScanner();
     }
 
     public function cancelPrintedHold(): void
@@ -390,7 +393,8 @@ class FulfillmentPack extends Component
             return;
         }
 
-        $this->success(__('fulfillment.batch_release_hold_result', ['updated' => 1, 'skipped' => 0]));
+        session()->flash('status', BulkActionMessage::make('fulfillment.batch_release_hold_result', 1, 0));
+        $this->focusScanner();
     }
 
     public function render(FulfillmentPackService $service)
@@ -509,13 +513,6 @@ class FulfillmentPack extends Component
     {
         $this->feedbackType = 'error';
         $this->feedbackMessage = $message;
-    }
-
-    private function success(string $message): void
-    {
-        $this->feedbackType = 'success';
-        $this->feedbackMessage = $message;
-        $this->focusScanner();
     }
 
     private function focusScanner(): void

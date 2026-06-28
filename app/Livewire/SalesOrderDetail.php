@@ -599,27 +599,12 @@ class SalesOrderDetail extends Component
 
     public function fulfillmentStatusColor(string $status): string
     {
-        return match ($status) {
-            SalesOrder::FULFILLMENT_STATUS_UNFULFILLED => 'amber',
-            SalesOrder::FULFILLMENT_STATUS_READY => 'blue',
-            SalesOrder::FULFILLMENT_STATUS_ARRANGED => 'amber',
-            SalesOrder::FULFILLMENT_STATUS_SHIPPED => 'green',
-            SalesOrder::FULFILLMENT_STATUS_CANCELLED => 'red',
-            default => 'zinc',
-        };
+        return SalesOrder::fulfillmentStatusColorFor($status);
     }
 
     public function orderStatusColor(string $status): string
     {
-        return match ($status) {
-            SalesOrder::ORDER_STATUS_PENDING => 'blue',
-            SalesOrder::ORDER_STATUS_ON_HOLD => 'pink',
-            SalesOrder::ORDER_STATUS_BACKORDER => 'orange',
-            SalesOrder::ORDER_STATUS_CANCEL_REQUESTED => 'red',
-            SalesOrder::ORDER_STATUS_CANCELLED => 'red',
-            SalesOrder::ORDER_STATUS_COMPLETED => 'green',
-            default => 'zinc',
-        };
+        return SalesOrder::orderStatusColorFor($status);
     }
 
     public function lineStatusLabel(string $status): string

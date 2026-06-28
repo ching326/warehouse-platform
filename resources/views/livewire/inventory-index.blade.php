@@ -159,7 +159,7 @@
                         <flux:table.cell>
                             <div class="standard-row-actions inventory-row-actions">
                                 <flux:button
-                                    class="standard-row-action-button"
+                                    class="action-button-md"
                                     href="/inventory/movements?stock_item_id={{ $balance->stock_item_id }}"
                                     size="sm"
                                     variant="primary"
@@ -167,7 +167,7 @@
                                     {{ __('inventory.btn_movements') }}
                                 </flux:button>
                                 <flux:button
-                                    class="standard-row-action-button"
+                                    class="action-button-md"
                                     href="{{ route('stock-adjustments.create', [
                                         'tenant_id' => $balance->tenant_id,
                                         'warehouse_id' => $balance->warehouse_id,

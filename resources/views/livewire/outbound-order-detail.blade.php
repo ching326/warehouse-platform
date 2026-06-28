@@ -20,6 +20,23 @@
         </div>
     @endif
 
+    @if ($pendingPrintedHoldConfirmation)
+        <div class="app-toast app-toast-warning app-toast-confirm" role="alert">
+            <div class="app-toast-body">
+                <strong class="app-toast-title">{{ __('common.toast.warning') }}</strong>
+                <span class="app-toast-text">{{ $pendingHoldWarning }}</span>
+                <div class="app-toast-actions">
+                    <flux:button type="button" size="sm" variant="outline" wire:click="cancelPrintedHold">
+                        {{ __('common.cancel') }}
+                    </flux:button>
+                    <flux:button type="button" size="sm" variant="primary" wire:click="confirmPrintedHold">
+                        {{ __('outbound.hold') }}
+                    </flux:button>
+                </div>
+            </div>
+        </div>
+    @endif
+
 <section class="table-shell flux-panel form-panel">
         <div class="form-panel-header">
             <div>
@@ -32,11 +49,6 @@
                 </flux:badge>
                 @if ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
                     <flux:badge color="amber">{{ __('outbound.on_hold') }}</flux:badge>
-                @endif
-                @if ($order->status === \App\Models\OutboundOrder::STATUS_RESERVED && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE && $order->reason === \App\Models\OutboundOrder::REASON_CUSTOMER_ORDER)
-                    <flux:button href="{{ route('outbound.pack', $order) }}" size="xs" variant="primary" wire:navigate>
-                        {{ __('fulfillment_pack.page_title') }}
-                    </flux:button>
                 @endif
                 <flux:button href="{{ route('outbound.index') }}" variant="outline" wire:navigate>
                     {{ __('outbound.btn_back_to_index') }}
@@ -86,17 +98,27 @@
 
         @if ($order->status === \App\Models\OutboundOrder::STATUS_RESERVED && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE)
             <div class="form-actions outbound-detail-actions">
-                <flux:button href="{{ route('outbound.ship', $order) }}" variant="primary" wire:navigate>
+                @if ($order->reason === \App\Models\OutboundOrder::REASON_CUSTOMER_ORDER)
+                    <flux:button class="action-button-md" href="{{ route('outbound.pack', $order) }}" size="sm" variant="primary" wire:navigate>
+                        {{ __('fulfillment_pack.page_title') }}
+                    </flux:button>
+                @endif
+                <flux:button class="action-button-md" href="{{ route('outbound.ship', $order) }}" size="sm" variant="primary" wire:navigate>
                     {{ __('outbound.btn_ship') }}
                 </flux:button>
-                <flux:button type="button" variant="primary" wire:click="exportYamato">
+                <flux:button class="action-button-md" type="button" size="sm" variant="primary" wire:click="exportYamato">
                     {{ __('fulfillment.batch_export_yamato') }}
                 </flux:button>
-                <flux:button type="button" variant="primary" wire:click="exportSagawa">
+                <flux:button class="action-button-md" type="button" size="sm" variant="primary" wire:click="exportSagawa">
                     {{ __('fulfillment.batch_export_sagawa') }}
                 </flux:button>
+                <flux:button class="action-button-md outbound-hold-action" type="button" size="sm" variant="primary" wire:click="holdOutbound">
+                    {{ __('outbound.hold') }}
+                </flux:button>
                 <flux:button
+                    class="action-button-md outbound-cancel-action"
                     type="button"
+                    size="sm"
                     variant="danger"
                     wire:click="cancel"
                     wire:confirm="{{ __('outbound.confirm_cancel') }}"
@@ -105,7 +127,21 @@
                 </flux:button>
             </div>
         @elseif ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
-            <span class="muted-dash">{{ __('outbound.cannot_ship_on_hold') }}</span>
+            <div class="form-actions outbound-detail-actions">
+                <flux:button class="action-button-md outbound-hold-action" type="button" size="sm" variant="primary" wire:click="releaseHold">
+                    {{ __('outbound.release_hold') }}
+                </flux:button>
+                <flux:button
+                    class="action-button-md outbound-cancel-action"
+                    type="button"
+                    size="sm"
+                    variant="danger"
+                    wire:click="cancel"
+                    wire:confirm="{{ __('outbound.confirm_cancel') }}"
+                >
+                    {{ __('outbound.btn_cancel_order') }}
+                </flux:button>
+            </div>
         @else
             <span class="muted-dash">-</span>
         @endif
@@ -385,6 +421,10 @@
         .outbound-detail-actions {
             justify-content: flex-start;
             margin-top: 0;
+        }
+
+        .outbound-detail-actions .outbound-hold-action {
+            margin-left: auto;
         }
 
         .outbound-child-line {

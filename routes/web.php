@@ -120,8 +120,8 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/return-orders/{returnOrder}', ReturnOrderShow::class)->name('return-orders.show');
     Route::get('/outbound', OutboundOrderIndex::class)->name('outbound.index');
     Route::get('/outbound/create', OutboundOrderCreate::class)->name('outbound.create');
-    Route::get('/outbound/{order}/ship', OutboundOrderShip::class)->name('outbound.ship');
-    Route::get('/outbound/{order}/pack', FulfillmentPack::class)->name('outbound.pack');
+    Route::get('/outbound/{order}/direct-ship', OutboundOrderShip::class)->name('outbound.ship');
+    Route::get('/outbound/{order}/scan-pack', FulfillmentPack::class)->name('outbound.pack');
     Route::get('/outbound/{order}', OutboundOrderDetail::class)->name('outbound.show');
     Route::get('/sales-orders', SalesOrderIndex::class)->name('sales.orders.index');
     Route::get('/sales-orders/create', SalesOrderCreate::class)->name('sales.orders.create');
@@ -136,7 +136,7 @@ Route::middleware('authenticated')->group(function (): void {
         ->name('marketplace-shipping-notice-batches.download');
     Route::get('/fulfillment', FulfillmentIndex::class)->name('fulfillment.index');
     Route::get('/fulfillment/pick-summary', FulfillmentPickSummary::class)->name('fulfillment.pick-summary');
-    Route::get('/fulfillment/pack', FulfillmentPackStart::class)->name('fulfillment.pack.start');
+    Route::get('/fulfillment/scan-pack', FulfillmentPackStart::class)->name('fulfillment.pack.start');
     Route::get('/fulfillment/pack-scans', FulfillmentPackScanIndex::class)->name('fulfillment.pack-scans.index');
     Route::post('/fulfillment/tracking-import', FulfillmentTrackingImportController::class)->name('fulfillment.tracking-import');
     Route::get('/issues', IssueIndex::class)->name('issues.index');

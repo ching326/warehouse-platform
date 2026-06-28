@@ -90,14 +90,25 @@
                             @endforeach
                         </flux:table.cell>
                         <flux:table.cell>
-                            <flux:badge color="{{ $this->statusColor($order->status) }}">
-                                {{ $this->statusLabel($order->status) }}
-                            </flux:badge>
+                            <div class="fg-status-stack">
+                                <flux:badge color="{{ $this->statusColor($order->status) }}">
+                                    {{ $this->statusLabel($order->status) }}
+                                </flux:badge>
+                                @if ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
+                                    <flux:badge color="amber">{{ __('outbound.on_hold') }}</flux:badge>
+                                @endif
+                            </div>
                         </flux:table.cell>
                         <flux:table.cell>
-                            @if ($order->status === \App\Models\OutboundOrder::STATUS_RESERVED)
+                            @if ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
                                 <div class="outbound-row-actions">
-                                    <flux:button href="{{ route('outbound.ship', $order) }}" size="sm" variant="primary" wire:navigate>
+                                    <flux:button class="action-button-md" type="button" size="sm" variant="primary" wire:click="releaseHold({{ $order->id }})">
+                                        {{ __('outbound.release_hold') }}
+                                    </flux:button>
+                                </div>
+                            @elseif ($order->status === \App\Models\OutboundOrder::STATUS_RESERVED)
+                                <div class="outbound-row-actions">
+                                    <flux:button class="action-button-md" href="{{ route('outbound.ship', $order) }}" size="sm" variant="primary" wire:navigate>
                                         {{ __('outbound.btn_ship') }}
                                     </flux:button>
                                 </div>
@@ -122,6 +133,13 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
+        }
+
+        .fg-status-stack {
+            align-items: flex-start;
+            display: grid;
+            gap: 4px;
+            justify-items: start;
         }
 
         .outbound-index-toolbar {

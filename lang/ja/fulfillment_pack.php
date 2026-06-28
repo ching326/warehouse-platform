@@ -26,7 +26,7 @@ return [
     'quantity_prompt_message' => ':sku をスキャンしました。:remaining まで数量を確定してください。',
     'confirm_or_cancel_quantity' => '出荷前に保留中の数量を確定またはキャンセルしてください。',
     'pack_complete' => '梱包チェックが完了しました。出荷オーダーを出荷しました。',
-    'pack_mode' => '梱包モード',
+    'pack_mode' => 'スキャン梱包モード',
     'mode_normal' => '通常',
     'mode_strict' => '厳格',
     'strict_scan' => '厳格スキャン',

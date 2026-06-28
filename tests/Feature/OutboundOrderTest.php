@@ -377,13 +377,14 @@ class OutboundOrderTest extends TestCase
         [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
         $this->createOrder($tenant, $warehouse, $sku, qty: 4, ref: 'OB-SHIP');
         $order = OutboundOrder::where('ref', 'OB-SHIP')->firstOrFail();
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->with('carrier')->firstOrFail();
 
         Livewire::actingAs($this->internalUser())
             ->test(OutboundOrderShip::class, ['order' => $order])
-            ->set('courier', 'Yamato')
+            ->set('shippingMethodId', (string) $method->id)
             ->set('trackingNo', 'YM123')
             ->call('save')
-            ->assertRedirect(route('outbound.index'));
+            ->assertSee(__('outbound.order_shipped'));
 
         $order->refresh();
         $line = $order->leafLines()->firstOrFail();
@@ -392,7 +393,8 @@ class OutboundOrderTest extends TestCase
 
         $this->assertSame(OutboundOrder::STATUS_SHIPPED, $order->status);
         $this->assertNotNull($order->shipped_at);
-        $this->assertSame('Yamato', $order->courier);
+        $this->assertSame($method->id, $order->shipping_method_id);
+        $this->assertSame($method->carrier->code, $order->courier);
         $this->assertSame('YM123', $order->tracking_no);
         $this->assertSame(6, $balance->on_hand_qty);
         $this->assertSame(0, $balance->reserved_qty);
@@ -436,6 +438,24 @@ class OutboundOrderTest extends TestCase
             ->assertSee('#'.$order->id)
             ->assertSee(__('outbound.btn_ship'))
             ->assertDontSee(__('outbound.btn_cancel_order'));
+    }
+
+    public function test_outbound_index_shows_on_hold_badge(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
+        $this->createOrder($tenant, $warehouse, $sku, qty: 1, ref: 'OB-INDEX-HOLD');
+        $order = OutboundOrder::where('ref', 'OB-INDEX-HOLD')->firstOrFail();
+        $order->update(['hold_status' => OutboundOrder::HOLD_STATUS_ON_HOLD]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderIndex::class)
+            ->assertSee('OB-INDEX-HOLD')
+            ->assertSee(__('outbound.on_hold'))
+            ->assertSee(__('outbound.release_hold'))
+            ->call('releaseHold', $order->id)
+            ->assertSee(__('fulfillment.batch_release_hold_result_no_skips', ['updated' => 1]));
+
+        $this->assertSame(OutboundOrder::HOLD_STATUS_ACTIVE, $order->refresh()->hold_status);
     }
 
     public function test_outbound_index_auto_selects_single_active_warehouse(): void
@@ -681,8 +701,43 @@ class OutboundOrderTest extends TestCase
 
         $this->actingAs($this->internalUser())->get('/outbound')->assertOk()->assertSee('Outbound Orders');
         $this->actingAs($this->internalUser())->get('/outbound/create')->assertOk()->assertSee('Create Outbound Order');
-        $this->actingAs($this->internalUser())->get(route('outbound.ship', $order))->assertOk()->assertSee('Ship Order');
+        $this->actingAs($this->internalUser())->get(route('outbound.ship', $order))->assertOk()->assertSee('Direct Ship');
         $this->actingAs($this->internalUser())->get(route('outbound.show', $order))->assertOk()->assertSee('OB-ROUTE');
+    }
+
+    public function test_direct_ship_page_shows_order_actions(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
+        $this->createOrder($tenant, $warehouse, $sku, qty: 1, ref: 'OB-DIRECT-ACTIONS');
+        $order = OutboundOrder::where('ref', 'OB-DIRECT-ACTIONS')->firstOrFail();
+        $order->update(['reason' => OutboundOrder::REASON_CUSTOMER_ORDER]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderShip::class, ['order' => $order])
+            ->assertSee(__('fulfillment_pack.mark_shipped'))
+            ->assertSee(__('fulfillment_pack.page_title'))
+            ->assertSee(__('outbound.hold'));
+    }
+
+    public function test_direct_ship_page_allows_release_hold_without_mark_shipped_actions(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
+        $this->createOrder($tenant, $warehouse, $sku, qty: 1, ref: 'OB-DIRECT-HOLD');
+        $order = OutboundOrder::where('ref', 'OB-DIRECT-HOLD')->firstOrFail();
+        $order->update([
+            'reason' => OutboundOrder::REASON_CUSTOMER_ORDER,
+            'hold_status' => OutboundOrder::HOLD_STATUS_ON_HOLD,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderShip::class, ['order' => $order])
+            ->assertSee(__('outbound.release_hold'))
+            ->assertDontSee(__('fulfillment_pack.mark_shipped'))
+            ->assertDontSee(__('fulfillment_pack.page_title'))
+            ->call('releaseHold')
+            ->assertSee(__('fulfillment.batch_release_hold_result_no_skips', ['updated' => 1]));
+
+        $this->assertSame(OutboundOrder::HOLD_STATUS_ACTIVE, $order->refresh()->hold_status);
     }
 
     /**

@@ -645,7 +645,7 @@ class SalesOrderTest extends TestCase
             ->set('selectedIds', [(string) $order->id])
             ->assertSee(__('sales_orders.btn_remap_shipping_method'))
             ->call('bulkRemapShippingMethod')
-            ->assertSee(__('sales_orders.bulk_remap_shipping_result', ['updated' => 1, 'skipped' => 0]));
+            ->assertSee(__('sales_orders.bulk_remap_shipping_result_no_skips', ['updated' => 1]));
 
         $order->refresh();
         $this->assertSame($method->id, $order->shipping_method_id);

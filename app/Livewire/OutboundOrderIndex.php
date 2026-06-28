@@ -7,8 +7,11 @@ use App\Models\OutboundOrder;
 use App\Models\Shop;
 use App\Models\Tenant;
 use App\Models\Warehouse;
+use App\Services\Outbound\HoldOutboundOrderService;
+use App\Support\BulkActionMessage;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use InvalidArgumentException;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -80,12 +83,25 @@ class OutboundOrderIndex extends Component
 
     public function statusColor(string $status): string
     {
-        return match ($status) {
-            OutboundOrder::STATUS_RESERVED => 'amber',
-            OutboundOrder::STATUS_SHIPPED => 'green',
-            OutboundOrder::STATUS_CANCELLED => 'red',
-            default => 'zinc',
-        };
+        return OutboundOrder::statusColorFor($status);
+    }
+
+    public function releaseHold(int $orderId, HoldOutboundOrderService $service): void
+    {
+        $order = OutboundOrder::query()
+            ->whereIn('tenant_id', $this->visibleTenantIds())
+            ->whereKey($orderId)
+            ->firstOrFail();
+
+        try {
+            $service->releaseOutbound($order, source: 'outbound');
+        } catch (InvalidArgumentException $exception) {
+            session()->flash('error', $exception->getMessage());
+
+            return;
+        }
+
+        session()->flash('status', BulkActionMessage::make('fulfillment.batch_release_hold_result', 1, 0));
     }
 
     public function render()

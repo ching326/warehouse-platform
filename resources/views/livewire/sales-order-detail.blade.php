@@ -107,45 +107,45 @@
         <div class="sales-order-detail-actions" data-testid="sales-order-detail-actions">
             <div class="sales-order-detail-actions-main" data-testid="sales-order-detail-actions-main">
                 @if ($order->order_status === 'pending' && $order->fulfillment_status === 'unfulfilled')
-                    <flux:button type="button" variant="primary" wire:click="markReady" data-action-variant="primary">
+                    <flux:button class="action-button-md" type="button" size="sm" variant="primary" wire:click="markReady" data-action-variant="primary">
                         {{ __('sales_orders.btn_mark_ready') }}
                     </flux:button>
                 @endif
 
                 @if ($order->order_status === 'pending' && $order->fulfillment_status === 'ready')
-                    <flux:button type="button" variant="primary" wire:click="unmarkReady" data-action-variant="primary">
+                    <flux:button class="action-button-md" type="button" size="sm" variant="primary" wire:click="unmarkReady" data-action-variant="primary">
                         {{ __('sales_orders.btn_unmark_ready') }}
                     </flux:button>
                 @endif
 
                 @if ($order->order_status === 'pending' && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true))
-                    <flux:button type="button" variant="primary" wire:click="hold" data-action-variant="primary">
+                    <flux:button class="action-button-md" type="button" size="sm" variant="primary" wire:click="hold" data-action-variant="primary">
                         {{ __('sales_orders.btn_hold') }}
                     </flux:button>
-                    <flux:button type="button" variant="primary" wire:click="markBackorder" data-action-variant="primary">
+                    <flux:button class="action-button-md" type="button" size="sm" variant="primary" wire:click="markBackorder" data-action-variant="primary">
                         {{ __('sales_orders.btn_backorder') }}
                     </flux:button>
                 @endif
 
                 @if ($order->order_status === 'on_hold' && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true))
-                    <flux:button type="button" variant="primary" wire:click="releaseHold" data-action-variant="primary">
+                    <flux:button class="action-button-md" type="button" size="sm" variant="primary" wire:click="releaseHold" data-action-variant="primary">
                         {{ __('sales_orders.btn_release_hold') }}
                     </flux:button>
                 @endif
 
                 @if ($order->order_status === 'backorder' && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true))
-                    <flux:button type="button" variant="primary" wire:click="releaseBackorder" data-action-variant="primary">
+                    <flux:button class="action-button-md" type="button" size="sm" variant="primary" wire:click="releaseBackorder" data-action-variant="primary">
                         {{ __('sales_orders.btn_release_backorder') }}
                     </flux:button>
                 @endif
 
                 @if ($editable && ! $editingLines)
-                    <flux:button type="button" variant="primary" wire:click="editLines" data-action-variant="primary">
+                    <flux:button class="action-button-md" type="button" size="sm" variant="primary" wire:click="editLines" data-action-variant="primary">
                         {{ __('sales_orders.btn_edit_lines') }}
                     </flux:button>
                 @endif
 
-                <flux:button href="{{ route('sales.orders.issues.create', $order) }}" variant="primary" wire:navigate>
+                <flux:button class="action-button-md" href="{{ route('sales.orders.issues.create', $order) }}" size="sm" variant="primary" wire:navigate>
                     {{ __('issues.btn_create_from_order') }}
                 </flux:button>
             </div>
@@ -155,10 +155,10 @@
                 && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true)
             )
                 <div class="sales-order-detail-actions-danger" data-testid="sales-order-detail-actions-danger">
-                    <flux:button type="button" variant="danger" wire:click="cancelOrder" wire:confirm="{{ __('sales_orders.btn_cancel_order') }}?" data-action-variant="danger">
+                    <flux:button class="action-button-md" type="button" size="sm" variant="danger" wire:click="cancelOrder" wire:confirm="{{ __('sales_orders.btn_cancel_order') }}?" data-action-variant="danger">
                         {{ __('sales_orders.btn_cancel_order') }}
                     </flux:button>
-                    <flux:button type="button" variant="danger" wire:click="deleteOrder" wire:confirm="{{ __('sales_orders.btn_delete_order') }}?" data-action-variant="danger">
+                    <flux:button class="action-button-md" type="button" size="sm" variant="danger" wire:click="deleteOrder" wire:confirm="{{ __('sales_orders.btn_delete_order') }}?" data-action-variant="danger">
                         {{ __('sales_orders.btn_delete_order') }}
                     </flux:button>
                 </div>
@@ -231,7 +231,7 @@
             </div>
 
             @if (! $editingRecipient)
-                <flux:button type="button" variant="primary" wire:click="editRecipient" data-testid="edit-recipient-button">
+                <flux:button class="action-button-md" type="button" size="sm" variant="primary" wire:click="editRecipient" data-testid="edit-recipient-button">
                     {{ __('sales_orders.btn_edit_recipient') }}
                 </flux:button>
             @endif

@@ -26,7 +26,7 @@ return [
     'quantity_prompt_message' => 'Scanned :sku. Confirm quantity up to :remaining.',
     'confirm_or_cancel_quantity' => 'Confirm or cancel the pending quantity before shipping.',
     'pack_complete' => 'Pack check complete. Fulfillment group shipped.',
-    'pack_mode' => 'Pack mode',
+    'pack_mode' => 'Scan pack mode',
     'mode_normal' => 'Normal',
     'mode_strict' => 'Strict',
     'strict_scan' => 'Strict scan',

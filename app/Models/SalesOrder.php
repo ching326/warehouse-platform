@@ -115,6 +115,31 @@ class SalesOrder extends Model
             ->dontSubmitEmptyLogs();
     }
 
+    public static function fulfillmentStatusColorFor(string $status): string
+    {
+        return match ($status) {
+            self::FULFILLMENT_STATUS_UNFULFILLED,
+            self::FULFILLMENT_STATUS_READY,
+            self::FULFILLMENT_STATUS_ARRANGED => 'blue',
+            self::FULFILLMENT_STATUS_SHIPPED => 'green',
+            self::FULFILLMENT_STATUS_CANCELLED => 'red',
+            default => 'zinc',
+        };
+    }
+
+    public static function orderStatusColorFor(string $status): string
+    {
+        return match ($status) {
+            self::ORDER_STATUS_PENDING => 'blue',
+            self::ORDER_STATUS_ON_HOLD => 'amber',
+            self::ORDER_STATUS_BACKORDER => 'orange',
+            self::ORDER_STATUS_CANCEL_REQUESTED,
+            self::ORDER_STATUS_CANCELLED => 'red',
+            self::ORDER_STATUS_COMPLETED => 'green',
+            default => 'zinc',
+        };
+    }
+
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);

@@ -75,7 +75,7 @@ class SalesOrderIndexBulkTest extends TestCase
             ->test(SalesOrderIndex::class)
             ->set('selectedIds', [(string) $order->id])
             ->call('bulkHold')
-            ->assertSee(__('sales_orders.bulk_hold_result', ['updated' => 1, 'skipped' => 0]));
+            ->assertSee(__('sales_orders.bulk_hold_result_no_skips', ['updated' => 1]));
 
         $order->refresh();
         $group->refresh();
@@ -371,7 +371,7 @@ class SalesOrderIndexBulkTest extends TestCase
             ->test(SalesOrderIndex::class)
             ->set('selectedIds', [(string) $order->id])
             ->call('bulkMarkReady')
-            ->assertSee(__('sales_orders.bulk_ready_result', ['updated' => 1, 'skipped' => 0]));
+            ->assertSee(__('sales_orders.bulk_ready_result_no_skips', ['updated' => 1]));
 
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $order->refresh()->fulfillment_status);
         $this->assertDatabaseHas('outbound_order_sales_order', [
@@ -398,7 +398,7 @@ class SalesOrderIndexBulkTest extends TestCase
             ->test(SalesOrderIndex::class)
             ->set('selectedIds', [(string) $order->id])
             ->call('bulkMarkReady')
-            ->assertSee(__('sales_orders.bulk_ready_result', ['updated' => 1, 'skipped' => 0]));
+            ->assertSee(__('sales_orders.bulk_ready_result_no_skips', ['updated' => 1]));
 
         $this->assertSame($method->id, $order->outboundOrders()->firstOrFail()->shipping_method_id);
     }
@@ -657,7 +657,7 @@ class SalesOrderIndexBulkTest extends TestCase
             ->test(SalesOrderIndex::class)
             ->set('selectedIds', [(string) $order->id])
             ->call('bulkMarkReady')
-            ->assertSee(__('sales_orders.bulk_ready_result', ['updated' => 1, 'skipped' => 0]));
+            ->assertSee(__('sales_orders.bulk_ready_result_no_skips', ['updated' => 1]));
 
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $order->refresh()->fulfillment_status);
     }

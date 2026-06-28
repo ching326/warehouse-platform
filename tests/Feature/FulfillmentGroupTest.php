@@ -282,7 +282,7 @@ class FulfillmentGroupTest extends TestCase
             ->set('selectedIds', [(string) $outbound->id])
             ->assertSee(__('fulfillment.btn_remap_shipping'))
             ->call('remapShipping')
-            ->assertSee(__('fulfillment.remap_shipping_result', ['updated' => 1, 'skipped' => 0]));
+            ->assertSee(__('fulfillment.remap_shipping_result_no_skips', ['updated' => 1]));
 
         $this->assertSame($method->id, $outbound->refresh()->shipping_method_id);
     }
@@ -818,16 +818,19 @@ class FulfillmentGroupTest extends TestCase
         $order = $this->readySalesOrder($tenant, $shop, $sku, 4, 'SO-SHIP-GROUP');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->with('carrier')->firstOrFail();
 
         Livewire::actingAs($this->internalUser())
             ->test(OutboundOrderShip::class, ['order' => $outbound])
-            ->set('courier', 'Yamato')
+            ->set('shippingMethodId', (string) $method->id)
             ->set('trackingNo', 'TRACK-1')
             ->call('save')
             ->assertRedirect(route('outbound.index'));
 
         $this->assertSame(OutboundOrder::STATUS_SHIPPED, $outbound->refresh()->status);
         $this->assertNotNull($outbound->shipped_at);
+        $this->assertSame($method->id, $outbound->shipping_method_id);
+        $this->assertSame($method->carrier->code, $outbound->courier);
         $this->assertSame('TRACK1', $outbound->refresh()->tracking_no);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_SHIPPED, $order->refresh()->fulfillment_status);
         $this->assertSame(SalesOrder::ORDER_STATUS_COMPLETED, $order->order_status);
@@ -936,7 +939,7 @@ class FulfillmentGroupTest extends TestCase
             ->test(FulfillmentIndex::class)
             ->set('selectedIds', [(string) $outbound->id])
             ->call('holdSelected')
-            ->assertSee(__('fulfillment.batch_hold_result', ['updated' => 1, 'skipped' => 0]));
+            ->assertSee(__('fulfillment.batch_hold_result_no_skips', ['updated' => 1]));
 
         $this->assertSame(OutboundOrder::HOLD_STATUS_ON_HOLD, $outbound->refresh()->hold_status);
         $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $order->refresh()->order_status);
@@ -947,7 +950,7 @@ class FulfillmentGroupTest extends TestCase
             ->test(FulfillmentIndex::class)
             ->set('selectedIds', [(string) $outbound->id])
             ->call('releaseHoldSelected')
-            ->assertSee(__('fulfillment.batch_release_hold_result', ['updated' => 1, 'skipped' => 0]));
+            ->assertSee(__('fulfillment.batch_release_hold_result_no_skips', ['updated' => 1]));
 
         $this->assertSame(OutboundOrder::HOLD_STATUS_ACTIVE, $outbound->refresh()->hold_status);
         $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $order->refresh()->order_status);
@@ -1008,7 +1011,7 @@ class FulfillmentGroupTest extends TestCase
             ->assertSet('pendingHoldOrderIds', [$printedGroup->id, $notPrintedGroup->id])
             ->assertSet('selectedIds', [(string) $printedGroup->id, (string) $notPrintedGroup->id])
             ->call('confirmPrintedHold')
-            ->assertSee(__('fulfillment.batch_hold_result', ['updated' => 2, 'skipped' => 0]));
+            ->assertSee(__('fulfillment.batch_hold_result_no_skips', ['updated' => 2]));
 
         $this->assertSame(OutboundOrder::HOLD_STATUS_ON_HOLD, $printedGroup->refresh()->hold_status);
         $this->assertSame(OutboundOrder::HOLD_STATUS_ON_HOLD, $notPrintedGroup->refresh()->hold_status);
