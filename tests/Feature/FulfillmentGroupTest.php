@@ -38,6 +38,7 @@ use App\Support\TrackingNumber;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportTesting\Testable;
@@ -147,8 +148,8 @@ class FulfillmentGroupTest extends TestCase
         $references = OutboundOrder::query()->orderBy('id')->pluck('ref');
 
         $this->assertCount(2, $references->unique());
-        $tenantCode = preg_replace('/[^A-Z0-9]+/', '', strtoupper($tenant->code)) ?: 'TENANT';
-        $this->assertMatchesRegularExpression('/^OB-'.preg_quote($tenantCode, '/').'-\d{6}-\d{3,}$/', $references->first());
+        $tenantCode = substr(preg_replace('/[^A-Z0-9]+/', '', strtoupper($tenant->code)) ?: 'TENANT', 0, 5);
+        $this->assertMatchesRegularExpression('/^'.preg_quote($tenantCode, '/').'-\d{9,}$/', $references->first());
     }
 
     public function test_create_group_snapshots_recipient_from_sales_order(): void
@@ -239,7 +240,8 @@ class FulfillmentGroupTest extends TestCase
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentIndex::class)
-            ->call('updateShippingMethod', $outbound->id, (string) $yamato->id);
+            ->call('updateShippingMethod', $outbound->id, (string) $yamato->id)
+            ->assertSee(__('fulfillment.shipping_method_updated'));
 
         $this->assertSame($yamato->id, $outbound->refresh()->shipping_method_id);
 
@@ -251,6 +253,26 @@ class FulfillmentGroupTest extends TestCase
             ->call('updateShippingMethod', $outbound->id, (string) $inactive->id);
 
         $this->assertSame($yamato->id, $outbound->refresh()->shipping_method_id);
+    }
+
+    public function test_fulfillment_index_remaps_shipping_from_member_orders(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-REMAP');
+        $order->update(['shipping_method_id' => $method->id]);
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $outbound = OutboundOrder::firstOrFail();
+        $outbound->update(['shipping_method_id' => null]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('selectedIds', [(string) $outbound->id])
+            ->assertSee(__('fulfillment.btn_remap_shipping'))
+            ->call('remapShipping')
+            ->assertSee(__('fulfillment.remap_shipping_result', ['updated' => 1, 'skipped' => 0]));
+
+        $this->assertSame($method->id, $outbound->refresh()->shipping_method_id);
     }
 
     public function test_create_group_rejects_empty_order_selection(): void
@@ -531,6 +553,7 @@ class FulfillmentGroupTest extends TestCase
     public function test_fulfillment_index_printed_filters_and_added_cell_use_outbound_flag(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $warehouse->update(['timezone' => 'Asia/Tokyo']);
         $printedOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-PRINTED');
         $notPrintedOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-NOT-PRINTED', '2 Not Printed Street');
         $this->createGroup($tenant, $warehouse, $printedOrder->ship_together_key, [$printedOrder]);
@@ -549,7 +572,7 @@ class FulfillmentGroupTest extends TestCase
             ->test(FulfillmentIndex::class)
             ->set('othersFilter', [SalesOrderFilters::OTHER_PRINTED])
             ->assertSee($printedGroup->ref)
-            ->assertSee(__('fulfillment.printed_at', ['time' => '06-18 10:00']))
+            ->assertSee(__('fulfillment.printed_at', ['time' => '06-18 19:00']))
             ->assertDontSee($notPrintedGroup->ref);
 
         Livewire::actingAs($this->internalUser())
@@ -558,6 +581,45 @@ class FulfillmentGroupTest extends TestCase
             ->assertSee($notPrintedGroup->ref)
             ->assertSee(__('fulfillment.not_printed'))
             ->assertDontSee($printedGroup->ref);
+    }
+
+    public function test_fulfillment_index_print_waiting_excludes_cancelled_groups(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $waitingOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-WAITING');
+        $cancelledOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-CANCELLED-WAITING', '2 Cancelled Street');
+
+        $this->createGroup($tenant, $warehouse, $waitingOrder->ship_together_key, [$waitingOrder]);
+        $waitingGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+
+        $this->createGroup($tenant, $warehouse, $cancelledOrder->ship_together_key, [$cancelledOrder]);
+        $cancelledGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+        $cancelledGroup->update(['status' => OutboundOrder::STATUS_CANCELLED]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('printWaiting', true)
+            ->assertSee($waitingGroup->ref)
+            ->assertDontSee($cancelledGroup->ref);
+    }
+
+    public function test_fulfillment_index_added_cell_uses_warehouse_timezone(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $warehouse->update(['timezone' => 'America/Los_Angeles']);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-TZ');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = OutboundOrder::firstOrFail();
+        DB::table('outbound_orders')->where('id', $group->id)->update([
+            'created_at' => Carbon::parse('2026-06-18 01:30:00', 'UTC')->format('Y-m-d H:i:s'),
+            'courier_csv_exported_at' => Carbon::parse('2026-06-18 02:15:00', 'UTC')->format('Y-m-d H:i:s'),
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('search', $group->ref)
+            ->assertSee('06-17 18:30')
+            ->assertSee(__('fulfillment.printed_at', ['time' => '06-17 19:15']));
     }
 
     public function test_fulfillment_index_filters_by_added_date_range(): void
@@ -719,10 +781,26 @@ class FulfillmentGroupTest extends TestCase
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentIndex::class)
-            ->call('updateTracking', $outbound->id, '  ab-123 cd  ');
+            ->call('updateTracking', $outbound->id, '  ab-123 cd  ')
+            ->assertSee(__('fulfillment.tracking_updated'));
 
         $this->assertSame('AB123CD', $outbound->refresh()->tracking_no);
         $this->assertSame('AB123CD', $order->refresh()->tracking_no);
+    }
+
+    public function test_fulfillment_index_note_update_shows_success_toast(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-NOTE');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $outbound = OutboundOrder::firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->call('updateNote', $outbound->id, ' Fulfillment note ')
+            ->assertSee(__('fulfillment.note_updated'));
+
+        $this->assertSame('Fulfillment note', $outbound->refresh()->note);
     }
 
     public function test_fulfillment_index_mark_shipped_ships_reserved_group(): void
@@ -831,7 +909,7 @@ class FulfillmentGroupTest extends TestCase
         ]);
     }
 
-    public function test_fulfillment_sagawa_export_writes_last_15_group_reference_to_customer_management_number(): void
+    public function test_fulfillment_sagawa_export_writes_short_group_reference_to_customer_management_number(): void
     {
         Storage::fake('local');
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
@@ -840,7 +918,10 @@ class FulfillmentGroupTest extends TestCase
 
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
-        $outbound->update(['shipping_method_id' => $method->id, 'ref' => 'FG-LONG-0613-0659033902']);
+        $outbound->update([
+            'shipping_method_id' => $method->id,
+            'ref' => OutboundOrder::buildRef(29, 'CN001XIA', Carbon::parse('2026-06-28', 'Asia/Tokyo')),
+        ]);
 
         $batch = app(CourierExportService::class)->exportOrders(
             outboundOrderIds: [$outbound->id],
@@ -852,8 +933,7 @@ class FulfillmentGroupTest extends TestCase
         $lines = preg_split('/\r\n/', trim(mb_convert_encoding(Storage::disk($batch->disk)->get($batch->path), 'UTF-8', 'SJIS-win')));
         $dataRow = str_getcsv($lines[1] ?? '');
 
-        $this->assertSame('0613-0659033902', $dataRow[9]);
-        $this->assertNotContains('FG-LONG-0613-0659033902', $dataRow);
+        $this->assertSame('CN001-260628029', $dataRow[9]);
     }
 
     public function test_fulfillment_courier_export_blocks_wrong_carrier_group(): void
@@ -941,6 +1021,34 @@ class FulfillmentGroupTest extends TestCase
             ->call('exportYamato')
             ->assertRedirect(route('courier-export-batches.download', CourierExportBatch::firstOrFail()));
 
+    }
+
+    public function test_fulfillment_index_courier_reexport_warning_can_be_cancelled(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-REEXPORT-CANCEL');
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $outbound = OutboundOrder::firstOrFail();
+        $outbound->update([
+            'shipping_method_id' => $method->id,
+            'courier_csv_exported_at' => now(),
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('selectedIds', [(string) $outbound->id])
+            ->call('exportYamato')
+            ->assertSee(__('fulfillment.courier_export_reexport_warning'))
+            ->assertSee($outbound->ref)
+            ->assertSee(__('common.cancel'))
+            ->assertSee(__('fulfillment.courier_export_confirm_btn'))
+            ->call('cancelCourierExport')
+            ->assertSet('pendingCourierExportCarrier', null)
+            ->assertSet('pendingCourierExportOrderIds', [])
+            ->assertSet('pendingExportWarning', null)
+            ->assertDontSee(__('fulfillment.courier_export_reexport_warning'));
     }
 
     public function test_manual_outbound_without_group_can_be_exported_end_to_end(): void

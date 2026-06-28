@@ -2,12 +2,17 @@
     <x-flash-toast />
 
     @if ($pendingExportWarning)
-        <div class="active-filter-row">
-            <div class="export-warning-message">{{ $pendingExportWarning }}</div>
+        <div class="export-confirm-toast export-confirm-toast-warning">
+            <div class="export-confirm-toast-message">{{ $pendingExportWarning }}</div>
             @if ($pendingCourierExportCarrier)
-                <flux:button type="button" size="sm" variant="primary" wire:click="confirmCourierExport">
-                    {{ __('fulfillment.courier_export_confirm_btn') }}
-                </flux:button>
+                <div class="export-confirm-toast-actions">
+                    <flux:button type="button" size="sm" variant="outline" wire:click="cancelCourierExport">
+                        {{ __('common.cancel') }}
+                    </flux:button>
+                    <flux:button type="button" size="sm" variant="primary" wire:click="confirmCourierExport">
+                        {{ __('fulfillment.courier_export_confirm_btn') }}
+                    </flux:button>
+                </div>
             @endif
         </div>
     @endif

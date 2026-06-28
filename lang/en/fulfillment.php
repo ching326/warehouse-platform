@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'not_enough_available_stock' => 'Not enough available stock.',
     'page_title' => 'Fulfillment Queue',
     'page_subtitle' => 'Consolidate ready sales orders and reserve stock for outbound shipping.',
     'create_page_title' => 'New Fulfillment',
@@ -9,6 +10,9 @@ return [
     'group_created' => 'Fulfillment group created.',
     'recipient_updated' => 'Recipient updated.',
     'shipping_updated' => 'Shipping info updated.',
+    'shipping_method_updated' => 'Shipping method updated.',
+    'tracking_updated' => 'Tracking no. updated.',
+    'note_updated' => 'Note updated.',
     'order_no_longer_ready' => 'Order #:id is no longer ready for fulfillment.',
     'order_already_grouped' => 'Order #:id is already in a fulfillment group.',
     'order_not_ship_complete' => 'Order #:id is not fully ready for fulfillment.',
@@ -94,7 +98,10 @@ return [
     'batch_export_sagawa' => 'Export Sagawa',
     'batch_import_tracking' => 'Import tracking',
     'btn_mark_shipped' => 'Mark shipped',
+    'btn_remap_shipping' => 'Remap shipping',
     'batch_mark_shipped_result' => ':updated group(s) marked shipped. :skipped skipped.',
+    'remap_shipping_result' => ':updated group(s) remapped shipping. :skipped skipped.',
+    'remap_shipping_none' => 'No selected groups could be remapped from order shipping methods.',
     'courier_export_no_selection' => 'Select at least one outbound order before exporting a courier CSV.',
     'courier_export_confirm_btn' => 'Export again',
     'courier_export_reexport_warning' => 'Below outbound orders were already exported. Export again?',

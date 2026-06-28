@@ -92,7 +92,6 @@
                 </div>
 
                 @error("lines.{$index}.sku_id") <p class="form-error">{{ $message }}</p> @enderror
-                @error("lines.{$index}.expected_qty") <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
 
             <div>

@@ -130,7 +130,7 @@ class WarehouseEdit extends Component
             'timezones' => \DateTimeZone::listIdentifiers(),
         ])->layout('inventory', [
             'title' => __('setup.warehouse_edit_page_title'),
-            'subtitle' => $this->warehouse->code.'  E'.$this->warehouse->name,
+            'subtitle' => $this->warehouse->code.' - '.$this->warehouse->name,
         ]);
     }
 

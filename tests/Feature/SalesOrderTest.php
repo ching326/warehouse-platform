@@ -546,12 +546,16 @@ class SalesOrderTest extends TestCase
     public function test_mark_ready_blocked_when_order_on_hold(): void
     {
         [, $shop, $sku] = $this->salesSku();
-        $order = $this->createPersistedOrder($shop, $sku, ['order_status' => SalesOrder::ORDER_STATUS_ON_HOLD]);
+        $order = $this->createPersistedOrder($shop, $sku, [
+            'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
+            'platform_order_id' => 'HOLD-READY-ERROR',
+        ]);
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderDetail::class, ['order' => $order])
             ->call('markReady')
-            ->assertSee(__('sales_orders.release_hold_before_mark_ready'));
+            ->assertSee(__('sales_orders.release_hold_before_mark_ready'))
+            ->assertSee('HOLD-READY-ERROR');
 
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->refresh()->fulfillment_status);
     }
@@ -626,22 +630,22 @@ class SalesOrderTest extends TestCase
         $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $order->refresh()->order_status);
     }
 
-    public function test_remap_shipping_method_uses_sku_default_on_held_order(): void
+    public function test_bulk_remap_shipping_method_uses_sku_default(): void
     {
         [, $shop, $sku] = $this->salesSku();
         $method = ShippingMethod::where('code', 'yamato_nekopos')->with('carrier:id,code')->firstOrFail();
         $sku->update(['default_shipping_method_id' => $method->id]);
         $order = $this->createPersistedOrder($shop, $sku, [
-            'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
             'shipping_method_id' => null,
             'shipping_method' => null,
         ]);
 
         Livewire::actingAs($this->internalUser())
-            ->test(SalesOrderDetail::class, ['order' => $order])
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $order->id])
             ->assertSee(__('sales_orders.btn_remap_shipping_method'))
-            ->call('remapShippingMethod')
-            ->assertSee(__('sales_orders.shipping_method_remapped'));
+            ->call('bulkRemapShippingMethod')
+            ->assertSee(__('sales_orders.bulk_remap_shipping_result', ['updated' => 1, 'skipped' => 0]));
 
         $order->refresh();
         $this->assertSame($method->id, $order->shipping_method_id);
@@ -752,6 +756,7 @@ class SalesOrderTest extends TestCase
     {
         [, $shop, $sku] = $this->salesSku();
         $warehouse = Warehouse::factory()->create(['status' => 'active']);
+        $shop->tenant->update(['default_warehouse_id' => $warehouse->id]);
         app(InventoryService::class)->adjustStock($shop->tenant_id, $warehouse->id, $sku->stock_item_id, 20);
         $eligible = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'BULK-READY']);
         $ineligible = $this->createPersistedOrder($shop, $sku, [
@@ -774,6 +779,7 @@ class SalesOrderTest extends TestCase
         $ownShop = Shop::factory()->for($ownTenant)->create(['status' => 'active']);
         $ownSku = Sku::factory()->for($ownTenant)->for($ownShop)->for(StockItem::factory()->for($ownTenant)->create())->create(['sku_type' => 'single']);
         $warehouse = Warehouse::factory()->create(['status' => 'active']);
+        $ownTenant->update(['default_warehouse_id' => $warehouse->id]);
         app(InventoryService::class)->adjustStock($ownTenant->id, $warehouse->id, $ownSku->stock_item_id, 20);
         $ownOrder = $this->createPersistedOrder($ownShop, $ownSku, ['platform_order_id' => 'OWN-BULK']);
         [, $otherShop, $otherSku] = $this->salesSku();
@@ -1087,8 +1093,10 @@ class SalesOrderTest extends TestCase
         $this->assertStringContainsString('x-show="has()"', $html);
         $this->assertStringContainsString(__('sales_orders.btn_bulk_mark_ready'), $html);
         $this->assertStringContainsString(__('sales_orders.btn_bulk_hold'), $html);
+        $this->assertStringContainsString(__('sales_orders.btn_remap_shipping_method'), $html);
         $this->assertStringContainsString(__('sales_orders.btn_bulk_cancel'), $html);
         $this->assertStringContainsString(__('sales_orders.btn_bulk_delete'), $html);
+        $this->assertDoesNotMatchRegularExpression('/<span>\s*'.preg_quote(__('sales_orders.bulk_status_group'), '/').'\s*<\/span>/', $html);
         $this->assertStringNotContainsString(__('sales_orders.courier_export_menu'), $html);
         $this->assertStringContainsString(__('sales_orders.shipping_notice_menu'), $html);
         $this->assertStringContainsString('x-show="has()"', $html);
@@ -1571,7 +1579,8 @@ class SalesOrderTest extends TestCase
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
-            ->call('updateNote', $order->id, ' Updated index note ');
+            ->call('updateNote', $order->id, ' Updated index note ')
+            ->assertSee(__('sales_orders.note_updated'));
 
         $this->assertSame('Updated index note', $order->refresh()->note);
     }
@@ -1739,7 +1748,8 @@ class SalesOrderTest extends TestCase
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
-            ->call('updateShippingMethod', $ownOrder->id, (string) $yamato->id);
+            ->call('updateShippingMethod', $ownOrder->id, (string) $yamato->id)
+            ->assertSee(__('sales_orders.shipping_method_updated'));
 
         $this->assertSame($yamato->id, $ownOrder->refresh()->shipping_method_id);
         $this->assertSame('yamato', $ownOrder->refresh()->shipping_method);

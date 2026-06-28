@@ -108,8 +108,6 @@
                         </flux:select>
                     </div>
 
-                    @error("lineInputs.{$line->id}.actual_qty") <p class="form-error">{{ $message }}</p> @enderror
-                    @error("lineInputs.{$line->id}.location_id") <p class="form-error">{{ $message }}</p> @enderror
                 </div>
             @empty
                 <span class="subtle">{{ __('inbound.all_lines_received') }}</span>

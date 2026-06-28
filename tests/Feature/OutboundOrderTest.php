@@ -690,9 +690,9 @@ class OutboundOrderTest extends TestCase
 
     public function test_build_ref_uses_tenant_code_date_and_sequence(): void
     {
-        $ref = OutboundOrder::buildRef(7, 'acme', CarbonImmutable::create(2026, 6, 23, 0, 0, 0, 'Asia/Tokyo'));
+        $ref = OutboundOrder::buildRef(29, 'CN001XIA', CarbonImmutable::create(2026, 6, 28, 0, 0, 0, 'Asia/Tokyo'));
 
-        $this->assertSame('OB-ACME-260623-007', $ref);
+        $this->assertSame('CN001-260628029', $ref);
     }
 
     public function test_manual_outbound_without_ref_gets_generated_ob_reference(): void
@@ -702,8 +702,8 @@ class OutboundOrderTest extends TestCase
         $this->createOrder($tenant, $warehouse, $sku, qty: 1, ref: '');
 
         $order = OutboundOrder::firstOrFail();
-        $tenantCode = preg_replace('/[^A-Z0-9]+/', '', strtoupper($tenant->code));
-        $this->assertMatchesRegularExpression('/^OB-'.preg_quote($tenantCode, '/').'-\d{6}-\d{3,}$/', $order->ref);
+        $tenantCode = substr(preg_replace('/[^A-Z0-9]+/', '', strtoupper($tenant->code)) ?: 'TENANT', 0, 5);
+        $this->assertMatchesRegularExpression('/^'.preg_quote($tenantCode, '/').'-\d{9,}$/', $order->ref);
     }
 
     public function test_ship_stores_total_weight_in_grams_from_kg_input(): void
@@ -936,8 +936,20 @@ class OutboundOrderTest extends TestCase
 
         $component->assertSet('pendingCourierExportCarrier', CourierCarrier::YAMATO);
         $this->assertNotEmpty($component->get('pendingExportWarning'));
+        $component
+            ->assertSee(__('common.cancel'))
+            ->assertSee(__('fulfillment.courier_export_confirm_btn'))
+            ->call('cancelCourierExport')
+            ->assertSet('pendingCourierExportCarrier', null)
+            ->assertSet('pendingCourierExportOrderIds', [])
+            ->assertSet('pendingExportWarning', null)
+            ->assertDontSee(__('fulfillment.courier_export_reexport_warning'));
 
-        $component->call('confirmCourierExport')->assertRedirect();
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderDetail::class, ['order' => $order])
+            ->call('exportYamato')
+            ->call('confirmCourierExport')
+            ->assertRedirect();
     }
 
     private function createOrder(

@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Tenant;
+use App\Models\Warehouse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
@@ -29,6 +30,8 @@ class TenantEdit extends Component
 
     public string $skuNameLocale = '';
 
+    public string $defaultWarehouseId = '';
+
     private const STOCK_ITEM_NAME_LOCALE = 'ja';
 
     private const NAME_LOCALE_OPTIONS = ['en', 'ja', 'zh_TW', 'zh_CN'];
@@ -49,6 +52,7 @@ class TenantEdit extends Component
         $this->status = $tenant->status;
         $this->notes = $tenant->notes ?? '';
         $this->skuNameLocale = $tenant->sku_name_locale ?: 'en';
+        $this->defaultWarehouseId = $tenant->default_warehouse_id === null ? '' : (string) $tenant->default_warehouse_id;
     }
 
     public function save()
@@ -65,6 +69,7 @@ class TenantEdit extends Component
             'status' => $this->status,
             'notes' => $this->notes,
             'sku_name_locale' => $this->skuNameLocale,
+            'default_warehouse_id' => $this->defaultWarehouseId,
         ], [
             'code' => ['required', 'string', 'max:50', Rule::unique('tenants', 'code')->ignore($this->tenant->id)],
             'name' => ['required', 'string', 'max:255'],
@@ -75,6 +80,7 @@ class TenantEdit extends Component
             'status' => ['required', 'string', Rule::in(['active', 'inactive'])],
             'notes' => ['nullable', 'string', 'max:2000'],
             'sku_name_locale' => ['required', 'string', Rule::in(self::NAME_LOCALE_OPTIONS)],
+            'default_warehouse_id' => ['nullable', 'integer', Rule::exists('warehouses', 'id')->where('status', 'active')],
         ])->validate();
 
         $this->tenant->update([
@@ -88,6 +94,7 @@ class TenantEdit extends Component
             'notes' => $this->nullableString($this->notes),
             'sku_name_locale' => $this->skuNameLocale,
             'stock_item_name_locale' => self::STOCK_ITEM_NAME_LOCALE,
+            'default_warehouse_id' => $this->defaultWarehouseId === '' ? null : (int) $this->defaultWarehouseId,
         ]);
 
         session()->flash('status', __('setup.tenant_updated'));
@@ -103,6 +110,7 @@ class TenantEdit extends Component
                 'inactive' => __('setup.status_inactive'),
             ],
             'localeOptions' => $this->localeOptions(),
+            'warehouses' => $this->warehouseOptions(),
         ])->layout('inventory', [
             'title' => __('setup.tenant_edit_page_title'),
             'subtitle' => $this->tenant->code.' - '.$this->tenant->name,
@@ -131,5 +139,13 @@ class TenantEdit extends Component
             'zh_TW' => __('setup.locale_zh_TW'),
             'zh_CN' => __('setup.locale_zh_CN'),
         ];
+    }
+
+    private function warehouseOptions()
+    {
+        return Warehouse::query()
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'code', 'name']);
     }
 }

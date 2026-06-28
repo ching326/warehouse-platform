@@ -18,7 +18,7 @@
                             {{ $this->fulfillmentStatusLabel($order->fulfillment_status) }}
                         </flux:badge>
                         @if ($order->isPacking())
-                            <flux:badge color="amber">{{ __('sales_orders.label_packing') }}</flux:badge>
+                            <span class="so-packing-text">{{ __('sales_orders.label_packing') }}</span>
                         @endif
                     </div>
                 </div>
@@ -99,9 +99,6 @@
                 @if ($order->order_status === 'on_hold' && in_array($order->fulfillment_status, ['unfulfilled', 'ready'], true))
                     <flux:button type="button" variant="primary" wire:click="releaseHold" data-action-variant="primary">
                         {{ __('sales_orders.btn_release_hold') }}
-                    </flux:button>
-                    <flux:button type="button" variant="primary" wire:click="remapShippingMethod" data-action-variant="primary">
-                        {{ __('sales_orders.btn_remap_shipping_method') }}
                     </flux:button>
                 @endif
 
@@ -285,8 +282,6 @@
                 </div>
 
                 @error("lines.{$index}.sku_id") <p class="form-error">{{ $message }}</p> @enderror
-                @error("lines.{$index}.quantity") <p class="form-error">{{ $message }}</p> @enderror
-                @error("lines.{$index}.note") <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
 
             @error('lines') <p class="form-error">{{ $message }}</p> @enderror

@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Tenant;
+use App\Models\Warehouse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
@@ -26,6 +27,8 @@ class TenantCreate extends Component
     public string $notes = '';
 
     public string $skuNameLocale = '';
+
+    public string $defaultWarehouseId = '';
 
     private const STOCK_ITEM_NAME_LOCALE = 'ja';
 
@@ -55,6 +58,7 @@ class TenantCreate extends Component
             'notes' => $this->nullableString($this->notes),
             'sku_name_locale' => $this->skuNameLocale,
             'stock_item_name_locale' => self::STOCK_ITEM_NAME_LOCALE,
+            'default_warehouse_id' => $this->defaultWarehouseId === '' ? null : (int) $this->defaultWarehouseId,
         ]);
 
         session()->flash('status', __('setup.tenant_created'));
@@ -70,6 +74,7 @@ class TenantCreate extends Component
                 'inactive' => __('setup.status_inactive'),
             ],
             'localeOptions' => $this->localeOptions(),
+            'warehouses' => $this->warehouseOptions(),
         ])->layout('inventory', [
             'title' => __('setup.tenant_create_page_title'),
             'subtitle' => __('setup.tenant_create_page_subtitle'),
@@ -88,6 +93,7 @@ class TenantCreate extends Component
             'status' => $this->status,
             'notes' => $this->notes,
             'sku_name_locale' => $this->skuNameLocale,
+            'default_warehouse_id' => $this->defaultWarehouseId,
         ], [
             'code' => ['required', 'string', 'max:50', Rule::unique('tenants', 'code')],
             'name' => ['required', 'string', 'max:255'],
@@ -98,6 +104,7 @@ class TenantCreate extends Component
             'status' => ['required', 'string', Rule::in(['active', 'inactive'])],
             'notes' => ['nullable', 'string', 'max:2000'],
             'sku_name_locale' => ['required', 'string', Rule::in(self::NAME_LOCALE_OPTIONS)],
+            'default_warehouse_id' => ['nullable', 'integer', Rule::exists('warehouses', 'id')->where('status', 'active')],
         ])->validate();
     }
 
@@ -123,5 +130,13 @@ class TenantCreate extends Component
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    private function warehouseOptions()
+    {
+        return Warehouse::query()
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'code', 'name']);
     }
 }

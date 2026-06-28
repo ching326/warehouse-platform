@@ -5,6 +5,7 @@ namespace App\Models;
 use Database\Factories\TenantFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Activitylog\LogOptions;
@@ -26,6 +27,7 @@ class Tenant extends Model
         'notes',
         'sku_name_locale',
         'stock_item_name_locale',
+        'default_warehouse_id',
     ];
 
     public function getActivitylogOptions(): LogOptions
@@ -72,6 +74,11 @@ class Tenant extends Model
     public function inventoryBalances(): HasMany
     {
         return $this->hasMany(InventoryBalance::class);
+    }
+
+    public function defaultWarehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class, 'default_warehouse_id');
     }
 
     public function inventoryMovements(): HasMany

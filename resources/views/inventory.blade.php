@@ -696,6 +696,36 @@
                 white-space: pre-line;
             }
 
+            .export-confirm-toast {
+                width: min(520px, 100%);
+                margin-bottom: 14px;
+                border: 1px solid color-mix(in oklab, var(--warning), transparent 65%);
+                border-radius: 10px;
+                background: #fff;
+                box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+                padding: 14px 16px;
+            }
+
+            .export-confirm-toast-warning {
+                border-left: 4px solid var(--warning);
+            }
+
+            .export-confirm-toast-message {
+                color: var(--warning);
+                font-size: 13px;
+                font-weight: 700;
+                line-height: 1.55;
+                white-space: pre-line;
+                overflow-wrap: anywhere;
+            }
+
+            .export-confirm-toast-actions {
+                display: flex;
+                justify-content: space-between;
+                gap: 12px;
+                margin-top: 12px;
+            }
+
             .latest-movement-row {
                 display: inline-flex;
                 align-items: baseline;
@@ -3490,6 +3520,17 @@
             .so-created-cell strong,
             .so-created-cell span {
                 font-size: inherit;
+            }
+
+            .so-created-cell span {
+                display: block;
+            }
+
+            .so-packing-text {
+                color: var(--accent);
+                font-size: 12px;
+                font-weight: 700;
+                line-height: 1.35;
             }
 
             .tracking-unsaved {

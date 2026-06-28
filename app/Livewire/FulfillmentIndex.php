@@ -10,6 +10,7 @@ use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\Warehouse;
 use App\Services\Courier\CourierExportService;
+use App\Services\Fulfillment\OutboundConsolidationService;
 use App\Services\Outbound\ShipOutboundOrderService;
 use App\Support\CourierCarrier;
 use App\Support\SalesOrderFilters;
@@ -223,6 +224,24 @@ class FulfillmentIndex extends Component
         return route('fulfillment.pick-summary', $query);
     }
 
+    public function formatWarehouseTime(OutboundOrder $order, ?Carbon $date, string $format): string
+    {
+        if (! $date) {
+            return '-';
+        }
+
+        try {
+            $warehouse = $order->warehouse;
+            $timezone = $warehouse instanceof Warehouse && $warehouse->timezone
+                ? $warehouse->timezone
+                : config('app.timezone');
+
+            return $date->copy()->timezone($timezone)->format($format);
+        } catch (\Throwable) {
+            return $date->format($format);
+        }
+    }
+
     public function updateNote(int $orderId, string $value): void
     {
         $note = trim($value);
@@ -239,6 +258,8 @@ class FulfillmentIndex extends Component
         $order->update(['note' => $note]);
 
         $this->noteDrafts[$orderId] = $note ?? '';
+
+        session()->flash('status', __('fulfillment.note_updated'));
     }
 
     public function updateShippingMethod(int $orderId, string $value): void
@@ -264,7 +285,11 @@ class FulfillmentIndex extends Component
             return;
         }
 
-        $order->update(['shipping_method_id' => $methodId]);
+        $updated = $order->update(['shipping_method_id' => $methodId]);
+
+        if ($updated) {
+            session()->flash('status', __('fulfillment.shipping_method_updated'));
+        }
     }
 
     public function updateTracking(int $orderId, string $value): void
@@ -289,6 +314,53 @@ class FulfillmentIndex extends Component
         });
 
         $this->trackingDrafts[$orderId] = $trackingNo ?? '';
+
+        session()->flash('status', __('fulfillment.tracking_updated'));
+    }
+
+    public function remapShipping(): void
+    {
+        $selectedIds = $this->normalizedSelectedIds();
+
+        if ($selectedIds === []) {
+            return;
+        }
+
+        $orders = $this->scopedOrderQuery()
+            ->whereIn('id', $selectedIds)
+            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+            ->with('salesOrders:id,shipping_method_id')
+            ->get();
+
+        $updated = 0;
+        $skipped = count($selectedIds) - $orders->count();
+        $consolidation = app(OutboundConsolidationService::class);
+
+        foreach ($orders as $order) {
+            $methodId = $consolidation->resolveGroupShippingMethodId($order->salesOrders);
+
+            if ($methodId === null) {
+                $skipped++;
+
+                continue;
+            }
+
+            $order->update(['shipping_method_id' => $methodId]);
+            $updated++;
+        }
+
+        $this->selectedIds = [];
+
+        if ($updated === 0) {
+            session()->flash('error', __('fulfillment.remap_shipping_none'));
+
+            return;
+        }
+
+        session()->flash('status', __('fulfillment.remap_shipping_result', [
+            'updated' => $updated,
+            'skipped' => $skipped,
+        ]));
     }
 
     public function markShipped(): void
@@ -388,6 +460,11 @@ class FulfillmentIndex extends Component
         return $this->performCourierExport($carrier, confirmedReExport: true, outboundOrderIds: $outboundOrderIds);
     }
 
+    public function cancelCourierExport(): void
+    {
+        $this->clearPendingExport();
+    }
+
     public function openTrackingImportModal(): void
     {
         $this->showTrackingImportModal = true;
@@ -404,7 +481,7 @@ class FulfillmentIndex extends Component
             ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
             ->with([
                 'tenant:id,code,name',
-                'warehouse:id,code,name',
+                'warehouse:id,code,name,timezone',
                 'shippingMethod:id,name',
                 'salesOrders:id,shop_id,platform_order_id',
                 'salesOrders.shop:id,name',
@@ -419,7 +496,9 @@ class FulfillmentIndex extends Component
             ->when($this->warehouseId !== '', fn ($query) => $query->where('warehouse_id', (int) $this->warehouseId))
             ->when($this->statusesFilter !== [], fn ($query) => $query
                 ->whereIn('status', array_map(fn ($status) => self::STATUS_MAP[$status] ?? $status, $this->statusesFilter)))
-            ->when($this->printWaiting, fn ($query) => $query->whereNull('courier_csv_exported_at'))
+            ->when($this->printWaiting, fn ($query) => $query
+                ->whereNull('courier_csv_exported_at')
+                ->where('status', '!=', OutboundOrder::STATUS_CANCELLED))
             ->when($this->dateRange !== SalesOrderFilters::DATE_ALL || $this->dateFrom !== '' || $this->dateTo !== '', function ($query) {
                 [$from, $toExclusive] = $this->dateWindow();
 

@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'not_enough_available_stock' => 'Not enough available stock.',
     'page_title' => '發貨列表',
     'page_subtitle' => '將準備就緒的訂單分組,並為出倉分配庫存。',
     'create_page_title' => '新建發貨',
@@ -9,6 +10,9 @@ return [
     'group_created' => '已建立發貨群組。',
     'recipient_updated' => '已更新收件人。',
     'shipping_updated' => '已更新出貨資料。',
+    'shipping_method_updated' => '已更新配送方式。',
+    'tracking_updated' => '已更新追蹤號碼。',
+    'note_updated' => '已更新備註。',
     'order_no_longer_ready' => '訂單 #:id 已不再可供發貨。',
     'order_already_grouped' => '訂單 #:id 已在發貨群組中。',
     'order_not_ship_complete' => '訂單 #:id 尚未完全準備好發貨。',
@@ -94,7 +98,10 @@ return [
     'batch_export_sagawa' => '匯出 Sagawa',
     'batch_import_tracking' => '匯入追蹤號碼',
     'btn_mark_shipped' => '標記已出貨',
+    'btn_remap_shipping' => '重新套用配送',
     'batch_mark_shipped_result' => '已將 :updated 個群組標記為已出貨。略過 :skipped 個。',
+    'remap_shipping_result' => '已重新套用 :updated 個群組的配送方式。略過 :skipped 個。',
+    'remap_shipping_none' => '所選群組沒有可重新套用的訂單配送方式。',
     'courier_export_no_selection' => '匯出配送業者 CSV 前,請至少選擇一筆出貨訂單。',
     'courier_export_confirm_btn' => '再次匯出',
     'courier_export_reexport_warning' => '以下出貨訂單已匯出過。要再次匯出嗎?',

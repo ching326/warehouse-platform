@@ -52,7 +52,7 @@
                 </header>
 
                 <div class="ready-combine-body">
-                    @if ($readyWarehouseOptions->count() > 1)
+                    @if ($readyWarehouseId === '')
                         <flux:select wire:model.live="readyWarehouseId" :label="__('fulfillment.field_warehouse')">
                             <flux:select.option value="">{{ __('fulfillment.select_warehouse') }}</flux:select.option>
                             @foreach ($readyWarehouseOptions as $warehouse)
@@ -62,7 +62,7 @@
                     @else
                         <div>
                             <span class="subtle">{{ __('fulfillment.field_warehouse') }}</span>
-                            <strong>{{ $readyWarehouseOptions->first()?->code }} / {{ $readyWarehouseOptions->first()?->name }}</strong>
+                            <strong>{{ $selectedReadyWarehouse?->code }} / {{ $selectedReadyWarehouse?->name }}</strong>
                         </div>
                     @endif
                 </div>
@@ -383,7 +383,6 @@
                 </flux:badge>
             </div>
             <div class="selection-action-group" data-testid="sales-order-status-actions">
-                <span>{{ __('sales_orders.bulk_status_group') }}</span>
                 <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
                     {{ __('sales_orders.btn_bulk_mark_ready') }}
                 </flux:button>
@@ -403,6 +402,13 @@
                 </flux:button>
                 <flux:button type="button" size="sm" variant="primary" wire:click="bulkReleaseHold" x-show="has()" x-cloak>
                     {{ __('sales_orders.btn_bulk_release_hold') }}
+                </flux:button>
+
+                <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
+                    {{ __('sales_orders.btn_remap_shipping_method') }}
+                </flux:button>
+                <flux:button type="button" size="sm" variant="primary" wire:click="bulkRemapShippingMethod" x-show="has()" x-cloak>
+                    {{ __('sales_orders.btn_remap_shipping_method') }}
                 </flux:button>
 
                 <flux:button
@@ -572,7 +578,7 @@
                                 <strong>{{ $createdDisplay->format('Y-m-d') }}</strong>
                                 <span>{{ $createdDisplay->format('H:i') }}</span>
                                 @if ($order->isPacking())
-                                    <flux:badge color="amber">{{ __('sales_orders.label_packing') }}</flux:badge>
+                                    <span class="so-packing-text">{{ __('sales_orders.label_packing') }}</span>
                                 @endif
                             </flux:table.cell>
                             <flux:table.cell class="so-note-cell">

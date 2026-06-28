@@ -70,6 +70,19 @@
                 </div>
             </div>
 
+            <div class="form-grid">
+                <div>
+                    <flux:select wire:model="defaultWarehouseId" :label="__('setup.field_default_warehouse')">
+                        <flux:select.option value="">{{ __('setup.select_default_warehouse') }}</flux:select.option>
+                        @foreach ($warehouses as $warehouse)
+                            <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} - {{ $warehouse->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    <span class="subtle">{{ __('setup.field_default_warehouse_hint') }}</span>
+                    @error('default_warehouse_id') <p class="form-error">{{ $message }}</p> @enderror
+                </div>
+            </div>
+
             <label>
                 <span>{{ __('setup.field_notes') }}</span>
                 <textarea wire:model="notes" rows="4"></textarea>

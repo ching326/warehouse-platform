@@ -9,6 +9,7 @@ use App\Models\InventoryMovement;
 use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
+use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
 use App\Models\StockItem;
@@ -299,6 +300,7 @@ class SalesOrderIndexBulkTest extends TestCase
         [$tenant, $shop, $sku] = $this->salesSku('BULK-READY-ALL');
         $extraSku = $this->skuForShop($tenant, $shop, 'BULK-READY-ALL-EXTRA');
         $warehouse = $this->warehouseWithStock($tenant, [$sku, $extraSku]);
+        $this->setDefaultWarehouse($tenant, $warehouse);
         $order = $this->orderWithLines($shop, $sku);
         $order->lines()->create([
             'sku_id' => $extraSku->id,
@@ -325,6 +327,48 @@ class SalesOrderIndexBulkTest extends TestCase
         ]);
     }
 
+    public function test_bulk_mark_ready_carries_sales_order_shipping_method_to_fulfillment_group(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('BULK-READY-SHIP-METHOD');
+        $warehouse = $this->warehouseWithStock($tenant, [$sku]);
+        $this->setDefaultWarehouse($tenant, $warehouse);
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+        $order = $this->orderWithLines($shop, $sku, ['shipping_method_id' => $method->id]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $order->id])
+            ->call('bulkMarkReady')
+            ->assertSee(__('sales_orders.bulk_ready_result', ['updated' => 1, 'skipped' => 0]));
+
+        $this->assertSame($method->id, $order->outboundOrders()->firstOrFail()->shipping_method_id);
+    }
+
+    public function test_bulk_mark_ready_lists_related_skus_when_stock_is_insufficient(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('BULK-NO-STOCK-A');
+        $extraSku = $this->skuForShop($tenant, $shop, 'BULK-NO-STOCK-B');
+        $warehouse = Warehouse::factory()->create(['status' => 'active']);
+        $this->setDefaultWarehouse($tenant, $warehouse);
+        $order = $this->orderWithLines($shop, $sku);
+        $order->lines()->create([
+            'sku_id' => $extraSku->id,
+            'quantity' => 2,
+            'line_status' => SalesOrderLine::STATUS_READY,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $order->id])
+            ->call('bulkMarkReady')
+            ->assertSee(__('fulfillment.not_enough_available_stock'))
+            ->assertSee('BULK-NO-STOCK-A')
+            ->assertSee('BULK-NO-STOCK-B');
+
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->refresh()->fulfillment_status);
+        $this->assertSame(0, OutboundOrder::query()->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)->count());
+    }
+
     public function test_bulk_mark_ready_skips_order_with_non_ready_fulfillable_line(): void
     {
         [$tenant, $shop, $sku] = $this->salesSku('BULK-READY-PARTIAL');
@@ -345,10 +389,35 @@ class SalesOrderIndexBulkTest extends TestCase
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->refresh()->fulfillment_status);
     }
 
+    public function test_bulk_mark_ready_shows_release_hold_error_when_selection_contains_on_hold_order(): void
+    {
+        [, $shop, $sku] = $this->salesSku('BULK-READY-ON-HOLD');
+        $eligible = $this->orderWithLines($shop, $sku);
+        $held = $this->orderWithLines($shop, $sku, [
+            'order_status' => SalesOrder::ORDER_STATUS_ON_HOLD,
+            'platform_order_id' => 'BULK-HOLD-READY-ERROR',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $eligible->id, (string) $held->id])
+            ->call('bulkMarkReady')
+            ->assertSee(__('sales_orders.release_hold_before_mark_ready'))
+            ->assertSee('BULK-HOLD-READY-ERROR')
+            ->assertDontSee(__('sales_orders.bulk_ready_result', ['updated' => 1, 'skipped' => 1]));
+
+        $eligible->refresh();
+        $held->refresh();
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $eligible->fulfillment_status);
+        $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $held->order_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $held->fulfillment_status);
+    }
+
     public function test_bulk_mark_ready_prompts_and_combines_ready_candidates(): void
     {
         [$tenant, $shop, $sku] = $this->salesSku('BULK-COMBINE');
-        $this->warehouseWithStock($tenant, [$sku]);
+        $warehouse = $this->warehouseWithStock($tenant, [$sku]);
+        $this->setDefaultWarehouse($tenant, $warehouse);
         $orderA = $this->orderWithLines($shop, $sku);
         $orderB = $this->orderWithLines($shop, $sku);
 
@@ -371,7 +440,8 @@ class SalesOrderIndexBulkTest extends TestCase
     public function test_bulk_mark_ready_decline_creates_single_order_groups(): void
     {
         [$tenant, $shop, $sku] = $this->salesSku('BULK-DECLINE');
-        $this->warehouseWithStock($tenant, [$sku]);
+        $warehouse = $this->warehouseWithStock($tenant, [$sku]);
+        $this->setDefaultWarehouse($tenant, $warehouse);
         $orderA = $this->orderWithLines($shop, $sku);
         $orderB = $this->orderWithLines($shop, $sku);
 
@@ -393,6 +463,7 @@ class SalesOrderIndexBulkTest extends TestCase
     {
         [$tenant, $shop, $sku] = $this->salesSku('BULK-JOIN');
         $warehouse = $this->warehouseWithStock($tenant, [$sku]);
+        $this->setDefaultWarehouse($tenant, $warehouse);
         $grouped = $this->orderWithLines($shop, $sku, ['fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY]);
         $group = app(OutboundConsolidationService::class)
             ->singleOrderGroup($tenant->id, $warehouse->id, $grouped->id);
@@ -418,7 +489,8 @@ class SalesOrderIndexBulkTest extends TestCase
     public function test_bulk_mark_ready_does_not_group_unfulfilled_suggestions(): void
     {
         [$tenant, $shop, $sku] = $this->salesSku('BULK-SUGGESTION');
-        $this->warehouseWithStock($tenant, [$sku]);
+        $warehouse = $this->warehouseWithStock($tenant, [$sku]);
+        $this->setDefaultWarehouse($tenant, $warehouse);
         $readyNow = $this->orderWithLines($shop, $sku);
         $notSelected = $this->orderWithLines($shop, $sku);
 
@@ -450,6 +522,28 @@ class SalesOrderIndexBulkTest extends TestCase
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_UNFULFILLED, $order->refresh()->fulfillment_status);
     }
 
+    public function test_bulk_mark_ready_uses_tenant_default_warehouse_without_prompting_for_warehouse(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('BULK-DEFAULT-WH');
+        $defaultWarehouse = $this->warehouseWithStock($tenant, [$sku]);
+        $this->setDefaultWarehouse($tenant, $defaultWarehouse);
+        Warehouse::factory()->create(['status' => 'active']);
+        $order = $this->orderWithLines($shop, $sku);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $order->id])
+            ->call('bulkMarkReady')
+            ->assertSet('showReadyCombinePrompt', false);
+
+        $outbound = OutboundOrder::query()
+            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+            ->firstOrFail();
+
+        $this->assertSame($defaultWarehouse->id, $outbound->warehouse_id);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $order->refresh()->fulfillment_status);
+    }
+
     public function test_bulk_mark_ready_respects_consolidation_modes(): void
     {
         [$tenant, $shopA, $skuA] = $this->salesSku('BULK-CONSOL-A');
@@ -458,7 +552,8 @@ class SalesOrderIndexBulkTest extends TestCase
             'consolidation_mode' => Shop::CONSOLIDATION_SAME_SHOP,
         ]);
         $skuB = $this->skuForShop($tenant, $shopB, 'BULK-CONSOL-B');
-        $this->warehouseWithStock($tenant, [$skuA, $skuB]);
+        $warehouse = $this->warehouseWithStock($tenant, [$skuA, $skuB]);
+        $this->setDefaultWarehouse($tenant, $warehouse);
         $orderA = $this->orderWithLines($shopA, $skuA);
         $orderB = $this->orderWithLines($shopB, $skuB);
 
@@ -489,7 +584,8 @@ class SalesOrderIndexBulkTest extends TestCase
     public function test_bulk_mark_ready_ignores_cancelled_lines(): void
     {
         [$tenant, $shop, $sku] = $this->salesSku('BULK-READY-CANCELLED');
-        $this->warehouseWithStock($tenant, [$sku]);
+        $warehouse = $this->warehouseWithStock($tenant, [$sku]);
+        $this->setDefaultWarehouse($tenant, $warehouse);
         $cancelledSku = $this->skuForShop($tenant, $shop, 'BULK-READY-CANCELLED-EXTRA');
         $order = $this->orderWithLines($shop, $sku);
         $order->lines()->create([
@@ -592,6 +688,11 @@ class SalesOrderIndexBulkTest extends TestCase
         }
 
         return $warehouse;
+    }
+
+    private function setDefaultWarehouse(Tenant $tenant, Warehouse $warehouse): void
+    {
+        $tenant->update(['default_warehouse_id' => $warehouse->id]);
     }
 
     private function balance(Tenant $tenant, Warehouse $warehouse, Sku $sku): InventoryBalance

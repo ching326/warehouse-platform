@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'not_enough_available_stock' => 'Not enough available stock.',
     'page_title' => '发货列表',
     'page_subtitle' => '将准备就绪的订单分组,并为出库分配库存。',
     'create_page_title' => '新建发货',
@@ -9,6 +10,9 @@ return [
     'group_created' => '已创建发货分组。',
     'recipient_updated' => '已更新收件人。',
     'shipping_updated' => '已更新出货资料。',
+    'shipping_method_updated' => '已更新配送方式。',
+    'tracking_updated' => '已更新追踪号码。',
+    'note_updated' => '已更新备注。',
     'order_no_longer_ready' => '订单 #:id 已不再可供发货。',
     'order_already_grouped' => '订单 #:id 已在发货分组中。',
     'order_not_ship_complete' => '订单 #:id 尚未完全准备好发货。',
@@ -94,7 +98,10 @@ return [
     'batch_export_sagawa' => '导出 Sagawa',
     'batch_import_tracking' => '导入追踪号码',
     'btn_mark_shipped' => '标记已出货',
+    'btn_remap_shipping' => '重新套用配送',
     'batch_mark_shipped_result' => '已将 :updated 个分组标记为已出货。跳过 :skipped 个。',
+    'remap_shipping_result' => '已重新套用 :updated 个分组的配送方式。跳过 :skipped 个。',
+    'remap_shipping_none' => '所选分组没有可重新套用的订单配送方式。',
     'courier_export_no_selection' => '导出配送商 CSV 前,请至少选择一笔出货订单。',
     'courier_export_confirm_btn' => '再次导出',
     'courier_export_reexport_warning' => '以下出货订单已导出过。要再次导出吗?',

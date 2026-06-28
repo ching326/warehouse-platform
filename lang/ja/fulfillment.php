@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'not_enough_available_stock' => 'Not enough available stock.',
     'page_title' => '出荷一覧',
     'page_subtitle' => '出荷準備が完了した注文をまとめ、出庫用に在庫を引き当てます。',
     'create_page_title' => '出荷作成',
@@ -9,6 +10,9 @@ return [
     'group_created' => '出荷グループを作成しました。',
     'recipient_updated' => '宛先を更新しました。',
     'shipping_updated' => '出荷情報を更新しました。',
+    'shipping_method_updated' => '配送方法を更新しました。',
+    'tracking_updated' => '追跡番号を更新しました。',
+    'note_updated' => 'メモを更新しました。',
     'order_no_longer_ready' => '注文 #:id は出荷準備完了ではなくなりました。',
     'order_already_grouped' => '注文 #:id は既に出荷グループに含まれています。',
     'order_not_ship_complete' => '注文 #:id は出荷準備が完了していません。',
@@ -94,7 +98,10 @@ return [
     'batch_export_sagawa' => '佐川出力',
     'batch_import_tracking' => '追跡番号取込',
     'btn_mark_shipped' => '出荷済みにする',
+    'btn_remap_shipping' => '配送再適用',
     'batch_mark_shipped_result' => ':updated 件のグループを出荷済みにしました。:skipped 件スキップ。',
+    'remap_shipping_result' => ':updated 件のグループに配送方法を再適用しました。:skipped 件スキップ。',
+    'remap_shipping_none' => '選択したグループに再適用できる注文の配送方法がありません。',
     'courier_export_no_selection' => '配送業者 CSV を出力する前に出荷オーダーを 1 件以上選択してください。',
     'courier_export_confirm_btn' => '再出力',
     'courier_export_reexport_warning' => '以下の出荷オーダーは既に出力済みです。再出力しますか?',

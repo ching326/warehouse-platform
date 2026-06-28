@@ -83,6 +83,19 @@
                     <span class="subtle">{{ __('setup.stock_item_name_locale_fixed_hint') }}</span>
                 </div>
             </div>
+
+            <div class="form-grid">
+                <div>
+                    <flux:select wire:model="defaultWarehouseId" :label="__('setup.field_default_warehouse')">
+                        <flux:select.option value="">{{ __('setup.select_default_warehouse') }}</flux:select.option>
+                        @foreach ($warehouses as $warehouse)
+                            <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} - {{ $warehouse->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    <span class="subtle">{{ __('setup.field_default_warehouse_hint') }}</span>
+                    @error('default_warehouse_id') <p class="form-error">{{ $message }}</p> @enderror
+                </div>
+            </div>
         </section>
 
         <div class="form-actions">

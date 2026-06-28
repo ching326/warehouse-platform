@@ -2,11 +2,14 @@
 
 namespace App\Services\Fulfillment;
 
+use App\Models\InventoryBalance;
 use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\ShippingMethod;
 use App\Models\Shop;
+use App\Models\Sku;
+use App\Models\StockItem;
 use App\Services\InventoryService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -226,6 +229,7 @@ class OutboundConsolidationService
         $outbound->salesOrders()->attach($attachPayload);
 
         [$bySkuAndItem, $byStockItem] = $this->aggregateLines($orders);
+        $this->assertEnoughAvailableStock($outbound, $bySkuAndItem, $byStockItem);
 
         foreach ($byStockItem as $stockItemId => $totalQty) {
             $this->inventoryService->reserveStock(
@@ -472,6 +476,76 @@ class OutboundConsolidationService
         return [$outboundLines, $byStockItem];
     }
 
+    /**
+     * @param  array<string,array{sku_id:int,stock_item_id:?int,qty:int,children:array<int,array{sku_id:int,stock_item_id:int,qty:int}>}>  $bySkuAndItem
+     * @param  array<int,int>  $byStockItem
+     */
+    private function assertEnoughAvailableStock(OutboundOrder $outbound, array $bySkuAndItem, array $byStockItem): void
+    {
+        if ($byStockItem === []) {
+            return;
+        }
+
+        $availableByStockItem = InventoryBalance::query()
+            ->where('tenant_id', $outbound->tenant_id)
+            ->where('warehouse_id', $outbound->warehouse_id)
+            ->whereIn('stock_item_id', array_keys($byStockItem))
+            ->pluck('available_qty', 'stock_item_id');
+
+        $shortStockItemIds = [];
+
+        foreach ($byStockItem as $stockItemId => $requiredQty) {
+            $availableQty = (int) ($availableByStockItem[$stockItemId] ?? 0);
+
+            if ($requiredQty > $availableQty) {
+                $shortStockItemIds[] = (int) $stockItemId;
+            }
+        }
+
+        if ($shortStockItemIds === []) {
+            return;
+        }
+
+        $shortStockItemIds = array_flip($shortStockItemIds);
+        $skuIds = [];
+
+        foreach ($bySkuAndItem as $line) {
+            $stockItemId = $line['stock_item_id'];
+
+            if ($stockItemId !== null && isset($shortStockItemIds[(int) $stockItemId])) {
+                $skuIds[] = (int) $line['sku_id'];
+            }
+
+            foreach ($line['children'] as $childLine) {
+                if (isset($shortStockItemIds[(int) $childLine['stock_item_id']])) {
+                    $skuIds[] = (int) $childLine['sku_id'];
+                }
+            }
+        }
+
+        $skuIds = array_values(array_unique($skuIds));
+
+        if ($skuIds === []) {
+            throw new InvalidArgumentException(__('fulfillment.not_enough_available_stock'));
+        }
+
+        $skus = Sku::query()
+            ->with(['stockItem:id,short_name,'.implode(',', StockItem::DISPLAY_NAME_COLUMNS)])
+            ->whereIn('id', $skuIds)
+            ->orderBy('sku')
+            ->get(['id', 'stock_item_id', 'sku', 'name', 'name_en', 'name_ja', 'name_zh_tw', 'name_zh_cn']);
+
+        $skuRows = $skus
+            ->map(function (Sku $sku): string {
+                $name = trim($sku->displayName());
+
+                return $name === '' ? $sku->sku : $sku->sku.' - '.$name;
+            })
+            ->all();
+
+        throw new InvalidArgumentException(__('fulfillment.not_enough_available_stock')."\n".implode("\n", $skuRows));
+    }
+
     private function createOutboundLines(OutboundOrder $outbound, array $bySkuAndItem): void
     {
         foreach ($bySkuAndItem as $line) {
@@ -496,7 +570,7 @@ class OutboundConsolidationService
         }
     }
 
-    private function resolveGroupShippingMethodId(Collection $orders): ?int
+    public function resolveGroupShippingMethodId(Collection $orders): ?int
     {
         $methodIds = $orders->pluck('shipping_method_id');
 

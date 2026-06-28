@@ -225,6 +225,11 @@ class OutboundOrderDetail extends Component
         return $this->performCourierExport($carrier, confirmedReExport: true, outboundOrderIds: $outboundOrderIds);
     }
 
+    public function cancelCourierExport(): void
+    {
+        $this->clearPendingExport();
+    }
+
     public function cancel(): void
     {
         $order = $this->scopedOrderQuery()

@@ -11,6 +11,7 @@ use App\Models\Tenant;
 use App\Models\Warehouse;
 use App\Services\Fulfillment\OutboundConsolidationService;
 use App\Services\MarketplaceShippingNotice\MarketplaceShippingNoticeExportService;
+use App\Services\SalesOrders\SkuDefaultShippingMethodResolver;
 use App\Support\SalesOrderFilters;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -222,6 +223,14 @@ class SalesOrderIndex extends Component
 
         $selectedIds = array_values(array_unique(array_map('intval', $this->selectedIds)));
 
+        $onHoldOrderNumbers = $this->selectedOnHoldOrderNumbers($selectedIds);
+
+        if ($onHoldOrderNumbers !== []) {
+            session()->flash('error', __('sales_orders.release_hold_before_mark_ready')."\n".implode("\n", $onHoldOrderNumbers));
+
+            return;
+        }
+
         $orders = $this->markReadyEligibleQuery($selectedIds)
             ->with('shop')
             ->get();
@@ -316,6 +325,61 @@ class SalesOrderIndex extends Component
             ->update(['order_status' => SalesOrder::ORDER_STATUS_PENDING]);
 
         $this->finishBulk('sales_orders.bulk_release_hold_result', $updated, count($selectedIds));
+    }
+
+    public function bulkRemapShippingMethod(): void
+    {
+        if ($this->selectedIds === []) {
+            return;
+        }
+
+        $selectedIds = $this->normalizedSelectedIds();
+        $orders = SalesOrder::query()
+            ->whereIn('id', $selectedIds)
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->with('lines:id,sales_order_id,sku_id,line_status')
+            ->get(['id', 'tenant_id']);
+
+        $updated = 0;
+        $skipped = count($selectedIds) - $orders->count();
+        $resolver = app(SkuDefaultShippingMethodResolver::class);
+
+        foreach ($orders as $order) {
+            $skuIds = $order->lines
+                ->where('line_status', SalesOrderLine::STATUS_READY)
+                ->pluck('sku_id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            $resolved = $resolver->resolve($order->tenant_id, $skuIds);
+
+            if ($resolved['status'] !== 'winner') {
+                $skipped++;
+
+                continue;
+            }
+
+            $order->update([
+                'shipping_method_id' => $resolved['shipping_method_id'],
+                'shipping_method' => $resolved['shipping_method'],
+            ]);
+            $updated++;
+        }
+
+        $this->selectedIds = [];
+
+        if ($updated === 0) {
+            session()->flash('error', __('sales_orders.bulk_remap_shipping_none'));
+
+            return;
+        }
+
+        session()->flash('status', __('sales_orders.bulk_remap_shipping_result', [
+            'updated' => $updated,
+            'skipped' => $skipped,
+        ]));
     }
 
     public function bulkCancel(): void
@@ -446,13 +510,17 @@ class SalesOrderIndex extends Component
             return;
         }
 
-        SalesOrder::query()
+        $updated = SalesOrder::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->whereKey($orderId)
             ->update([
                 'shipping_method_id' => $method?->id,
                 'shipping_method' => $method?->carrier?->code,
             ]);
+
+        if ($updated > 0) {
+            session()->flash('status', __('sales_orders.shipping_method_updated'));
+        }
     }
 
     public function updateNote(int $orderId, string $value): void
@@ -460,10 +528,14 @@ class SalesOrderIndex extends Component
         $note = trim($value);
         $note = $note === '' ? null : mb_substr($note, 0, 2000);
 
-        SalesOrder::query()
+        $updated = SalesOrder::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->whereKey($orderId)
             ->update(['note' => $note]);
+
+        if ($updated > 0) {
+            session()->flash('status', __('sales_orders.note_updated'));
+        }
     }
 
     public function toggleVisibleSelection(): void
@@ -595,6 +667,7 @@ class SalesOrderIndex extends Component
             'exportFilters' => $this->exportFilterParams(),
             'visibleOrderIds' => $this->visibleOrderIds,
             'readyWarehouseOptions' => $this->readyWarehouseOptions(),
+            'selectedReadyWarehouse' => $this->selectedReadyWarehouse(),
         ])->layout('inventory', [
             'title' => __('sales_orders.index_page_title'),
             'subtitle' => __('sales_orders.index_page_subtitle'),
@@ -781,13 +854,13 @@ class SalesOrderIndex extends Component
 
         $this->pendingReadyOrderIds = $orders->pluck('id')->map(fn ($id) => (int) $id)->all();
         $this->pendingReadySkipped = $skipped;
-        $this->readyWarehouseId = $warehouses->count() === 1 ? (string) $warehouses->first()->id : '';
+        $this->readyWarehouseId = $this->defaultReadyWarehouseId($orders, $warehouses);
         $this->selectedIds = $selectedIds;
 
         $this->refreshReadyPromptContext();
 
         if (
-            $warehouses->count() > 1
+            $this->readyWarehouseId === ''
             || $this->pendingReadyCombineCandidateCount > 0
             || $this->pendingReadyJoinableGroupCount > 0
         ) {
@@ -966,12 +1039,60 @@ class SalesOrderIndex extends Component
                         ->orWhereDoesntHave('bundleComponents'))));
     }
 
+    /**
+     * @return array<int, string>
+     */
+    private function selectedOnHoldOrderNumbers(array $selectedIds): array
+    {
+        $selectedIds = array_values(array_unique(array_map('intval', $selectedIds)));
+
+        return SalesOrder::query()
+            ->whereIn('id', $selectedIds)
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->where('order_status', SalesOrder::ORDER_STATUS_ON_HOLD)
+            ->get(['id', 'platform_order_id'])
+            ->sortBy(fn (SalesOrder $order): int => array_search($order->id, $selectedIds, true))
+            ->map(fn (SalesOrder $order): string => $order->platform_order_id ?: '#'.$order->id)
+            ->values()
+            ->all();
+    }
+
     private function readyWarehouseOptions(): Collection
     {
         return Warehouse::query()
             ->where('status', 'active')
             ->orderBy('name')
             ->get(['id', 'code', 'name']);
+    }
+
+    private function selectedReadyWarehouse(): ?Warehouse
+    {
+        if ($this->readyWarehouseId === '') {
+            return null;
+        }
+
+        return $this->readyWarehouseOptions()->firstWhere('id', (int) $this->readyWarehouseId);
+    }
+
+    private function defaultReadyWarehouseId(Collection $orders, Collection $warehouses): string
+    {
+        $tenantIds = $orders->pluck('tenant_id')->map(fn ($id) => (int) $id)->unique()->values();
+
+        if ($tenantIds->count() !== 1) {
+            return '';
+        }
+
+        $defaultWarehouseId = Tenant::query()
+            ->whereKey((int) $tenantIds->first())
+            ->value('default_warehouse_id');
+
+        if (! $defaultWarehouseId) {
+            return '';
+        }
+
+        return $warehouses->contains('id', (int) $defaultWarehouseId)
+            ? (string) $defaultWarehouseId
+            : '';
     }
 
     private function normalizeFilterState(bool $useRequestFallback = true): void

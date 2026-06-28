@@ -9,7 +9,6 @@ use App\Models\ShippingMethod;
 use App\Models\Sku;
 use App\Models\Tenant;
 use App\Services\Fulfillment\OutboundConsolidationService;
-use App\Services\SalesOrders\SkuDefaultShippingMethodResolver;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -199,7 +198,7 @@ class SalesOrderDetail extends Component
             || $order->fulfillment_status !== SalesOrder::FULFILLMENT_STATUS_UNFULFILLED
         ) {
             if ($order->order_status === SalesOrder::ORDER_STATUS_ON_HOLD) {
-                session()->flash('error', __('sales_orders.release_hold_before_mark_ready'));
+                session()->flash('error', __('sales_orders.release_hold_before_mark_ready')."\n".($order->platform_order_id ?: '#'.$order->id));
 
                 return;
             }
@@ -461,43 +460,6 @@ class SalesOrderDetail extends Component
         ]);
 
         session()->flash('status', __('sales_orders.shipping_method_updated'));
-    }
-
-    public function remapShippingMethod(): void
-    {
-        $order = SalesOrder::query()
-            ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->with('lines:id,sales_order_id,sku_id,line_status')
-            ->findOrFail($this->orderId);
-
-        $skuIds = $order->lines
-            ->where('line_status', SalesOrderLine::STATUS_READY)
-            ->pluck('sku_id')
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-
-        $resolved = app(SkuDefaultShippingMethodResolver::class)->resolve($order->tenant_id, $skuIds);
-
-        if ($resolved['status'] === 'none') {
-            session()->flash('error', __('sales_orders.shipping_method_remap_no_default'));
-
-            return;
-        }
-
-        if ($resolved['status'] === 'tie') {
-            session()->flash('error', __('sales_orders.shipping_method_remap_tie'));
-
-            return;
-        }
-
-        $order->update([
-            'shipping_method_id' => $resolved['shipping_method_id'],
-            'shipping_method' => $resolved['shipping_method'],
-        ]);
-
-        session()->flash('status', __('sales_orders.shipping_method_remapped'));
     }
 
     public function updateNote(string $value): void

@@ -104,8 +104,6 @@
                 </div>
 
                 @error("lines.{$index}.sku_id") <p class="form-error">{{ $message }}</p> @enderror
-                @error("lines.{$index}.quantity") <p class="form-error">{{ $message }}</p> @enderror
-                @error("lines.{$index}.note") <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
 
             <div>

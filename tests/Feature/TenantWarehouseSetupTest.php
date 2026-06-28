@@ -23,11 +23,14 @@ class TenantWarehouseSetupTest extends TestCase
 
     public function test_create_tenant_succeeds(): void
     {
+        $warehouse = Warehouse::factory()->create(['status' => 'active']);
+
         Livewire::actingAs($this->internalUser())
             ->test(TenantCreate::class)
             ->set('code', 'XYZ')
             ->set('name', 'XYZ Corp')
             ->set('skuNameLocale', 'zh_TW')
+            ->set('defaultWarehouseId', (string) $warehouse->id)
             ->set('contactEmail', 'ops@example.com')
             ->call('save')
             ->assertRedirect(route('setup.tenants.index'));
@@ -39,6 +42,7 @@ class TenantWarehouseSetupTest extends TestCase
             'status' => 'active',
             'sku_name_locale' => 'zh_TW',
             'stock_item_name_locale' => 'ja',
+            'default_warehouse_id' => $warehouse->id,
         ]);
     }
 
@@ -54,6 +58,7 @@ class TenantWarehouseSetupTest extends TestCase
 
     public function test_edit_tenant_keeps_stock_item_name_base_language_fixed_to_japanese(): void
     {
+        $warehouse = Warehouse::factory()->create(['status' => 'active']);
         $tenant = Tenant::factory()->create([
             'sku_name_locale' => 'en',
             'stock_item_name_locale' => 'zh_TW',
@@ -64,6 +69,7 @@ class TenantWarehouseSetupTest extends TestCase
             ->assertSee(__('setup.stock_item_name_locale_fixed_hint'))
             ->assertDontSee('wire:model="stockItemNameLocale"', false)
             ->set('skuNameLocale', 'zh_CN')
+            ->set('defaultWarehouseId', (string) $warehouse->id)
             ->call('save')
             ->assertRedirect(route('setup.tenants.index'));
 
@@ -71,6 +77,7 @@ class TenantWarehouseSetupTest extends TestCase
 
         $this->assertSame('zh_CN', $tenant->sku_name_locale);
         $this->assertSame('ja', $tenant->stock_item_name_locale);
+        $this->assertSame($warehouse->id, $tenant->default_warehouse_id);
     }
 
     public function test_create_tenant_rejects_duplicate_code(): void

@@ -2,12 +2,17 @@
     <x-flash-toast />
 
     @if ($pendingExportWarning)
-        <div class="active-filter-row">
-            <div class="export-warning-message">{{ $pendingExportWarning }}</div>
+        <div class="export-confirm-toast export-confirm-toast-warning">
+            <div class="export-confirm-toast-message">{{ $pendingExportWarning }}</div>
             @if ($pendingCourierExportCarrier)
-                <flux:button type="button" size="sm" variant="primary" wire:click="confirmCourierExport">
-                    {{ __('fulfillment.courier_export_confirm_btn') }}
-                </flux:button>
+                <div class="export-confirm-toast-actions">
+                    <flux:button type="button" size="sm" variant="outline" wire:click="cancelCourierExport">
+                        {{ __('common.cancel') }}
+                    </flux:button>
+                    <flux:button type="button" size="sm" variant="primary" wire:click="confirmCourierExport">
+                        {{ __('fulfillment.courier_export_confirm_btn') }}
+                    </flux:button>
+                </div>
             @endif
         </div>
     @endif
@@ -258,7 +263,7 @@
             }"
         >
         <div class="sales-order-page-actions" data-testid="fulfillment-group-page-actions">
-            <flux:button href="{{ $this->pickSummaryUrl() }}" variant="outline" wire:navigate>
+            <flux:button href="{{ $this->pickSummaryUrl() }}" variant="primary" wire:navigate>
                 {{ __('fulfillment.btn_pick_summary') }}
             </flux:button>
 
@@ -325,6 +330,12 @@
                 </flux:button>
                 <flux:button type="button" size="sm" variant="primary" wire:click="markShipped" x-show="has()" x-cloak>
                     {{ __('fulfillment.btn_mark_shipped') }}
+                </flux:button>
+                <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
+                    {{ __('fulfillment.btn_remap_shipping') }}
+                </flux:button>
+                <flux:button type="button" size="sm" variant="primary" wire:click="remapShipping" x-show="has()" x-cloak>
+                    {{ __('fulfillment.btn_remap_shipping') }}
                 </flux:button>
             </div>
         </div>
@@ -494,9 +505,9 @@
 
                         <flux:table.cell class="fg-added-cell">
                             @php($dateFormat = $detailed ? 'Y-m-d H:i' : 'm-d H:i')
-                            <div>{{ $arranged ? $arranged->format($dateFormat) : '-' }}</div>
+                            <div>{{ $this->formatWarehouseTime($order, $arranged, $dateFormat) }}</div>
                             <div class="fg-subtle">
-                                {{ $printed ? __('fulfillment.printed_at', ['time' => $printed->format($dateFormat)]) : __('fulfillment.not_printed') }}
+                                {{ $printed ? __('fulfillment.printed_at', ['time' => $this->formatWarehouseTime($order, $printed, $dateFormat)]) : __('fulfillment.not_printed') }}
                             </div>
                         </flux:table.cell>
 
