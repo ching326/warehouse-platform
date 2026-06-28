@@ -299,13 +299,18 @@ class SalesOrderIndex extends Component
         $holdService = app(HoldOutboundOrderService::class);
 
         foreach ($orders as $order) {
+            if ($this->requiresHoldChoice($order)) {
+                $this->pendingHoldOrderId = (int) $order->id;
+                $this->showHoldChoicePrompt = true;
+
+                return;
+            }
+        }
+
+        foreach ($orders as $order) {
             try {
                 if ($this->holdSalesOrder($order, $holdService)) {
                     $updated++;
-                }
-
-                if ($this->showHoldChoicePrompt) {
-                    return;
                 }
             } catch (InvalidArgumentException) {
                 continue;
@@ -1117,7 +1122,7 @@ class SalesOrderIndex extends Component
             return false;
         }
 
-        if ($outbound->salesOrders->count() > 1) {
+        if ($this->requiresHoldChoice($order)) {
             $this->pendingHoldOrderId = (int) $order->id;
             $this->showHoldChoicePrompt = true;
 
@@ -1127,6 +1132,20 @@ class SalesOrderIndex extends Component
         $service->holdOutbound($outbound, 'sales_order');
 
         return true;
+    }
+
+    private function requiresHoldChoice(SalesOrder $order): bool
+    {
+        if ($order->fulfillment_status !== SalesOrder::FULFILLMENT_STATUS_ARRANGED) {
+            return false;
+        }
+
+        $outbound = $this->customerOutboundFor($order);
+
+        return $outbound
+            && $outbound->status === OutboundOrder::STATUS_PENDING
+            && $outbound->courier_csv_exported_at === null
+            && $outbound->salesOrders->count() > 1;
     }
 
     private function pendingHoldOrder(): SalesOrder

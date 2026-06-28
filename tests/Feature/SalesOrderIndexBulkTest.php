@@ -127,6 +127,38 @@ class SalesOrderIndexBulkTest extends TestCase
         $this->assertSame(100, $balance->available_qty);
     }
 
+    public function test_bulk_hold_does_not_partially_apply_before_grouped_choice(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('BULK-HOLD-PREDETECT');
+        $warehouse = $this->warehouseWithStock($tenant, [$sku]);
+        $plainOrder = $this->orderWithLines($shop, $sku);
+        $groupedOrder = $this->orderWithLines($shop, $sku, [
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+            'platform_order_id' => 'BULK-HOLD-PREDETECT-GROUPED',
+        ]);
+        $otherGroupedOrder = $this->orderWithLines($shop, $sku, [
+            'fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY,
+            'platform_order_id' => 'BULK-HOLD-PREDETECT-OTHER',
+        ]);
+        $group = app(OutboundConsolidationService::class)->createGroup($tenant->id, $warehouse->id, [
+            $groupedOrder->id,
+            $otherGroupedOrder->id,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $plainOrder->id, (string) $groupedOrder->id])
+            ->call('bulkHold')
+            ->assertSet('showHoldChoicePrompt', true)
+            ->assertSet('pendingHoldOrderId', $groupedOrder->id)
+            ->call('cancelHoldChoice');
+
+        $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $plainOrder->refresh()->order_status);
+        $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $groupedOrder->refresh()->order_status);
+        $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $otherGroupedOrder->refresh()->order_status);
+        $this->assertSame(OutboundOrder::HOLD_STATUS_ACTIVE, $group->refresh()->hold_status);
+    }
+
     public function test_bulk_hold_skips_printed_grouped_order_and_holds_not_printed_grouped_order(): void
     {
         [$tenant, $shop, $sku] = $this->salesSku('BULK-HOLD-MIXED');

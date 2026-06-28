@@ -604,11 +604,12 @@ class FulfillmentGroupTest extends TestCase
             ->assertDontSee($printedGroup->ref);
     }
 
-    public function test_fulfillment_index_print_waiting_excludes_cancelled_groups(): void
+    public function test_fulfillment_index_print_waiting_excludes_cancelled_and_held_groups(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
         $waitingOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-WAITING');
         $cancelledOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-CANCELLED-WAITING', '2 Cancelled Street');
+        $heldOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-HELD-WAITING', '3 Held Street');
 
         $this->createGroup($tenant, $warehouse, $waitingOrder->ship_together_key, [$waitingOrder]);
         $waitingGroup = OutboundOrder::query()->latest('id')->firstOrFail();
@@ -617,11 +618,16 @@ class FulfillmentGroupTest extends TestCase
         $cancelledGroup = OutboundOrder::query()->latest('id')->firstOrFail();
         $cancelledGroup->update(['status' => OutboundOrder::STATUS_CANCELLED]);
 
+        $this->createGroup($tenant, $warehouse, $heldOrder->ship_together_key, [$heldOrder]);
+        $heldGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+        $heldGroup->update(['hold_status' => OutboundOrder::HOLD_STATUS_ON_HOLD]);
+
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentIndex::class)
             ->set('printWaiting', true)
             ->assertSee($waitingGroup->ref)
-            ->assertDontSee($cancelledGroup->ref);
+            ->assertDontSee($cancelledGroup->ref)
+            ->assertDontSee($heldGroup->ref);
     }
 
     public function test_fulfillment_index_added_cell_uses_warehouse_timezone(): void
@@ -912,6 +918,32 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $order->refresh()->order_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $order->fulfillment_status);
         $this->assertSame(2, $this->balance($tenant, $warehouse, $sku->stockItem)->reserved_qty);
+    }
+
+    public function test_fulfillment_index_printed_hold_confirmation_holds_full_selection(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $printedOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-HOLD-PRINTED');
+        $notPrintedOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-HOLD-NOT-PRINTED', '2 Hold Street');
+
+        $this->createGroup($tenant, $warehouse, $printedOrder->ship_together_key, [$printedOrder]);
+        $printedGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+        $printedGroup->update(['courier_csv_exported_at' => now()]);
+
+        $this->createGroup($tenant, $warehouse, $notPrintedOrder->ship_together_key, [$notPrintedOrder]);
+        $notPrintedGroup = OutboundOrder::query()->latest('id')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('selectedIds', [(string) $printedGroup->id, (string) $notPrintedGroup->id])
+            ->call('holdSelected')
+            ->assertSet('pendingHoldOrderIds', [$printedGroup->id, $notPrintedGroup->id])
+            ->assertSet('selectedIds', [(string) $printedGroup->id, (string) $notPrintedGroup->id])
+            ->call('confirmPrintedHold')
+            ->assertSee(__('fulfillment.batch_hold_result', ['updated' => 2, 'skipped' => 0]));
+
+        $this->assertSame(OutboundOrder::HOLD_STATUS_ON_HOLD, $printedGroup->refresh()->hold_status);
+        $this->assertSame(OutboundOrder::HOLD_STATUS_ON_HOLD, $notPrintedGroup->refresh()->hold_status);
     }
 
     public function test_fulfillment_index_mark_shipped_skips_held_group(): void

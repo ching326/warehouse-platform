@@ -90,7 +90,7 @@ class FulfillmentIndex extends Component
 
     public bool $showTrackingImportModal = false;
 
-    public array $pendingPrintedHoldOrderIds = [];
+    public array $pendingHoldOrderIds = [];
 
     public ?string $pendingHoldWarning = null;
 
@@ -450,7 +450,7 @@ class FulfillmentIndex extends Component
             ->all();
 
         if ($printedIds !== []) {
-            $this->pendingPrintedHoldOrderIds = $printedIds;
+            $this->pendingHoldOrderIds = $selectedIds;
             $this->pendingHoldWarning = $this->printedHoldWarning($printedIds);
 
             return;
@@ -461,7 +461,7 @@ class FulfillmentIndex extends Component
 
     public function confirmPrintedHold(): void
     {
-        $ids = $this->pendingPrintedHoldOrderIds;
+        $ids = $this->pendingHoldOrderIds;
         $this->clearPendingHold();
 
         if ($ids !== []) {
@@ -606,6 +606,7 @@ class FulfillmentIndex extends Component
                 ->whereIn('status', array_map(fn ($status) => self::STATUS_MAP[$status] ?? $status, $this->statusesFilter)))
             ->when($this->printWaiting, fn ($query) => $query
                 ->whereNull('courier_csv_exported_at')
+                ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
                 ->where('status', '!=', OutboundOrder::STATUS_CANCELLED))
             ->when($this->dateRange !== SalesOrderFilters::DATE_ALL || $this->dateFrom !== '' || $this->dateTo !== '', function ($query) {
                 [$from, $toExclusive] = $this->dateWindow();
@@ -993,7 +994,7 @@ class FulfillmentIndex extends Component
 
     private function clearPendingHold(): void
     {
-        $this->pendingPrintedHoldOrderIds = [];
+        $this->pendingHoldOrderIds = [];
         $this->pendingHoldWarning = null;
     }
 
