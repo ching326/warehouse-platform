@@ -93,6 +93,7 @@
                         'zh_CN' => 'stockItem.name_zh_cn',
                     ],
                 ])
+                <flux:input wire:model="stockItem.tenant_item_code" :label="__('skus.field_tenant_item_code')" />
                 <flux:input wire:model="stockItem.short_name" :label="__('skus.field_short_name')" />
                 <flux:input wire:model="stockItem.brand" :label="__('skus.field_brand')" />
                 <flux:input wire:model="stockItem.model_number" :label="__('skus.field_model_number')" />
@@ -155,7 +156,7 @@
                 </label>
             </div>
 
-            @foreach (['stock_item.name', 'stock_item.weight_value', 'stock_item.length_value', 'stock_item.width_value', 'stock_item.height_value'] as $field)
+            @foreach (['stock_item.name', 'stock_item.tenant_item_code', 'stock_item.weight_value', 'stock_item.length_value', 'stock_item.width_value', 'stock_item.height_value'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
         </section>

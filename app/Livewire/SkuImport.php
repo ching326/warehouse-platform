@@ -226,7 +226,7 @@ class SkuImport extends Component
         $seenSkus = [];
 
         foreach ($rows as $idx => $row) {
-            $eval = $this->evaluateRow($row, $columnIndex, $existingSkuCodes, $validProductTypes, $seenSkus);
+            $eval = $this->evaluateRow($row, $columnIndex, $existingSkuCodes, $validProductTypes, $seenSkus, $tenantId);
 
             match ($eval['status']) {
                 'error' => $errorCount++,
@@ -317,7 +317,7 @@ class SkuImport extends Component
         ) {
             foreach ($rows as $idx => $row) {
                 $rowNo = $idx + 1;
-                $eval = $this->evaluateRow($row, $columnIndex, $existingSkuCodes, $validProductTypes, $seenSkus);
+                $eval = $this->evaluateRow($row, $columnIndex, $existingSkuCodes, $validProductTypes, $seenSkus, $tenantId);
 
                 if ($eval['status'] === 'error') {
                     $failed++;
@@ -440,6 +440,7 @@ class SkuImport extends Component
         array $existingSkuCodes,
         array $validProductTypes,
         array &$seenSkus,
+        int $tenantId,
     ): array {
         $rowData = $this->applyDefaultBarcodeType(
             $this->normalizeSkuBaseName($this->extractRowData($row, $columnIndex))
@@ -451,7 +452,7 @@ class SkuImport extends Component
             $seenSkus[$skuCode] = true;
         }
 
-        $errors = $this->validateRowData($rowData, $existingSkuCodes, $validProductTypes, $isDupInFile);
+        $errors = $this->validateRowData($rowData, $existingSkuCodes, $validProductTypes, $isDupInFile, $tenantId);
 
         if ($errors !== []) {
             $status = 'error';
@@ -513,6 +514,7 @@ class SkuImport extends Component
         array $existingSkuCodes,
         array $validProductTypes,
         bool $isDupInFile,
+        int $tenantId,
     ): array {
         $errors = [];
 
@@ -577,12 +579,30 @@ class SkuImport extends Component
             'sku', 'name', 'name_en', 'name_ja', 'name_zh_tw', 'name_zh_cn',
             'platform_sku', 'platform_product_id', 'platform_variant_id',
             'platform_variant_name', 'platform_label_code',
-            'short_name', 'brand', 'model_number', 'variation_code', 'color', 'size', 'barcode',
+            'short_name', 'brand', 'model_number', 'variation_code', 'color', 'size', 'barcode', 'tenant_item_code',
         ];
 
         foreach ($stringFields as $field) {
             if (isset($rowData[$field]) && strlen($rowData[$field]) > 255) {
                 $errors[] = __('sku_import.error_too_long', ['field' => $field]);
+            }
+        }
+
+        $systemStockItemCode = trim($rowData['stock_item_code'] ?? '');
+        $tenantItemCode = trim($rowData['tenant_item_code'] ?? '');
+
+        if ($systemStockItemCode !== '' && $tenantItemCode !== '') {
+            $systemStockItemId = DB::table('stock_items')
+                ->where('tenant_id', $tenantId)
+                ->where('code', $systemStockItemCode)
+                ->value('id');
+            $tenantStockItemId = DB::table('stock_items')
+                ->where('tenant_id', $tenantId)
+                ->where('tenant_item_code', $tenantItemCode)
+                ->value('id');
+
+            if ($systemStockItemId !== null && $tenantStockItemId !== null && (int) $systemStockItemId !== (int) $tenantStockItemId) {
+                $errors[] = __('sku_import.error_stock_code_conflict');
             }
         }
 
@@ -612,6 +632,7 @@ class SkuImport extends Component
     {
         return [
             'stock_item_code' => $rowData['stock_item_code'] ?? '',
+            'tenant_item_code' => $rowData['tenant_item_code'] ?? '',
             'si_name_ja' => $rowData['si_name_ja'] ?? '',
             'si_name_zh_tw' => $rowData['si_name_zh_tw'] ?? '',
             'si_name_zh_cn' => $rowData['si_name_zh_cn'] ?? '',

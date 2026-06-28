@@ -122,4 +122,6 @@ return [
     'field_si_note' => '库存品项备注',
     'field_handling_note' => '操作备注',
     'field_si_status' => '库存品项状态',
+    'field_tenant_item_code' => 'Tenant item code',
+    'error_stock_code_conflict' => 'Stock item code and tenant item code refer to different products.',
 ];

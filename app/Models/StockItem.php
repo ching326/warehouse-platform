@@ -33,6 +33,7 @@ class StockItem extends Model
     protected $fillable = [
         'tenant_id',
         'code',
+        'tenant_item_code',
         'name',
         'name_en',
         'name_ja',
@@ -102,6 +103,24 @@ class StockItem extends Model
     public function displayName(?string $locale = null): string
     {
         return ($this->short_name ?: '') ?: $this->localizedName($locale);
+    }
+
+    public function preferredDisplayCode(bool $showTenantCode): string
+    {
+        if ($showTenantCode && filled($this->tenant_item_code)) {
+            return (string) $this->tenant_item_code;
+        }
+
+        return (string) $this->code;
+    }
+
+    public function secondaryDisplayCode(bool $showTenantCode): ?string
+    {
+        if ($showTenantCode && filled($this->tenant_item_code)) {
+            return (string) $this->code;
+        }
+
+        return null;
     }
 
     public function skus(): HasMany

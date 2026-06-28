@@ -1130,6 +1130,34 @@ class FulfillmentGroupTest extends TestCase
         ]);
     }
 
+    public function test_fulfillment_courier_export_uses_tenant_item_code_source_for_item_summary(): void
+    {
+        Storage::fake('local');
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $tenant->update(['fulfillment_item_code_source' => Tenant::FULFILLMENT_ITEM_CODE_SOURCE_TENANT_ITEM_CODE]);
+        $sku->stockItem->update(['tenant_item_code' => 'TENANT-EXPORT-CODE']);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-FG-TENANT-CODE');
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+        $user = $this->internalUser();
+        $user->setPreference('show_tenant_item_code', false);
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $outbound = OutboundOrder::firstOrFail();
+        $outbound->update(['shipping_method_id' => $method->id]);
+
+        $batch = app(CourierExportService::class)->exportOrders(
+            outboundOrderIds: [$outbound->id],
+            carrier: CourierCarrier::YAMATO,
+            allowedTenantIds: [$tenant->id],
+            user: $user,
+        );
+
+        $csv = mb_convert_encoding(Storage::disk($batch->disk)->get($batch->path), 'UTF-8', 'SJIS-win');
+
+        $this->assertStringContainsString('3 x TENANT-EXPORT-CODE', $csv);
+        $this->assertStringNotContainsString('3 x '.$sku->sku, $csv);
+    }
+
     public function test_fulfillment_sagawa_export_writes_short_group_reference_to_customer_management_number(): void
     {
         Storage::fake('local');

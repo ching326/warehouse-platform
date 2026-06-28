@@ -69,6 +69,7 @@ class SkuCreate extends Component
         'name_ja' => '',
         'name_zh_tw' => '',
         'name_zh_cn' => '',
+        'tenant_item_code' => '',
         'short_name' => '',
         'brand' => '',
         'model_number' => '',
@@ -239,6 +240,12 @@ class SkuCreate extends Component
             'stock_item.name_ja' => ['nullable', 'string', 'max:255'],
             'stock_item.name_zh_tw' => ['nullable', 'string', 'max:255'],
             'stock_item.name_zh_cn' => ['nullable', 'string', 'max:255'],
+            'stock_item.tenant_item_code' => [
+                'nullable',
+                'string',
+                'max:255',
+                Rule::unique('stock_items', 'tenant_item_code')->where('tenant_id', $tenantId),
+            ],
             'stock_item.weight_value' => ['nullable', 'numeric', 'min:0'],
             'stock_item.length_value' => ['nullable', 'numeric', 'min:0'],
             'stock_item.width_value' => ['nullable', 'numeric', 'min:0'],
@@ -260,7 +267,10 @@ class SkuCreate extends Component
             'status' => $this->status,
             'stock_item_mode' => $this->stockItemMode,
             'existing_stock_item_id' => $this->existingStockItemId === '' ? null : $this->existingStockItemId,
-            'stock_item' => $this->stockItem,
+            'stock_item' => [
+                ...$this->stockItem,
+                'tenant_item_code' => $this->nullableString($this->stockItem['tenant_item_code'] ?? ''),
+            ],
         ];
     }
 
@@ -274,6 +284,7 @@ class SkuCreate extends Component
             'name_ja' => $this->nullableString($this->stockItem['name_ja'] ?? ''),
             'name_zh_tw' => $this->nullableString($this->stockItem['name_zh_tw'] ?? ''),
             'name_zh_cn' => $this->nullableString($this->stockItem['name_zh_cn'] ?? ''),
+            'tenant_item_code' => $this->nullableString($this->stockItem['tenant_item_code'] ?? ''),
             'short_name' => $this->nullableString($this->stockItem['short_name']),
             'brand' => $this->nullableString($this->stockItem['brand']),
             'model_number' => $this->nullableString($this->stockItem['model_number']),
@@ -390,6 +401,7 @@ class SkuCreate extends Component
                 $query->where(function ($query) use ($search) {
                     $query
                         ->where('code', 'like', $search)
+                        ->orWhere('tenant_item_code', 'like', $search)
                         ->orWhere('name', 'like', $search)
                         ->orWhere('name_en', 'like', $search)
                         ->orWhere('name_ja', 'like', $search)
@@ -408,7 +420,7 @@ class SkuCreate extends Component
             })
             ->orderBy('code')
             ->limit(30)
-            ->get(['id', 'code', ...StockItem::DISPLAY_NAME_COLUMNS, 'barcode']);
+            ->get(['id', 'code', 'tenant_item_code', ...StockItem::DISPLAY_NAME_COLUMNS, 'barcode']);
     }
 
     private function currentTenant(): ?Tenant

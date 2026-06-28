@@ -122,4 +122,6 @@ return [
     'field_si_note' => '在庫品目メモ',
     'field_handling_note' => '取扱メモ',
     'field_si_status' => '在庫品目ステータス',
+    'field_tenant_item_code' => 'Tenant item code',
+    'error_stock_code_conflict' => 'Stock item code and tenant item code refer to different products.',
 ];

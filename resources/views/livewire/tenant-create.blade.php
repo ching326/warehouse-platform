@@ -81,6 +81,14 @@
                     <span class="subtle">{{ __('setup.field_default_warehouse_hint') }}</span>
                     @error('default_warehouse_id') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
+                <div>
+                    <flux:select wire:model="fulfillmentItemCodeSource" :label="__('setup.field_fulfillment_item_code_source')">
+                        @foreach ($fulfillmentItemCodeSourceOptions as $value => $label)
+                            <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    @error('fulfillment_item_code_source') <p class="form-error">{{ $message }}</p> @enderror
+                </div>
             </div>
 
             <label>

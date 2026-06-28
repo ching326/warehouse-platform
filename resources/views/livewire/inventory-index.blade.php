@@ -28,6 +28,11 @@
             />
 
             <div class="inventory-filter-row">
+                <label class="default-view-toggle">
+                    <input type="checkbox" wire:model.live="showTenantItemCode">
+                    <span>{{ __('skus.tenant_code_toggle') }}</span>
+                </label>
+
                 <flux:select wire:model.live="tenantId" :label="__('common.tenant')">
                     <flux:select.option value="">{{ __('common.all_tenants') }}</flux:select.option>
                     @foreach ($tenants as $tenant)
@@ -87,7 +92,10 @@
                                 @include('livewire.partials.stock-item-thumbnail', ['stockItem' => $balance->stockItem])
                                 <div>
                                     <strong>{{ $balance->stockItem->name }}</strong>
-                                    <span class="subtle">{{ $balance->stockItem->code }}</span>
+                                    <span class="subtle">{{ $this->stockItemPrimaryCode($balance->stockItem) }}</span>
+                                    @if ($this->stockItemSecondaryCode($balance->stockItem))
+                                        <span class="subtle">{{ $this->stockItemSecondaryCode($balance->stockItem) }}</span>
+                                    @endif
                                     @if ($balance->stockItem->barcode)
                                         <span class="subtle">{{ __('inventory.barcode_label', ['barcode' => $balance->stockItem->barcode]) }}</span>
                                     @endif

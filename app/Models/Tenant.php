@@ -16,6 +16,18 @@ class Tenant extends Model
     /** @use HasFactory<TenantFactory> */
     use HasFactory, LogsActivity;
 
+    public const FULFILLMENT_ITEM_CODE_SOURCE_SKU = 'sku';
+
+    public const FULFILLMENT_ITEM_CODE_SOURCE_TENANT_ITEM_CODE = 'tenant_item_code';
+
+    public const FULFILLMENT_ITEM_CODE_SOURCE_STOCK_ITEM_CODE = 'stock_item_code';
+
+    public const FULFILLMENT_ITEM_CODE_SOURCES = [
+        self::FULFILLMENT_ITEM_CODE_SOURCE_SKU,
+        self::FULFILLMENT_ITEM_CODE_SOURCE_TENANT_ITEM_CODE,
+        self::FULFILLMENT_ITEM_CODE_SOURCE_STOCK_ITEM_CODE,
+    ];
+
     protected $fillable = [
         'code',
         'name',
@@ -27,6 +39,7 @@ class Tenant extends Model
         'notes',
         'sku_name_locale',
         'stock_item_name_locale',
+        'fulfillment_item_code_source',
         'default_warehouse_id',
     ];
 

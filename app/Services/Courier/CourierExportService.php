@@ -221,8 +221,10 @@ class CourierExportService
             ->whereIn('id', $ids)
             ->whereIn('tenant_id', $allowedTenantIds)
             ->with([
+                'tenant',
                 'shippingMethod.carrier',
                 'leafLines.sku.stockItem',
+                'salesOrders.tenant',
                 'salesOrders.shop.tenant',
                 'salesOrders.lines.sku.stockItem',
             ])
@@ -283,6 +285,7 @@ class CourierExportService
             'package_count' => $order->package_count,
             'package_weight_g' => $order->package_weight_g,
             'tracking_no' => $order->tracking_no,
+            'tenant' => $order->tenant,
             'shop' => $firstOrder?->shop,
             'lines' => $lines,
         ];

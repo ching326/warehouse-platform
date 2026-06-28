@@ -36,6 +36,10 @@
                     <span>{{ __('skus.default_view_checkbox') }}</span>
                 </label>
             @endif
+            <label class="default-view-toggle">
+                <input type="checkbox" wire:model.live="showTenantItemCode">
+                <span>{{ __('skus.tenant_code_toggle') }}</span>
+            </label>
         </div>
 
         <div class="sku-toolbar">
@@ -214,7 +218,10 @@
                             </flux:table.cell>
                             <flux:table.cell class="sku-stock-cell">
                                 @if ($sku->stockItem)
-                                    <strong>{{ $sku->stockItem->code }}</strong>
+                                    <strong>{{ $this->stockItemPrimaryCode($sku->stockItem) }}</strong>
+                                    @if ($this->stockItemSecondaryCode($sku->stockItem))
+                                        <small>{{ $this->stockItemSecondaryCode($sku->stockItem) }}</small>
+                                    @endif
                                     <span>{{ $sku->stockItem->name }}</span>
                                     <small>{{ $sku->stockItem->barcode ?? __('skus.no_barcode') }}</small>
                                 @elseif ($sku->sku_type === 'virtual_bundle')
@@ -313,7 +320,10 @@
                             </flux:table.cell>
                             <flux:table.cell class="sku-stock-cell">
                                 @if ($sku->stockItem)
-                                    <strong>{{ $sku->stockItem->code }}</strong>
+                                    <strong>{{ $this->stockItemPrimaryCode($sku->stockItem) }}</strong>
+                                    @if ($this->stockItemSecondaryCode($sku->stockItem))
+                                        <small>{{ $this->stockItemSecondaryCode($sku->stockItem) }}</small>
+                                    @endif
                                 @elseif ($sku->sku_type === 'virtual_bundle')
                                     <strong>{{ __('skus.virtual_bundle') }}</strong>
                                     <span title="{{ $this->bundleComposition($sku, 999) }}">{{ $this->bundleComposition($sku) }}</span>

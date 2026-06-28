@@ -122,6 +122,24 @@ class InventoryPageTest extends TestCase
             ->assertDontSee($rows['betaStock']->name);
     }
 
+    public function test_inventory_uses_tenant_item_code_display_preference_and_search(): void
+    {
+        $rows = $this->createInventoryRows();
+        $rows['alphaStock']->update(['tenant_item_code' => 'TENANT-INV-001']);
+        $user = $this->internalUser();
+
+        $user->setPreference('show_tenant_item_code', true);
+
+        Livewire::actingAs($user)
+            ->test(InventoryIndex::class)
+            ->assertSet('showTenantItemCode', true)
+            ->assertSee('TENANT-INV-001')
+            ->assertSee($rows['alphaStock']->code)
+            ->set('search', 'TENANT-INV-001')
+            ->assertSee($rows['alphaStock']->name)
+            ->assertDontSee($rows['betaStock']->name);
+    }
+
     public function test_inventory_filters_by_tenant_warehouse_shop_product_type_and_status(): void
     {
         $rows = $this->createInventoryRows();

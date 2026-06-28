@@ -62,6 +62,10 @@ class SkuImportFields
                 ['nullable', 'string', 'max:255'], 'string',
                 ['stock item code', 'stock code', 'si code']),
 
+            new SkuImportField('tenant_item_code', 'sku_import.field_tenant_item_code', 'stock_item', false,
+                ['nullable', 'string', 'max:255'], 'string',
+                ['tenant item code', 'customer item code', 'client item code', 'tenant stock code']),
+
             new SkuImportField('si_name_ja', 'sku_import.field_si_name_ja', 'stock_item', false,
                 ['nullable', 'string', 'max:255'], 'string',
                 ['stock name ja', 'si name ja', 'stock item name ja', '在庫品名', '在庫品名日本語']),

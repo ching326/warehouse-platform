@@ -215,4 +215,7 @@ return [
     'fnsku_alias_conflict' => 'This FNSKU is already registered as a barcode for another product.',
     'alias_source_fnsku_field' => 'From FNSKU field',
     'fnsku_also_scannable_hint' => 'Also registered as a scannable FNSKU barcode.',
+    'field_tenant_item_code' => 'Tenant item code',
+    'tenant_code_toggle' => 'Tenant code',
+    'tenant_code_preference_saved' => 'Tenant code display preference saved.',
 ];

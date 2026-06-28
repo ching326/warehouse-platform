@@ -32,6 +32,8 @@ class TenantEdit extends Component
 
     public string $defaultWarehouseId = '';
 
+    public string $fulfillmentItemCodeSource = Tenant::FULFILLMENT_ITEM_CODE_SOURCE_SKU;
+
     private const STOCK_ITEM_NAME_LOCALE = 'ja';
 
     private const NAME_LOCALE_OPTIONS = ['en', 'ja', 'zh_TW', 'zh_CN'];
@@ -53,6 +55,7 @@ class TenantEdit extends Component
         $this->notes = $tenant->notes ?? '';
         $this->skuNameLocale = $tenant->sku_name_locale ?: 'en';
         $this->defaultWarehouseId = $tenant->default_warehouse_id === null ? '' : (string) $tenant->default_warehouse_id;
+        $this->fulfillmentItemCodeSource = $tenant->fulfillment_item_code_source ?: Tenant::FULFILLMENT_ITEM_CODE_SOURCE_SKU;
     }
 
     public function save()
@@ -69,6 +72,7 @@ class TenantEdit extends Component
             'status' => $this->status,
             'notes' => $this->notes,
             'sku_name_locale' => $this->skuNameLocale,
+            'fulfillment_item_code_source' => $this->fulfillmentItemCodeSource,
             'default_warehouse_id' => $this->defaultWarehouseId,
         ], [
             'code' => ['required', 'string', 'max:50', Rule::unique('tenants', 'code')->ignore($this->tenant->id)],
@@ -80,6 +84,7 @@ class TenantEdit extends Component
             'status' => ['required', 'string', Rule::in(['active', 'inactive'])],
             'notes' => ['nullable', 'string', 'max:2000'],
             'sku_name_locale' => ['required', 'string', Rule::in(self::NAME_LOCALE_OPTIONS)],
+            'fulfillment_item_code_source' => ['required', 'string', Rule::in(Tenant::FULFILLMENT_ITEM_CODE_SOURCES)],
             'default_warehouse_id' => ['nullable', 'integer', Rule::exists('warehouses', 'id')->where('status', 'active')],
         ])->validate();
 
@@ -94,6 +99,7 @@ class TenantEdit extends Component
             'notes' => $this->nullableString($this->notes),
             'sku_name_locale' => $this->skuNameLocale,
             'stock_item_name_locale' => self::STOCK_ITEM_NAME_LOCALE,
+            'fulfillment_item_code_source' => $this->fulfillmentItemCodeSource,
             'default_warehouse_id' => $this->defaultWarehouseId === '' ? null : (int) $this->defaultWarehouseId,
         ]);
 
@@ -110,6 +116,7 @@ class TenantEdit extends Component
                 'inactive' => __('setup.status_inactive'),
             ],
             'localeOptions' => $this->localeOptions(),
+            'fulfillmentItemCodeSourceOptions' => $this->fulfillmentItemCodeSourceOptions(),
             'warehouses' => $this->warehouseOptions(),
         ])->layout('inventory', [
             'title' => __('setup.tenant_edit_page_title'),
@@ -138,6 +145,15 @@ class TenantEdit extends Component
             'ja' => __('setup.locale_ja'),
             'zh_TW' => __('setup.locale_zh_TW'),
             'zh_CN' => __('setup.locale_zh_CN'),
+        ];
+    }
+
+    private function fulfillmentItemCodeSourceOptions(): array
+    {
+        return [
+            Tenant::FULFILLMENT_ITEM_CODE_SOURCE_SKU => __('setup.fulfillment_item_code_source_sku'),
+            Tenant::FULFILLMENT_ITEM_CODE_SOURCE_TENANT_ITEM_CODE => __('setup.fulfillment_item_code_source_tenant_item_code'),
+            Tenant::FULFILLMENT_ITEM_CODE_SOURCE_STOCK_ITEM_CODE => __('setup.fulfillment_item_code_source_stock_item_code'),
         ];
     }
 

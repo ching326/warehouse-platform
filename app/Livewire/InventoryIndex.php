@@ -8,6 +8,7 @@ use App\Models\InventoryBalance;
 use App\Models\MediaAsset;
 use App\Models\ProductType;
 use App\Models\Shop;
+use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\Warehouse;
 use Illuminate\Database\Eloquent\Builder;
@@ -36,6 +37,8 @@ class InventoryIndex extends Component
 
     public int $perPage = 10;
 
+    public bool $showTenantItemCode = false;
+
     private bool $visibleTenantIdsResolved = false;
 
     private ?array $visibleTenantIdsCache = null;
@@ -47,7 +50,20 @@ class InventoryIndex extends Component
 
     public function mount(): void
     {
+        $this->showTenantItemCode = (bool) Auth::user()?->preference('show_tenant_item_code', false);
         $this->autoSelectSingleActiveWarehouse();
+    }
+
+    public function updatedShowTenantItemCode(bool $checked): void
+    {
+        $user = Auth::user();
+
+        if (! $user) {
+            return;
+        }
+
+        $user->setPreference('show_tenant_item_code', $checked);
+        session()->flash('status', __('skus.tenant_code_preference_saved'));
     }
 
     public function updatingSearch(): void
@@ -156,6 +172,7 @@ class InventoryIndex extends Component
                     'id',
                     'tenant_id',
                     'code',
+                    'tenant_item_code',
                     'name',
                     'barcode',
                     'product_type',
@@ -226,6 +243,7 @@ class InventoryIndex extends Component
                         ->whereHas('stockItem', function ($query) use ($search) {
                             $query
                                 ->where('code', 'like', $search)
+                                ->orWhere('tenant_item_code', 'like', $search)
                                 ->orWhere('name', 'like', $search)
                                 ->orWhere('barcode', 'like', $search);
                         })
@@ -245,6 +263,16 @@ class InventoryIndex extends Component
             ->when($this->visibleTenantIds() !== null, fn ($query) => $query->whereIn('id', $this->visibleTenantIds()))
             ->orderBy('name')
             ->get(['id', 'code', 'name']);
+    }
+
+    public function stockItemPrimaryCode(StockItem $stockItem): string
+    {
+        return $stockItem->preferredDisplayCode($this->showTenantItemCode);
+    }
+
+    public function stockItemSecondaryCode(StockItem $stockItem): ?string
+    {
+        return $stockItem->secondaryDisplayCode($this->showTenantItemCode);
     }
 
     private function warehouseOptions(): Collection

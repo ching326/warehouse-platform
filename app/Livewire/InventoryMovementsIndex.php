@@ -303,6 +303,7 @@ class InventoryMovementsIndex extends Component
                         ->orWhere('name_zh_tw', 'like', $search)
                         ->orWhere('name_zh_cn', 'like', $search)
                         ->orWhere('short_name', 'like', $search)
+                        ->orWhere('tenant_item_code', 'like', $search)
                         ->orWhere('barcode', 'like', $search)
                         ->orWhereHas('skus', function ($query) use ($search) {
                             $query
@@ -315,7 +316,7 @@ class InventoryMovementsIndex extends Component
             })
             ->orderBy('code')
             ->limit(50)
-            ->get(['id', 'tenant_id', 'code', ...StockItem::DISPLAY_NAME_COLUMNS, 'barcode']);
+            ->get(['id', 'tenant_id', 'code', 'tenant_item_code', ...StockItem::DISPLAY_NAME_COLUMNS, 'barcode']);
     }
 
     private function movementTypeOptions(): Collection

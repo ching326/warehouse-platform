@@ -69,6 +69,8 @@ class SkusIndex extends Component
 
     public bool $currentViewIsDefault = false;
 
+    public bool $showTenantItemCode = false;
+
     public ?int $managingStockItemId = null;
 
     public string $imagePanelMode = 'gallery';
@@ -122,6 +124,7 @@ class SkusIndex extends Component
             default => self::VIEW_DETAILED,
         };
 
+        $this->showTenantItemCode = (bool) Auth::user()?->preference('show_tenant_item_code', false);
         $this->syncCurrentViewIsDefault();
     }
 
@@ -200,6 +203,18 @@ class SkusIndex extends Component
 
         $user->forgetPreference('skus_view');
         $this->flashStatus(__('skus.default_view_cleared'));
+    }
+
+    public function updatedShowTenantItemCode(bool $checked): void
+    {
+        $user = Auth::user();
+
+        if (! $user) {
+            return;
+        }
+
+        $user->setPreference('show_tenant_item_code', $checked);
+        $this->flashStatus(__('skus.tenant_code_preference_saved'));
     }
 
     public function saveLogisticsField(int $skuId, string $field): void
@@ -1052,6 +1067,7 @@ class SkusIndex extends Component
                     'id',
                     'tenant_id',
                     'code',
+                    'tenant_item_code',
                     ...StockItem::DISPLAY_NAME_COLUMNS,
                     'brand',
                     'model_number',
@@ -1218,6 +1234,7 @@ class SkusIndex extends Component
                         ->orWhereHas('stockItem', function ($query) use ($search) {
                             $query
                                 ->where('code', 'like', $search)
+                                ->orWhere('tenant_item_code', 'like', $search)
                                 ->orWhere('name', 'like', $search)
                                 ->orWhere('barcode', 'like', $search);
                         })
@@ -1237,6 +1254,16 @@ class SkusIndex extends Component
     {
         return Sku::query()
             ->when($this->visibleTenantIds() !== null, fn ($query) => $query->whereIn('tenant_id', $this->visibleTenantIds()));
+    }
+
+    public function stockItemPrimaryCode(StockItem $stockItem): string
+    {
+        return $stockItem->preferredDisplayCode($this->showTenantItemCode);
+    }
+
+    public function stockItemSecondaryCode(StockItem $stockItem): ?string
+    {
+        return $stockItem->secondaryDisplayCode($this->showTenantItemCode);
     }
 
     private function tenantOptions(): Collection

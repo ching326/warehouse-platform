@@ -242,6 +242,53 @@ class SkuImportTest extends TestCase
         $this->assertSame($stockItem->id, $result->sku->stock_item_id);
     }
 
+    public function test_writer_maps_and_links_stock_item_by_tenant_item_code(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'TIC']);
+        $stockItem = StockItem::factory()->for($tenant)->create([
+            'code' => 'TIC-000001',
+            'tenant_item_code' => 'CUSTOM-LINK-001',
+        ]);
+
+        DB::beginTransaction();
+
+        $result = app(SkuWriter::class)->upsert(
+            $tenant->id,
+            null,
+            ['sku' => 'SKU-CUSTOM-LINK', 'name' => 'Linked by tenant code', 'status' => 'active'],
+            ['tenant_item_code' => 'CUSTOM-LINK-001'],
+            false,
+        );
+
+        DB::commit();
+
+        $this->assertSame('created', $result->status);
+        $this->assertSame($stockItem->id, $result->sku->stock_item_id);
+    }
+
+    public function test_writer_blocks_conflicting_stock_item_and_tenant_item_codes(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'TCF']);
+        StockItem::factory()->for($tenant)->create(['code' => 'TCF-000001', 'tenant_item_code' => 'CUSTOM-A']);
+        StockItem::factory()->for($tenant)->create(['code' => 'TCF-000002', 'tenant_item_code' => 'CUSTOM-B']);
+
+        DB::beginTransaction();
+
+        try {
+            $this->expectException(\RuntimeException::class);
+
+            app(SkuWriter::class)->upsert(
+                $tenant->id,
+                null,
+                ['sku' => 'SKU-CONFLICT', 'name' => 'Conflict', 'status' => 'active'],
+                ['stock_item_code' => 'TCF-000001', 'tenant_item_code' => 'CUSTOM-B'],
+                false,
+            );
+        } finally {
+            DB::rollBack();
+        }
+    }
+
     public function test_writer_creates_new_stock_item_when_code_not_found(): void
     {
         $tenant = Tenant::factory()->create(['code' => 'NEW']);

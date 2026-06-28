@@ -3,6 +3,9 @@
 namespace App\Services\Courier\Concerns;
 
 use App\Models\SalesOrderLine;
+use App\Models\Sku;
+use App\Models\Tenant;
+use App\Services\Fulfillment\FulfillmentItemCodeResolver;
 
 trait BuildsCourierCsv
 {
@@ -47,8 +50,20 @@ trait BuildsCourierCsv
         return $order->lines
             ->map(fn ($line) => $this->normalizeCourierLine($line))
             ->filter()
-            ->map(fn (object $line) => $line->quantity.' x '.($line->sku?->sku ?? 'SKU'))
+            ->map(fn (object $line) => $line->quantity.' x '.$this->fulfillmentItemCode($order, $line))
             ->implode(' | ');
+    }
+
+    private function fulfillmentItemCode($order, object $line): string
+    {
+        $tenant = $order->tenant ?? $order->shop->tenant ?? null;
+        $sku = $line->sku ?? null;
+
+        if (! $tenant instanceof Tenant || ! $sku instanceof Sku) {
+            return $sku?->sku ?? 'SKU';
+        }
+
+        return app(FulfillmentItemCodeResolver::class)->resolve($tenant, $sku, $sku->stockItem);
     }
 
     private function normalizeCourierLine($line): ?object

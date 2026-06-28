@@ -22,6 +22,7 @@ use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Services\Fulfillment\FulfillmentItemCodeResolver;
 use App\Services\Sku\PlatformLabelAliasSync;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -2137,6 +2138,118 @@ class SkuManagementTest extends TestCase
 
         Livewire::test(SkusIndex::class)
             ->assertDontSee('SKU-GUEST-HIDDEN');
+    }
+
+    public function test_sku_create_and_edit_save_tenant_item_code(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'TIC']);
+        $shop = Shop::factory()->for($tenant)->create();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('shopId', (string) $shop->id)
+            ->set('sku', 'SKU-TENANT-CODE')
+            ->set('name', 'SKU tenant code')
+            ->set('stockItem.name', 'Stock tenant code')
+            ->set('stockItem.tenant_item_code', 'CUSTOM-001')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('skus.index'));
+
+        $sku = Sku::where('sku', 'SKU-TENANT-CODE')->firstOrFail();
+
+        $this->assertSame('CUSTOM-001', $sku->stockItem->tenant_item_code);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuEdit::class, ['sku' => $sku])
+            ->set('stockItem.tenant_item_code', '')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('skus.index'));
+
+        $this->assertNull($sku->stockItem->refresh()->tenant_item_code);
+    }
+
+    public function test_tenant_item_code_is_unique_per_tenant_only(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'TUA']);
+        $shop = Shop::factory()->for($tenant)->create();
+
+        StockItem::factory()->for($tenant)->create(['tenant_item_code' => 'DUP-001']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('shopId', (string) $shop->id)
+            ->set('sku', 'SKU-DUP-TENANT')
+            ->set('name', 'Duplicate tenant code')
+            ->set('stockItem.name', 'Duplicate stock')
+            ->set('stockItem.tenant_item_code', 'DUP-001')
+            ->call('save')
+            ->assertHasErrors(['stock_item.tenant_item_code']);
+
+        $otherTenant = Tenant::factory()->create(['code' => 'TUB']);
+        $otherStock = StockItem::factory()->for($otherTenant)->create(['tenant_item_code' => 'DUP-001']);
+
+        $this->assertSame('DUP-001', $otherStock->tenant_item_code);
+    }
+
+    public function test_sku_index_tenant_code_preference_controls_stock_item_display_and_search(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'DSP']);
+        $shop = Shop::factory()->for($tenant)->create();
+        $stockItem = StockItem::factory()->for($tenant)->create([
+            'code' => 'DSP-000001',
+            'tenant_item_code' => 'TENANT-DISPLAY-001',
+            'name' => 'Display Stock',
+        ]);
+        $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create(['sku' => 'SKU-DISPLAY']);
+        $user = $this->internalUser();
+
+        Livewire::actingAs($user)
+            ->test(SkusIndex::class)
+            ->assertSet('showTenantItemCode', false)
+            ->assertSee('DSP-000001')
+            ->assertDontSee('TENANT-DISPLAY-001')
+            ->set('showTenantItemCode', true)
+            ->assertSee('TENANT-DISPLAY-001')
+            ->assertSee('DSP-000001');
+
+        $this->assertTrue((bool) $user->refresh()->preference('show_tenant_item_code'));
+
+        Livewire::actingAs($user)
+            ->test(SkusIndex::class)
+            ->assertSet('showTenantItemCode', true)
+            ->set('search', 'TENANT-DISPLAY-001')
+            ->assertSee($sku->sku);
+    }
+
+    public function test_fulfillment_item_code_resolver_uses_tenant_setting_not_user_preference(): void
+    {
+        $tenant = Tenant::factory()->create([
+            'fulfillment_item_code_source' => Tenant::FULFILLMENT_ITEM_CODE_SOURCE_SKU,
+        ]);
+        $stockItem = StockItem::factory()->for($tenant)->create([
+            'code' => 'SYS-RESOLVE',
+            'tenant_item_code' => 'TEN-RESOLVE',
+        ]);
+        $sku = Sku::factory()->for($tenant)->for($stockItem)->create(['sku' => 'SKU-RESOLVE']);
+        $user = $this->internalUser();
+
+        $user->setPreference('show_tenant_item_code', true);
+        $resolver = app(FulfillmentItemCodeResolver::class);
+
+        $this->assertSame('SKU-RESOLVE', $resolver->resolve($tenant, $sku, $stockItem));
+
+        $tenant->update(['fulfillment_item_code_source' => Tenant::FULFILLMENT_ITEM_CODE_SOURCE_TENANT_ITEM_CODE]);
+        $this->assertSame('TEN-RESOLVE', $resolver->resolve($tenant->refresh(), $sku, $stockItem));
+
+        $stockItem->update(['tenant_item_code' => null]);
+        $this->assertSame('SKU-RESOLVE', $resolver->resolve($tenant, $sku, $stockItem->refresh()));
+
+        $tenant->update(['fulfillment_item_code_source' => Tenant::FULFILLMENT_ITEM_CODE_SOURCE_STOCK_ITEM_CODE]);
+        $this->assertSame('SYS-RESOLVE', $resolver->resolve($tenant->refresh(), $sku, $stockItem));
     }
 
     private function internalUser(): User

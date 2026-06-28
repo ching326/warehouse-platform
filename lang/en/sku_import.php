@@ -131,4 +131,6 @@ return [
     'field_si_note' => 'Stock item note',
     'field_handling_note' => 'Handling note',
     'field_si_status' => 'Stock item status',
+    'field_tenant_item_code' => 'Tenant item code',
+    'error_stock_code_conflict' => 'Stock item code and tenant item code refer to different products.',
 ];

@@ -307,6 +307,7 @@ class StockAdjustmentCreate extends Component
                         ->orWhere('name_zh_tw', 'like', $search)
                         ->orWhere('name_zh_cn', 'like', $search)
                         ->orWhere('short_name', 'like', $search)
+                        ->orWhere('tenant_item_code', 'like', $search)
                         ->orWhere('barcode', 'like', $search)
                         ->orWhereHas('skus', function ($query) use ($search): void {
                             $query
@@ -323,7 +324,7 @@ class StockAdjustmentCreate extends Component
             })
             ->orderBy('code')
             ->limit(30)
-            ->get(['id', 'code', ...StockItem::DISPLAY_NAME_COLUMNS, 'barcode']);
+            ->get(['id', 'code', 'tenant_item_code', ...StockItem::DISPLAY_NAME_COLUMNS, 'barcode']);
     }
 
     private function selectedStockItem(): ?StockItem
@@ -334,7 +335,7 @@ class StockAdjustmentCreate extends Component
 
         return StockItem::query()
             ->where('tenant_id', $this->tenantId)
-            ->find($this->stockItemId, ['id', 'code', ...StockItem::DISPLAY_NAME_COLUMNS]);
+            ->find($this->stockItemId, ['id', 'code', 'tenant_item_code', ...StockItem::DISPLAY_NAME_COLUMNS]);
     }
 
     private function currentTenant(): ?Tenant

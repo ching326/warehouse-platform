@@ -163,4 +163,8 @@ return [
     'locale_ja' => 'Japanese',
     'locale_zh_TW' => 'Traditional Chinese',
     'locale_zh_CN' => 'Simplified Chinese',
+    'field_fulfillment_item_code_source' => 'Fulfillment item code source',
+    'fulfillment_item_code_source_sku' => 'SKU',
+    'fulfillment_item_code_source_tenant_item_code' => 'Tenant item code',
+    'fulfillment_item_code_source_stock_item_code' => 'System stock item code',
 ];

@@ -31,6 +31,7 @@ class TenantWarehouseSetupTest extends TestCase
             ->set('name', 'XYZ Corp')
             ->set('skuNameLocale', 'zh_TW')
             ->set('defaultWarehouseId', (string) $warehouse->id)
+            ->set('fulfillmentItemCodeSource', Tenant::FULFILLMENT_ITEM_CODE_SOURCE_TENANT_ITEM_CODE)
             ->set('contactEmail', 'ops@example.com')
             ->call('save')
             ->assertRedirect(route('setup.tenants.index'));
@@ -43,7 +44,20 @@ class TenantWarehouseSetupTest extends TestCase
             'sku_name_locale' => 'zh_TW',
             'stock_item_name_locale' => 'ja',
             'default_warehouse_id' => $warehouse->id,
+            'fulfillment_item_code_source' => Tenant::FULFILLMENT_ITEM_CODE_SOURCE_TENANT_ITEM_CODE,
         ]);
+    }
+
+    public function test_tenant_setup_rejects_invalid_fulfillment_item_code_source(): void
+    {
+        Livewire::actingAs($this->internalUser())
+            ->test(TenantCreate::class)
+            ->set('code', 'BAD')
+            ->set('name', 'Bad Source Tenant')
+            ->set('skuNameLocale', 'en')
+            ->set('fulfillmentItemCodeSource', 'barcode')
+            ->call('save')
+            ->assertHasErrors(['fulfillment_item_code_source']);
     }
 
     public function test_create_tenant_requires_sku_name_base_language(): void
@@ -70,6 +84,7 @@ class TenantWarehouseSetupTest extends TestCase
             ->assertDontSee('wire:model="stockItemNameLocale"', false)
             ->set('skuNameLocale', 'zh_CN')
             ->set('defaultWarehouseId', (string) $warehouse->id)
+            ->set('fulfillmentItemCodeSource', Tenant::FULFILLMENT_ITEM_CODE_SOURCE_STOCK_ITEM_CODE)
             ->call('save')
             ->assertRedirect(route('setup.tenants.index'));
 
@@ -78,6 +93,7 @@ class TenantWarehouseSetupTest extends TestCase
         $this->assertSame('zh_CN', $tenant->sku_name_locale);
         $this->assertSame('ja', $tenant->stock_item_name_locale);
         $this->assertSame($warehouse->id, $tenant->default_warehouse_id);
+        $this->assertSame(Tenant::FULFILLMENT_ITEM_CODE_SOURCE_STOCK_ITEM_CODE, $tenant->fulfillment_item_code_source);
     }
 
     public function test_create_tenant_rejects_duplicate_code(): void

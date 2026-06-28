@@ -92,21 +92,38 @@ class SkuWriter
         bool $allowUpdate,
     ): int {
         $linkCode = $this->nullableString($stockItemData['stock_item_code'] ?? '');
+        $tenantItemCode = $this->nullableString($stockItemData['tenant_item_code'] ?? '');
+        $linkedByCode = null;
+        $linkedByTenantCode = null;
 
         if ($linkCode !== null) {
-            $linked = StockItem::query()
+            $linkedByCode = StockItem::query()
                 ->where('tenant_id', $tenantId)
                 ->where('code', $linkCode)
                 ->lockForUpdate()
                 ->first();
+        }
 
-            if ($linked !== null) {
-                if ($allowUpdate) {
-                    $linked->update($this->buildStockItemUpdatePayload($stockItemData, $skuData));
-                }
+        if ($tenantItemCode !== null) {
+            $linkedByTenantCode = StockItem::query()
+                ->where('tenant_id', $tenantId)
+                ->where('tenant_item_code', $tenantItemCode)
+                ->lockForUpdate()
+                ->first();
+        }
 
-                return $linked->id;
+        if ($linkedByCode !== null && $linkedByTenantCode !== null && $linkedByCode->id !== $linkedByTenantCode->id) {
+            throw new \RuntimeException(__('sku_import.error_stock_code_conflict'));
+        }
+
+        $linked = $linkedByCode ?? $linkedByTenantCode;
+
+        if ($linked !== null) {
+            if ($allowUpdate) {
+                $linked->update($this->buildStockItemUpdatePayload($stockItemData, $skuData));
             }
+
+            return $linked->id;
         }
 
         if ($existingStockItemId !== null) {
@@ -165,6 +182,7 @@ class SkuWriter
             'name_ja' => $siNameJa,
             'name_zh_tw' => $siNameZhTw,
             'name_zh_cn' => $siNameZhCn,
+            'tenant_item_code' => $this->nullableString($data['tenant_item_code'] ?? ''),
             'short_name' => $this->nullableString($data['short_name'] ?? ''),
             'brand' => $this->nullableString($data['brand'] ?? ''),
             'model_number' => $this->nullableString($data['model_number'] ?? ''),
