@@ -256,6 +256,10 @@ class FulfillmentPackService
             return PackLookupResult::cancelled($order);
         }
 
+        if ($order->hold_status === OutboundOrder::HOLD_STATUS_ON_HOLD) {
+            return PackLookupResult::onHold($order);
+        }
+
         return PackLookupResult::found($order);
     }
 }

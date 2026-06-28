@@ -42,6 +42,13 @@ class OutboundOrderShip extends Component
             return;
         }
 
+        if ($order->hold_status === OutboundOrder::HOLD_STATUS_ON_HOLD) {
+            session()->flash('error', __('outbound.cannot_ship_on_hold'));
+            $this->redirectRoute('outbound.index', navigate: true);
+
+            return;
+        }
+
     }
 
     public function save()
@@ -51,6 +58,12 @@ class OutboundOrderShip extends Component
 
         if ($order->status !== OutboundOrder::STATUS_PENDING) {
             session()->flash('error', __('outbound.already_processed'));
+
+            return redirect()->route('outbound.index');
+        }
+
+        if ($order->hold_status === OutboundOrder::HOLD_STATUS_ON_HOLD) {
+            session()->flash('error', __('outbound.cannot_ship_on_hold'));
 
             return redirect()->route('outbound.index');
         }

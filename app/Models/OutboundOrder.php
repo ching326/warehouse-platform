@@ -32,6 +32,10 @@ class OutboundOrder extends Model
 
     public const STATUS_CANCELLED = 'cancelled';
 
+    public const HOLD_STATUS_ACTIVE = 'active';
+
+    public const HOLD_STATUS_ON_HOLD = 'on_hold';
+
     public const REASON_CUSTOMER_ORDER = 'customer_order';
 
     public const REASON_RE_SHIP = 're_ship';
@@ -59,6 +63,13 @@ class OutboundOrder extends Model
         'warehouse_id',
         'ref',
         'status',
+        'hold_status',
+        'held_at',
+        'held_by_user_id',
+        'held_from',
+        'hold_reason',
+        'released_at',
+        'released_by_user_id',
         'note',
         'recipient_name',
         'recipient_phone',
@@ -86,6 +97,8 @@ class OutboundOrder extends Model
             'shipped_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'courier_csv_exported_at' => 'datetime',
+            'held_at' => 'datetime',
+            'released_at' => 'datetime',
             'package_count' => 'integer',
             'package_weight_g' => 'integer',
         ];
@@ -130,6 +143,16 @@ class OutboundOrder extends Model
     public function shippedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'shipped_by_user_id');
+    }
+
+    public function heldBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'held_by_user_id');
+    }
+
+    public function releasedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'released_by_user_id');
     }
 
     public function cancelledBy(): BelongsTo

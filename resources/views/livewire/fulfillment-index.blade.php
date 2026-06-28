@@ -20,6 +20,23 @@
         </div>
     @endif
 
+    @if ($pendingHoldWarning)
+        <div class="app-toast app-toast-warning app-toast-confirm" role="alert">
+            <div class="app-toast-body">
+                <strong class="app-toast-title">{{ __('outbound.hold_printed_confirm_title') }}</strong>
+                <span class="app-toast-text">{{ $pendingHoldWarning }}</span>
+                <div class="app-toast-actions">
+                    <flux:button type="button" size="sm" variant="outline" wire:click="cancelPrintedHold">
+                        {{ __('common.cancel') }}
+                    </flux:button>
+                    <flux:button type="button" size="sm" variant="primary" wire:click="confirmPrintedHold">
+                        {{ __('outbound.hold') }}
+                    </flux:button>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <section class="table-shell flux-panel">
         <div
             class="sales-order-filter-grid sales-order-filter-toolbar"
@@ -266,6 +283,10 @@
             }"
         >
         <div class="sales-order-page-actions" data-testid="fulfillment-group-page-actions">
+            <flux:button href="{{ $this->pickSummaryUrl() }}" variant="outline" wire:navigate>
+                {{ __('fulfillment.btn_pick_summary') }}
+            </flux:button>
+
             <flux:button href="{{ route('fulfillment.create') }}" variant="primary" wire:navigate>
                 {{ __('fulfillment.btn_create') }}
             </flux:button>
@@ -329,6 +350,18 @@
                 </flux:button>
                 <flux:button type="button" size="sm" variant="primary" wire:click="markShipped" x-show="has()" x-cloak>
                     {{ __('fulfillment.btn_mark_shipped') }}
+                </flux:button>
+                <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
+                    {{ __('outbound.hold') }}
+                </flux:button>
+                <flux:button type="button" size="sm" variant="primary" wire:click="holdSelected" x-show="has()" x-cloak>
+                    {{ __('outbound.hold') }}
+                </flux:button>
+                <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
+                    {{ __('outbound.release_hold') }}
+                </flux:button>
+                <flux:button type="button" size="sm" variant="primary" wire:click="releaseHoldSelected" x-show="has()" x-cloak>
+                    {{ __('outbound.release_hold') }}
                 </flux:button>
                 <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
                     {{ __('fulfillment.btn_remap_shipping') }}
@@ -514,10 +547,15 @@
                             <flux:badge color="{{ $this->statusColor($order->status) }}">
                                 {{ $this->statusLabel($order->status) }}
                             </flux:badge>
+                            @if ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
+                                <flux:badge color="amber">
+                                    {{ $this->holdStatusLabel($order->hold_status) }}
+                                </flux:badge>
+                            @endif
                         </flux:table.cell>
 
                         <flux:table.cell>
-                            @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING)
+                            @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE)
                                 <div class="fg-row-action">
                                     <flux:button href="{{ route('outbound.pack', $order) }}" size="sm" variant="primary" class="fg-scan-pack-button" wire:navigate>
                                         {{ __('fulfillment_pack.page_title') }}

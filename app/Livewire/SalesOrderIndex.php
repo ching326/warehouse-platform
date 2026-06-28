@@ -11,6 +11,7 @@ use App\Models\Tenant;
 use App\Models\Warehouse;
 use App\Services\Fulfillment\OutboundConsolidationService;
 use App\Services\MarketplaceShippingNotice\MarketplaceShippingNoticeExportService;
+use App\Services\Outbound\HoldOutboundOrderService;
 use App\Services\SalesOrders\SkuDefaultShippingMethodResolver;
 use App\Support\SalesOrderFilters;
 use Illuminate\Support\Collection;
@@ -85,6 +86,10 @@ class SalesOrderIndex extends Component
     public int $pendingReadyJoinableGroupCount = 0;
 
     public int $pendingReadySuggestionCount = 0;
+
+    public bool $showHoldChoicePrompt = false;
+
+    public int $pendingHoldOrderId = 0;
 
     private bool $allowedTenantIdsResolved = false;
 
@@ -276,7 +281,6 @@ class SalesOrderIndex extends Component
             ->whereIn('id', $selectedIds)
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->where('order_status', SalesOrder::ORDER_STATUS_PENDING)
-            ->whereDoesntHave('activeOutboundOrders', fn ($query) => $query->whereNotNull('outbound_orders.courier_csv_exported_at'))
             ->where(function ($query) {
                 $query->whereIn('fulfillment_status', [
                     SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
@@ -288,15 +292,20 @@ class SalesOrderIndex extends Component
                             ->where('outbound_orders.status', OutboundOrder::STATUS_PENDING));
                 });
             })
-            ->get(['id']);
+            ->with(['activeOutboundOrders.salesOrders:id'])
+            ->get();
 
         $updated = 0;
-        $groupService = app(OutboundConsolidationService::class);
+        $holdService = app(HoldOutboundOrderService::class);
 
         foreach ($orders as $order) {
             try {
-                if ($groupService->releaseOrderForHold($order)) {
+                if ($this->holdSalesOrder($order, $holdService)) {
                     $updated++;
+                }
+
+                if ($this->showHoldChoicePrompt) {
+                    return;
                 }
             } catch (InvalidArgumentException) {
                 continue;
@@ -304,6 +313,55 @@ class SalesOrderIndex extends Component
         }
 
         $this->finishBulk('sales_orders.bulk_hold_result', $updated, count($selectedIds));
+    }
+
+    public function holdWholeShipment(): void
+    {
+        $order = $this->pendingHoldOrder();
+        $outbound = $this->customerOutboundFor($order);
+
+        if (! $outbound) {
+            $this->resetHoldChoicePrompt();
+            session()->flash('error', __('sales_orders.cannot_hold'));
+
+            return;
+        }
+
+        try {
+            app(HoldOutboundOrderService::class)->holdOutbound($outbound, 'sales_order');
+        } catch (InvalidArgumentException $exception) {
+            session()->flash('error', $exception->getMessage());
+            $this->resetHoldChoicePrompt();
+
+            return;
+        }
+
+        $this->resetHoldChoicePrompt();
+        $this->selectedIds = [];
+        session()->flash('status', __('sales_orders.put_on_hold'));
+    }
+
+    public function splitAndRebuildHeldShipment(): void
+    {
+        $order = $this->pendingHoldOrder();
+
+        try {
+            app(HoldOutboundOrderService::class)->splitAndRebuildForSalesOrderHold($order);
+        } catch (InvalidArgumentException $exception) {
+            session()->flash('error', $exception->getMessage());
+            $this->resetHoldChoicePrompt();
+
+            return;
+        }
+
+        $this->resetHoldChoicePrompt();
+        $this->selectedIds = [];
+        session()->flash('status', __('outbound.split_rebuild_done'));
+    }
+
+    public function cancelHoldChoice(): void
+    {
+        $this->resetHoldChoicePrompt();
     }
 
     public function bulkReleaseHold(): void
@@ -314,15 +372,38 @@ class SalesOrderIndex extends Component
 
         $selectedIds = $this->normalizedSelectedIds();
 
-        $updated = SalesOrder::query()
+        $orders = SalesOrder::query()
             ->whereIn('id', $selectedIds)
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->where('order_status', SalesOrder::ORDER_STATUS_ON_HOLD)
-            ->whereIn('fulfillment_status', [
+            ->with('activeOutboundOrders')
+            ->get();
+
+        $updated = 0;
+        $holdService = app(HoldOutboundOrderService::class);
+
+        foreach ($orders as $order) {
+            $outbound = $this->customerOutboundFor($order);
+
+            if ($outbound && $outbound->hold_status === OutboundOrder::HOLD_STATUS_ON_HOLD) {
+                try {
+                    $holdService->releaseOutbound($outbound, 'sales_order');
+                    $updated++;
+                } catch (InvalidArgumentException) {
+                    continue;
+                }
+
+                continue;
+            }
+
+            if (in_array($order->fulfillment_status, [
                 SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
                 SalesOrder::FULFILLMENT_STATUS_READY,
-            ])
-            ->update(['order_status' => SalesOrder::ORDER_STATUS_PENDING]);
+            ], true)) {
+                $order->update(['order_status' => SalesOrder::ORDER_STATUS_PENDING]);
+                $updated++;
+            }
+        }
 
         $this->finishBulk('sales_orders.bulk_release_hold_result', $updated, count($selectedIds));
     }
@@ -1009,6 +1090,70 @@ class SalesOrderIndex extends Component
         $this->pendingReadyCombineCandidateCount = 0;
         $this->pendingReadyJoinableGroupCount = 0;
         $this->pendingReadySuggestionCount = 0;
+    }
+
+    private function holdSalesOrder(SalesOrder $order, HoldOutboundOrderService $service): bool
+    {
+        if (in_array($order->fulfillment_status, [
+            SalesOrder::FULFILLMENT_STATUS_UNFULFILLED,
+            SalesOrder::FULFILLMENT_STATUS_READY,
+        ], true)) {
+            $order->update(['order_status' => SalesOrder::ORDER_STATUS_ON_HOLD]);
+
+            return true;
+        }
+
+        if ($order->fulfillment_status !== SalesOrder::FULFILLMENT_STATUS_ARRANGED) {
+            return false;
+        }
+
+        $outbound = $this->customerOutboundFor($order);
+
+        if (! $outbound || $outbound->status !== OutboundOrder::STATUS_PENDING) {
+            return false;
+        }
+
+        if ($outbound->courier_csv_exported_at !== null) {
+            return false;
+        }
+
+        if ($outbound->salesOrders->count() > 1) {
+            $this->pendingHoldOrderId = (int) $order->id;
+            $this->showHoldChoicePrompt = true;
+
+            return false;
+        }
+
+        $service->holdOutbound($outbound, 'sales_order');
+
+        return true;
+    }
+
+    private function pendingHoldOrder(): SalesOrder
+    {
+        return SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->with(['activeOutboundOrders.salesOrders:id'])
+            ->findOrFail($this->pendingHoldOrderId);
+    }
+
+    private function customerOutboundFor(SalesOrder $order): ?OutboundOrder
+    {
+        if (! $order->relationLoaded('activeOutboundOrders')) {
+            $order->load('activeOutboundOrders.salesOrders:id');
+        }
+
+        $outbound = $order->activeOutboundOrders
+            ->first(fn (OutboundOrder $outbound): bool => $outbound->reason === OutboundOrder::REASON_CUSTOMER_ORDER
+                && $outbound->status === OutboundOrder::STATUS_PENDING);
+
+        return $outbound instanceof OutboundOrder ? $outbound : null;
+    }
+
+    private function resetHoldChoicePrompt(): void
+    {
+        $this->showHoldChoicePrompt = false;
+        $this->pendingHoldOrderId = 0;
     }
 
     private function markReadyEligibleQuery(array $selectedIds)

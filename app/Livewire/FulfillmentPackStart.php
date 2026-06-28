@@ -77,6 +77,7 @@ class FulfillmentPackStart extends Component
             'multiple' => __('fulfillment_pack.multiple_matches'),
             'already_shipped' => __('fulfillment_pack.already_shipped'),
             'cancelled' => __('fulfillment_pack.cancelled_group'),
+            'on_hold' => __('outbound.cannot_pack_on_hold'),
             default => __('fulfillment_pack.not_found_for_station'),
         };
 
@@ -183,6 +184,7 @@ class FulfillmentPackStart extends Component
             ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->where('status', OutboundOrder::STATUS_PENDING)
+            ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
             ->where('warehouse_id', (int) $this->warehouseId)
             ->where('shipping_method_id', (int) $this->shippingMethodId)
             ->when(trim($this->queueSearch) !== '', function (Builder $query): void {

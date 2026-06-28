@@ -10,6 +10,7 @@ use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\Warehouse;
 use App\Services\Courier\CourierExportService;
+use App\Services\Outbound\HoldOutboundOrderService;
 use App\Services\Outbound\ShipOutboundOrderService;
 use App\Services\SalesOrders\SkuDefaultShippingMethodResolver;
 use App\Support\CourierCarrier;
@@ -88,6 +89,10 @@ class FulfillmentIndex extends Component
     public ?string $pendingExportWarning = null;
 
     public bool $showTrackingImportModal = false;
+
+    public array $pendingPrintedHoldOrderIds = [];
+
+    public ?string $pendingHoldWarning = null;
 
     private bool $allowedTenantIdsResolved = false;
 
@@ -200,6 +205,14 @@ class FulfillmentIndex extends Component
             OutboundOrder::STATUS_SHIPPED => 'green',
             OutboundOrder::STATUS_CANCELLED => 'red',
             default => 'blue',
+        };
+    }
+
+    public function holdStatusLabel(string $holdStatus): string
+    {
+        return match ($holdStatus) {
+            OutboundOrder::HOLD_STATUS_ON_HOLD => __('outbound.on_hold'),
+            default => '',
         };
     }
 
@@ -386,8 +399,13 @@ class FulfillmentIndex extends Component
         $orders = $this->scopedOrderQuery()
             ->whereIn('id', $selectedIds)
             ->where('status', OutboundOrder::STATUS_PENDING)
+            ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
             ->with(['shippingMethod.carrier:id,code,name', 'salesOrders:id'])
             ->get();
+        $held = $this->scopedOrderQuery()
+            ->whereIn('id', $selectedIds)
+            ->where('hold_status', OutboundOrder::HOLD_STATUS_ON_HOLD)
+            ->count();
 
         $updated = 0;
 
@@ -407,6 +425,84 @@ class FulfillmentIndex extends Component
         $this->selectedIds = [];
 
         session()->flash('status', __('fulfillment.batch_mark_shipped_result', [
+            'updated' => $updated,
+            'skipped' => count($selectedIds) - $updated,
+            'held' => $held,
+        ]));
+    }
+
+    public function holdSelected(): void
+    {
+        $selectedIds = $this->normalizedSelectedIds();
+
+        if ($selectedIds === []) {
+            return;
+        }
+
+        $printedIds = $this->scopedOrderQuery()
+            ->whereIn('id', $selectedIds)
+            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+            ->where('status', OutboundOrder::STATUS_PENDING)
+            ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
+            ->whereNotNull('courier_csv_exported_at')
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if ($printedIds !== []) {
+            $this->pendingPrintedHoldOrderIds = $printedIds;
+            $this->pendingHoldWarning = $this->printedHoldWarning($printedIds);
+
+            return;
+        }
+
+        $this->holdOutboundIds($selectedIds, confirmedPrinted: false);
+    }
+
+    public function confirmPrintedHold(): void
+    {
+        $ids = $this->pendingPrintedHoldOrderIds;
+        $this->clearPendingHold();
+
+        if ($ids !== []) {
+            $this->holdOutboundIds($ids, confirmedPrinted: true);
+        }
+    }
+
+    public function cancelPrintedHold(): void
+    {
+        $this->clearPendingHold();
+    }
+
+    public function releaseHoldSelected(): void
+    {
+        $selectedIds = $this->normalizedSelectedIds();
+
+        if ($selectedIds === []) {
+            return;
+        }
+
+        $orders = $this->scopedOrderQuery()
+            ->whereIn('id', $selectedIds)
+            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+            ->where('hold_status', OutboundOrder::HOLD_STATUS_ON_HOLD)
+            ->get();
+
+        $updated = 0;
+        $service = app(HoldOutboundOrderService::class);
+
+        foreach ($orders as $order) {
+            try {
+                $service->releaseOutbound($order, source: 'fulfillment');
+                $updated++;
+            } catch (InvalidArgumentException) {
+                continue;
+            }
+        }
+
+        $this->selectedIds = [];
+
+        session()->flash('status', __('fulfillment.batch_release_hold_result', [
             'updated' => $updated,
             'skipped' => count($selectedIds) - $updated,
         ]));
@@ -820,6 +916,7 @@ class FulfillmentIndex extends Component
             'wrong_carrier_order_ids' => 'courier_export_wrong_carrier_ids',
             'unsupported_courier_order_ids' => 'courier_export_unsupported_courier_ids',
             'blocked_status_order_ids' => 'courier_export_blocked_status_ids',
+            'held_order_ids' => 'courier_export_held_ids',
             'no_ready_lines_order_ids' => 'courier_export_no_ready_lines_ids',
             'mixed_tenant_order_ids' => 'courier_export_mixed_tenant_ids',
             'missing_order_ids' => 'courier_export_missing_ids',
@@ -845,6 +942,59 @@ class FulfillmentIndex extends Component
             ->all();
 
         return __('fulfillment.courier_export_reexport_warning')."\n".implode("\n", $refs);
+    }
+
+    private function printedHoldWarning(array $outboundOrderIds): string
+    {
+        $refs = OutboundOrder::query()
+            ->whereIn('id', $outboundOrderIds)
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->orderBy('ref')
+            ->pluck('ref')
+            ->all();
+
+        return __('outbound.hold_printed_confirm_body')."\n".implode("\n", $refs);
+    }
+
+    private function holdOutboundIds(array $outboundOrderIds, bool $confirmedPrinted): void
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $outboundOrderIds))));
+        $orders = $this->scopedOrderQuery()
+            ->whereIn('id', $ids)
+            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+            ->where('status', OutboundOrder::STATUS_PENDING)
+            ->get();
+        $updated = 0;
+        $service = app(HoldOutboundOrderService::class);
+
+        foreach ($orders as $order) {
+            try {
+                $result = $service->holdOutbound(
+                    outbound: $order,
+                    source: 'fulfillment',
+                    confirmedPrinted: $confirmedPrinted,
+                );
+
+                if ($result->held) {
+                    $updated++;
+                }
+            } catch (InvalidArgumentException) {
+                continue;
+            }
+        }
+
+        $this->selectedIds = [];
+
+        session()->flash('status', __('fulfillment.batch_hold_result', [
+            'updated' => $updated,
+            'skipped' => count($ids) - $updated,
+        ]));
+    }
+
+    private function clearPendingHold(): void
+    {
+        $this->pendingPrintedHoldOrderIds = [];
+        $this->pendingHoldWarning = null;
     }
 
     private function clearPendingExport(): void

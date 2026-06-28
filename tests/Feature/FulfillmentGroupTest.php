@@ -883,6 +883,103 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame(2, $this->balance($tenant, $warehouse, $sku->stockItem)->reserved_qty);
     }
 
+    public function test_fulfillment_index_hold_and_release_keep_reserved_stock(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 2, 'SO-FG-HOLD');
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $outbound = OutboundOrder::firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('selectedIds', [(string) $outbound->id])
+            ->call('holdSelected')
+            ->assertSee(__('fulfillment.batch_hold_result', ['updated' => 1, 'skipped' => 0]));
+
+        $this->assertSame(OutboundOrder::HOLD_STATUS_ON_HOLD, $outbound->refresh()->hold_status);
+        $this->assertSame(SalesOrder::ORDER_STATUS_ON_HOLD, $order->refresh()->order_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $order->fulfillment_status);
+        $this->assertSame(2, $this->balance($tenant, $warehouse, $sku->stockItem)->reserved_qty);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('selectedIds', [(string) $outbound->id])
+            ->call('releaseHoldSelected')
+            ->assertSee(__('fulfillment.batch_release_hold_result', ['updated' => 1, 'skipped' => 0]));
+
+        $this->assertSame(OutboundOrder::HOLD_STATUS_ACTIVE, $outbound->refresh()->hold_status);
+        $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $order->refresh()->order_status);
+        $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $order->fulfillment_status);
+        $this->assertSame(2, $this->balance($tenant, $warehouse, $sku->stockItem)->reserved_qty);
+    }
+
+    public function test_fulfillment_index_mark_shipped_skips_held_group(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 2, 'SO-BATCH-HELD');
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $outbound = OutboundOrder::firstOrFail();
+        $outbound->update(['hold_status' => OutboundOrder::HOLD_STATUS_ON_HOLD]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('selectedIds', [(string) $outbound->id])
+            ->call('markShipped')
+            ->assertSet('selectedIds', []);
+
+        $this->assertSame(OutboundOrder::STATUS_PENDING, $outbound->refresh()->status);
+        $this->assertSame(OutboundOrder::HOLD_STATUS_ON_HOLD, $outbound->hold_status);
+        $this->assertSame(2, $this->balance($tenant, $warehouse, $sku->stockItem)->reserved_qty);
+    }
+
+    public function test_courier_export_blocks_held_group(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-HELD-EXPORT');
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $outbound = OutboundOrder::firstOrFail();
+        $outbound->update([
+            'shipping_method_id' => $method->id,
+            'hold_status' => OutboundOrder::HOLD_STATUS_ON_HOLD,
+        ]);
+
+        $result = app(CourierExportService::class)->validateOrderExport(
+            outboundOrderIds: [$outbound->id],
+            carrier: CourierCarrier::YAMATO,
+            allowedTenantIds: [$tenant->id],
+        );
+
+        $this->assertTrue($result->hasHardBlock());
+        $this->assertSame([$outbound->id], $result->heldOrderIds);
+    }
+
+    public function test_pack_start_scan_reports_held_group(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-HELD-PACK');
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $outbound = OutboundOrder::firstOrFail();
+        $outbound->update([
+            'shipping_method_id' => $method->id,
+            'tracking_no' => 'HELDTRACK1',
+            'hold_status' => OutboundOrder::HOLD_STATUS_ON_HOLD,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPackStart::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('shippingMethodId', (string) $method->id)
+            ->set('scan', 'HELDTRACK1')
+            ->call('search')
+            ->assertSee(__('outbound.cannot_pack_on_hold'));
+    }
+
     public function test_fulfillment_courier_export_emits_one_row_per_group_and_marks_member_orders_exported(): void
     {
         Storage::fake('local');

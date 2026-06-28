@@ -6,6 +6,7 @@ use App\Models\FulfillmentPackScan;
 use App\Models\OutboundOrder;
 use App\Models\Tenant;
 use App\Services\Fulfillment\FulfillmentPackService;
+use App\Services\Outbound\HoldOutboundOrderService;
 use App\Services\Outbound\ShipOutboundOrderService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +30,10 @@ class FulfillmentPack extends Component
     public int $pendingQuantity = 1;
 
     public ?string $lastScannedLineKey = null;
+
+    public bool $pendingPrintedHoldConfirmation = false;
+
+    public ?string $pendingHoldWarning = null;
 
     private bool $allowedTenantIdsResolved = false;
 
@@ -78,6 +83,20 @@ class FulfillmentPack extends Component
             $this->error($order->status === OutboundOrder::STATUS_SHIPPED
                 ? __('fulfillment_pack.already_shipped')
                 : __('fulfillment_pack.cancelled_group'));
+            $this->focusScanner();
+
+            return;
+        }
+
+        if ($order->hold_status === OutboundOrder::HOLD_STATUS_ON_HOLD) {
+            $message = __('outbound.cannot_pack_on_hold');
+            $this->writeScan($order, [
+                'barcode_scanned' => $barcodeScanned,
+                'normalized_barcode' => $normalized,
+                'result' => FulfillmentPackScan::RESULT_BLOCKED_STATUS,
+                'message' => $message,
+            ]);
+            $this->error($message);
             $this->focusScanner();
 
             return;
@@ -181,6 +200,22 @@ class FulfillmentPack extends Component
             return;
         }
 
+        if ($order->hold_status === OutboundOrder::HOLD_STATUS_ON_HOLD) {
+            $message = __('outbound.cannot_pack_on_hold');
+
+            $this->writeScan($order, [
+                'barcode_scanned' => (string) $pending['barcode_scanned'],
+                'normalized_barcode' => (string) $pending['normalized_barcode'],
+                'result' => FulfillmentPackScan::RESULT_BLOCKED_STATUS,
+                'message' => $message,
+            ]);
+            $this->clearPendingQuantity();
+            $this->error($message);
+            $this->focusScanner();
+
+            return;
+        }
+
         $line = collect($service->packLinesWithProgress($order))
             ->first(fn (array $line): bool => $line['key'] === $pending['line_key']);
 
@@ -243,6 +278,12 @@ class FulfillmentPack extends Component
             return;
         }
 
+        if ($order->hold_status === OutboundOrder::HOLD_STATUS_ON_HOLD) {
+            $this->error(__('outbound.cannot_ship_on_hold'));
+
+            return;
+        }
+
         if (! $packService->allLinesComplete($order)) {
             $this->error(__('fulfillment_pack.scan_all_before_shipping'));
 
@@ -259,7 +300,9 @@ class FulfillmentPack extends Component
                     ->lockForUpdate()
                     ->firstOrFail();
 
-                if ($lockedOrder->status !== OutboundOrder::STATUS_PENDING || ! $packService->allLinesComplete($lockedOrder)) {
+                if ($lockedOrder->status !== OutboundOrder::STATUS_PENDING
+                    || $lockedOrder->hold_status === OutboundOrder::HOLD_STATUS_ON_HOLD
+                    || ! $packService->allLinesComplete($lockedOrder)) {
                     throw new InvalidArgumentException(__('fulfillment_pack.scan_all_before_shipping'));
                 }
 
@@ -278,6 +321,78 @@ class FulfillmentPack extends Component
         $this->redirectRoute('outbound.show', $order, navigate: true);
     }
 
+    public function holdOutbound(HoldOutboundOrderService $service): void
+    {
+        $this->authorizeInternalUser();
+
+        $order = $this->loadOrder();
+
+        try {
+            $result = $service->holdOutbound(
+                outbound: $order,
+                source: 'pack',
+                confirmedPrinted: false,
+            );
+        } catch (InvalidArgumentException $exception) {
+            $this->error($exception->getMessage());
+
+            return;
+        }
+
+        if ($result->requiresConfirmation) {
+            $this->pendingPrintedHoldConfirmation = true;
+            $this->pendingHoldWarning = __('outbound.hold_printed_confirm_body');
+
+            return;
+        }
+
+        $this->success(__('fulfillment.batch_hold_result', ['updated' => 1, 'skipped' => 0]));
+    }
+
+    public function confirmPrintedHold(HoldOutboundOrderService $service): void
+    {
+        $this->authorizeInternalUser();
+
+        $this->pendingPrintedHoldConfirmation = false;
+        $this->pendingHoldWarning = null;
+
+        try {
+            $service->holdOutbound(
+                outbound: $this->loadOrder(),
+                source: 'pack',
+                confirmedPrinted: true,
+            );
+        } catch (InvalidArgumentException $exception) {
+            $this->error($exception->getMessage());
+
+            return;
+        }
+
+        $this->success(__('fulfillment.batch_hold_result', ['updated' => 1, 'skipped' => 0]));
+    }
+
+    public function cancelPrintedHold(): void
+    {
+        $this->pendingPrintedHoldConfirmation = false;
+        $this->pendingHoldWarning = null;
+        $this->focusScanner();
+    }
+
+    public function releaseHold(HoldOutboundOrderService $service): void
+    {
+        $this->authorizeInternalUser();
+
+        try {
+            $service->releaseOutbound($this->loadOrder(), source: 'pack');
+        } catch (InvalidArgumentException $exception) {
+            $this->error($exception->getMessage());
+
+            return;
+        }
+
+        $this->success(__('fulfillment.batch_release_hold_result', ['updated' => 1, 'skipped' => 0]));
+    }
+
     public function render(FulfillmentPackService $service)
     {
         $this->authorizeInternalUser();
@@ -294,7 +409,7 @@ class FulfillmentPack extends Component
             'lines' => $lines,
             'allComplete' => $allComplete,
             'progress' => $progress,
-            'readOnly' => $order->status !== OutboundOrder::STATUS_PENDING,
+            'readOnly' => $order->status !== OutboundOrder::STATUS_PENDING || $order->hold_status === OutboundOrder::HOLD_STATUS_ON_HOLD,
         ])->layout('inventory', [
             'title' => __('fulfillment_pack.page_title'),
             'subtitle' => $reference,
@@ -394,6 +509,13 @@ class FulfillmentPack extends Component
     {
         $this->feedbackType = 'error';
         $this->feedbackMessage = $message;
+    }
+
+    private function success(string $message): void
+    {
+        $this->feedbackType = 'success';
+        $this->feedbackMessage = $message;
+        $this->focusScanner();
     }
 
     private function focusScanner(): void

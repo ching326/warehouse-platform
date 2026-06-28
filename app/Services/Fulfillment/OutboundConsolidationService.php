@@ -85,6 +85,7 @@ class OutboundConsolidationService
             ->where('warehouse_id', $warehouseId)
             ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
             ->where('status', OutboundOrder::STATUS_PENDING)
+            ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
             ->whereNull('courier_csv_exported_at')
             ->whereHas('salesOrders', fn ($query) => $query->where('ship_together_key', $order->ship_together_key))
             ->whereDoesntHave('salesOrders', fn ($query) => $query->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_SHIPPED))

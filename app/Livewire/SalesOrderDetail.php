@@ -8,7 +8,7 @@ use App\Models\SalesOrderLine;
 use App\Models\ShippingMethod;
 use App\Models\Sku;
 use App\Models\Tenant;
-use App\Services\Fulfillment\OutboundConsolidationService;
+use App\Services\Outbound\HoldOutboundOrderService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -42,6 +42,8 @@ class SalesOrderDetail extends Component
     public array $draftLines = [];
 
     public array $draftLineSkuSearches = [];
+
+    public bool $showHoldChoicePrompt = false;
 
     private bool $allowedTenantIdsResolved = false;
 
@@ -257,7 +259,7 @@ class SalesOrderDetail extends Component
     {
         $order = SalesOrder::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->with(['activeOutboundOrders'])
+            ->with(['activeOutboundOrders.salesOrders:id'])
             ->findOrFail($this->orderId);
 
         if (
@@ -269,16 +271,44 @@ class SalesOrderDetail extends Component
             return;
         }
 
-        try {
-            $held = app(OutboundConsolidationService::class)->releaseOrderForHold($order);
-        } catch (InvalidArgumentException) {
-            session()->flash('error', __('sales_orders.cannot_hold'));
+        if ($order->fulfillment_status === SalesOrder::FULFILLMENT_STATUS_ARRANGED) {
+            $outbound = $this->customerOutboundFor($order);
 
-            return;
+            if (! $outbound) {
+                session()->flash('error', __('sales_orders.cannot_hold'));
+
+                return;
+            }
+
+            if ($outbound->courier_csv_exported_at !== null) {
+                session()->flash('error', __('outbound.hold_printed_sales_blocked'));
+
+                return;
+            }
+
+            if ($outbound->salesOrders->count() > 1) {
+                $this->showHoldChoicePrompt = true;
+
+                return;
+            }
         }
 
-        if (! $held) {
-            session()->flash('error', __('sales_orders.cannot_hold'));
+        try {
+            if ($order->fulfillment_status === SalesOrder::FULFILLMENT_STATUS_ARRANGED) {
+                $outbound = $this->customerOutboundFor($order);
+
+                if (! $outbound) {
+                    session()->flash('error', __('sales_orders.cannot_hold'));
+
+                    return;
+                }
+
+                app(HoldOutboundOrderService::class)->holdOutbound($outbound, 'sales_order');
+            } else {
+                $order->update(['order_status' => SalesOrder::ORDER_STATUS_ON_HOLD]);
+            }
+        } catch (InvalidArgumentException $exception) {
+            session()->flash('error', $exception->getMessage());
 
             return;
         }
@@ -286,22 +316,91 @@ class SalesOrderDetail extends Component
         session()->flash('status', __('sales_orders.put_on_hold'));
     }
 
-    public function releaseHold(): void
+    public function holdWholeShipment(): void
+    {
+        $order = SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->with(['activeOutboundOrders.salesOrders:id'])
+            ->findOrFail($this->orderId);
+        $outbound = $this->customerOutboundFor($order);
+
+        if (! $outbound) {
+            $this->showHoldChoicePrompt = false;
+            session()->flash('error', __('sales_orders.cannot_hold'));
+
+            return;
+        }
+
+        try {
+            app(HoldOutboundOrderService::class)->holdOutbound($outbound, 'sales_order');
+        } catch (InvalidArgumentException $exception) {
+            session()->flash('error', $exception->getMessage());
+            $this->showHoldChoicePrompt = false;
+
+            return;
+        }
+
+        $this->showHoldChoicePrompt = false;
+        session()->flash('status', __('sales_orders.put_on_hold'));
+    }
+
+    public function splitAndRebuildHeldShipment(): void
     {
         $order = SalesOrder::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->findOrFail($this->orderId);
 
+        try {
+            app(HoldOutboundOrderService::class)->splitAndRebuildForSalesOrderHold($order);
+        } catch (InvalidArgumentException $exception) {
+            session()->flash('error', $exception->getMessage());
+            $this->showHoldChoicePrompt = false;
+
+            return;
+        }
+
+        $this->showHoldChoicePrompt = false;
+        session()->flash('status', __('outbound.split_rebuild_done'));
+    }
+
+    public function cancelHoldChoice(): void
+    {
+        $this->showHoldChoicePrompt = false;
+    }
+
+    public function releaseHold(): void
+    {
+        $order = SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->with('activeOutboundOrders')
+            ->findOrFail($this->orderId);
+
         if (
             $order->order_status !== SalesOrder::ORDER_STATUS_ON_HOLD
-            || ! $this->hasManualFulfillmentStatus($order)
         ) {
             session()->flash('error', __('sales_orders.not_on_hold'));
 
             return;
         }
 
-        $order->update(['order_status' => SalesOrder::ORDER_STATUS_PENDING]);
+        $outbound = $this->customerOutboundFor($order);
+
+        if ($outbound && $outbound->hold_status === OutboundOrder::HOLD_STATUS_ON_HOLD) {
+            try {
+                app(HoldOutboundOrderService::class)->releaseOutbound($outbound, 'sales_order');
+            } catch (InvalidArgumentException $exception) {
+                session()->flash('error', $exception->getMessage());
+
+                return;
+            }
+        } elseif ($this->hasManualFulfillmentStatus($order)) {
+            $order->update(['order_status' => SalesOrder::ORDER_STATUS_PENDING]);
+        } else {
+            session()->flash('error', __('sales_orders.not_on_hold'));
+
+            return;
+        }
+
         session()->flash('status', __('sales_orders.hold_released'));
     }
 
@@ -675,10 +774,6 @@ class SalesOrderDetail extends Component
 
     private function canPutOnHold(SalesOrder $order): bool
     {
-        if ($order->isPacking()) {
-            return false;
-        }
-
         if ($this->hasManualFulfillmentStatus($order)) {
             return true;
         }
@@ -690,6 +785,19 @@ class SalesOrderDetail extends Component
         return $order->activeOutboundOrders
             ->contains(fn ($outbound) => $outbound->reason === OutboundOrder::REASON_CUSTOMER_ORDER
                 && $outbound->status === OutboundOrder::STATUS_PENDING);
+    }
+
+    private function customerOutboundFor(SalesOrder $order): ?OutboundOrder
+    {
+        if (! $order->relationLoaded('activeOutboundOrders')) {
+            $order->load('activeOutboundOrders.salesOrders:id');
+        }
+
+        $outbound = $order->activeOutboundOrders
+            ->first(fn (OutboundOrder $outbound): bool => $outbound->reason === OutboundOrder::REASON_CUSTOMER_ORDER
+                && $outbound->status === OutboundOrder::STATUS_PENDING);
+
+        return $outbound instanceof OutboundOrder ? $outbound : null;
     }
 
     private function isLineShippable(SalesOrderLine $line, int $tenantId): bool

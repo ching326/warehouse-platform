@@ -10,6 +10,7 @@ class CourierExportValidationResult
         public array $validOrderIds,
         public array $missingOrderIds,
         public array $blockedStatusOrderIds,
+        public array $heldOrderIds,
         public array $wrongCarrierOrderIds,
         public array $unsupportedCourierOrderIds,
         public array $mixedTenantOrderIds,
@@ -26,6 +27,7 @@ class CourierExportValidationResult
             'valid_order_ids' => $this->validOrderIds,
             'missing_order_ids' => $this->missingOrderIds,
             'blocked_status_order_ids' => $this->blockedStatusOrderIds,
+            'held_order_ids' => $this->heldOrderIds,
             'wrong_carrier_order_ids' => $this->wrongCarrierOrderIds,
             'unsupported_courier_order_ids' => $this->unsupportedCourierOrderIds,
             'mixed_tenant_order_ids' => $this->mixedTenantOrderIds,
@@ -39,6 +41,7 @@ class CourierExportValidationResult
     {
         return $this->missingOrderIds !== []
             || $this->blockedStatusOrderIds !== []
+            || $this->heldOrderIds !== []
             || $this->wrongCarrierOrderIds !== []
             || $this->unsupportedCourierOrderIds !== []
             || $this->mixedTenantOrderIds !== []

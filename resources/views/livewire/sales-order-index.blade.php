@@ -84,6 +84,37 @@
             </section>
         </div>
     @endif
+    @if ($showHoldChoicePrompt)
+        <div class="tracking-import-backdrop" wire:key="sales-order-hold-choice-modal">
+            <section class="tracking-import-modal flux-panel">
+                <header class="tracking-import-header">
+                    <div>
+                        <h2>{{ __('outbound.hold_grouped_choice_title') }}</h2>
+                        <p>{{ __('outbound.hold_grouped_choice_body') }}</p>
+                    </div>
+                    <flux:button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        icon="x-mark"
+                        inset
+                        :aria-label="__('sales_orders.btn_cancel_edit')"
+                        wire:click="cancelHoldChoice"
+                    >
+                    </flux:button>
+                </header>
+
+                <footer class="tracking-import-footer ready-combine-footer">
+                    <flux:button type="button" variant="primary" class="ready-combine-action" wire:click="holdWholeShipment">
+                        {{ __('outbound.hold_whole_shipment') }}
+                    </flux:button>
+                    <flux:button type="button" variant="primary" class="ready-combine-action" wire:click="splitAndRebuildHeldShipment">
+                        {{ __('outbound.split_and_rebuild_shipment') }}
+                    </flux:button>
+                </footer>
+            </section>
+        </div>
+    @endif
 <section class="table-shell flux-panel">
         @if ($filterWarning)
             <div class="active-filter-row">

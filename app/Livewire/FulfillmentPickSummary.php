@@ -215,6 +215,7 @@ class FulfillmentPickSummary extends Component
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
             ->where('status', OutboundOrder::STATUS_PENDING)
+            ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
             ->where('warehouse_id', (int) $this->warehouseId)
             ->when($this->shippingMethodId !== '', fn ($query) => $query->where('shipping_method_id', (int) $this->shippingMethodId))
             ->when($this->tenantId !== '' && in_array((int) $this->tenantId, $this->allowedTenantIds(), true), fn ($query) => $query->where('tenant_id', (int) $this->tenantId))

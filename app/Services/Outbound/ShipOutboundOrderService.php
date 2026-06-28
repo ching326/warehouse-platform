@@ -28,6 +28,10 @@ class ShipOutboundOrderService
                 throw new InvalidArgumentException(__('outbound.already_processed'));
             }
 
+            if ($lockedOrder->hold_status === OutboundOrder::HOLD_STATUS_ON_HOLD) {
+                throw new InvalidArgumentException(__('outbound.cannot_ship_on_hold'));
+            }
+
             foreach ($lockedOrder->leafLines()->get() as $line) {
                 $movement = $this->inventoryService->shipReservedStock(
                     tenantId: $lockedOrder->tenant_id,

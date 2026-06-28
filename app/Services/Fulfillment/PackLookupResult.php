@@ -35,4 +35,9 @@ class PackLookupResult
     {
         return new self('cancelled', $order);
     }
+
+    public static function onHold(OutboundOrder $order): self
+    {
+        return new self('on_hold', $order);
+    }
 }

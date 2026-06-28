@@ -20,6 +20,18 @@
                 <flux:badge color="{{ $order->status === \App\Models\OutboundOrder::STATUS_SHIPPED ? 'green' : ($order->status === \App\Models\OutboundOrder::STATUS_CANCELLED ? 'red' : 'blue') }}">
                     {{ __('fulfillment.status_'.$statusKey) }}
                 </flux:badge>
+                @if ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
+                    <flux:badge color="amber">{{ __('outbound.on_hold') }}</flux:badge>
+                @endif
+                @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE)
+                    <flux:button type="button" variant="outline" wire:click="holdOutbound">
+                        {{ __('outbound.hold') }}
+                    </flux:button>
+                @elseif ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
+                    <flux:button type="button" variant="primary" wire:click="releaseHold">
+                        {{ __('outbound.release_hold') }}
+                    </flux:button>
+                @endif
                 <flux:button href="{{ route('fulfillment.pack-scans.index', ['outbound_order_id' => $order->id]) }}" variant="outline" wire:navigate>
                     {{ __('fulfillment_pack.scan_history_title') }}
                 </flux:button>
@@ -106,9 +118,26 @@
             @endif
         @endif
 
+        @if ($pendingPrintedHoldConfirmation)
+            <div class="export-warning-message">
+                <strong>{{ __('outbound.hold_printed_confirm_title') }}</strong>
+                <span>{{ $pendingHoldWarning }}</span>
+                <div class="app-toast-actions">
+                    <flux:button type="button" size="sm" variant="outline" wire:click="cancelPrintedHold">
+                        {{ __('common.cancel') }}
+                    </flux:button>
+                    <flux:button type="button" size="sm" variant="primary" wire:click="confirmPrintedHold">
+                        {{ __('outbound.hold') }}
+                    </flux:button>
+                </div>
+            </div>
+        @endif
+
         <div class="pack-feedback {{ $feedbackMessage ? $feedbackType : 'idle' }}">
             @if ($feedbackMessage)
                 {{ $feedbackMessage }}
+            @elseif ($readOnly && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
+                {{ __('outbound.cannot_pack_on_hold') }}
             @elseif ($readOnly && $order->status === \App\Models\OutboundOrder::STATUS_SHIPPED)
                 {{ __('fulfillment_pack.already_shipped') }}
             @elseif ($readOnly)
@@ -253,6 +282,19 @@
 
         .pack-scan-form {
             margin-bottom: 12px;
+        }
+
+        .export-warning-message {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 12px;
+            white-space: pre-line;
+            color: var(--ink);
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 12px;
         }
 
         .pack-scan-form input {

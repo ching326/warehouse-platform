@@ -30,7 +30,10 @@
                 <flux:badge color="{{ $this->statusColor($order->status) }}">
                     {{ $this->statusLabel($order->status) }}
                 </flux:badge>
-                @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->reason === \App\Models\OutboundOrder::REASON_CUSTOMER_ORDER)
+                @if ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
+                    <flux:badge color="amber">{{ __('outbound.on_hold') }}</flux:badge>
+                @endif
+                @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE && $order->reason === \App\Models\OutboundOrder::REASON_CUSTOMER_ORDER)
                     <flux:button href="{{ route('outbound.pack', $order) }}" size="xs" variant="primary" wire:navigate>
                         {{ __('fulfillment_pack.page_title') }}
                     </flux:button>
@@ -86,7 +89,7 @@
             </div>
         </div>
 
-        @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING)
+        @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE)
             <div class="form-actions outbound-detail-actions">
                 <flux:button href="{{ route('outbound.ship', $order) }}" variant="primary" wire:navigate>
                     {{ __('outbound.btn_ship') }}
@@ -106,6 +109,8 @@
                     {{ __('outbound.btn_cancel_order') }}
                 </flux:button>
             </div>
+        @elseif ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
+            <span class="muted-dash">{{ __('outbound.cannot_ship_on_hold') }}</span>
         @else
             <span class="muted-dash">-</span>
         @endif

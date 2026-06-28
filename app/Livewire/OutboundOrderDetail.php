@@ -357,6 +357,7 @@ class OutboundOrderDetail extends Component
             'wrong_carrier_order_ids' => 'courier_export_wrong_carrier_ids',
             'unsupported_courier_order_ids' => 'courier_export_unsupported_courier_ids',
             'blocked_status_order_ids' => 'courier_export_blocked_status_ids',
+            'held_order_ids' => 'courier_export_held_ids',
             'no_ready_lines_order_ids' => 'courier_export_no_ready_lines_ids',
             'mixed_tenant_order_ids' => 'courier_export_mixed_tenant_ids',
             'missing_order_ids' => 'courier_export_missing_ids',

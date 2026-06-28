@@ -34,6 +34,7 @@ class CourierExportService
                 validOrderIds: [],
                 missingOrderIds: [],
                 blockedStatusOrderIds: [],
+                heldOrderIds: [],
                 wrongCarrierOrderIds: [],
                 unsupportedCourierOrderIds: [],
                 mixedTenantOrderIds: [],
@@ -61,6 +62,11 @@ class CourierExportService
             ->pluck('id')
             ->values()
             ->all();
+        $heldOrderIds = $orders
+            ->filter(fn (OutboundOrder $order): bool => $order->hold_status === OutboundOrder::HOLD_STATUS_ON_HOLD)
+            ->pluck('id')
+            ->values()
+            ->all();
         $wrongCarrierOrderIds = $orders
             ->filter(fn (OutboundOrder $order): bool => ! $this->orderCarrierMatches($order, $carrier))
             ->pluck('id')
@@ -83,6 +89,7 @@ class CourierExportService
             ->all();
         $hardBlocks = $missingIds !== []
             || $blockedStatusOrderIds !== []
+            || $heldOrderIds !== []
             || $wrongCarrierOrderIds !== []
             || $unsupportedCourierOrderIds !== []
             || $mixedTenantOrderIds !== []
@@ -94,6 +101,7 @@ class CourierExportService
             requiresConfirmation: $requiresConfirmation,
             validOrderIds: array_values(array_diff($foundIds, array_merge(
                 $blockedStatusOrderIds,
+                $heldOrderIds,
                 $wrongCarrierOrderIds,
                 $unsupportedCourierOrderIds,
                 $mixedTenantOrderIds,
@@ -101,6 +109,7 @@ class CourierExportService
             ))),
             missingOrderIds: $missingIds,
             blockedStatusOrderIds: $blockedStatusOrderIds,
+            heldOrderIds: $heldOrderIds,
             wrongCarrierOrderIds: $wrongCarrierOrderIds,
             unsupportedCourierOrderIds: $unsupportedCourierOrderIds,
             mixedTenantOrderIds: $mixedTenantOrderIds,
