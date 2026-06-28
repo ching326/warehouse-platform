@@ -439,6 +439,14 @@ class FulfillmentIndex extends Component
             return;
         }
 
+        $packingRefs = $this->packingStartedRefs($selectedIds);
+
+        if ($packingRefs !== []) {
+            session()->flash('error', __('outbound.cannot_hold_packing')."\n".implode("\n", $packingRefs));
+
+            return;
+        }
+
         $printedIds = $this->scopedOrderQuery()
             ->whereIn('id', $selectedIds)
             ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
@@ -957,6 +965,25 @@ class FulfillmentIndex extends Component
         return __('outbound.hold_printed_confirm_body')."\n".implode("\n", $refs);
     }
 
+    /**
+     * @param  array<int, int>  $outboundOrderIds
+     * @return array<int, string>
+     */
+    private function packingStartedRefs(array $outboundOrderIds): array
+    {
+        return $this->scopedOrderQuery()
+            ->whereIn('id', $outboundOrderIds)
+            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+            ->where('status', OutboundOrder::STATUS_PENDING)
+            ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
+            ->whereHas('packScans')
+            ->orderBy('ref')
+            ->pluck('ref')
+            ->filter()
+            ->values()
+            ->all();
+    }
+
     private function holdOutboundIds(array $outboundOrderIds, bool $confirmedPrinted): void
     {
         $ids = array_values(array_unique(array_filter(array_map('intval', $outboundOrderIds))));
@@ -979,7 +1006,13 @@ class FulfillmentIndex extends Component
                 if ($result->held) {
                     $updated++;
                 }
-            } catch (InvalidArgumentException) {
+            } catch (InvalidArgumentException $exception) {
+                if ($exception->getMessage() === __('outbound.cannot_hold_packing')) {
+                    session()->flash('error', $exception->getMessage());
+
+                    return;
+                }
+
                 continue;
             }
         }

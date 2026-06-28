@@ -276,6 +276,13 @@ class SalesOrderIndex extends Component
         }
 
         $selectedIds = $this->normalizedSelectedIds();
+        $packingOrderIds = $this->packingStartedOrderIds($selectedIds);
+
+        if ($packingOrderIds !== []) {
+            session()->flash('error', __('outbound.cannot_hold_packing')."\n".implode("\n", $packingOrderIds));
+
+            return;
+        }
 
         $orders = SalesOrder::query()
             ->whereIn('id', $selectedIds)
@@ -312,7 +319,13 @@ class SalesOrderIndex extends Component
                 if ($this->holdSalesOrder($order, $holdService)) {
                     $updated++;
                 }
-            } catch (InvalidArgumentException) {
+            } catch (InvalidArgumentException $exception) {
+                if ($exception->getMessage() === __('outbound.cannot_hold_packing')) {
+                    session()->flash('error', $exception->getMessage());
+
+                    return;
+                }
+
                 continue;
             }
         }
@@ -1167,6 +1180,26 @@ class SalesOrderIndex extends Component
                 && $outbound->status === OutboundOrder::STATUS_PENDING);
 
         return $outbound instanceof OutboundOrder ? $outbound : null;
+    }
+
+    /**
+     * @param  array<int, int>  $selectedIds
+     * @return array<int, string>
+     */
+    private function packingStartedOrderIds(array $selectedIds): array
+    {
+        return SalesOrder::query()
+            ->whereIn('id', $selectedIds)
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->whereHas('activeOutboundOrders', fn ($outbound) => $outbound
+                ->where('outbound_orders.reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+                ->where('outbound_orders.status', OutboundOrder::STATUS_PENDING)
+                ->whereHas('packScans'))
+            ->orderBy('platform_order_id')
+            ->pluck('platform_order_id')
+            ->filter()
+            ->values()
+            ->all();
     }
 
     private function resetHoldChoicePrompt(): void

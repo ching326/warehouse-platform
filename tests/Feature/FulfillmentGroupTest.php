@@ -920,6 +920,39 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame(2, $this->balance($tenant, $warehouse, $sku->stockItem)->reserved_qty);
     }
 
+    public function test_fulfillment_index_hold_blocks_group_already_under_packing(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 2, 'SO-FG-HOLD-PACKING');
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $outbound = OutboundOrder::firstOrFail();
+
+        FulfillmentPackScan::create([
+            'tenant_id' => $tenant->id,
+            'outbound_order_id' => $outbound->id,
+            'sales_order_id' => $order->id,
+            'sku_id' => $sku->id,
+            'stock_item_id' => $sku->stock_item_id,
+            'barcode_scanned' => 'PACKING-SCAN',
+            'normalized_barcode' => 'PACKINGSCAN',
+            'result' => FulfillmentPackScan::RESULT_ACCEPTED,
+            'quantity' => 1,
+            'message' => 'Accepted',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('selectedIds', [(string) $outbound->id])
+            ->call('holdSelected')
+            ->assertSee(__('outbound.cannot_hold_packing'))
+            ->assertSee($outbound->ref);
+
+        $this->assertSame(OutboundOrder::HOLD_STATUS_ACTIVE, $outbound->refresh()->hold_status);
+        $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $order->refresh()->order_status);
+        $this->assertSame(2, $this->balance($tenant, $warehouse, $sku->stockItem)->reserved_qty);
+    }
+
     public function test_fulfillment_index_printed_hold_confirmation_holds_full_selection(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);

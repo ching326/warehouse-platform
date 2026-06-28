@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Livewire\SalesOrderDetail;
 use App\Livewire\SalesOrderIndex;
+use App\Models\FulfillmentPackScan;
 use App\Models\InventoryBalance;
 use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
@@ -91,6 +92,38 @@ class SalesOrderIndexBulkTest extends TestCase
         $this->assertSame(1, $outbound->salesOrders()->count());
         $this->assertSame(1, $balance->reserved_qty);
         $this->assertSame(9, $balance->available_qty);
+    }
+
+    public function test_bulk_hold_blocks_order_already_under_packing(): void
+    {
+        [$tenant, $shop, $sku] = $this->salesSku('BULK-HOLD-PACKING');
+        $warehouse = Warehouse::factory()->create(['status' => 'active']);
+        $order = $this->orderWithLines($shop, $sku, ['fulfillment_status' => SalesOrder::FULFILLMENT_STATUS_READY]);
+        app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $sku->stock_item_id, 10);
+        $outbound = app(OutboundConsolidationService::class)->createGroup($tenant->id, $warehouse->id, [$order->id]);
+
+        FulfillmentPackScan::create([
+            'tenant_id' => $tenant->id,
+            'outbound_order_id' => $outbound->id,
+            'sales_order_id' => $order->id,
+            'sku_id' => $sku->id,
+            'stock_item_id' => $sku->stock_item_id,
+            'barcode_scanned' => 'PACKING-SCAN',
+            'normalized_barcode' => 'PACKINGSCAN',
+            'result' => FulfillmentPackScan::RESULT_ACCEPTED,
+            'quantity' => 1,
+            'message' => 'Accepted',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('selectedIds', [(string) $order->id])
+            ->call('bulkHold')
+            ->assertSee(__('outbound.cannot_hold_packing'))
+            ->assertSee($order->platform_order_id);
+
+        $this->assertSame(SalesOrder::ORDER_STATUS_PENDING, $order->refresh()->order_status);
+        $this->assertSame(OutboundOrder::HOLD_STATUS_ACTIVE, $outbound->refresh()->hold_status);
     }
 
     public function test_bulk_hold_removes_one_order_from_not_printed_multi_order_group(): void

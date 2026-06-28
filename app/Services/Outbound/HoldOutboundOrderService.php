@@ -39,6 +39,10 @@ class HoldOutboundOrderService
                 return HoldOutboundResult::noOp();
             }
 
+            if ($this->packingStarted($locked)) {
+                throw new InvalidArgumentException(__('outbound.cannot_hold_packing'));
+            }
+
             if ($locked->courier_csv_exported_at !== null && $source === 'sales_order') {
                 throw new InvalidArgumentException(__('outbound.hold_printed_sales_blocked'));
             }
@@ -115,6 +119,10 @@ class HoldOutboundOrderService
                 ->with(['leafLines', 'salesOrders.lines.sku.bundleComponents.componentStockItem'])
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            if ($this->packingStarted($outbound)) {
+                throw new InvalidArgumentException(__('outbound.cannot_hold_packing'));
+            }
 
             if ($outbound->courier_csv_exported_at !== null) {
                 throw new InvalidArgumentException(__('outbound.hold_printed_sales_blocked'));
@@ -209,5 +217,10 @@ class HoldOutboundOrderService
 
             return $sku->stock_item_id !== null;
         });
+    }
+
+    private function packingStarted(OutboundOrder $outbound): bool
+    {
+        return $outbound->packScans()->exists();
     }
 }

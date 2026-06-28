@@ -85,6 +85,7 @@ return [
     'cannot_ship_on_hold' => 'This outbound is on hold. Release hold before shipping.',
     'cannot_export_on_hold' => 'Orders cannot be exported because they are on hold. Release hold before exporting courier CSV.',
     'cannot_pack_on_hold' => 'This outbound is on hold. Release hold before packing.',
+    'cannot_hold_packing' => 'This outbound is already being packed. Finish or stop packing before putting it on hold.',
     'confirm_cancel' => 'Cancel this outbound order? Reserved stock will be returned to available.',
     'duplicate_skus' => 'Each SKU may only appear once per outbound order.',
     'sku_not_shippable' => 'This SKU has no stock item linked.',
