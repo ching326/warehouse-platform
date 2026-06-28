@@ -58,6 +58,8 @@ class ReturnOrderCreate extends Component
 
     public array $lines = [['sku_id' => '', 'expected_qty' => '1', 'note' => '']];
 
+    public array $skuSearches = [''];
+
     public function mount(): void
     {
         if (! $this->isInternalUser()) {
@@ -69,18 +71,31 @@ class ReturnOrderCreate extends Component
     {
         $this->issueId = $this->salesOrderId = '';
         $this->lines = [['sku_id' => '', 'expected_qty' => '1', 'note' => '']];
+        $this->skuSearches = [''];
     }
 
     public function addLine(): void
     {
         $this->lines[] = ['sku_id' => '', 'expected_qty' => '1', 'note' => ''];
+        $this->skuSearches[] = '';
     }
 
     public function removeLine(int $index): void
     {
         if (count($this->lines) > 1) {
             array_splice($this->lines, $index, 1);
+            array_splice($this->skuSearches, $index, 1);
             $this->lines = array_values($this->lines);
+            $this->skuSearches = array_values($this->skuSearches);
+        }
+    }
+
+    public function updatedSkuSearches(mixed $_value, mixed $key): void
+    {
+        $index = (int) $key;
+
+        if (isset($this->lines[$index])) {
+            $this->lines[$index]['sku_id'] = '';
         }
     }
 
@@ -117,7 +132,59 @@ class ReturnOrderCreate extends Component
 
     public function render()
     {
-        return view('livewire.return-order-create', ['tenants' => Tenant::query()->whereIn('id', $this->allowedTenantIds())->orderBy('name')->get(['id', 'code', 'name']), 'warehouses' => Warehouse::query()->orderBy('name')->get(['id', 'code', 'name']), 'issues' => Issue::query()->where('tenant_id', $this->tenantId)->latest('id')->get(['id', 'issue_no']), 'salesOrders' => SalesOrder::query()->where('tenant_id', $this->tenantId)->latest('id')->get(['id', 'platform_order_id']), 'skus' => Sku::query()->where('tenant_id', $this->tenantId)->where('status', 'active')->whereNotNull('stock_item_id')->orderBy('sku')->get(['id', 'sku', 'name', 'stock_item_id']), 'types' => ReturnOrder::typeOptions(), 'reasons' => ReturnOrder::reasonOptions(), 'paymentTypes' => ReturnOrder::paymentTypeOptions(), 'showTenantSelect' => $this->isInternalUser()])->layout('inventory', ['title' => __('return_orders.create_page_title'), 'subtitle' => __('return_orders.create_page_subtitle')]);
+        return view('livewire.return-order-create', [
+            'tenants' => Tenant::query()->whereIn('id', $this->allowedTenantIds())->orderBy('name')->get(['id', 'code', 'name']),
+            'warehouses' => Warehouse::query()->orderBy('name')->get(['id', 'code', 'name']),
+            'issues' => Issue::query()->where('tenant_id', $this->tenantId)->latest('id')->get(['id', 'issue_no']),
+            'salesOrders' => SalesOrder::query()->where('tenant_id', $this->tenantId)->latest('id')->get(['id', 'platform_order_id']),
+            'skuOptionsByLine' => $this->skuOptionsByLine(),
+            'types' => ReturnOrder::typeOptions(),
+            'reasons' => ReturnOrder::reasonOptions(),
+            'paymentTypes' => ReturnOrder::paymentTypeOptions(),
+            'showTenantSelect' => $this->isInternalUser(),
+        ])->layout('inventory', ['title' => __('return_orders.create_page_title'), 'subtitle' => __('return_orders.create_page_subtitle')]);
+    }
+
+    private function skuOptionsByLine(): array
+    {
+        return collect($this->lines)
+            ->keys()
+            ->mapWithKeys(fn ($index) => [$index => $this->skuOptions((int) $index)])
+            ->all();
+    }
+
+    private function skuOptions(int $lineIndex)
+    {
+        $searchTerm = trim((string) ($this->skuSearches[$lineIndex] ?? ''));
+        $search = '%'.$searchTerm.'%';
+
+        return Sku::query()
+            ->where('tenant_id', $this->tenantId)
+            ->where('status', 'active')
+            ->whereNotNull('stock_item_id')
+            ->when($searchTerm !== '', function ($query) use ($search): void {
+                $query->where(function ($query) use ($search): void {
+                    $query
+                        ->where('sku', 'like', $search)
+                        ->orWhere('name', 'like', $search)
+                        ->orWhere('name_en', 'like', $search)
+                        ->orWhere('name_ja', 'like', $search)
+                        ->orWhere('name_zh_tw', 'like', $search)
+                        ->orWhere('name_zh_cn', 'like', $search)
+                        ->orWhere('platform_sku', 'like', $search)
+                        ->orWhere('platform_label_code', 'like', $search)
+                        ->orWhereHas('stockItem', function ($query) use ($search): void {
+                            $query
+                                ->where('code', 'like', $search)
+                                ->orWhere('name', 'like', $search)
+                                ->orWhere('barcode', 'like', $search);
+                        });
+                });
+            })
+            ->with('stockItem:id,code,name')
+            ->orderBy('sku')
+            ->limit(50)
+            ->get(['id', 'tenant_id', 'stock_item_id', 'sku', 'name', 'platform_sku', 'platform_label_code']);
     }
 
     private function payload(int $tenantId): array

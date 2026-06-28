@@ -47,6 +47,8 @@ class SalesOrderCreate extends Component
         ['sku_id' => '', 'quantity' => '', 'note' => ''],
     ];
 
+    public array $skuSearches = [''];
+
     private bool $allowedTenantIdsResolved = false;
 
     private array $allowedTenantIdsCache = [];
@@ -59,11 +61,22 @@ class SalesOrderCreate extends Component
     public function updatedShopId(): void
     {
         $this->lines = [['sku_id' => '', 'quantity' => '', 'note' => '']];
+        $this->skuSearches = [''];
+    }
+
+    public function updatedSkuSearches(mixed $_value, mixed $key): void
+    {
+        $index = (int) $key;
+
+        if (isset($this->lines[$index])) {
+            $this->lines[$index]['sku_id'] = '';
+        }
     }
 
     public function addLine(): void
     {
         $this->lines[] = ['sku_id' => '', 'quantity' => '', 'note' => ''];
+        $this->skuSearches[] = '';
     }
 
     public function removeLine(int $index): void
@@ -73,7 +86,9 @@ class SalesOrderCreate extends Component
         }
 
         array_splice($this->lines, $index, 1);
+        array_splice($this->skuSearches, $index, 1);
         $this->lines = array_values($this->lines);
+        $this->skuSearches = array_values($this->skuSearches);
     }
 
     public function save()
@@ -127,7 +142,7 @@ class SalesOrderCreate extends Component
     {
         return view('livewire.sales-order-create', [
             'shops' => $this->shopOptions(),
-            'skus' => $this->skuOptions(),
+            'skuOptionsByLine' => $this->skuOptionsByLine(),
             'shippingMethods' => $this->shippingMethodOptions(),
             'showShopSelect' => true,
         ])->layout('inventory', [
@@ -209,7 +224,15 @@ class SalesOrderCreate extends Component
             ->get(['id', 'tenant_id', 'platform', 'marketplace', 'code', 'name']);
     }
 
-    private function skuOptions(): Collection
+    private function skuOptionsByLine(): array
+    {
+        return collect($this->lines)
+            ->keys()
+            ->mapWithKeys(fn ($index) => [$index => $this->skuOptions((int) $index)])
+            ->all();
+    }
+
+    private function skuOptions(int $lineIndex): Collection
     {
         if ($this->shopId === '') {
             return collect();
@@ -224,15 +247,43 @@ class SalesOrderCreate extends Component
             return collect();
         }
 
+        $searchTerm = trim((string) ($this->skuSearches[$lineIndex] ?? ''));
+        $search = '%'.$searchTerm.'%';
+
         return Sku::query()
             ->where('tenant_id', $shop->tenant_id)
             ->where('status', 'active')
             ->where(fn ($query) => $query
                 ->where('sku_type', 'virtual_bundle')
                 ->orWhereNotNull('stock_item_id'))
+            ->when($searchTerm !== '', function ($query) use ($search) {
+                $query->where(function ($query) use ($search) {
+                    $query
+                        ->where('sku', 'like', $search)
+                        ->orWhere('name', 'like', $search)
+                        ->orWhere('name_en', 'like', $search)
+                        ->orWhere('name_ja', 'like', $search)
+                        ->orWhere('name_zh_tw', 'like', $search)
+                        ->orWhere('name_zh_cn', 'like', $search)
+                        ->orWhere('platform_sku', 'like', $search)
+                        ->orWhere('platform_label_code', 'like', $search)
+                        ->orWhereHas('stockItem', function ($query) use ($search) {
+                            $query
+                                ->where('code', 'like', $search)
+                                ->orWhere('name', 'like', $search)
+                                ->orWhere('name_en', 'like', $search)
+                                ->orWhere('name_ja', 'like', $search)
+                                ->orWhere('name_zh_tw', 'like', $search)
+                                ->orWhere('name_zh_cn', 'like', $search)
+                                ->orWhere('short_name', 'like', $search)
+                                ->orWhere('barcode', 'like', $search);
+                        });
+                });
+            })
             ->with('stockItem:id,code,name')
             ->orderBy('sku')
-            ->get(['id', 'tenant_id', 'sku', 'name', 'stock_item_id', 'sku_type']);
+            ->limit(50)
+            ->get(['id', 'tenant_id', 'sku', 'name', 'platform_sku', 'platform_label_code', 'stock_item_id', 'sku_type']);
     }
 
     private function shippingMethodOptions(): Collection

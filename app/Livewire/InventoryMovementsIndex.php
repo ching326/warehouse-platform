@@ -34,6 +34,8 @@ class InventoryMovementsIndex extends Component
     #[Url(as: 'stock_item_id', except: '')]
     public string $stockItemId = '';
 
+    public string $stockItemSearch = '';
+
     public string $userId = '';
 
     public string $dateFrom = '';
@@ -53,6 +55,8 @@ class InventoryMovementsIndex extends Component
 
     public function updatedTenantId(): void
     {
+        $this->stockItemId = '';
+        $this->stockItemSearch = '';
         $this->resetPage();
     }
 
@@ -68,6 +72,12 @@ class InventoryMovementsIndex extends Component
 
     public function updatedStockItemId(): void
     {
+        $this->resetPage();
+    }
+
+    public function updatedStockItemSearch(): void
+    {
+        $this->stockItemId = '';
         $this->resetPage();
     }
 
@@ -88,7 +98,7 @@ class InventoryMovementsIndex extends Component
 
     public function clearFilters(): void
     {
-        $this->reset(['search', 'tenantId', 'warehouseId', 'movementType', 'stockItemId', 'userId', 'dateFrom', 'dateTo']);
+        $this->reset(['search', 'tenantId', 'warehouseId', 'movementType', 'stockItemId', 'stockItemSearch', 'userId', 'dateFrom', 'dateTo']);
         $this->resetPage();
     }
 
@@ -268,11 +278,35 @@ class InventoryMovementsIndex extends Component
 
     private function stockItemOptions(): Collection
     {
+        $searchTerm = trim($this->stockItemSearch);
+        $search = '%'.$searchTerm.'%';
+
         return StockItem::query()
             ->whereHas('inventoryMovements', fn ($query) => $this->applyTenantScope($query))
             ->when($this->tenantId !== '', fn ($query) => $query->where('tenant_id', $this->tenantId))
+            ->when($searchTerm !== '', function ($query) use ($search) {
+                $query->where(function ($query) use ($search) {
+                    $query
+                        ->where('code', 'like', $search)
+                        ->orWhere('name', 'like', $search)
+                        ->orWhere('name_en', 'like', $search)
+                        ->orWhere('name_ja', 'like', $search)
+                        ->orWhere('name_zh_tw', 'like', $search)
+                        ->orWhere('name_zh_cn', 'like', $search)
+                        ->orWhere('short_name', 'like', $search)
+                        ->orWhere('barcode', 'like', $search)
+                        ->orWhereHas('skus', function ($query) use ($search) {
+                            $query
+                                ->where('sku', 'like', $search)
+                                ->orWhere('name', 'like', $search)
+                                ->orWhere('platform_sku', 'like', $search)
+                                ->orWhere('platform_label_code', 'like', $search);
+                        });
+                });
+            })
             ->orderBy('code')
-            ->get(['id', 'tenant_id', 'code', 'name']);
+            ->limit(50)
+            ->get(['id', 'tenant_id', 'code', ...StockItem::DISPLAY_NAME_COLUMNS, 'barcode']);
     }
 
     private function movementTypeOptions(): Collection

@@ -41,6 +41,8 @@ class SalesOrderDetail extends Component
 
     public array $draftLines = [];
 
+    public array $draftLineSkuSearches = [];
+
     private bool $allowedTenantIdsResolved = false;
 
     private array $allowedTenantIdsCache = [];
@@ -351,24 +353,44 @@ class SalesOrderDetail extends Component
                 'note' => (string) $line->note,
             ])
             ->all();
+        $skuLabels = Sku::query()
+            ->whereIn('id', collect($this->draftLines)->pluck('sku_id')->filter()->map(fn ($id) => (int) $id))
+            ->pluck('sku', 'id');
+
+        $this->draftLineSkuSearches = collect($this->draftLines)
+            ->map(fn (array $line) => (string) ($skuLabels[(int) $line['sku_id']] ?? ''))
+            ->all();
         $this->editingLines = true;
     }
 
     public function addDraftLine(): void
     {
         $this->draftLines[] = ['sku_id' => '', 'quantity' => 1, 'note' => ''];
+        $this->draftLineSkuSearches[] = '';
     }
 
     public function removeDraftLine(int $index): void
     {
         unset($this->draftLines[$index]);
+        unset($this->draftLineSkuSearches[$index]);
         $this->draftLines = array_values($this->draftLines);
+        $this->draftLineSkuSearches = array_values($this->draftLineSkuSearches);
     }
 
     public function cancelEditLines(): void
     {
         $this->editingLines = false;
         $this->draftLines = [];
+        $this->draftLineSkuSearches = [];
+    }
+
+    public function updatedDraftLineSkuSearches(mixed $_value, mixed $key): void
+    {
+        $index = (int) $key;
+
+        if (isset($this->draftLines[$index])) {
+            $this->draftLines[$index]['sku_id'] = '';
+        }
     }
 
     public function saveLines(): void
@@ -531,7 +553,7 @@ class SalesOrderDetail extends Component
             'order' => $order,
             'relatedOrders' => $relatedOrders,
             'activities' => $activities,
-            'skuOptions' => $this->skuOptions($order->tenant_id),
+            'skuOptionsByLine' => $this->skuOptionsByLine($order->tenant_id),
             'shippingMethods' => $this->shippingMethodOptions($order),
         ])->layout('inventory', [
             'title' => __('sales_orders.detail_page_title'),
@@ -584,13 +606,45 @@ class SalesOrderDetail extends Component
         return $order;
     }
 
-    private function skuOptions(int $tenantId)
+    private function skuOptionsByLine(int $tenantId): array
     {
+        return collect($this->draftLines)
+            ->keys()
+            ->mapWithKeys(fn ($index) => [$index => $this->skuOptions($tenantId, (int) $index)])
+            ->all();
+    }
+
+    private function skuOptions(int $tenantId, int $lineIndex)
+    {
+        $searchTerm = trim((string) ($this->draftLineSkuSearches[$lineIndex] ?? ''));
+        $search = '%'.$searchTerm.'%';
+
         return Sku::query()
             ->where('tenant_id', $tenantId)
             ->where('status', 'active')
+            ->when($searchTerm !== '', function ($query) use ($search): void {
+                $query->where(function ($query) use ($search): void {
+                    $query
+                        ->where('sku', 'like', $search)
+                        ->orWhere('name', 'like', $search)
+                        ->orWhere('name_en', 'like', $search)
+                        ->orWhere('name_ja', 'like', $search)
+                        ->orWhere('name_zh_tw', 'like', $search)
+                        ->orWhere('name_zh_cn', 'like', $search)
+                        ->orWhere('platform_sku', 'like', $search)
+                        ->orWhere('platform_label_code', 'like', $search)
+                        ->orWhereHas('stockItem', function ($query) use ($search): void {
+                            $query
+                                ->where('code', 'like', $search)
+                                ->orWhere('name', 'like', $search)
+                                ->orWhere('barcode', 'like', $search);
+                        });
+                });
+            })
+            ->with('stockItem:id,code,name')
             ->orderBy('sku')
-            ->get(['id', 'sku', 'name', 'stock_item_id', 'sku_type']);
+            ->limit(50)
+            ->get(['id', 'sku', 'name', 'platform_sku', 'platform_label_code', 'stock_item_id', 'sku_type']);
     }
 
     private function shippingMethodOptions(SalesOrder $order)

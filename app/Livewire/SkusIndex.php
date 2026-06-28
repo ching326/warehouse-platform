@@ -71,9 +71,15 @@ class SkusIndex extends Component
 
     public ?int $managingStockItemId = null;
 
-    public ?TemporaryUploadedFile $stockImage = null;
+    public string $imagePanelMode = 'gallery';
 
-    public bool $stockImageIsPrimary = false;
+    public ?int $viewingImageId = null;
+
+    /** @var array<int, TemporaryUploadedFile> */
+    public array $stockImages = [];
+
+    /** @var array<int, string> */
+    public array $stockImageOrder = [];
 
     public ?int $managingAliasSkuId = null;
 
@@ -102,6 +108,8 @@ class SkusIndex extends Component
     private const PER_PAGE_OPTIONS = [15, 30, 50, 100];
 
     private const STOCK_IMAGE_TYPE = 'product';
+
+    private const MAX_STOCK_IMAGE_SIDE = 2000;
 
     public function mount(): void
     {
@@ -281,6 +289,39 @@ class SkusIndex extends Component
         $this->resetValidation();
         $this->resetImageForm();
         $this->managingStockItemId = $stockItem->id;
+        $primaryImage = $stockItem->primaryImage()->first();
+        $this->viewingImageId = $primaryImage?->id;
+        $this->imagePanelMode = $primaryImage ? 'gallery' : 'manage';
+    }
+
+    public function manageImages(): void
+    {
+        $this->managedStockItem();
+        $this->resetValidation();
+        $this->imagePanelMode = 'manage';
+    }
+
+    public function showImageGallery(?int $mediaAssetId = null): void
+    {
+        $stockItem = $this->managedStockItem();
+        $this->resetValidation();
+        $this->resetImageForm();
+
+        if ($mediaAssetId !== null) {
+            $asset = $this->scopedMediaAssetQuery()
+                ->where('model_id', $stockItem->id)
+                ->find($mediaAssetId);
+
+            if (! $asset) {
+                abort(404);
+            }
+
+            $this->viewingImageId = $asset->id;
+        } else {
+            $this->viewingImageId = $stockItem->primaryImage()->first()?->id;
+        }
+
+        $this->imagePanelMode = 'gallery';
     }
 
     public function closeImagePanel(): void
@@ -288,6 +329,8 @@ class SkusIndex extends Component
         $this->resetValidation();
         $this->resetImageForm();
         $this->managingStockItemId = null;
+        $this->viewingImageId = null;
+        $this->imagePanelMode = 'gallery';
     }
 
     public function openAliasPanel(int $skuId): void
@@ -613,61 +656,134 @@ class SkusIndex extends Component
         $stockItem = $this->managedStockItem();
         $imageCount = $stockItem->mediaAssets()->count();
 
-        if ($imageCount >= 10) {
+        $this->validate([
+            'stockImages' => ['required', 'array', 'min:1'],
+            'stockImages.*' => ['required', 'file', 'image', 'mimetypes:image/jpeg,image/png,image/webp', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ], [
+            'stockImages.required' => __('skus.image_file_required'),
+            'stockImages.min' => __('skus.image_file_required'),
+            'stockImages.*.image' => __('skus.image_file_must_be_image'),
+            'stockImages.*.mimetypes' => __('skus.image_file_must_be_image'),
+            'stockImages.*.mimes' => __('skus.image_file_must_be_image'),
+        ]);
+
+        $images = $this->orderedStockImages();
+        $uploadCount = count($images);
+
+        if ($uploadCount < 1) {
             throw ValidationException::withMessages([
-                'stockImage' => __('skus.image_limit_reached'),
+                'stockImages' => __('skus.image_file_required'),
             ]);
         }
 
-        $this->validate([
-            'stockImage' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'stockImageIsPrimary' => ['boolean'],
-        ]);
-
-        $dimensions = $this->imageDimensions($this->stockImage);
-        $extension = $this->stockImage->getClientOriginalExtension() ?: $this->stockImage->extension() ?: 'jpg';
-        $fileName = Str::uuid()->toString().'.'.strtolower($extension);
-        $path = 'product-images/tenant-'.$stockItem->tenant_id.'/stock-items/'.$stockItem->id.'/'.$fileName;
-        $shouldBePrimary = $imageCount === 0 || $this->stockImageIsPrimary;
-
-        Storage::disk('public')->putFileAs(dirname($path), $this->stockImage, basename($path));
-
-        $asset = DB::transaction(function () use ($stockItem, $path, $dimensions, $shouldBePrimary) {
-            if ($shouldBePrimary) {
-                $this->clearPrimaryImages($stockItem->id);
-            }
-
-            $asset = MediaAsset::create([
-                'tenant_id' => $stockItem->tenant_id,
-                'model_type' => MediaAsset::MODEL_TYPE_STOCK_ITEM,
-                'model_id' => $stockItem->id,
-                'type' => self::STOCK_IMAGE_TYPE,
-                'disk' => 'public',
-                'path' => $path,
-                'file_name' => $this->stockImage->getClientOriginalName(),
-                'mime_type' => $this->stockImage->getMimeType(),
-                'size_bytes' => $this->stockImage->getSize(),
-                'width' => $dimensions['width'],
-                'height' => $dimensions['height'],
-                'sort_order' => $this->nextImageSortOrder($stockItem->id),
-                'is_primary' => $shouldBePrimary,
-                'uploaded_by_user_id' => Auth::id(),
+        if ($imageCount >= 10 || $imageCount + $uploadCount > 10) {
+            throw ValidationException::withMessages([
+                'stockImages' => __('skus.image_limit_reached'),
             ]);
+        }
 
-            return $asset;
-        });
+        $uploadedAssets = [];
+        $baseSortOrder = $this->nextImageSortOrder($stockItem->id);
+        $baseFileNumber = $this->nextImageFileNumber($stockItem->id);
 
-        activity('stock_item')
-            ->performedOn($stockItem)
-            ->causedBy(Auth::user())
-            ->withProperties([
-                'media_asset_id' => $asset->id,
-                'is_primary' => $asset->is_primary,
-            ])
-            ->log('image uploaded');
+        foreach ($images as $index => $image) {
+            $sortOrder = $baseSortOrder + $index;
+            $fileName = $this->stockImageFileName($stockItem, $baseFileNumber + $index, $image);
+            $path = 'product-images/tenant-'.$stockItem->tenant_id.'/stock-items/'.$stockItem->id.'/'.$fileName;
+            $shouldBePrimary = $imageCount === 0 && $index === 0;
+            $storedImage = $this->storeStockImage($image, $path);
+
+            $uploadedAssets[] = DB::transaction(function () use ($stockItem, $path, $fileName, $storedImage, $sortOrder, $shouldBePrimary) {
+                if ($shouldBePrimary) {
+                    $this->clearPrimaryImages($stockItem->id);
+                }
+
+                return MediaAsset::create([
+                    'tenant_id' => $stockItem->tenant_id,
+                    'model_type' => MediaAsset::MODEL_TYPE_STOCK_ITEM,
+                    'model_id' => $stockItem->id,
+                    'type' => self::STOCK_IMAGE_TYPE,
+                    'disk' => 'public',
+                    'path' => $path,
+                    'file_name' => $fileName,
+                    'mime_type' => $storedImage['mime_type'],
+                    'size_bytes' => $storedImage['size_bytes'],
+                    'width' => $storedImage['width'],
+                    'height' => $storedImage['height'],
+                    'sort_order' => $sortOrder,
+                    'is_primary' => $shouldBePrimary,
+                    'uploaded_by_user_id' => Auth::id(),
+                ]);
+            });
+        }
+
+        if ($imageCount === 0) {
+            $this->syncFirstImageAsPrimary($stockItem->id);
+        }
+
+        foreach ($uploadedAssets as $asset) {
+            activity('stock_item')
+                ->performedOn($stockItem)
+                ->causedBy(Auth::user())
+                ->withProperties([
+                    'media_asset_id' => $asset->id,
+                    'is_primary' => $asset->is_primary,
+                ])
+                ->log('image uploaded');
+        }
 
         $this->resetImageForm();
-        $this->flashStatus(__('skus.image_uploaded'));
+        $this->dispatch('stock-images-reset');
+        $this->flashStatus(trans_choice('skus.images_uploaded', count($uploadedAssets), ['count' => count($uploadedAssets)]));
+    }
+
+    public function moveImageUp(int $mediaAssetId): void
+    {
+        $this->moveImage($mediaAssetId, -1);
+    }
+
+    public function moveImageDown(int $mediaAssetId): void
+    {
+        $this->moveImage($mediaAssetId, 1);
+    }
+
+    private function moveImage(int $mediaAssetId, int $direction): void
+    {
+        $asset = $this->scopedMediaAssetQuery()->find($mediaAssetId);
+
+        if (! $asset) {
+            abort(404);
+        }
+
+        $stockItem = $this->scopedStockItemQuery()->find($asset->model_id);
+
+        if (! $stockItem) {
+            abort(404);
+        }
+
+        $assets = $stockItem->mediaAssets()->get()->values();
+        $index = $assets->search(fn (MediaAsset $item) => $item->id === $asset->id);
+        $targetIndex = is_int($index) ? $index + $direction : -1;
+
+        if (! is_int($index) || ! $assets->has($targetIndex)) {
+            return;
+        }
+
+        $ordered = $assets->all();
+        [$moved] = array_splice($ordered, $index, 1);
+        array_splice($ordered, $targetIndex, 0, [$moved]);
+
+        DB::transaction(function () use ($ordered, $stockItem): void {
+            foreach ($ordered as $position => $item) {
+                $item->forceFill([
+                    'sort_order' => $position + 1,
+                    'is_primary' => $position === 0,
+                ])->save();
+            }
+
+            $this->syncFirstImageAsPrimary($stockItem->id);
+        });
+
     }
 
     public function setPrimaryImage(int $mediaAssetId): void
@@ -685,8 +801,21 @@ class SkusIndex extends Component
         }
 
         DB::transaction(function () use ($asset, $stockItem): void {
+            $assets = $stockItem->mediaAssets()->get()->reject(fn (MediaAsset $item) => $item->id === $asset->id)->values();
             $this->clearPrimaryImages($stockItem->id);
-            $asset->forceFill(['is_primary' => true])->save();
+
+            $sortOrder = 1;
+            $asset->forceFill([
+                'is_primary' => true,
+                'sort_order' => $sortOrder++,
+            ])->save();
+
+            foreach ($assets as $item) {
+                $item->forceFill([
+                    'is_primary' => false,
+                    'sort_order' => $sortOrder++,
+                ])->save();
+            }
         });
 
         activity('stock_item')
@@ -720,11 +849,7 @@ class SkusIndex extends Component
             $asset->delete();
 
             if ($wasPrimary) {
-                $next = $stockItem->mediaAssets()->first();
-
-                if ($next) {
-                    $next->forceFill(['is_primary' => true])->save();
-                }
+                $this->syncFirstImageAsPrimary($stockItem->id);
             }
         });
 
@@ -745,7 +870,6 @@ class SkusIndex extends Component
             ->withProperties(['media_asset_id' => $mediaAssetId])
             ->log('image deleted');
 
-        $this->flashStatus(__('skus.image_deleted'));
     }
 
     public function importAmazonImage(int $skuId): void
@@ -1397,6 +1521,9 @@ class SkusIndex extends Component
         return $user->activeTenantIds();
     }
 
+    /**
+     * @return Builder<StockItem>
+     */
     private function scopedStockItemQuery(): Builder
     {
         return StockItem::query()
@@ -1426,6 +1553,9 @@ class SkusIndex extends Component
         $this->selectedIds = [];
     }
 
+    /**
+     * @return Builder<MediaAsset>
+     */
     private function scopedMediaAssetQuery(): Builder
     {
         return MediaAsset::query()
@@ -1533,6 +1663,23 @@ class SkusIndex extends Component
             ->update(['is_primary' => false]);
     }
 
+    private function syncFirstImageAsPrimary(int $stockItemId): void
+    {
+        $assets = MediaAsset::query()
+            ->where('model_type', MediaAsset::MODEL_TYPE_STOCK_ITEM)
+            ->where('model_id', $stockItemId)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($assets as $index => $asset) {
+            $asset->forceFill([
+                'sort_order' => $index + 1,
+                'is_primary' => $index === 0,
+            ])->save();
+        }
+    }
+
     private function nextImageSortOrder(int $stockItemId): int
     {
         return ((int) MediaAsset::query()
@@ -1541,20 +1688,153 @@ class SkusIndex extends Component
             ->max('sort_order')) + 1;
     }
 
-    private function imageDimensions(TemporaryUploadedFile $file): array
+    private function nextImageFileNumber(int $stockItemId): int
+    {
+        return $this->nextImageSortOrder($stockItemId);
+    }
+
+    /**
+     * @return array{mime_type: string|null, size_bytes: int|null, width: int|null, height: int|null}
+     */
+    private function storeStockImage(TemporaryUploadedFile $file, string $path): array
     {
         $size = @getimagesize($file->getRealPath());
+        $width = $size[0] ?? null;
+        $height = $size[1] ?? null;
+        $mimeType = $size['mime'] ?? $file->getMimeType();
+
+        if (! $width || ! $height || max($width, $height) <= self::MAX_STOCK_IMAGE_SIDE) {
+            Storage::disk('public')->putFileAs(dirname($path), $file, basename($path));
+
+            return [
+                'mime_type' => $mimeType,
+                'size_bytes' => $file->getSize(),
+                'width' => $width,
+                'height' => $height,
+            ];
+        }
+
+        $ratio = self::MAX_STOCK_IMAGE_SIDE / max($width, $height);
+        $targetWidth = max(1, (int) round($width * $ratio));
+        $targetHeight = max(1, (int) round($height * $ratio));
+        $resizedBytes = $this->resizeImageBytes($file->getRealPath(), $mimeType, $targetWidth, $targetHeight);
+
+        if ($resizedBytes === null) {
+            Storage::disk('public')->putFileAs(dirname($path), $file, basename($path));
+
+            return [
+                'mime_type' => $mimeType,
+                'size_bytes' => $file->getSize(),
+                'width' => $width,
+                'height' => $height,
+            ];
+        }
+
+        Storage::disk('public')->put($path, $resizedBytes);
 
         return [
-            'width' => $size[0] ?? null,
-            'height' => $size[1] ?? null,
+            'mime_type' => $mimeType,
+            'size_bytes' => strlen($resizedBytes),
+            'width' => $targetWidth,
+            'height' => $targetHeight,
         ];
+    }
+
+    private function resizeImageBytes(string $path, ?string $mimeType, int $targetWidth, int $targetHeight): ?string
+    {
+        $source = match ($mimeType) {
+            'image/jpeg' => @imagecreatefromjpeg($path),
+            'image/png' => @imagecreatefrompng($path),
+            'image/webp' => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($path) : false,
+            default => false,
+        };
+
+        if (! $source) {
+            return null;
+        }
+
+        $target = imagecreatetruecolor($targetWidth, $targetHeight);
+
+        if ($mimeType === 'image/png' || $mimeType === 'image/webp') {
+            imagealphablending($target, false);
+            imagesavealpha($target, true);
+        }
+
+        imagecopyresampled(
+            $target,
+            $source,
+            0,
+            0,
+            0,
+            0,
+            $targetWidth,
+            $targetHeight,
+            imagesx($source),
+            imagesy($source)
+        );
+
+        ob_start();
+        $saved = match ($mimeType) {
+            'image/jpeg' => imagejpeg($target, null, 85),
+            'image/png' => imagepng($target, null, 6),
+            'image/webp' => function_exists('imagewebp') ? imagewebp($target, null, 85) : false,
+            default => false,
+        };
+        $output = (string) ob_get_clean();
+        $bytes = $saved ? $output : null;
+
+        imagedestroy($target);
+        imagedestroy($source);
+
+        return $bytes;
     }
 
     private function resetImageForm(): void
     {
-        $this->stockImage = null;
-        $this->stockImageIsPrimary = false;
+        $this->stockImages = [];
+        $this->stockImageOrder = [];
+    }
+
+    /**
+     * @return array<int, TemporaryUploadedFile>
+     */
+    private function orderedStockImages(): array
+    {
+        $images = array_values($this->stockImages);
+
+        $ordered = [];
+
+        foreach ($this->stockImageOrder as $index) {
+            if (! is_numeric($index) || ! array_key_exists((int) $index, $images)) {
+                continue;
+            }
+
+            $ordered[] = $images[(int) $index];
+        }
+
+        if ($ordered !== []) {
+            return $ordered;
+        }
+
+        return $images;
+    }
+
+    private function stockImageFileName(StockItem $stockItem, int $sortOrder, TemporaryUploadedFile $file): string
+    {
+        $extension = $file->getClientOriginalExtension() ?: $file->extension() ?: 'jpg';
+
+        return $this->safeStockImageBaseName($stockItem).'-'.str_pad((string) $sortOrder, 2, '0', STR_PAD_LEFT).'.'.strtolower($extension);
+    }
+
+    private function safeStockImageBaseName(StockItem $stockItem): string
+    {
+        $base = Str::of($stockItem->code)
+            ->upper()
+            ->replaceMatches('/[^A-Z0-9_-]+/', '')
+            ->trim('-_')
+            ->toString();
+
+        return $base !== '' ? $base : 'STOCK-'.$stockItem->id;
     }
 
     private function resetAliasForm(): void
@@ -1604,7 +1884,7 @@ class SkusIndex extends Component
             return null;
         }
 
-        return $asset->url();
+        return route('media.show', $asset);
     }
 
     public function canImportAmazonImage(Sku $sku): bool

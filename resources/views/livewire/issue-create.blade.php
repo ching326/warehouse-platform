@@ -171,14 +171,27 @@
         </div>
 
         @foreach ($manualLines as $index => $line)
-            @php($stockItem = ($line['sku_id'] ?? '') === '' ? $manualLineStockItems->get((int) ($line['stock_item_id'] ?? 0)) : null)
+            @php
+                $stockItem = ($line['sku_id'] ?? '') === '' ? $manualLineStockItems->get((int) ($line['stock_item_id'] ?? 0)) : null;
+                $skuOptions = collect($skuOptionsByLine[$index] ?? [])->map(fn ($sku) => [
+                    'value' => $sku->id,
+                    'label' => $sku->sku,
+                    'meta' => trim(($sku->stockItem?->code ? $sku->stockItem->code.' / ' : '').($sku->stockItem?->name ?? $sku->name ?? '')),
+                ]);
+                $selectedSku = $skuOptions->firstWhere('value', (int) ($line['sku_id'] ?? 0));
+            @endphp
             <div class="line-row">
-                <flux:select wire:model="manualLines.{{ $index }}.sku_id" :label="__('issues.field_sku')">
-                    <flux:select.option value="">{{ __('issues.select_sku') }}</flux:select.option>
-                    @foreach ($skuOptions as $sku)
-                        <flux:select.option value="{{ $sku->id }}">{{ $sku->sku }} - {{ $sku->name }} / {{ $sku->stockItem?->code ?? __('common.sku_types.virtual_bundle') }}</flux:select.option>
-                    @endforeach
-                </flux:select>
+                <x-searchable-select
+                    wire:key="issue-manual-sku-picker-{{ $index }}-{{ md5($tenantId.'|'.($line['sku_id'] ?? '')) }}"
+                    :label="__('issues.field_sku')"
+                    model="manualLines.{{ $index }}.sku_id"
+                    search-model="manualSkuSearches.{{ $index }}"
+                    :options="$skuOptions"
+                    :selected-label="$selectedSku['label'] ?? ($manualSkuSearches[$index] ?? '')"
+                    :placeholder="$tenantId === '' ? __('common.select_tenant') : __('inventory.search_placeholder')"
+                    empty-label="No results"
+                    :disabled="$tenantId === ''"
+                />
                 @if ($stockItem)
                     <div class="issue-stock-context">
                         <span>{{ __('issues.field_stock_item') }}</span>

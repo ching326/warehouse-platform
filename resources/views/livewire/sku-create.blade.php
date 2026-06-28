@@ -131,14 +131,25 @@
             </div>
 
             @if ($stockItemMode === 'link')
+                @php
+                    $stockItemOptions = collect($stockItems)->map(fn ($item) => [
+                        'value' => $item->id,
+                        'label' => $item->code,
+                        'meta' => $item->displayName(),
+                    ]);
+                    $selectedStockItem = $stockItemOptions->firstWhere('value', (int) $existingStockItemId);
+                @endphp
                 <div class="form-grid">
-                    <flux:input wire:model.live.debounce.300ms="stockItemSearch" :label="__('skus.search_stock_items_label')" :placeholder="__('skus.search_stock_items_placeholder')" />
-                    <flux:select wire:model="existingStockItemId" :label="__('skus.col_stock_item')">
-                        <flux:select.option value="">{{ __('skus.no_stock_item') }}</flux:select.option>
-                        @foreach ($stockItems as $item)
-                            <flux:select.option value="{{ $item->id }}">{{ $item->code }} - {{ $item->name }}</flux:select.option>
-                        @endforeach
-                    </flux:select>
+                    <x-searchable-select
+                        wire:key="sku-create-stock-item-picker-{{ $tenantId }}-{{ $existingStockItemId }}"
+                        :label="__('skus.col_stock_item')"
+                        model="existingStockItemId"
+                        search-model="stockItemSearch"
+                        :options="$stockItemOptions"
+                        :selected-label="$selectedStockItem['label'] ?? $stockItemSearch"
+                        :placeholder="__('stock_adjustments.select_stock_item')"
+                        empty-label="No results"
+                    />
                 </div>
                 @error('existing_stock_item_id') <p class="form-error">{{ $message }}</p> @enderror
             @else

@@ -20,6 +20,8 @@ class ReturnOrderReceive extends Component
 
     public array $newLines = [];
 
+    public array $newLineSkuSearches = [];
+
     public function mount(ReturnOrder $returnOrder): void
     {
         $this->staffOnly();
@@ -35,6 +37,16 @@ class ReturnOrderReceive extends Component
             'received_location_id' => '',
             'note' => '',
         ];
+        $this->newLineSkuSearches[] = '';
+    }
+
+    public function updatedNewLineSkuSearches(mixed $_value, mixed $key): void
+    {
+        $index = (int) $key;
+
+        if (isset($this->newLines[$index])) {
+            $this->newLines[$index]['sku_id'] = '';
+        }
     }
 
     public function saveReceive()
@@ -89,11 +101,7 @@ class ReturnOrderReceive extends Component
 
         return view('livewire.return-order-receive', [
             'order' => $order,
-            'skus' => Sku::query()
-                ->where('tenant_id', $order->tenant_id)
-                ->whereNotNull('stock_item_id')
-                ->orderBy('sku')
-                ->get(['id', 'sku', 'name', 'stock_item_id']),
+            'skuOptionsByLine' => $this->skuOptionsByLine($order),
             'locations' => WarehouseLocation::query()
                 ->where('warehouse_id', $order->warehouse_id)
                 ->orderBy('code')
@@ -138,6 +146,47 @@ class ReturnOrderReceive extends Component
             ],
             'newLines.*.note' => ['nullable', 'string'],
         ])->validate();
+    }
+
+    private function skuOptionsByLine(ReturnOrder $order): array
+    {
+        return collect($this->newLines)
+            ->keys()
+            ->mapWithKeys(fn ($index) => [$index => $this->skuOptions($order, (int) $index)])
+            ->all();
+    }
+
+    private function skuOptions(ReturnOrder $order, int $lineIndex)
+    {
+        $searchTerm = trim((string) ($this->newLineSkuSearches[$lineIndex] ?? ''));
+        $search = '%'.$searchTerm.'%';
+
+        return Sku::query()
+            ->where('tenant_id', $order->tenant_id)
+            ->whereNotNull('stock_item_id')
+            ->when($searchTerm !== '', function ($query) use ($search): void {
+                $query->where(function ($query) use ($search): void {
+                    $query
+                        ->where('sku', 'like', $search)
+                        ->orWhere('name', 'like', $search)
+                        ->orWhere('name_en', 'like', $search)
+                        ->orWhere('name_ja', 'like', $search)
+                        ->orWhere('name_zh_tw', 'like', $search)
+                        ->orWhere('name_zh_cn', 'like', $search)
+                        ->orWhere('platform_sku', 'like', $search)
+                        ->orWhere('platform_label_code', 'like', $search)
+                        ->orWhereHas('stockItem', function ($query) use ($search): void {
+                            $query
+                                ->where('code', 'like', $search)
+                                ->orWhere('name', 'like', $search)
+                                ->orWhere('barcode', 'like', $search);
+                        });
+                });
+            })
+            ->with('stockItem:id,code,name')
+            ->orderBy('sku')
+            ->limit(50)
+            ->get(['id', 'tenant_id', 'stock_item_id', 'sku', 'name', 'platform_sku', 'platform_label_code']);
     }
 
     private function fillDrafts(ReturnOrder $order): void

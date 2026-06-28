@@ -86,7 +86,14 @@
         </section>
 
         <div class="form-actions">
-            <flux:button href="{{ route('setup.fba-warehouses.index') }}" variant="outline">{{ __('setup.btn_cancel') }}</flux:button>
+            <flux:button
+                type="button"
+                variant="danger"
+                wire:click="delete"
+                wire:confirm="{{ __('setup.fba_warehouse_delete_confirm') }}"
+            >
+                {{ __('setup.btn_delete') }}
+            </flux:button>
             <flux:button type="submit" variant="primary">{{ __('setup.btn_save') }}</flux:button>
         </div>
     </form>

@@ -45,6 +45,8 @@ class IssueCreate extends Component
         ['sku_id' => '', 'stock_item_id' => '', 'qty' => 1, 'condition' => IssueLine::CONDITION_UNKNOWN, 'action' => IssueLine::ACTION_INVESTIGATE, 'note' => ''],
     ];
 
+    public array $manualSkuSearches = [''];
+
     private bool $allowedTenantIdsResolved = false;
 
     private array $allowedTenantIdsCache = [];
@@ -79,6 +81,10 @@ class IssueCreate extends Component
         $this->outboundOrderId = '';
         $this->outboundOrderSearch = '';
         $this->salesOrderLines = [];
+        $this->manualLines = [
+            ['sku_id' => '', 'stock_item_id' => '', 'qty' => 1, 'condition' => IssueLine::CONDITION_UNKNOWN, 'action' => IssueLine::ACTION_INVESTIGATE, 'note' => ''],
+        ];
+        $this->manualSkuSearches = [''];
     }
 
     public function updatedSalesOrderId(): void
@@ -125,12 +131,24 @@ class IssueCreate extends Component
     public function addManualLine(): void
     {
         $this->manualLines[] = ['sku_id' => '', 'stock_item_id' => '', 'qty' => 1, 'condition' => IssueLine::CONDITION_UNKNOWN, 'action' => IssueLine::ACTION_INVESTIGATE, 'note' => ''];
+        $this->manualSkuSearches[] = '';
     }
 
     public function removeManualLine(int $index): void
     {
         unset($this->manualLines[$index]);
+        unset($this->manualSkuSearches[$index]);
         $this->manualLines = array_values($this->manualLines);
+        $this->manualSkuSearches = array_values($this->manualSkuSearches);
+    }
+
+    public function updatedManualSkuSearches(mixed $_value, mixed $key): void
+    {
+        $index = (int) $key;
+
+        if (isset($this->manualLines[$index])) {
+            $this->manualLines[$index]['sku_id'] = '';
+        }
     }
 
     public function save(): mixed
@@ -206,7 +224,7 @@ class IssueCreate extends Component
             'manualLineStockItems' => $this->manualLineStockItems($tenantId),
             'salesOrderResults' => $this->salesOrderResults($tenantId),
             'outboundOrderResults' => $this->outboundOrderResults($tenantId),
-            'skuOptions' => $this->skuOptions($tenantId),
+            'skuOptionsByLine' => $this->skuOptionsByLine($tenantId),
             'types' => Issue::typeOptions(),
             'statuses' => Issue::statusOptions(),
             'conditions' => IssueLine::conditionOptions(),
@@ -437,16 +455,51 @@ class IssueCreate extends Component
             ->get(['id', 'tenant_id', 'warehouse_id', 'ref', 'status', 'tracking_no', 'recipient_name']);
     }
 
-    private function skuOptions(?int $tenantId)
+    private function skuOptionsByLine(?int $tenantId): array
     {
+        return collect($this->manualLines)
+            ->keys()
+            ->mapWithKeys(fn ($index) => [$index => $this->skuOptions($tenantId, (int) $index)])
+            ->all();
+    }
+
+    private function skuOptions(?int $tenantId, int $lineIndex)
+    {
+        $searchTerm = trim((string) ($this->manualSkuSearches[$lineIndex] ?? ''));
+        $search = '%'.$searchTerm.'%';
+
         return Sku::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->where('status', 'active')
             ->when($tenantId, fn ($query) => $query->where('tenant_id', $tenantId))
+            ->when($searchTerm !== '', function ($query) use ($search): void {
+                $query->where(function ($query) use ($search): void {
+                    $query
+                        ->where('sku', 'like', $search)
+                        ->orWhere('name', 'like', $search)
+                        ->orWhere('name_en', 'like', $search)
+                        ->orWhere('name_ja', 'like', $search)
+                        ->orWhere('name_zh_tw', 'like', $search)
+                        ->orWhere('name_zh_cn', 'like', $search)
+                        ->orWhere('platform_sku', 'like', $search)
+                        ->orWhere('platform_label_code', 'like', $search)
+                        ->orWhereHas('stockItem', function ($query) use ($search): void {
+                            $query
+                                ->where('code', 'like', $search)
+                                ->orWhere('name', 'like', $search)
+                                ->orWhere('name_en', 'like', $search)
+                                ->orWhere('name_ja', 'like', $search)
+                                ->orWhere('name_zh_tw', 'like', $search)
+                                ->orWhere('name_zh_cn', 'like', $search)
+                                ->orWhere('short_name', 'like', $search)
+                                ->orWhere('barcode', 'like', $search);
+                        });
+                });
+            })
             ->with('stockItem:id,code,name')
             ->orderBy('sku')
-            ->limit(200)
-            ->get(['id', 'tenant_id', 'stock_item_id', 'sku', 'name']);
+            ->limit(50)
+            ->get(['id', 'tenant_id', 'stock_item_id', 'sku', 'name', 'platform_sku', 'platform_label_code']);
     }
 
     private function manualLineStockItems(?int $tenantId)

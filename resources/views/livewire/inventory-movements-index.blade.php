@@ -47,12 +47,24 @@
                 @endforeach
             </flux:select>
 
-            <flux:select wire:model.live="stockItemId" :label="__('movements.filter_stock_item')">
-                <flux:select.option value="">{{ __('common.all_stock_items') }}</flux:select.option>
-                @foreach ($stockItems as $stockItem)
-                    <flux:select.option value="{{ $stockItem->id }}">{{ $stockItem->code }} - {{ $stockItem->name }}</flux:select.option>
-                @endforeach
-            </flux:select>
+            @php
+                $stockItemOptions = collect($stockItems)->map(fn ($stockItem) => [
+                    'value' => $stockItem->id,
+                    'label' => $stockItem->code,
+                    'meta' => $stockItem->displayName(),
+                ]);
+                $selectedStockItemOption = $stockItemOptions->firstWhere('value', (int) $stockItemId);
+            @endphp
+            <x-searchable-select
+                wire:key="movement-stock-item-picker-{{ $tenantId }}-{{ $stockItemId }}"
+                :label="__('movements.filter_stock_item')"
+                model="stockItemId"
+                search-model="stockItemSearch"
+                :options="$stockItemOptions"
+                :selected-label="$selectedStockItemOption['label'] ?? ($selectedStockItem?->code ?? $stockItemSearch)"
+                :placeholder="__('common.all_stock_items')"
+                empty-label="No results"
+            />
 
             <flux:select wire:model.live="movementType" :label="__('movements.filter_movement_type')">
                 <flux:select.option value="">{{ __('common.all_movements') }}</flux:select.option>

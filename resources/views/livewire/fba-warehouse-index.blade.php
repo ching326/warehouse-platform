@@ -78,11 +78,11 @@
                             <div class="fba-note-cell" title="{{ $fbaWarehouse->note }}">{{ $fbaWarehouse->note ?: '-' }}</div>
                         </flux:table.cell>
                         <flux:table.cell>
-                            <div class="row-actions">
-                                <flux:button href="{{ route('setup.fba-warehouses.edit', $fbaWarehouse) }}" variant="primary">
+                            <div class="standard-row-actions fba-row-actions">
+                                <flux:button class="standard-row-action-button fba-row-action-button" href="{{ route('setup.fba-warehouses.edit', $fbaWarehouse) }}" size="sm" variant="primary">
                                     {{ __('setup.btn_edit') }}
                                 </flux:button>
-                                <flux:button wire:click="toggleStatus({{ $fbaWarehouse->id }})" variant="outline">
+                                <flux:button class="standard-row-action-button fba-row-action-button" wire:click="toggleStatus({{ $fbaWarehouse->id }})" size="sm" variant="primary">
                                     {{ $fbaWarehouse->status === 'active' ? __('setup.btn_deactivate') : __('setup.btn_activate') }}
                                 </flux:button>
                             </div>
@@ -111,13 +111,6 @@
             overflow: hidden;
             -webkit-box-orient: vertical;
             -webkit-line-clamp: 2;
-        }
-
-        .row-actions {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            justify-content: flex-start;
         }
 
         @media (max-width: 880px) {

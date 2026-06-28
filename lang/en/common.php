@@ -15,6 +15,7 @@ return [
     'nav_sales_orders' => 'Sales Order',
     'nav_fulfillment' => 'Fulfillment queue',
     'nav_pick_summary' => 'Pick Summary',
+    'nav_scan_pack' => 'Scan Pack',
     'nav_issues' => 'Issue',
     'nav_setup' => 'Setup',
     'nav_locations' => 'Location',

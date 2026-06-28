@@ -116,6 +116,22 @@ class FbaWarehouseSetupTest extends TestCase
         ]);
     }
 
+    public function test_edit_page_deletes_fba_warehouse(): void
+    {
+        $fbaWarehouse = FbaWarehouse::factory()->create([
+            'code' => 'NRT1',
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FbaWarehouseEdit::class, ['fbaWarehouse' => $fbaWarehouse])
+            ->call('delete')
+            ->assertRedirect(route('setup.fba-warehouses.index'));
+
+        $this->assertDatabaseMissing('fba_warehouses', [
+            'id' => $fbaWarehouse->id,
+        ]);
+    }
+
     public function test_index_filters_by_country(): void
     {
         FbaWarehouse::factory()->create(['country_code' => 'JP', 'code' => 'NRT1']);

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Livewire\StockAdjustmentCreate;
 use App\Models\InventoryBalance;
 use App\Models\InventoryMovement;
+use App\Models\Sku;
 use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\TenantUser;
@@ -157,6 +158,63 @@ class StockAdjustmentCreateTest extends TestCase
             ->set('quantity', '1')
             ->call('save')
             ->assertHasErrors(['action' => 'required', 'reason' => 'required']);
+    }
+
+    public function test_stock_item_dropdown_is_disabled_until_tenant_and_warehouse_are_selected(): void
+    {
+        [$tenant, $warehouse] = $this->targetModels();
+
+        $component = Livewire::actingAs($this->internalUser())
+            ->test(StockAdjustmentCreate::class);
+
+        $this->assertMatchesRegularExpression(
+            '/<input[^>]*wire:model\.live\.debounce\.150ms="stockItemSearch"[^>]*\sdisabled(?:\s|>|=)/s',
+            $component->html(),
+        );
+        $component->assertSee('class="searchable-select"', false);
+
+        $component
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id);
+
+        $this->assertDoesNotMatchRegularExpression(
+            '/<input[^>]*wire:model\.live\.debounce\.150ms="stockItemSearch"[^>]*\sdisabled(?:\s|>|=)/s',
+            $component->html(),
+        );
+    }
+
+    public function test_stock_item_picker_searches_stock_item_name_fields(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create();
+        StockItem::factory()->for($tenant)->create(['code' => 'MATCH-JA', 'name_ja' => 'Tokyo Charger']);
+        StockItem::factory()->for($tenant)->create(['code' => 'HIDDEN-JA', 'name_ja' => 'Osaka Cable']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(StockAdjustmentCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('stockItemSearch', 'Tokyo')
+            ->assertSee('MATCH-JA')
+            ->assertDontSee('HIDDEN-JA');
+    }
+
+    public function test_stock_item_picker_searches_linked_sku(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create();
+        $shown = StockItem::factory()->for($tenant)->create(['code' => 'MATCH-SKU']);
+        $hidden = StockItem::factory()->for($tenant)->create(['code' => 'HIDDEN-SKU']);
+        Sku::factory()->for($tenant)->for($shown)->create(['sku' => 'SKU-SEARCH-001']);
+        Sku::factory()->for($tenant)->for($hidden)->create(['sku' => 'OTHER-SKU-001']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(StockAdjustmentCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('stockItemSearch', 'SKU-SEARCH')
+            ->assertSee('MATCH-SKU')
+            ->assertDontSee('HIDDEN-SKU');
     }
 
     public function test_stock_adjustment_quantity_must_be_positive(): void

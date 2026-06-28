@@ -106,6 +106,7 @@ class SkuCreate extends Component
     {
         $this->shopId = '';
         $this->existingStockItemId = '';
+        $this->stockItemSearch = '';
     }
 
     public function updatedSkuType(): void
@@ -114,6 +115,11 @@ class SkuCreate extends Component
             $this->stockItemMode = 'create';
             $this->existingStockItemId = '';
         }
+    }
+
+    public function updatedStockItemSearch(): void
+    {
+        $this->existingStockItemId = '';
     }
 
     public function save()
@@ -375,21 +381,34 @@ class SkuCreate extends Component
 
     private function stockItemOptions(): Collection
     {
-        $search = '%'.$this->stockItemSearch.'%';
+        $searchTerm = trim($this->stockItemSearch);
+        $search = '%'.$searchTerm.'%';
 
         return StockItem::query()
             ->where('tenant_id', $this->tenantId)
-            ->when($this->stockItemSearch !== '', function ($query) use ($search) {
+            ->when($searchTerm !== '', function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
                     $query
                         ->where('code', 'like', $search)
                         ->orWhere('name', 'like', $search)
-                        ->orWhere('barcode', 'like', $search);
+                        ->orWhere('name_en', 'like', $search)
+                        ->orWhere('name_ja', 'like', $search)
+                        ->orWhere('name_zh_tw', 'like', $search)
+                        ->orWhere('name_zh_cn', 'like', $search)
+                        ->orWhere('short_name', 'like', $search)
+                        ->orWhere('barcode', 'like', $search)
+                        ->orWhereHas('skus', function ($query) use ($search) {
+                            $query
+                                ->where('sku', 'like', $search)
+                                ->orWhere('name', 'like', $search)
+                                ->orWhere('platform_sku', 'like', $search)
+                                ->orWhere('platform_label_code', 'like', $search);
+                        });
                 });
             })
             ->orderBy('code')
             ->limit(30)
-            ->get(['id', 'code', 'name', 'barcode']);
+            ->get(['id', 'code', ...StockItem::DISPLAY_NAME_COLUMNS, 'barcode']);
     }
 
     private function currentTenant(): ?Tenant

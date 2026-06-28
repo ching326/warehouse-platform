@@ -113,7 +113,6 @@ class StockItem extends Model
     {
         return $this->hasMany(MediaAsset::class, 'model_id')
             ->where('model_type', MediaAsset::MODEL_TYPE_STOCK_ITEM)
-            ->orderByDesc('is_primary')
             ->orderBy('sort_order')
             ->orderBy('id');
     }

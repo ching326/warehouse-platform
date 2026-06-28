@@ -102,25 +102,27 @@
             </div>
 
             @foreach ($lines as $index => $line)
+                @php
+                    $skuOptions = collect($skuOptionsByLine[$index] ?? [])->map(fn ($sku) => [
+                        'value' => $sku->id,
+                        'label' => $sku->sku,
+                        'meta' => trim(($sku->stockItem?->code ? $sku->stockItem->code.' / ' : '').($sku->stockItem?->name ?? $sku->name ?? '')),
+                    ]);
+                    $selectedSku = $skuOptions->firstWhere('value', (int) ($line['sku_id'] ?? 0));
+                @endphp
                 <div class="line-row">
-                    <flux:select
-                        wire:key="outbound-sku-select-{{ $index }}-{{ $tenantId }}"
-                        wire:model="lines.{{ $index }}.sku_id"
-                        required
+                    <x-searchable-select
+                        wire:key="outbound-sku-picker-{{ $index }}-{{ md5($tenantId.'|'.$shopId.'|'.($line['sku_id'] ?? '')) }}"
                         :label="__('outbound.field_sku')"
-                    >
-                        <flux:select.option value="">{{ __('outbound.select_sku') }}</flux:select.option>
-                        @foreach ($skus as $sku)
-                            <flux:select.option value="{{ $sku->id }}">
-                                {{ $sku->sku }} - {{ $sku->name }}
-                                @if ($sku->stockItem)
-                                    / {{ $sku->stockItem->code }}
-                                @else
-                                    / {{ __('common.sku_types.virtual_bundle') }}
-                                @endif
-                            </flux:select.option>
-                        @endforeach
-                    </flux:select>
+                        model="lines.{{ $index }}.sku_id"
+                        search-model="skuSearches.{{ $index }}"
+                        :options="$skuOptions"
+                        :selected-label="$selectedSku['label'] ?? ($skuSearches[$index] ?? '')"
+                        :placeholder="$tenantId === '' ? __('outbound.select_tenant') : __('inventory.search_placeholder')"
+                        empty-label="No results"
+                        required
+                        :disabled="$tenantId === ''"
+                    />
                     <flux:input wire:model="lines.{{ $index }}.qty" type="number" min="1" step="1" required :label="__('outbound.field_qty')" />
                     <flux:input wire:model="lines.{{ $index }}.note" :label="__('outbound.field_line_note')" />
                     <button type="button" class="remove-line-btn {{ count($lines) <= 1 ? 'invisible' : '' }}" wire:click="removeLine({{ $index }})">

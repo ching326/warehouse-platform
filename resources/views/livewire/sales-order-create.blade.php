@@ -74,22 +74,27 @@
             </div>
 
             @foreach ($lines as $index => $line)
+                @php
+                    $skuOptions = collect($skuOptionsByLine[$index] ?? [])->map(fn ($sku) => [
+                        'value' => $sku->id,
+                        'label' => $sku->sku,
+                        'meta' => trim(($sku->stockItem?->code ? $sku->stockItem->code.' / ' : '').($sku->stockItem?->name ?? $sku->name ?? '')),
+                    ]);
+                    $selectedSku = $skuOptions->firstWhere('value', (int) ($line['sku_id'] ?? 0));
+                @endphp
                 <div class="line-row">
-                    <flux:select wire:model="lines.{{ $index }}.sku_id" required :label="__('sales_orders.field_sku')">
-                        <flux:select.option value="">
-                            {{ $shopId === '' ? __('sales_orders.select_shop_first') : __('sales_orders.field_sku') }}
-                        </flux:select.option>
-                        @foreach ($skus as $sku)
-                            <flux:select.option value="{{ $sku->id }}">
-                                {{ $sku->sku }} - {{ $sku->name }}
-                                @if ($sku->stockItem)
-                                    / {{ $sku->stockItem->code }}
-                                @else
-                                    / {{ __('common.sku_types.virtual_bundle') }}
-                                @endif
-                            </flux:select.option>
-                        @endforeach
-                    </flux:select>
+                    <x-searchable-select
+                        wire:key="sales-order-create-sku-picker-{{ $index }}-{{ md5($shopId.'|'.($line['sku_id'] ?? '')) }}"
+                        :label="__('sales_orders.field_sku')"
+                        model="lines.{{ $index }}.sku_id"
+                        search-model="skuSearches.{{ $index }}"
+                        :options="$skuOptions"
+                        :selected-label="$selectedSku['label'] ?? ($skuSearches[$index] ?? '')"
+                        :placeholder="$shopId === '' ? __('sales_orders.select_shop_first') : __('inventory.search_placeholder')"
+                        empty-label="No results"
+                        required
+                        :disabled="$shopId === ''"
+                    />
 
                     <flux:input wire:model="lines.{{ $index }}.quantity" type="number" min="1" step="1" required :label="__('sales_orders.field_quantity')" />
                     <flux:input wire:model="lines.{{ $index }}.note" :label="__('sales_orders.field_note')" />

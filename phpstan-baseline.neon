@@ -625,12 +625,6 @@ parameters:
 			path: app/Livewire/SkuEdit.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>\|Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Livewire/SkusIndex.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$barcode\.$#'
 			identifier: property.notFound
 			count: 1
@@ -655,12 +649,6 @@ parameters:
 			path: app/Livewire/SkusIndex.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$disk\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Livewire/SkusIndex.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$height_value\.$#'
 			identifier: property.notFound
 			count: 1
@@ -673,25 +661,7 @@ parameters:
 			path: app/Livewire/SkusIndex.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$is_primary\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Livewire/SkusIndex.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$length_value\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Livewire/SkusIndex.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$model_id\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Livewire/SkusIndex.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$path\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Livewire/SkusIndex.php
@@ -763,12 +733,6 @@ parameters:
 			path: app/Livewire/SkusIndex.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>\|Illuminate\\Database\\Eloquent\\Model\:\:mediaAssets\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Livewire/SkusIndex.php
-
-		-
 			message: '#^Method App\\Livewire\\SkusIndex\:\:managedAliasSku\(\) should return App\\Models\\Sku but returns Illuminate\\Database\\Eloquent\\Model\.$#'
 			identifier: return.type
 			count: 1
@@ -776,18 +740,6 @@ parameters:
 
 		-
 			message: '#^Method App\\Livewire\\SkusIndex\:\:managedAliasSkuForView\(\) should return App\\Models\\Sku\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Livewire/SkusIndex.php
-
-		-
-			message: '#^Method App\\Livewire\\SkusIndex\:\:managedStockItem\(\) should return App\\Models\\StockItem but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Livewire/SkusIndex.php
-
-		-
-			message: '#^Method App\\Livewire\\SkusIndex\:\:managedStockItemForView\(\) should return App\\Models\\StockItem\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
 			identifier: return.type
 			count: 1
 			path: app/Livewire/SkusIndex.php

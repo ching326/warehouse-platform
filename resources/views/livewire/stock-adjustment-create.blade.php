@@ -1,6 +1,6 @@
 <div class="stock-adjustment-page">
     <form wire:submit="save" class="sku-form">
-        <section class="table-shell flux-panel form-panel">
+        <section class="table-shell flux-panel form-panel form-panel-with-overflow">
             <div class="form-panel-header">
                 <div>
                     <strong>{{ __('stock_adjustments.section_target') }}</strong>
@@ -36,12 +36,32 @@
             @error('warehouse_id') <p class="form-error">{{ $message }}</p> @enderror
 
             <div class="form-grid">
-                <flux:select wire:model.live="stockItemId" required :label="__('stock_adjustments.field_stock_item')">
-                    <flux:select.option value="">{{ __('stock_adjustments.select_stock_item') }}</flux:select.option>
-                    @foreach ($stockItems as $item)
-                        <flux:select.option value="{{ $item->id }}">{{ $item->code }} - {{ $item->displayName() }}</flux:select.option>
-                    @endforeach
-                </flux:select>
+                @php
+                    $stockItemOptions = $stockItems->map(fn ($item) => [
+                        'value' => $item->id,
+                        'label' => $item->code.' - '.$item->displayName(),
+                        'meta' => collect([
+                            $item->barcode ? 'Barcode '.$item->barcode : null,
+                            $item->skus->pluck('sku')->take(3)->implode(', '),
+                        ])->filter()->implode(' / '),
+                    ]);
+                    $selectedStockItemLabel = $selectedStockItem
+                        ? $selectedStockItem->code.' - '.$selectedStockItem->displayName()
+                        : '';
+                @endphp
+
+                <x-searchable-select
+                    wire:key="stock-adjustment-stock-item-{{ $tenantId }}-{{ $warehouseId }}-{{ $stockItemId }}"
+                    :label="__('stock_adjustments.field_stock_item')"
+                    model="stockItemId"
+                    search-model="stockItemSearch"
+                    :options="$stockItemOptions"
+                    :selected-label="$selectedStockItemLabel"
+                    :placeholder="__('stock_adjustments.select_stock_item')"
+                    :empty-label="__('skus.no_stock_item')"
+                    :disabled="$tenantId === '' || $warehouseId === ''"
+                    required
+                />
             </div>
 
             @error('stock_item_id') <p class="form-error">{{ $message }}</p> @enderror

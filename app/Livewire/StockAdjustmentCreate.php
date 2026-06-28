@@ -50,6 +50,8 @@ class StockAdjustmentCreate extends Component
     #[Url(as: 'stock_item_id', except: '')]
     public string $stockItemId = '';
 
+    public string $stockItemSearch = '';
+
     public string $action = '';
 
     public string $quantity = '';
@@ -71,11 +73,13 @@ class StockAdjustmentCreate extends Component
     {
         $this->warehouseId = '';
         $this->stockItemId = '';
+        $this->stockItemSearch = '';
     }
 
     public function updatedWarehouseId(): void
     {
         $this->stockItemId = '';
+        $this->stockItemSearch = '';
     }
 
     public function updatedAction(): void
@@ -116,6 +120,7 @@ class StockAdjustmentCreate extends Component
             'tenants' => $this->tenantOptions(),
             'warehouses' => $this->warehouseOptions(),
             'stockItems' => $this->stockItemOptions(),
+            'selectedStockItem' => $this->selectedStockItem(),
             'currentBalance' => $this->currentBalance(),
             'showTenantSelect' => $this->isInternalUser(),
             'currentTenant' => $this->currentTenant(),
@@ -223,10 +228,54 @@ class StockAdjustmentCreate extends Component
 
     private function stockItemOptions(): Collection
     {
+        if ($this->tenantId === '' || $this->warehouseId === '') {
+            return collect();
+        }
+
+        $searchTerm = trim($this->stockItemSearch);
+        $search = '%'.$searchTerm.'%';
+
         return StockItem::query()
             ->where('tenant_id', $this->tenantId)
+            ->with(['skus:id,stock_item_id,sku'])
+            ->when($searchTerm !== '', function ($query) use ($search): void {
+                $query->where(function ($query) use ($search): void {
+                    $query
+                        ->where('code', 'like', $search)
+                        ->orWhere('name', 'like', $search)
+                        ->orWhere('name_en', 'like', $search)
+                        ->orWhere('name_ja', 'like', $search)
+                        ->orWhere('name_zh_tw', 'like', $search)
+                        ->orWhere('name_zh_cn', 'like', $search)
+                        ->orWhere('short_name', 'like', $search)
+                        ->orWhere('barcode', 'like', $search)
+                        ->orWhereHas('skus', function ($query) use ($search): void {
+                            $query
+                                ->where('sku', 'like', $search)
+                                ->orWhere('name', 'like', $search)
+                                ->orWhere('name_en', 'like', $search)
+                                ->orWhere('name_ja', 'like', $search)
+                                ->orWhere('name_zh_tw', 'like', $search)
+                                ->orWhere('name_zh_cn', 'like', $search)
+                                ->orWhere('platform_sku', 'like', $search)
+                                ->orWhere('platform_label_code', 'like', $search);
+                        });
+                });
+            })
             ->orderBy('code')
-            ->get(['id', 'code', ...StockItem::DISPLAY_NAME_COLUMNS]);
+            ->limit(30)
+            ->get(['id', 'code', ...StockItem::DISPLAY_NAME_COLUMNS, 'barcode']);
+    }
+
+    private function selectedStockItem(): ?StockItem
+    {
+        if ($this->tenantId === '' || $this->stockItemId === '') {
+            return null;
+        }
+
+        return StockItem::query()
+            ->where('tenant_id', $this->tenantId)
+            ->find($this->stockItemId, ['id', 'code', ...StockItem::DISPLAY_NAME_COLUMNS]);
     }
 
     private function currentTenant(): ?Tenant

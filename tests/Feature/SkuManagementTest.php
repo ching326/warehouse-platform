@@ -1039,7 +1039,7 @@ class SkuManagementTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(SkusIndex::class)
             ->call('openImagePanel', $stockItem->id)
-            ->set('stockImage', UploadedFile::fake()->image('front.jpg', 64, 48))
+            ->set('stockImages', [UploadedFile::fake()->image('front.jpg', 64, 48)])
             ->call('uploadStockImage')
             ->assertHasNoErrors();
 
@@ -1049,10 +1049,11 @@ class SkuManagementTest extends TestCase
         $this->assertSame('stock_item', $asset->model_type);
         $this->assertSame($stockItem->id, $asset->model_id);
         $this->assertSame('product', $asset->type);
+        $this->assertSame($stockItem->code.'-01.jpg', $asset->file_name);
         $this->assertTrue($asset->is_primary);
         $this->assertSame(64, $asset->width);
         $this->assertSame(48, $asset->height);
-        $this->assertSame('/storage/'.$asset->path, parse_url($asset->url(), PHP_URL_PATH));
+        $this->assertSame('/media/'.$asset->id, parse_url(route('media.show', $asset), PHP_URL_PATH));
         Storage::disk('public')->assertExists($asset->path);
     }
 
@@ -1066,7 +1067,7 @@ class SkuManagementTest extends TestCase
         Livewire::actingAs($user)
             ->test(SkusIndex::class)
             ->call('openImagePanel', $stockItem->id)
-            ->set('stockImage', UploadedFile::fake()->image('own.png'))
+            ->set('stockImages', [UploadedFile::fake()->image('own.png')])
             ->call('uploadStockImage')
             ->assertHasNoErrors();
 
@@ -1101,19 +1102,26 @@ class SkuManagementTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(SkusIndex::class)
             ->call('openImagePanel', $stockItem->id)
-            ->set('stockImage', UploadedFile::fake()->create('notes.txt', 1, 'text/plain'))
+            ->set('stockImages', [UploadedFile::fake()->create('notes.txt', 1, 'text/plain')])
             ->call('uploadStockImage')
-            ->assertHasErrors(['stockImage']);
+            ->assertHasErrors(['stockImages.0']);
 
         Livewire::actingAs($this->internalUser())
             ->test(SkusIndex::class)
             ->call('openImagePanel', $stockItem->id)
-            ->set('stockImage', UploadedFile::fake()->image('large.jpg')->size(5121))
+            ->set('stockImages', [UploadedFile::fake()->image('bad.gif')])
             ->call('uploadStockImage')
-            ->assertHasErrors(['stockImage']);
+            ->assertHasErrors(['stockImages.0']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openImagePanel', $stockItem->id)
+            ->set('stockImages', [UploadedFile::fake()->image('large.jpg')->size(5121)])
+            ->call('uploadStockImage')
+            ->assertHasErrors(['stockImages.0']);
     }
 
-    public function test_primary_image_logic_uses_first_image_or_primary_flag(): void
+    public function test_primary_image_logic_uses_first_uploaded_image_until_changed(): void
     {
         Storage::fake('public');
         $tenant = Tenant::factory()->create();
@@ -1122,15 +1130,18 @@ class SkuManagementTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(SkusIndex::class)
             ->call('openImagePanel', $stockItem->id)
-            ->set('stockImage', UploadedFile::fake()->image('first.jpg'))
-            ->call('uploadStockImage')
-            ->set('stockImage', UploadedFile::fake()->image('main.jpg'))
-            ->set('stockImageIsPrimary', false)
+            ->set('stockImages', [UploadedFile::fake()->image('first.jpg')])
+            ->call('uploadStockImage');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openImagePanel', $stockItem->id)
+            ->set('stockImages', [UploadedFile::fake()->image('main.jpg')])
             ->call('uploadStockImage')
             ->assertHasNoErrors();
 
-        $first = MediaAsset::where('file_name', 'first.jpg')->firstOrFail();
-        $second = MediaAsset::where('file_name', 'main.jpg')->firstOrFail();
+        $first = MediaAsset::where('file_name', $stockItem->code.'-01.jpg')->firstOrFail();
+        $second = MediaAsset::where('file_name', $stockItem->code.'-02.jpg')->firstOrFail();
 
         $this->assertTrue($first->is_primary);
         $this->assertFalse($second->is_primary);
@@ -1138,13 +1149,122 @@ class SkuManagementTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(SkusIndex::class)
             ->call('openImagePanel', $stockItem->id)
-            ->set('stockImage', UploadedFile::fake()->image('packaging.jpg'))
-            ->set('stockImageIsPrimary', true)
+            ->set('stockImages', [UploadedFile::fake()->image('packaging.jpg')])
             ->call('uploadStockImage')
             ->assertHasNoErrors();
 
+        $this->assertTrue($first->refresh()->is_primary);
+        $this->assertFalse(MediaAsset::where('file_name', $stockItem->code.'-03.jpg')->firstOrFail()->is_primary);
+    }
+
+    public function test_upload_can_add_multiple_stock_item_images_and_order_them(): void
+    {
+        Storage::fake('public');
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create(['code' => 'STK-MULTI']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openImagePanel', $stockItem->id)
+            ->set('stockImages', [
+                UploadedFile::fake()->image('first.jpg'),
+                UploadedFile::fake()->image('second.png'),
+            ])
+            ->call('uploadStockImage')
+            ->assertHasNoErrors();
+
+        $first = MediaAsset::where('file_name', 'STK-MULTI-01.jpg')->firstOrFail();
+        $second = MediaAsset::where('file_name', 'STK-MULTI-02.png')->firstOrFail();
+
+        $this->assertTrue($first->is_primary);
+        $this->assertFalse($second->is_primary);
+        $this->assertSame(1, $first->sort_order);
+        $this->assertSame(2, $second->sort_order);
+        Storage::disk('public')->assertExists($first->path);
+        Storage::disk('public')->assertExists($second->path);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('moveImageUp', $second->id)
+            ->assertHasNoErrors();
+
+        $this->assertTrue($second->refresh()->is_primary);
+        $this->assertSame(1, $second->sort_order);
         $this->assertFalse($first->refresh()->is_primary);
-        $this->assertTrue(MediaAsset::where('file_name', 'packaging.jpg')->firstOrFail()->is_primary);
+        $this->assertSame(2, $first->sort_order);
+    }
+
+    public function test_stock_image_upload_respects_preview_order_and_removed_images(): void
+    {
+        Storage::fake('public');
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create(['code' => 'STK-PREVIEW']);
+        $first = UploadedFile::fake()->image('first.jpg', 80, 80);
+        $second = UploadedFile::fake()->image('second.jpg', 80, 80);
+        $third = UploadedFile::fake()->image('third.jpg', 80, 80);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openImagePanel', $stockItem->id)
+            ->set('stockImages', [$first, $second, $third])
+            ->set('stockImageOrder', [2, 0])
+            ->call('uploadStockImage')
+            ->assertHasNoErrors();
+
+        $this->assertSame(['STK-PREVIEW-01.jpg', 'STK-PREVIEW-02.jpg'], MediaAsset::orderBy('sort_order')->pluck('file_name')->all());
+        $this->assertSame(2, MediaAsset::count());
+        $this->assertTrue(MediaAsset::where('file_name', 'STK-PREVIEW-01.jpg')->firstOrFail()->is_primary);
+    }
+
+    public function test_image_panel_opens_gallery_for_existing_images_and_manage_for_empty_stock_item(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $emptyStockItem = StockItem::factory()->for($tenant)->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $asset = $this->mediaAsset($stockItem, ['is_primary' => true, 'sort_order' => 1]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openImagePanel', $emptyStockItem->id)
+            ->assertSet('imagePanelMode', 'manage')
+            ->assertSet('viewingImageId', null);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openImagePanel', $stockItem->id)
+            ->assertSet('imagePanelMode', 'gallery')
+            ->assertSet('viewingImageId', $asset->id)
+            ->call('manageImages')
+            ->assertSet('imagePanelMode', 'manage')
+            ->call('showImageGallery', $asset->id)
+            ->assertSet('imagePanelMode', 'gallery')
+            ->assertSet('viewingImageId', $asset->id);
+    }
+
+    public function test_upload_resizes_large_stock_item_image_to_max_2000px_side(): void
+    {
+        Storage::fake('public');
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create(['code' => 'STK-LARGE']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openImagePanel', $stockItem->id)
+            ->set('stockImages', [UploadedFile::fake()->image('large.jpg', 3000, 1200)])
+            ->call('uploadStockImage')
+            ->assertHasNoErrors();
+
+        $asset = MediaAsset::firstOrFail();
+
+        $this->assertSame('STK-LARGE-01.jpg', $asset->file_name);
+        $this->assertSame(2000, $asset->width);
+        $this->assertSame(800, $asset->height);
+        Storage::disk('public')->assertExists($asset->path);
+
+        $storedSize = getimagesize(Storage::disk('public')->path($asset->path));
+
+        $this->assertSame(2000, $storedSize[0]);
+        $this->assertSame(800, $storedSize[1]);
     }
 
     public function test_set_primary_action_changes_primary_image(): void
@@ -1243,7 +1363,7 @@ class SkuManagementTest extends TestCase
 
         Livewire::test(SkusIndex::class)
             ->set('managingStockItemId', $stockItem->id)
-            ->set('stockImage', UploadedFile::fake()->image('guest.jpg'))
+            ->set('stockImages', [UploadedFile::fake()->image('guest.jpg')])
             ->call('uploadStockImage')
             ->assertNotFound();
 
@@ -1263,9 +1383,9 @@ class SkuManagementTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(SkusIndex::class)
             ->call('openImagePanel', $stockItem->id)
-            ->set('stockImage', UploadedFile::fake()->image('eleventh.jpg'))
+            ->set('stockImages', [UploadedFile::fake()->image('eleventh.jpg')])
             ->call('uploadStockImage')
-            ->assertHasErrors(['stockImage']);
+            ->assertHasErrors(['stockImages']);
 
         $this->assertSame(10, MediaAsset::count());
     }

@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Livewire\Concerns\HasEnumLabels;
 use App\Models\InventoryBalance;
+use App\Models\MediaAsset;
 use App\Models\ProductType;
 use App\Models\Shop;
 use App\Models\Tenant;
@@ -128,6 +129,15 @@ class InventoryIndex extends Component
     public function statusLabel(string $status): string
     {
         return $this->enumLabel('statuses', $status);
+    }
+
+    public function mediaUrl(?MediaAsset $asset): ?string
+    {
+        if (! $asset) {
+            return null;
+        }
+
+        return $asset->url();
     }
 
     public function balances()

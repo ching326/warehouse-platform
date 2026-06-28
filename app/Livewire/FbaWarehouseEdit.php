@@ -65,6 +65,15 @@ class FbaWarehouseEdit extends Component
         return redirect()->route('setup.fba-warehouses.index');
     }
 
+    public function delete()
+    {
+        $this->fbaWarehouse->delete();
+
+        session()->flash('status', __('setup.fba_warehouse_deleted'));
+
+        return redirect()->route('setup.fba-warehouses.index');
+    }
+
     public function render()
     {
         return view('livewire.fba-warehouse-edit', [

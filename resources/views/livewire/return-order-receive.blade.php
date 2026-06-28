@@ -1,1 +1,78 @@
-﻿<div><form wire:submit="saveReceive" class="form-stack"><section class="table-shell flux-panel form-panel"><div class="form-panel-header"><strong>{{ __('return_orders.receive_page_title') }}</strong></div><div class="form-grid three"><label><span>{{ __('return_orders.field_collect_amount') }}</span><input type="number" step="0.01" wire:model="collect_amount"></label></div>@foreach($order->lines as $line)<div class="form-grid three"><div><strong>{{ $line->sku?->sku }}</strong><span class="subtle">{{ __('return_orders.field_expected_qty') }}: {{ $line->expected_qty }}</span></div><label><span>{{ __('return_orders.field_received_qty') }}</span><input type="number" min="0" wire:model="lineDrafts.{{ $line->id }}.received_qty"></label><flux:select wire:model="lineDrafts.{{ $line->id }}.received_location_id" :label="__('return_orders.field_received_location')"><flux:select.option value="">-</flux:select.option>@foreach($locations as $location)<flux:select.option value="{{ $location->id }}">{{ $location->code }} - {{ $location->name }}</flux:select.option>@endforeach</flux:select></div>@endforeach</section><section class="table-shell flux-panel form-panel"><div class="form-panel-header"><strong>{{ __('return_orders.section_unexpected') }}</strong><flux:button type="button" wire:click="addUnexpectedLine">{{ __('return_orders.btn_add_line') }}</flux:button></div>@foreach($newLines as $index=>$line)<div class="form-grid three"><flux:select wire:model="newLines.{{ $index }}.sku_id" :label="__('return_orders.field_sku')"><flux:select.option value="">-</flux:select.option>@foreach($skus as $sku)<flux:select.option value="{{ $sku->id }}">{{ $sku->sku }} - {{ $sku->name }}</flux:select.option>@endforeach</flux:select><label><span>{{ __('return_orders.field_received_qty') }}</span><input type="number" min="1" wire:model="newLines.{{ $index }}.received_qty"></label><label><span>{{ __('return_orders.field_note') }}</span><input type="text" wire:model="newLines.{{ $index }}.note"></label></div>@endforeach</section><div class="form-actions"><flux:button href="{{ route('return-orders.show',$order) }}" variant="outline" wire:navigate>{{ __('common.cancel') }}</flux:button><flux:button type="submit" variant="primary">{{ __('return_orders.btn_save_receive') }}</flux:button></div></form></div>
+<div>
+    <form wire:submit="saveReceive" class="form-stack">
+        <section class="table-shell flux-panel form-panel">
+            <div class="form-panel-header">
+                <strong>{{ __('return_orders.receive_page_title') }}</strong>
+            </div>
+
+            <div class="form-grid three">
+                <label>
+                    <span>{{ __('return_orders.field_collect_amount') }}</span>
+                    <input type="number" step="0.01" wire:model="collect_amount">
+                </label>
+            </div>
+
+            @foreach ($order->lines as $line)
+                <div class="form-grid three">
+                    <div>
+                        <strong>{{ $line->sku?->sku }}</strong>
+                        <span class="subtle">{{ __('return_orders.field_expected_qty') }}: {{ $line->expected_qty }}</span>
+                    </div>
+                    <label>
+                        <span>{{ __('return_orders.field_received_qty') }}</span>
+                        <input type="number" min="0" wire:model="lineDrafts.{{ $line->id }}.received_qty">
+                    </label>
+                    <flux:select wire:model="lineDrafts.{{ $line->id }}.received_location_id" :label="__('return_orders.field_received_location')">
+                        <flux:select.option value="">-</flux:select.option>
+                        @foreach ($locations as $location)
+                            <flux:select.option value="{{ $location->id }}">{{ $location->code }} - {{ $location->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                </div>
+            @endforeach
+        </section>
+
+        <section class="table-shell flux-panel form-panel">
+            <div class="form-panel-header">
+                <strong>{{ __('return_orders.section_unexpected') }}</strong>
+                <flux:button type="button" wire:click="addUnexpectedLine">{{ __('return_orders.btn_add_line') }}</flux:button>
+            </div>
+
+            @foreach ($newLines as $index => $line)
+                @php
+                    $skuOptions = collect($skuOptionsByLine[$index] ?? [])->map(fn ($sku) => [
+                        'value' => $sku->id,
+                        'label' => $sku->sku,
+                        'meta' => trim(($sku->stockItem?->code ? $sku->stockItem->code.' / ' : '').($sku->stockItem?->name ?? $sku->name ?? '')),
+                    ]);
+                    $selectedSku = $skuOptions->firstWhere('value', (int) ($line['sku_id'] ?? 0));
+                @endphp
+                <div class="form-grid three">
+                    <x-searchable-select
+                        wire:key="return-receive-sku-picker-{{ $index }}-{{ md5($line['sku_id'] ?? '') }}"
+                        :label="__('return_orders.field_sku')"
+                        model="newLines.{{ $index }}.sku_id"
+                        search-model="newLineSkuSearches.{{ $index }}"
+                        :options="$skuOptions"
+                        :selected-label="$selectedSku['label'] ?? ($newLineSkuSearches[$index] ?? '')"
+                        :placeholder="__('inventory.search_placeholder')"
+                        empty-label="No results"
+                    />
+                    <label>
+                        <span>{{ __('return_orders.field_received_qty') }}</span>
+                        <input type="number" min="1" wire:model="newLines.{{ $index }}.received_qty">
+                    </label>
+                    <label>
+                        <span>{{ __('return_orders.field_note') }}</span>
+                        <input type="text" wire:model="newLines.{{ $index }}.note">
+                    </label>
+                </div>
+            @endforeach
+        </section>
+
+        <div class="form-actions">
+            <flux:button href="{{ route('return-orders.show', $order) }}" variant="outline" wire:navigate>{{ __('common.cancel') }}</flux:button>
+            <flux:button type="submit" variant="primary">{{ __('return_orders.btn_save_receive') }}</flux:button>
+        </div>
+    </form>
+</div>

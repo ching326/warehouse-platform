@@ -7,6 +7,7 @@
     'placeholder' => '',
     'emptyLabel' => 'No results',
     'required' => false,
+    'disabled' => false,
 ])
 
 @php
@@ -43,10 +44,11 @@
             placeholder="{{ $placeholder }}"
             autocomplete="off"
             @required($required)
+            @disabled($disabled)
         >
     </label>
 
-    <div class="searchable-select-menu" x-cloak x-show="open">
+    <div class="searchable-select-menu" x-cloak x-show="open && ! @js($disabled)">
         @forelse ($optionItems as $option)
             <button
                 type="button"

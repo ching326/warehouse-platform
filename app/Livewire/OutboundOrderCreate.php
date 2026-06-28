@@ -59,6 +59,8 @@ class OutboundOrderCreate extends Component
         ['sku_id' => '', 'qty' => '', 'note' => ''],
     ];
 
+    public array $skuSearches = [''];
+
     /**
      * Reasons offered for manual outbound creation (customer_order is consolidation-only).
      *
@@ -90,16 +92,28 @@ class OutboundOrderCreate extends Component
         $this->warehouseId = '';
         $this->shopId = '';
         $this->lines = [['sku_id' => '', 'qty' => '', 'note' => '']];
+        $this->skuSearches = [''];
     }
 
     public function updatedShopId(): void
     {
         $this->lines = [['sku_id' => '', 'qty' => '', 'note' => '']];
+        $this->skuSearches = [''];
+    }
+
+    public function updatedSkuSearches(mixed $_value, mixed $key): void
+    {
+        $index = (int) $key;
+
+        if (isset($this->lines[$index])) {
+            $this->lines[$index]['sku_id'] = '';
+        }
     }
 
     public function addLine(): void
     {
         $this->lines[] = ['sku_id' => '', 'qty' => '', 'note' => ''];
+        $this->skuSearches[] = '';
     }
 
     public function removeLine(int $index): void
@@ -109,7 +123,9 @@ class OutboundOrderCreate extends Component
         }
 
         array_splice($this->lines, $index, 1);
+        array_splice($this->skuSearches, $index, 1);
         $this->lines = array_values($this->lines);
+        $this->skuSearches = array_values($this->skuSearches);
     }
 
     public function save()
@@ -187,7 +203,7 @@ class OutboundOrderCreate extends Component
             'shops' => $this->shopOptions(),
             'warehouses' => $this->warehouseOptions(),
             'shippingMethods' => $this->shippingMethodOptions(),
-            'skus' => $this->skuOptions(),
+            'skuOptionsByLine' => $this->skuOptionsByLine(),
             'showTenantSelect' => $this->isInternalUser(),
             'currentTenant' => $this->currentTenant(),
         ])->layout('inventory', [
@@ -393,8 +409,19 @@ class OutboundOrderCreate extends Component
             ->get(['shipping_methods.id', 'shipping_methods.carrier_id', 'shipping_methods.code', 'shipping_methods.name']);
     }
 
-    private function skuOptions(): Collection
+    private function skuOptionsByLine(): array
     {
+        return collect($this->lines)
+            ->keys()
+            ->mapWithKeys(fn ($index) => [$index => $this->skuOptions((int) $index)])
+            ->all();
+    }
+
+    private function skuOptions(int $lineIndex): Collection
+    {
+        $searchTerm = trim((string) ($this->skuSearches[$lineIndex] ?? ''));
+        $search = '%'.$searchTerm.'%';
+
         return Sku::query()
             ->where('tenant_id', $this->tenantId)
             ->where('status', 'active')
@@ -402,6 +429,30 @@ class OutboundOrderCreate extends Component
                 ->where('sku_type', 'virtual_bundle')
                 ->orWhereNotNull('stock_item_id'))
             ->when($this->shopId !== '', fn ($query) => $query->where('shop_id', $this->shopId))
+            ->when($searchTerm !== '', function ($query) use ($search) {
+                $query->where(function ($query) use ($search) {
+                    $query
+                        ->where('sku', 'like', $search)
+                        ->orWhere('name', 'like', $search)
+                        ->orWhere('name_en', 'like', $search)
+                        ->orWhere('name_ja', 'like', $search)
+                        ->orWhere('name_zh_tw', 'like', $search)
+                        ->orWhere('name_zh_cn', 'like', $search)
+                        ->orWhere('platform_sku', 'like', $search)
+                        ->orWhere('platform_label_code', 'like', $search)
+                        ->orWhereHas('stockItem', function ($query) use ($search) {
+                            $query
+                                ->where('code', 'like', $search)
+                                ->orWhere('name', 'like', $search)
+                                ->orWhere('name_en', 'like', $search)
+                                ->orWhere('name_ja', 'like', $search)
+                                ->orWhere('name_zh_tw', 'like', $search)
+                                ->orWhere('name_zh_cn', 'like', $search)
+                                ->orWhere('short_name', 'like', $search)
+                                ->orWhere('barcode', 'like', $search);
+                        });
+                });
+            })
             ->with(['shop:id,code', 'stockItem:id,code,name'])
             ->orderBy('sku')
             ->limit(50)

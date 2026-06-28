@@ -157,19 +157,23 @@
                             @endif
                         </flux:table.cell>
                         <flux:table.cell>
-                            <div class="inventory-row-actions">
+                            <div class="standard-row-actions inventory-row-actions">
                                 <flux:button
+                                    class="standard-row-action-button"
                                     href="/inventory/movements?stock_item_id={{ $balance->stock_item_id }}"
+                                    size="sm"
                                     variant="primary"
                                 >
                                     {{ __('inventory.btn_movements') }}
                                 </flux:button>
                                 <flux:button
+                                    class="standard-row-action-button"
                                     href="{{ route('stock-adjustments.create', [
                                         'tenant_id' => $balance->tenant_id,
                                         'warehouse_id' => $balance->warehouse_id,
                                         'stock_item_id' => $balance->stock_item_id,
                                     ]) }}"
+                                    size="sm"
                                     variant="primary"
                                 >
                                     {{ __('stock_adjustments.btn_adjust') }}
