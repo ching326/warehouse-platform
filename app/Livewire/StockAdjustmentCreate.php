@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\AutoSelectsSingleActiveWarehouse;
 use App\Models\InventoryBalance;
 use App\Models\StockItem;
 use App\Models\Tenant;
@@ -17,6 +18,10 @@ use Livewire\Component;
 
 class StockAdjustmentCreate extends Component
 {
+    use AutoSelectsSingleActiveWarehouse;
+
+    private const PREF_DEFAULT_WAREHOUSE_ID = 'stock_adjustment_default_warehouse_id';
+
     private const ACTION_ADD = 'add';
 
     private const ACTION_DEDUCT = 'deduct';
@@ -62,11 +67,24 @@ class StockAdjustmentCreate extends Component
 
     public string $refId = '';
 
+    public bool $currentWarehouseIsDefault = false;
+
     public function mount(): void
     {
         if (! $this->isInternalUser() && $this->tenantId === '') {
             $this->tenantId = (string) ($this->activeTenantIds()[0] ?? '');
         }
+
+        if ($this->warehouseId === '') {
+            $savedWarehouseId = Auth::user()?->preference(self::PREF_DEFAULT_WAREHOUSE_ID);
+
+            if ($this->validActiveWarehouseId($savedWarehouseId)) {
+                $this->warehouseId = (string) $savedWarehouseId;
+            }
+        }
+
+        $this->autoSelectSingleActiveWarehouse();
+        $this->syncCurrentWarehouseIsDefault();
     }
 
     public function updatedTenantId(): void
@@ -80,6 +98,28 @@ class StockAdjustmentCreate extends Component
     {
         $this->stockItemId = '';
         $this->stockItemSearch = '';
+        $this->syncCurrentWarehouseIsDefault();
+    }
+
+    public function updatedCurrentWarehouseIsDefault(bool $checked): void
+    {
+        $user = Auth::user();
+
+        if (! $user || ! $this->validActiveWarehouseId($this->warehouseId)) {
+            $this->currentWarehouseIsDefault = false;
+
+            return;
+        }
+
+        if ($checked) {
+            $user->setPreference(self::PREF_DEFAULT_WAREHOUSE_ID, (string) $this->warehouseId);
+            session()->flash('status', __('stock_adjustments.default_warehouse_saved'));
+
+            return;
+        }
+
+        $user->forgetPreference(self::PREF_DEFAULT_WAREHOUSE_ID);
+        session()->flash('status', __('stock_adjustments.default_warehouse_cleared'));
     }
 
     public function updatedAction(): void
@@ -136,7 +176,7 @@ class StockAdjustmentCreate extends Component
     {
         validator($this->formData(), [
             'tenant_id' => ['required', 'integer'],
-            'warehouse_id' => ['required', 'integer', Rule::exists('warehouses', 'id')],
+            'warehouse_id' => ['required', 'integer', Rule::exists('warehouses', 'id')->where('status', 'active')],
             'stock_item_id' => ['required', 'integer', Rule::exists('stock_items', 'id')->where('tenant_id', $tenantId)],
             'action' => ['required', Rule::in([self::ACTION_ADD, self::ACTION_DEDUCT])],
             'quantity' => ['required', 'integer', 'min:1'],
@@ -209,8 +249,27 @@ class StockAdjustmentCreate extends Component
     private function warehouseOptions(): Collection
     {
         return Warehouse::query()
+            ->where('status', 'active')
             ->orderBy('name')
             ->get(['id', 'code', 'name']);
+    }
+
+    private function validActiveWarehouseId(mixed $warehouseId): bool
+    {
+        if (! is_numeric($warehouseId) || (int) $warehouseId <= 0) {
+            return false;
+        }
+
+        return Warehouse::query()
+            ->whereKey((int) $warehouseId)
+            ->where('status', 'active')
+            ->exists();
+    }
+
+    private function syncCurrentWarehouseIsDefault(): void
+    {
+        $this->currentWarehouseIsDefault = $this->warehouseId !== ''
+            && (string) Auth::user()?->preference(self::PREF_DEFAULT_WAREHOUSE_ID) === (string) $this->warehouseId;
     }
 
     private function currentBalance(): ?InventoryBalance

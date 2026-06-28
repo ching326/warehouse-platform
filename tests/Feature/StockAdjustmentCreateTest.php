@@ -87,6 +87,54 @@ class StockAdjustmentCreateTest extends TestCase
             ->assertSee($stockItem->code);
     }
 
+    public function test_stock_item_field_marks_required_in_searchable_select(): void
+    {
+        Livewire::actingAs($this->internalUser())
+            ->test(StockAdjustmentCreate::class)
+            ->assertSee('Stock item')
+            ->assertSee('required-indicator', false);
+    }
+
+    public function test_user_can_save_default_stock_adjustment_warehouse(): void
+    {
+        $user = $this->internalUser();
+        $warehouse = Warehouse::factory()->create(['status' => 'active']);
+
+        Livewire::actingAs($user)
+            ->test(StockAdjustmentCreate::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('currentWarehouseIsDefault', true);
+
+        $this->assertSame((string) $warehouse->id, $user->refresh()->preference('stock_adjustment_default_warehouse_id'));
+    }
+
+    public function test_saved_default_stock_adjustment_warehouse_is_selected_when_no_query_param(): void
+    {
+        $user = $this->internalUser();
+        $defaultWarehouse = Warehouse::factory()->create(['status' => 'active']);
+        Warehouse::factory()->create(['status' => 'active']);
+        $user->setPreference('stock_adjustment_default_warehouse_id', (string) $defaultWarehouse->id);
+
+        Livewire::actingAs($user)
+            ->test(StockAdjustmentCreate::class)
+            ->assertSet('warehouseId', (string) $defaultWarehouse->id)
+            ->assertSet('currentWarehouseIsDefault', true);
+    }
+
+    public function test_query_warehouse_overrides_saved_stock_adjustment_default_warehouse(): void
+    {
+        $user = $this->internalUser();
+        $defaultWarehouse = Warehouse::factory()->create(['status' => 'active']);
+        $queryWarehouse = Warehouse::factory()->create(['status' => 'active']);
+        $user->setPreference('stock_adjustment_default_warehouse_id', (string) $defaultWarehouse->id);
+
+        Livewire::withQueryParams(['warehouse_id' => (string) $queryWarehouse->id])
+            ->actingAs($user)
+            ->test(StockAdjustmentCreate::class)
+            ->assertSet('warehouseId', (string) $queryWarehouse->id)
+            ->assertSet('currentWarehouseIsDefault', false);
+    }
+
     public function test_negative_adjustment_cannot_make_inventory_negative(): void
     {
         [$tenant, $warehouse, $stockItem] = $this->targetModels();

@@ -23,12 +23,20 @@
                     </label>
                 @endif
 
-                <flux:select wire:model.live="warehouseId" required :label="__('stock_adjustments.field_warehouse')">
-                    <flux:select.option value="">{{ __('stock_adjustments.select_warehouse') }}</flux:select.option>
-                    @foreach ($warehouses as $warehouse)
-                        <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} - {{ $warehouse->name }}</flux:select.option>
-                    @endforeach
-                </flux:select>
+                <div class="stock-adjustment-warehouse-field">
+                    <flux:select wire:model.live="warehouseId" required :label="__('stock_adjustments.field_warehouse')">
+                        <flux:select.option value="">{{ __('stock_adjustments.select_warehouse') }}</flux:select.option>
+                        @foreach ($warehouses as $warehouse)
+                            <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} - {{ $warehouse->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    @if ($warehouseId !== '')
+                        <label class="default-view-toggle">
+                            <input type="checkbox" wire:model.live="currentWarehouseIsDefault">
+                            <span>{{ __('stock_adjustments.default_warehouse_checkbox') }}</span>
+                        </label>
+                    @endif
+                </div>
             </div>
 
             @error('tenantId') <p class="form-error">{{ $message }}</p> @enderror
@@ -164,4 +172,12 @@
             <flux:button type="submit" variant="primary">{{ __('stock_adjustments.btn_submit') }}</flux:button>
         </div>
     </form>
+
+    <style>
+        .stock-adjustment-warehouse-field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+    </style>
 </div>

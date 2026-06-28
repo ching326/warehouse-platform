@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\AutoSelectsSingleActiveWarehouse;
 use App\Livewire\Concerns\HasEnumLabels;
 use App\Models\InventoryBalance;
 use App\Models\MediaAsset;
@@ -17,6 +18,7 @@ use Livewire\WithPagination;
 
 class InventoryIndex extends Component
 {
+    use AutoSelectsSingleActiveWarehouse;
     use HasEnumLabels;
     use WithPagination;
 
@@ -42,6 +44,11 @@ class InventoryIndex extends Component
      * @var array<int, bool>
      */
     public array $expandedStockItems = [];
+
+    public function mount(): void
+    {
+        $this->autoSelectSingleActiveWarehouse();
+    }
 
     public function updatingSearch(): void
     {
@@ -243,6 +250,7 @@ class InventoryIndex extends Component
     private function warehouseOptions(): Collection
     {
         return Warehouse::query()
+            ->where('status', 'active')
             ->whereHas('inventoryBalances', fn ($query) => $this->applyTenantScope($query))
             ->orderBy('name')
             ->get(['id', 'code', 'name']);

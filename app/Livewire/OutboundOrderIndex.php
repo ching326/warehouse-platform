@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\AutoSelectsSingleActiveWarehouse;
 use App\Models\OutboundOrder;
 use App\Models\Shop;
 use App\Models\Tenant;
@@ -14,6 +15,7 @@ use Livewire\WithPagination;
 
 class OutboundOrderIndex extends Component
 {
+    use AutoSelectsSingleActiveWarehouse;
     use WithPagination;
 
     #[Url(as: 'tenant_id', except: '')]
@@ -34,6 +36,11 @@ class OutboundOrderIndex extends Component
     private bool $visibleTenantIdsResolved = false;
 
     private array $visibleTenantIdsCache = [];
+
+    public function mount(): void
+    {
+        $this->autoSelectSingleActiveWarehouse();
+    }
 
     public function updatedTenantId(): void
     {
@@ -114,7 +121,7 @@ class OutboundOrderIndex extends Component
                 ->orderBy('name')
                 ->get(['id', 'code', 'name']),
             'shops' => $this->shopOptions(),
-            'warehouses' => Warehouse::query()->orderBy('name')->get(['id', 'code', 'name']),
+            'warehouses' => Warehouse::query()->where('status', 'active')->orderBy('name')->get(['id', 'code', 'name']),
             'statuses' => [
                 OutboundOrder::STATUS_PENDING => __('outbound.status_pending'),
                 OutboundOrder::STATUS_SHIPPED => __('outbound.status_shipped'),

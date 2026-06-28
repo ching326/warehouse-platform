@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\AutoSelectsSingleActiveWarehouse;
 use App\Models\Issue;
 use App\Models\ReturnOrder;
 use App\Models\SalesOrder;
@@ -19,6 +20,8 @@ use Livewire\Component;
 
 class ReturnOrderCreate extends Component
 {
+    use AutoSelectsSingleActiveWarehouse;
+
     #[Url(as: 'tenant_id', except: '')]
     public string $tenantId = '';
 
@@ -65,13 +68,17 @@ class ReturnOrderCreate extends Component
         if (! $this->isInternalUser()) {
             $this->tenantId = (string) ($this->allowedTenantIds()[0] ?? '');
         }
+
+        $this->autoSelectSingleActiveWarehouse();
     }
 
     public function updatedTenantId(): void
     {
+        $this->warehouseId = '';
         $this->issueId = $this->salesOrderId = '';
         $this->lines = [['sku_id' => '', 'expected_qty' => '1', 'note' => '']];
         $this->skuSearches = [''];
+        $this->autoSelectSingleActiveWarehouse();
     }
 
     public function addLine(): void
@@ -103,7 +110,7 @@ class ReturnOrderCreate extends Component
     {
         $tenantId = $this->validatedTenantId();
         validator($this->payload($tenantId), [
-            'tenant_id' => ['required', 'integer'], 'warehouse_id' => ['nullable', 'integer', Rule::exists('warehouses', 'id')],
+            'tenant_id' => ['required', 'integer'], 'warehouse_id' => ['nullable', 'integer', Rule::exists('warehouses', 'id')->where('status', 'active')],
             'return_type' => ['required', Rule::in(array_keys(ReturnOrder::typeOptions()))], 'return_reason' => ['nullable', Rule::in(array_keys(ReturnOrder::reasonOptions()))],
             'payment_type' => ['required', Rule::in(array_keys(ReturnOrder::paymentTypeOptions()))], 'expected_arrival_date' => ['nullable', 'date'],
             'issue_id' => ['nullable', 'integer', Rule::exists('issues', 'id')->where('tenant_id', $tenantId)], 'sales_order_id' => ['nullable', 'integer', Rule::exists('sales_orders', 'id')->where('tenant_id', $tenantId)],
@@ -134,7 +141,7 @@ class ReturnOrderCreate extends Component
     {
         return view('livewire.return-order-create', [
             'tenants' => Tenant::query()->whereIn('id', $this->allowedTenantIds())->orderBy('name')->get(['id', 'code', 'name']),
-            'warehouses' => Warehouse::query()->orderBy('name')->get(['id', 'code', 'name']),
+            'warehouses' => Warehouse::query()->where('status', 'active')->orderBy('name')->get(['id', 'code', 'name']),
             'issues' => Issue::query()->where('tenant_id', $this->tenantId)->latest('id')->get(['id', 'issue_no']),
             'salesOrders' => SalesOrder::query()->where('tenant_id', $this->tenantId)->latest('id')->get(['id', 'platform_order_id']),
             'skuOptionsByLine' => $this->skuOptionsByLine(),

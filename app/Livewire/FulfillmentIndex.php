@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\AutoSelectsSingleActiveWarehouse;
 use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\ShippingMethod;
@@ -28,6 +29,7 @@ use RuntimeException;
 
 class FulfillmentIndex extends Component
 {
+    use AutoSelectsSingleActiveWarehouse;
     use WithPagination;
 
     /** Maps the user-facing fulfillment statuses to OutboundOrder statuses. */
@@ -105,6 +107,7 @@ class FulfillmentIndex extends Component
     public function mount(): void
     {
         $this->authorizeTenantAccess();
+        $this->autoSelectSingleActiveWarehouse();
         $this->coerceShippedDateRange();
     }
 

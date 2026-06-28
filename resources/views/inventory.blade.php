@@ -2837,6 +2837,18 @@
                 gap: 6px;
             }
 
+            .searchable-select .searchable-select-label {
+                display: inline-flex;
+                align-items: baseline;
+                gap: 1px;
+            }
+
+            .searchable-select .searchable-select-label .required-indicator {
+                display: inline;
+                margin-bottom: 0;
+                color: var(--danger);
+            }
+
             .searchable-select-menu {
                 position: absolute;
                 z-index: 90;

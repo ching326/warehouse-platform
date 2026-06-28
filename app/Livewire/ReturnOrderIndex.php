@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\AutoSelectsSingleActiveWarehouse;
 use App\Models\ReturnOrder;
 use App\Models\Tenant;
 use App\Models\Warehouse;
@@ -12,6 +13,7 @@ use Livewire\WithPagination;
 
 class ReturnOrderIndex extends Component
 {
+    use AutoSelectsSingleActiveWarehouse;
     use WithPagination;
 
     #[Url(as: 'tenant_id', except: '')]
@@ -34,6 +36,11 @@ class ReturnOrderIndex extends Component
 
     #[Url(except: '')]
     public string $search = '';
+
+    public function mount(): void
+    {
+        $this->autoSelectSingleActiveWarehouse();
+    }
 
     public function render()
     {
@@ -66,7 +73,7 @@ class ReturnOrderIndex extends Component
         return view('livewire.return-order-index', [
             'orders' => $orders,
             'tenants' => Tenant::query()->whereIn('id', $this->allowedTenantIds())->orderBy('name')->get(['id', 'code', 'name']),
-            'warehouses' => Warehouse::query()->orderBy('name')->get(['id', 'code', 'name']),
+            'warehouses' => Warehouse::query()->where('status', 'active')->orderBy('name')->get(['id', 'code', 'name']),
             'statuses' => ReturnOrder::statusOptions(),
             'types' => ReturnOrder::typeOptions(),
             'reasons' => ReturnOrder::reasonOptions(),

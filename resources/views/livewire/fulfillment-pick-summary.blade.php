@@ -10,7 +10,7 @@
         <div class="pick-filter-grid">
             <div class="pick-warehouse-filter">
                 <flux:select wire:model.live="warehouseId" :label="__('fulfillment_pick.field_warehouse')">
-                    <flux:select.option value="">{{ __('fulfillment_pick.select_warehouse') }}</flux:select.option>
+                    <flux:select.option value="">{{ __('common.all_warehouses') }}</flux:select.option>
                     @foreach ($warehouses as $warehouse)
                         <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->code }} - {{ $warehouse->name }}</flux:select.option>
                     @endforeach
@@ -62,21 +62,16 @@
         <span>{{ $filterSummary }}</span>
     </div>
 
-    @if (! $warehouseReady)
-        <section class="table-shell flux-panel form-panel">
-            <div class="empty-state">{{ __('fulfillment_pick.select_warehouse_first') }}</div>
-        </section>
-    @else
-        <section class="pick-summary-cards no-print">
-            <div><span>{{ __('fulfillment_pick.summary_pick_rows') }}</span><strong>{{ number_format($summary['pick_rows']) }}</strong></div>
-            <div><span>{{ __('fulfillment_pick.summary_required_qty') }}</span><strong>{{ number_format($summary['required_qty']) }}</strong></div>
-            <div><span>{{ __('fulfillment_pick.summary_shortage_rows') }}</span><strong>{{ number_format($summary['shortage_rows']) }}</strong></div>
-            <div><span>{{ __('fulfillment_pick.summary_groups_included') }}</span><strong>{{ number_format($summary['groups_included']) }}</strong></div>
-        </section>
+    <section class="pick-summary-cards no-print">
+        <div><span>{{ __('fulfillment_pick.summary_pick_rows') }}</span><strong>{{ number_format($summary['pick_rows']) }}</strong></div>
+        <div><span>{{ __('fulfillment_pick.summary_required_qty') }}</span><strong>{{ number_format($summary['required_qty']) }}</strong></div>
+        <div><span>{{ __('fulfillment_pick.summary_shortage_rows') }}</span><strong>{{ number_format($summary['shortage_rows']) }}</strong></div>
+        <div><span>{{ __('fulfillment_pick.summary_groups_included') }}</span><strong>{{ number_format($summary['groups_included']) }}</strong></div>
+    </section>
 
-        <section class="table-shell flux-panel form-panel pick-table-panel screen-pick-table">
-            <flux:table class="data-table pick-summary-table">
-                <flux:table.columns>
+    <section class="table-shell flux-panel form-panel pick-table-panel screen-pick-table">
+        <flux:table class="data-table pick-summary-table">
+            <flux:table.columns>
                     <flux:table.column>{{ __('fulfillment_pick.col_stock_item') }}</flux:table.column>
                     <flux:table.column>{{ __('fulfillment_pick.col_skus') }}</flux:table.column>
                     <flux:table.column>{{ __('fulfillment_pick.col_product_name') }}</flux:table.column>
@@ -156,10 +151,10 @@
                         </flux:table.row>
                     @endforelse
                 </flux:table.rows>
-            </flux:table>
-        </section>
+        </flux:table>
+    </section>
 
-        <section class="print-pick-table" data-testid="pick-summary-print-table">
+    <section class="print-pick-table" data-testid="pick-summary-print-table">
             <table>
                 <thead>
                     <tr>
@@ -199,8 +194,7 @@
                     @endif
                 </tbody>
             </table>
-        </section>
-    @endif
+    </section>
 
     <style>
         .pick-filter-grid {

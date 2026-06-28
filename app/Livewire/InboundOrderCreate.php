@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\AutoSelectsSingleActiveWarehouse;
 use App\Models\InboundOrder;
 use App\Models\Shop;
 use App\Models\Sku;
@@ -18,6 +19,8 @@ use Livewire\Component;
 
 class InboundOrderCreate extends Component
 {
+    use AutoSelectsSingleActiveWarehouse;
+
     #[Url(as: 'tenant_id', except: '')]
     public string $tenantId = '';
 
@@ -47,6 +50,8 @@ class InboundOrderCreate extends Component
         if (! $this->isInternalUser() && $this->tenantId === '') {
             $this->tenantId = (string) ($this->activeTenantIds()[0] ?? '');
         }
+
+        $this->autoSelectSingleActiveWarehouse();
     }
 
     public function updatedTenantId(): void
@@ -55,6 +60,7 @@ class InboundOrderCreate extends Component
         $this->shopId = '';
         $this->lines = [['sku_id' => '', 'expected_qty' => '', 'note' => '']];
         $this->skuSearches = [''];
+        $this->autoSelectSingleActiveWarehouse();
     }
 
     public function updatedShopId(): void
@@ -165,7 +171,7 @@ class InboundOrderCreate extends Component
 
         validator($this->formData(), [
             'tenant_id' => ['required', 'integer'],
-            'warehouse_id' => ['required', 'integer', Rule::exists('warehouses', 'id')],
+            'warehouse_id' => ['required', 'integer', Rule::exists('warehouses', 'id')->where('status', 'active')],
             'shop_id' => ['nullable', 'integer', Rule::exists('shops', 'id')->where('tenant_id', $tenantId)],
             'ref' => ['nullable', 'string', 'max:255'],
             'expected_at' => ['nullable', 'date'],
@@ -216,6 +222,7 @@ class InboundOrderCreate extends Component
     private function warehouseOptions(): Collection
     {
         return Warehouse::query()
+            ->where('status', 'active')
             ->orderBy('name')
             ->get(['id', 'code', 'name']);
     }

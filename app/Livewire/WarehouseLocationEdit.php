@@ -92,11 +92,7 @@ class WarehouseLocationEdit extends Component
     {
         return view('livewire.warehouse-location-edit', [
             'warehouses' => Warehouse::query()
-                ->where(function ($query) {
-                    $query
-                        ->where('status', 'active')
-                        ->orWhere('id', $this->location->warehouse_id);
-                })
+                ->where('status', 'active')
                 ->orderBy('name')
                 ->get(['id', 'code', 'name']),
             'zoneTypes' => $this->zoneTypes(),

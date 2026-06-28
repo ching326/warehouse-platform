@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\AutoSelectsSingleActiveWarehouse;
 use App\Livewire\Concerns\HasEnumLabels;
 use App\Models\InventoryMovement;
 use App\Models\StockItem;
@@ -17,6 +18,7 @@ use Livewire\WithPagination;
 
 class InventoryMovementsIndex extends Component
 {
+    use AutoSelectsSingleActiveWarehouse;
     use HasEnumLabels;
     use WithPagination;
 
@@ -47,6 +49,11 @@ class InventoryMovementsIndex extends Component
     private bool $visibleTenantIdsResolved = false;
 
     private ?array $visibleTenantIdsCache = null;
+
+    public function mount(): void
+    {
+        $this->autoSelectSingleActiveWarehouse();
+    }
 
     public function updatingSearch(): void
     {
@@ -99,6 +106,7 @@ class InventoryMovementsIndex extends Component
     public function clearFilters(): void
     {
         $this->reset(['search', 'tenantId', 'warehouseId', 'movementType', 'stockItemId', 'stockItemSearch', 'userId', 'dateFrom', 'dateTo']);
+        $this->autoSelectSingleActiveWarehouse();
         $this->resetPage();
     }
 
@@ -271,6 +279,7 @@ class InventoryMovementsIndex extends Component
     private function warehouseOptions(): Collection
     {
         return Warehouse::query()
+            ->where('status', 'active')
             ->whereHas('inventoryMovements', fn ($query) => $this->applyTenantScope($query))
             ->orderBy('name')
             ->get(['id', 'code', 'name']);

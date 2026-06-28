@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\AutoSelectsSingleActiveWarehouse;
 use App\Models\Warehouse;
 use App\Models\WarehouseLocation;
 use Illuminate\Support\Facades\Auth;
@@ -11,6 +12,8 @@ use Livewire\Component;
 
 class WarehouseLocationCreate extends Component
 {
+    use AutoSelectsSingleActiveWarehouse;
+
     #[Url(as: 'warehouse_id', except: '')]
     public string $warehouseId = '';
 
@@ -29,6 +32,8 @@ class WarehouseLocationCreate extends Component
         if (! $this->isInternalUser()) {
             abort(403);
         }
+
+        $this->autoSelectSingleActiveWarehouse();
     }
 
     public function save()

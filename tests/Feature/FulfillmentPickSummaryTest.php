@@ -52,12 +52,13 @@ class FulfillmentPickSummaryTest extends TestCase
             ->assertSee('Pick Summary');
     }
 
-    public function test_page_asks_for_warehouse_before_showing_results(): void
+    public function test_default_warehouse_filter_is_all_warehouses(): void
     {
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPickSummary::class)
-            ->assertSee('Select a warehouse to view pick summary.')
-            ->assertDontSee('Pick rows');
+            ->assertSet('warehouseId', '')
+            ->assertSee(__('common.all_warehouses'))
+            ->assertSee('Pick rows');
     }
 
     public function test_single_active_warehouse_is_auto_selected(): void
@@ -66,7 +67,8 @@ class FulfillmentPickSummaryTest extends TestCase
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPickSummary::class)
-            ->assertSet('warehouseId', (string) $warehouse->id);
+            ->assertSet('warehouseId', (string) $warehouse->id)
+            ->assertSee('Pick rows');
     }
 
     public function test_multiple_active_warehouses_are_not_auto_selected(): void
@@ -76,7 +78,7 @@ class FulfillmentPickSummaryTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPickSummary::class)
             ->assertSet('warehouseId', '')
-            ->assertSee('Select a warehouse to view pick summary.');
+            ->assertSee('Pick rows');
     }
 
     public function test_user_can_save_default_pick_summary_warehouse(): void
@@ -165,7 +167,8 @@ class FulfillmentPickSummaryTest extends TestCase
                 'status' => 'active',
             ]);
 
-            Livewire::actingAs($this->internalUser())
+            Livewire::withQueryParams(['warehouse_id' => (string) $warehouse->id])
+                ->actingAs($this->internalUser())
                 ->test(FulfillmentPickSummary::class)
                 ->assertSet('warehouseId', (string) $warehouse->id)
                 ->assertSet('dateFrom', '2026-06-23')
@@ -482,7 +485,8 @@ class FulfillmentPickSummaryTest extends TestCase
                 'status' => 'active',
             ]);
 
-            Livewire::actingAs($this->internalUser())
+            Livewire::withQueryParams(['warehouse_id' => (string) $warehouse->id])
+                ->actingAs($this->internalUser())
                 ->test(FulfillmentPickSummary::class)
                 ->assertSet('warehouseId', (string) $warehouse->id)
                 ->assertSet('dateFrom', '2026-06-24')

@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\AutoSelectsSingleActiveWarehouse;
 use App\Models\SalesOrder;
 use App\Models\Tenant;
 use App\Models\Warehouse;
@@ -15,6 +16,8 @@ use Livewire\Component;
 
 class FulfillmentCreate extends Component
 {
+    use AutoSelectsSingleActiveWarehouse;
+
     public string $tenantId = '';
 
     public string $warehouseId = '';
@@ -34,6 +37,8 @@ class FulfillmentCreate extends Component
         if (! $this->isInternalUser()) {
             $this->tenantId = (string) ($this->allowedTenantIds()[0] ?? '');
         }
+
+        $this->autoSelectSingleActiveWarehouse();
     }
 
     public function updatedTenantId(): void

@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\AutoSelectsSingleActiveWarehouse;
 use App\Models\Warehouse;
 use App\Models\WarehouseLocation;
 use Illuminate\Support\Facades\Auth;
@@ -11,6 +12,7 @@ use Livewire\WithPagination;
 
 class WarehouseLocationIndex extends Component
 {
+    use AutoSelectsSingleActiveWarehouse;
     use WithPagination;
 
     #[Url(as: 'warehouse_id', except: '')]
@@ -33,6 +35,8 @@ class WarehouseLocationIndex extends Component
         if (! $this->isInternalUser()) {
             abort(403);
         }
+
+        $this->autoSelectSingleActiveWarehouse();
     }
 
     public function updatedWarehouseId(): void
@@ -90,7 +94,7 @@ class WarehouseLocationIndex extends Component
 
         return view('livewire.warehouse-location-index', [
             'locations' => $locations,
-            'warehouses' => Warehouse::query()->orderBy('name')->get(['id', 'code', 'name']),
+            'warehouses' => Warehouse::query()->where('status', 'active')->orderBy('name')->get(['id', 'code', 'name']),
             'zoneTypes' => $this->zoneTypes(),
             'storageUnitTypes' => $this->storageUnitTypes(),
             'statuses' => [

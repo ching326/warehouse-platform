@@ -438,6 +438,27 @@ class OutboundOrderTest extends TestCase
             ->assertDontSee(__('outbound.btn_cancel_order'));
     }
 
+    public function test_outbound_index_auto_selects_single_active_warehouse(): void
+    {
+        $warehouse = Warehouse::factory()->create(['status' => 'active']);
+        Warehouse::factory()->create(['status' => 'inactive']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderIndex::class)
+            ->assertSet('warehouseId', (string) $warehouse->id);
+    }
+
+    public function test_outbound_index_query_warehouse_overrides_single_active_warehouse_default(): void
+    {
+        Warehouse::factory()->create(['status' => 'active']);
+        $queryWarehouse = Warehouse::factory()->create(['status' => 'inactive']);
+
+        Livewire::withQueryParams(['warehouse_id' => (string) $queryWarehouse->id])
+            ->actingAs($this->internalUser())
+            ->test(OutboundOrderIndex::class)
+            ->assertSet('warehouseId', (string) $queryWarehouse->id);
+    }
+
     public function test_outbound_detail_route_renders_for_internal_user(): void
     {
         [$tenant, $warehouse, $sku] = $this->skuWithStock(10);

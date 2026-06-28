@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\AutoSelectsSingleActiveWarehouse;
 use App\Models\OutboundOrder;
 use App\Models\ShippingMethod;
 use App\Models\Shop;
@@ -23,6 +24,8 @@ use Livewire\Component;
 
 class OutboundOrderCreate extends Component
 {
+    use AutoSelectsSingleActiveWarehouse;
+
     #[Url(as: 'tenant_id', except: '')]
     public string $tenantId = '';
 
@@ -85,6 +88,8 @@ class OutboundOrderCreate extends Component
         if (! $this->isInternalUser() && $this->tenantId === '') {
             $this->tenantId = (string) ($this->activeTenantIds()[0] ?? '');
         }
+
+        $this->autoSelectSingleActiveWarehouse();
     }
 
     public function updatedTenantId(): void
@@ -93,6 +98,7 @@ class OutboundOrderCreate extends Component
         $this->shopId = '';
         $this->lines = [['sku_id' => '', 'qty' => '', 'note' => '']];
         $this->skuSearches = [''];
+        $this->autoSelectSingleActiveWarehouse();
     }
 
     public function updatedShopId(): void

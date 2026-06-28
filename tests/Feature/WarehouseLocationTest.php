@@ -292,7 +292,7 @@ class WarehouseLocationTest extends TestCase
             ->assertDontSee('INACTIVE-WH');
     }
 
-    public function test_edit_location_shows_own_inactive_warehouse(): void
+    public function test_edit_location_hides_own_inactive_warehouse(): void
     {
         $inactiveWarehouse = Warehouse::factory()->create([
             'code' => 'OWN-INACTIVE-WH',
@@ -303,7 +303,7 @@ class WarehouseLocationTest extends TestCase
 
         Livewire::actingAs($this->internalUser())
             ->test(WarehouseLocationEdit::class, ['location' => $location])
-            ->assertSee('OWN-INACTIVE-WH');
+            ->assertDontSee('>OWN-INACTIVE-WH</option>', false);
     }
 
     public function test_edit_location_rejects_duplicate_code_in_same_warehouse(): void

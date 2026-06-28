@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\AutoSelectsSingleActiveWarehouse;
 use App\Models\InboundOrder;
 use App\Models\Shop;
 use App\Models\Tenant;
@@ -13,6 +14,7 @@ use Livewire\WithPagination;
 
 class InboundOrderIndex extends Component
 {
+    use AutoSelectsSingleActiveWarehouse;
     use WithPagination;
 
     public string $tenantId = '';
@@ -28,6 +30,11 @@ class InboundOrderIndex extends Component
     private bool $visibleTenantIdsResolved = false;
 
     private ?array $visibleTenantIdsCache = null;
+
+    public function mount(): void
+    {
+        $this->autoSelectSingleActiveWarehouse();
+    }
 
     public function updatedTenantId(): void
     {
@@ -163,6 +170,7 @@ class InboundOrderIndex extends Component
     private function warehouseOptions(): Collection
     {
         return Warehouse::query()
+            ->where('status', 'active')
             ->orderBy('name')
             ->get(['id', 'code', 'name']);
     }

@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\AutoSelectsSingleActiveWarehouse;
 use App\Models\InboundReceipt;
 use App\Models\InventoryBalance;
 use App\Models\OutboundOrder;
@@ -18,6 +19,8 @@ use Livewire\Component;
 
 class FulfillmentPickSummary extends Component
 {
+    use AutoSelectsSingleActiveWarehouse;
+
     private const PREF_DEFAULT_WAREHOUSE_ID = 'pick_summary_default_warehouse_id';
 
     #[Url(as: 'warehouse_id', except: '')]
@@ -57,17 +60,10 @@ class FulfillmentPickSummary extends Component
 
             if ($this->validActiveWarehouseId($savedWarehouseId)) {
                 $this->warehouseId = (string) $savedWarehouseId;
-            } else {
-                $activeWarehouseIds = Warehouse::query()
-                    ->where('status', 'active')
-                    ->pluck('id');
-
-                if ($activeWarehouseIds->count() === 1) {
-                    $this->warehouseId = (string) $activeWarehouseIds->first();
-                }
             }
         }
 
+        $this->autoSelectSingleActiveWarehouse();
         $this->syncCurrentWarehouseIsDefault();
 
         $today = now($this->warehouseTimezone())->toDateString();
@@ -131,16 +127,13 @@ class FulfillmentPickSummary extends Component
     {
         $this->authorizeInternalUser();
 
-        $rows = $this->warehouseReady()
-            ? $this->pickRows($packService)
-            : collect();
+        $rows = $this->pickRows($packService);
         $summary = $this->summary($rows);
 
         return view('livewire.fulfillment-pick-summary', [
             'warehouses' => $this->warehouseOptions(),
             'shippingMethods' => $this->shippingMethodOptions(),
             'tenants' => $this->tenantOptions(),
-            'warehouseReady' => $this->warehouseReady(),
             'rows' => $rows,
             'summary' => $summary,
             'filterSummary' => $this->filterSummary(),
@@ -257,7 +250,7 @@ class FulfillmentPickSummary extends Component
             ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
             ->where('status', OutboundOrder::STATUS_PENDING)
             ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
-            ->where('warehouse_id', (int) $this->warehouseId)
+            ->when($this->warehouseId !== '', fn ($query) => $query->where('warehouse_id', (int) $this->warehouseId))
             ->when($this->shippingMethodId !== '', fn ($query) => $query->where('shipping_method_id', (int) $this->shippingMethodId))
             ->when($this->tenantId !== '' && in_array((int) $this->tenantId, $this->allowedTenantIds(), true), fn ($query) => $query->where('tenant_id', (int) $this->tenantId))
             ->when($this->dateFrom !== '', fn ($query) => $query->where('created_at', '>=', Carbon::parse($this->dateFrom, $this->warehouseTimezone())->startOfDay()->utc()))
@@ -277,12 +270,13 @@ class FulfillmentPickSummary extends Component
         }
 
         return InventoryBalance::query()
-            ->where('warehouse_id', (int) $this->warehouseId)
+            ->when($this->warehouseId !== '', fn ($query) => $query->where('warehouse_id', (int) $this->warehouseId))
             ->whereIn('stock_item_id', $stockItemIds)
             ->get()
-            ->mapWithKeys(fn (InventoryBalance $balance): array => [
-                $balance->stock_item_id => max(0, (int) $balance->on_hand_qty - (int) $balance->hold_qty - (int) $balance->damaged_qty),
-            ])
+            ->groupBy('stock_item_id')
+            ->map(fn (Collection $balances): int => (int) $balances->sum(
+                fn (InventoryBalance $balance): int => max(0, (int) $balance->on_hand_qty - (int) $balance->hold_qty - (int) $balance->damaged_qty)
+            ))
             ->all();
     }
 
@@ -299,7 +293,7 @@ class FulfillmentPickSummary extends Component
         $hints = [];
         $receipts = InboundReceipt::query()
             ->with('warehouseLocation:id,code,name')
-            ->where('warehouse_id', (int) $this->warehouseId)
+            ->when($this->warehouseId !== '', fn ($query) => $query->where('warehouse_id', (int) $this->warehouseId))
             ->whereIn('stock_item_id', $stockItemIds)
             ->latest('received_at')
             ->latest('id')
@@ -377,11 +371,6 @@ class FulfillmentPickSummary extends Component
         return $skuAliases + $stockAliases;
     }
 
-    private function warehouseReady(): bool
-    {
-        return (int) $this->warehouseId > 0;
-    }
-
     private function authorizeInternalUser(): void
     {
         if (Auth::user()?->user_type !== 'internal') {
@@ -403,7 +392,7 @@ class FulfillmentPickSummary extends Component
     private function filterSummary(): string
     {
         $parts = [];
-        $parts[] = __('fulfillment_pick.print_warehouse', ['value' => $this->warehouseId ? (Warehouse::find($this->warehouseId)?->name ?? '-') : '-']);
+        $parts[] = __('fulfillment_pick.print_warehouse', ['value' => $this->warehouseId ? (Warehouse::find($this->warehouseId)?->name ?? '-') : __('common.all_warehouses')]);
         $parts[] = __('fulfillment_pick.print_shipping_method', ['value' => $this->shippingMethodId ? (ShippingMethod::find($this->shippingMethodId)?->name ?? '-') : __('common.all_types')]);
         $parts[] = __('fulfillment_pick.print_tenant', ['value' => $this->tenantId ? (Tenant::find($this->tenantId)?->code ?? '-') : __('common.all_tenants')]);
         $parts[] = __('fulfillment_pick.print_date', ['from' => $this->dateFrom ?: '-', 'to' => $this->dateTo ?: '-']);

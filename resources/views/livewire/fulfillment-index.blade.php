@@ -415,6 +415,7 @@
                 <flux:table.column>{{ __('fulfillment.col_note') }}</flux:table.column>
                 <flux:table.column>{{ __('fulfillment.col_added') }}</flux:table.column>
                 <flux:table.column>{{ __('fulfillment.col_status') }}</flux:table.column>
+                <flux:table.column>{{ __('fulfillment.col_actions') }}</flux:table.column>
             </flux:table.columns>
 
             <flux:table.rows>
@@ -504,13 +505,6 @@
                             @empty
                                 <span class="subtle">-</span>
                             @endforelse
-                            @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE)
-                                <div class="fg-row-action">
-                                    <flux:button href="{{ route('outbound.pack', $order) }}" size="sm" variant="primary" class="fg-scan-pack-button" wire:navigate>
-                                        {{ __('fulfillment_pack.page_title') }}
-                                    </flux:button>
-                                </div>
-                            @endif
                         </flux:table.cell>
 
                         <flux:table.cell>
@@ -645,10 +639,19 @@
                             </div>
                         </flux:table.cell>
 
+                        <flux:table.cell>
+                            @if ($order->status === \App\Models\OutboundOrder::STATUS_PENDING && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE)
+                                <div class="fg-row-action">
+                                    <flux:button href="{{ route('outbound.pack', $order) }}" size="sm" variant="primary" class="fg-scan-pack-button" wire:navigate>
+                                        {{ __('fulfillment_pack.page_title') }}
+                                    </flux:button>
+                                </div>
+                            @endif
+                        </flux:table.cell>
                     </flux:table.row>
                 @empty
                     <flux:table.row>
-                        <flux:table.cell colspan="10">
+                        <flux:table.cell colspan="11">
                             <div class="empty-state">{{ __('fulfillment.empty_state') }}</div>
                         </flux:table.cell>
                     </flux:table.row>

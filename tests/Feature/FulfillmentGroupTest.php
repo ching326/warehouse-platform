@@ -1561,7 +1561,7 @@ class FulfillmentGroupTest extends TestCase
             ->assertDontSee(route('outbound.pack', $shipped));
     }
 
-    public function test_fulfillment_index_reference_has_copy_button_and_no_actions_column(): void
+    public function test_fulfillment_index_reference_has_copy_button_and_actions_column(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
         $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-COPY');
@@ -1577,7 +1577,7 @@ class FulfillmentGroupTest extends TestCase
         $this->assertStringContainsString(__('fulfillment.copy_reference_no').' '.$outbound->ref, $html);
         $this->assertStringContainsString("copy('{$outbound->ref}')", $html);
         $this->assertStringContainsString(route('outbound.pack', $outbound), $html);
-        $this->assertStringNotContainsString('<div class="flex in-[.group\\/center-align]:justify-center in-[.group\\/end-align]:justify-end">'.__('fulfillment.col_actions').'</div>', $html);
+        $this->assertStringContainsString(__('fulfillment.col_actions'), $html);
     }
 
     public function test_tenant_user_without_active_tenant_cannot_access_pages(): void

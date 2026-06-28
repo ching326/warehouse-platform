@@ -34,7 +34,12 @@
     x-on:click.outside="open = false"
 >
     <label>
-        <span>{{ $label }}</span>
+        <span class="searchable-select-label">
+            {{ $label }}
+            @if ($required)
+                <span class="required-indicator">*</span>
+            @endif
+        </span>
         <input
             type="text"
             x-model="query"
