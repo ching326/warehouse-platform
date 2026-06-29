@@ -13,9 +13,10 @@ class SkuImportFields
                 ['required', 'string', 'max:255'], 'string',
                 ['sku code', 'skucode', 'item code', 'article', 'seller sku', '品番', 'コード', 'SKUコード']),
 
+            // Stock item name. SKU-specific name columns were removed.
             new SkuImportField('name', 'sku_import.field_name', 'stock_item', false,
                 ['nullable', 'string', 'max:255'], 'string',
-                ['product name', 'item name', 'title', 'product title', 'english name', 'sku name english', 'stock item name', '商品名', '在庫商品名']),
+                ['product name', 'item name', 'title', 'product title', 'english name', 'stock item name', '商品名', '在庫商品名']),
 
             new SkuImportField('platform_sku', 'sku_import.field_platform_sku', 'sku', false,
                 ['nullable', 'string', 'max:255'], 'string',

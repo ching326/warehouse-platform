@@ -82,10 +82,7 @@ return [
     'error_too_long' => ':field 不得超過 255 個字元。',
 
     'field_sku' => 'SKU 代碼',
-    'field_name' => 'SKU 名稱（英文）',
-    'field_name_ja' => 'SKU 名稱 (日文)',
-    'field_name_zh_tw' => 'SKU 名稱 (繁體中文)',
-    'field_name_zh_cn' => 'SKU 名稱 (簡體中文)',
+    'field_name' => '庫存品項名稱（英文）',
     'field_platform_sku' => '平台 SKU',
     'field_platform_product_id' => '平台商品 ID',
     'field_platform_variant_id' => '平台規格 ID',

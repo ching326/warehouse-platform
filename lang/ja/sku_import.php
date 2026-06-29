@@ -82,10 +82,7 @@ return [
     'error_too_long' => ':field は255文字以内で入力してください。',
 
     'field_sku' => 'SKUコード',
-    'field_name' => 'SKU名（英語）',
-    'field_name_ja' => 'SKU名 (日本語)',
-    'field_name_zh_tw' => 'SKU名 (繁体字中国語)',
-    'field_name_zh_cn' => 'SKU名 (簡体字中国語)',
+    'field_name' => '在庫品目名（英語）',
     'field_platform_sku' => 'プラットフォームSKU',
     'field_platform_product_id' => 'プラットフォーム商品ID',
     'field_platform_variant_id' => 'プラットフォームバリエーションID',

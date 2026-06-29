@@ -154,10 +154,10 @@ return [
 
     'section_name_languages' => '商品名稱語言設定',
     'section_name_languages_hint' => '設定商品名稱欄位的基本輸入語言。',
-    'field_sku_name_locale' => 'SKU 名稱基本語言',
+    'field_sku_name_locale' => '商品名稱基本語言',
     'field_stock_item_name_locale' => '庫存品項名稱基本語言',
     'locale_default_en' => 'English (預設)',
-    'select_sku_name_locale' => 'Choose SKU name language',
+    'select_sku_name_locale' => 'Choose product name language',
     'stock_item_name_locale_fixed_hint' => 'Stock item names are fixed to Japanese for warehouse operations.',
     'locale_en' => 'English',
     'locale_ja' => 'Japanese',

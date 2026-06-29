@@ -154,9 +154,9 @@ return [
 
     'section_name_languages' => 'Product Name Languages',
     'section_name_languages_hint' => 'Set the base input language for product name fields.',
-    'field_sku_name_locale' => 'SKU name base language',
+    'field_sku_name_locale' => 'Product name base language',
     'field_stock_item_name_locale' => 'Stock item name base language',
-    'select_sku_name_locale' => 'Choose SKU name language',
+    'select_sku_name_locale' => 'Choose product name language',
     'stock_item_name_locale_fixed_hint' => 'Stock item names are fixed to Japanese for warehouse operations.',
     'locale_default_en' => 'English (default)',
     'locale_en' => 'English',

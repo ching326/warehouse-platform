@@ -94,10 +94,7 @@ return [
 
     // Field labels (used in mapping UI and error messages)
     'field_sku' => 'SKU code',
-    'field_name' => 'SKU name (English)',
-    'field_name_ja' => 'SKU name (Japanese)',
-    'field_name_zh_tw' => 'SKU name (Traditional Chinese)',
-    'field_name_zh_cn' => 'SKU name (Simplified Chinese)',
+    'field_name' => 'Stock item name (English)',
     'field_platform_sku' => 'Platform SKU',
     'field_platform_product_id' => 'Platform product ID',
     'field_platform_variant_id' => 'Platform variant ID',
