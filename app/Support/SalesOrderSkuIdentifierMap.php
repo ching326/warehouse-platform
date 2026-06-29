@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Shop;
 use App\Models\Sku;
+use App\Models\StockItem;
 use Illuminate\Support\Collection;
 
 class SalesOrderSkuIdentifierMap
@@ -23,8 +24,12 @@ class SalesOrderSkuIdentifierMap
         $map = $skus->pluck('id', 'sku');
 
         $skus
-            ->filter(fn (Sku $sku): bool => filled($sku->stockItem?->tenant_item_code))
-            ->groupBy(fn (Sku $sku): string => (string) $sku->stockItem->tenant_item_code)
+            ->filter(fn (Sku $sku): bool => $sku->stockItem instanceof StockItem && filled($sku->stockItem->tenant_item_code))
+            ->groupBy(function (Sku $sku): string {
+                $stockItem = $sku->stockItem;
+
+                return $stockItem instanceof StockItem ? (string) $stockItem->tenant_item_code : '';
+            })
             ->each(function (Collection $group, string $tenantItemCode) use ($map): void {
                 if ($group->pluck('id')->unique()->count() === 1 && ! $map->has($tenantItemCode)) {
                     $map->put($tenantItemCode, $group->first()->id);

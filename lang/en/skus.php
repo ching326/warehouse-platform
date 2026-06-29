@@ -222,4 +222,12 @@ return [
     'field_tenant_item_code' => 'Tenant item code',
     'tenant_code_toggle' => 'Tenant code',
     'tenant_code_preference_saved' => 'Tenant code display preference saved.',
+    'view_settings' => 'View settings',
+    'view_settings_title' => 'View settings',
+    'view_settings_save' => 'Save',
+    'stock_item_code_display' => 'Stock item code',
+    'stock_item_code_display_system' => 'System code',
+    'stock_item_code_display_tenant' => 'Tenant code',
+    'stock_item_code_display_both' => 'Both',
+    'view_settings_saved' => 'View settings saved.',
 ];

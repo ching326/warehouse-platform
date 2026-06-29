@@ -36,10 +36,9 @@
                     <span>{{ __('skus.default_view_checkbox') }}</span>
                 </label>
             @endif
-            <label class="default-view-toggle">
-                <input type="checkbox" wire:model.live="showTenantItemCode">
-                <span>{{ __('skus.tenant_code_toggle') }}</span>
-            </label>
+            <flux:button type="button" size="sm" variant="outline" wire:click="openViewSettings">
+                {{ __('skus.view_settings') }}
+            </flux:button>
         </div>
 
         <div class="sku-toolbar">
@@ -218,10 +217,7 @@
                             </flux:table.cell>
                             <flux:table.cell class="sku-stock-cell">
                                 @if ($sku->stockItem)
-                                    <strong>{{ $this->stockItemPrimaryCode($sku->stockItem) }}</strong>
-                                    @if ($this->stockItemSecondaryCode($sku->stockItem))
-                                        <small>{{ $this->stockItemSecondaryCode($sku->stockItem) }}</small>
-                                    @endif
+                                    <strong>{{ $this->stockItemDisplayCode($sku->stockItem) }}</strong>
                                     <span>{{ $sku->stockItem->name }}</span>
                                     <small>{{ $sku->stockItem->barcode ?? __('skus.no_barcode') }}</small>
                                 @elseif ($sku->sku_type === 'virtual_bundle')
@@ -320,10 +316,7 @@
                             </flux:table.cell>
                             <flux:table.cell class="sku-stock-cell">
                                 @if ($sku->stockItem)
-                                    <strong>{{ $this->stockItemPrimaryCode($sku->stockItem) }}</strong>
-                                    @if ($this->stockItemSecondaryCode($sku->stockItem))
-                                        <small>{{ $this->stockItemSecondaryCode($sku->stockItem) }}</small>
-                                    @endif
+                                    <strong>{{ $this->stockItemDisplayCode($sku->stockItem) }}</strong>
                                 @elseif ($sku->sku_type === 'virtual_bundle')
                                     <strong>{{ __('skus.virtual_bundle') }}</strong>
                                     <span title="{{ $this->bundleComposition($sku, 999) }}">{{ $this->bundleComposition($sku) }}</span>
@@ -797,9 +790,66 @@
                 </section>
             </div>
         @endif
+
+        @if ($viewSettingsOpen)
+            <div class="image-panel-backdrop app-modal-backdrop">
+                <section class="image-panel app-modal-panel flux-panel" style="--app-modal-width: 460px;" aria-label="{{ __('skus.view_settings_title') }}">
+                    <div class="image-panel-header">
+                        <div>
+                            <strong>{{ __('skus.view_settings_title') }}</strong>
+                        </div>
+                        <button type="button" class="modal-icon-close" wire:click="closeViewSettings" aria-label="{{ __('skus.btn_cancel') }}">&times;</button>
+                    </div>
+
+                    <form class="view-settings-form" wire:submit="saveViewSettings">
+                        <fieldset class="view-settings-fieldset">
+                            <legend>{{ __('skus.stock_item_code_display') }}</legend>
+                            @foreach ($this->stockItemCodeDisplayOptions() as $value => $label)
+                                <label class="view-settings-option">
+                                    <input type="radio" wire:model="stockItemCodeDisplay" value="{{ $value }}">
+                                    <span>{{ $label }}</span>
+                                </label>
+                            @endforeach
+                        </fieldset>
+
+                        <footer class="tracking-import-footer">
+                            <flux:button type="submit" variant="primary">{{ __('skus.view_settings_save') }}</flux:button>
+                        </footer>
+                    </form>
+                </section>
+            </div>
+        @endif
     </section>
 
     <style>
+        .view-settings-form {
+            display: grid;
+            gap: 18px;
+        }
+
+        .view-settings-fieldset {
+            display: grid;
+            gap: 10px;
+            border: 0;
+            margin: 0;
+            padding: 0;
+        }
+
+        .view-settings-fieldset legend {
+            margin-bottom: 4px;
+            color: var(--ink);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .view-settings-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--ink);
+            font-size: 14px;
+        }
+
         .alias-form {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));

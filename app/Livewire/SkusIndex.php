@@ -69,7 +69,9 @@ class SkusIndex extends Component
 
     public bool $currentViewIsDefault = false;
 
-    public bool $showTenantItemCode = false;
+    public bool $viewSettingsOpen = false;
+
+    public string $stockItemCodeDisplay = self::STOCK_ITEM_CODE_DISPLAY_SYSTEM;
 
     public ?int $managingStockItemId = null;
 
@@ -109,6 +111,18 @@ class SkusIndex extends Component
 
     private const PER_PAGE_OPTIONS = [15, 30, 50, 100];
 
+    private const STOCK_ITEM_CODE_DISPLAY_SYSTEM = 'system';
+
+    private const STOCK_ITEM_CODE_DISPLAY_TENANT = 'tenant';
+
+    private const STOCK_ITEM_CODE_DISPLAY_BOTH = 'both';
+
+    private const STOCK_ITEM_CODE_DISPLAY_OPTIONS = [
+        self::STOCK_ITEM_CODE_DISPLAY_SYSTEM,
+        self::STOCK_ITEM_CODE_DISPLAY_TENANT,
+        self::STOCK_ITEM_CODE_DISPLAY_BOTH,
+    ];
+
     private const STOCK_IMAGE_TYPE = 'product';
 
     private const MAX_STOCK_IMAGE_SIDE = 2000;
@@ -124,7 +138,9 @@ class SkusIndex extends Component
             default => self::VIEW_DETAILED,
         };
 
-        $this->showTenantItemCode = (bool) Auth::user()?->preference('show_tenant_item_code', false);
+        $this->stockItemCodeDisplay = $this->normalizeStockItemCodeDisplay(
+            Auth::user()?->preference('stock_item_code_display', self::STOCK_ITEM_CODE_DISPLAY_SYSTEM),
+        );
         $this->syncCurrentViewIsDefault();
     }
 
@@ -205,16 +221,35 @@ class SkusIndex extends Component
         $this->flashStatus(__('skus.default_view_cleared'));
     }
 
-    public function updatedShowTenantItemCode(bool $checked): void
+    public function openViewSettings(): void
     {
+        $this->stockItemCodeDisplay = $this->normalizeStockItemCodeDisplay($this->stockItemCodeDisplay);
+        $this->viewSettingsOpen = true;
+    }
+
+    public function closeViewSettings(): void
+    {
+        $this->viewSettingsOpen = false;
+    }
+
+    public function saveViewSettings(): void
+    {
+        $data = validator([
+            'stock_item_code_display' => $this->stockItemCodeDisplay,
+        ], [
+            'stock_item_code_display' => ['required', Rule::in(self::STOCK_ITEM_CODE_DISPLAY_OPTIONS)],
+        ])->validate();
+
+        $this->stockItemCodeDisplay = $data['stock_item_code_display'];
+
         $user = Auth::user();
 
-        if (! $user) {
-            return;
+        if ($user) {
+            $user->setPreference('stock_item_code_display', $this->stockItemCodeDisplay);
+            $this->flashStatus(__('skus.view_settings_saved'));
         }
 
-        $user->setPreference('show_tenant_item_code', $checked);
-        $this->flashStatus(__('skus.tenant_code_preference_saved'));
+        $this->viewSettingsOpen = false;
     }
 
     public function saveLogisticsField(int $skuId, string $field): void
@@ -1256,14 +1291,18 @@ class SkusIndex extends Component
             ->when($this->visibleTenantIds() !== null, fn ($query) => $query->whereIn('tenant_id', $this->visibleTenantIds()));
     }
 
-    public function stockItemPrimaryCode(StockItem $stockItem): string
+    public function stockItemDisplayCode(StockItem $stockItem): string
     {
-        return $stockItem->preferredDisplayCode($this->showTenantItemCode);
+        return $stockItem->displayCode($this->stockItemCodeDisplay);
     }
 
-    public function stockItemSecondaryCode(StockItem $stockItem): ?string
+    public function stockItemCodeDisplayOptions(): array
     {
-        return $stockItem->secondaryDisplayCode($this->showTenantItemCode);
+        return [
+            self::STOCK_ITEM_CODE_DISPLAY_SYSTEM => __('skus.stock_item_code_display_system'),
+            self::STOCK_ITEM_CODE_DISPLAY_TENANT => __('skus.stock_item_code_display_tenant'),
+            self::STOCK_ITEM_CODE_DISPLAY_BOTH => __('skus.stock_item_code_display_both'),
+        ];
     }
 
     private function tenantOptions(): Collection
@@ -1507,6 +1546,13 @@ class SkusIndex extends Component
     private function syncCurrentViewIsDefault(): void
     {
         $this->currentViewIsDefault = Auth::user()?->preference('skus_view') === $this->view;
+    }
+
+    private function normalizeStockItemCodeDisplay(mixed $value): string
+    {
+        return is_string($value) && in_array($value, self::STOCK_ITEM_CODE_DISPLAY_OPTIONS, true)
+            ? $value
+            : self::STOCK_ITEM_CODE_DISPLAY_SYSTEM;
     }
 
     private function isAllowedView(string $view): bool

@@ -123,6 +123,18 @@ class StockItem extends Model
         return null;
     }
 
+    public function displayCode(string $mode = 'system'): string
+    {
+        $tenantCode = trim((string) $this->tenant_item_code);
+        $systemCode = (string) $this->code;
+
+        return match ($mode) {
+            'tenant' => $tenantCode !== '' ? $tenantCode : $systemCode,
+            'both' => $tenantCode !== '' ? $tenantCode.' / '.$systemCode : $systemCode,
+            default => $systemCode,
+        };
+    }
+
     public function skus(): HasMany
     {
         return $this->hasMany(Sku::class);

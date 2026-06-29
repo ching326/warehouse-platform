@@ -2219,32 +2219,96 @@ class SkuManagementTest extends TestCase
         $this->assertSame($linkedStockItem->id, $sku->stock_item_id);
     }
 
-    public function test_sku_index_tenant_code_preference_controls_stock_item_display_and_search(): void
+    public function test_sku_index_stock_item_code_display_defaults_to_system_code(): void
     {
-        $tenant = Tenant::factory()->create(['code' => 'DSP']);
+        $sku = $this->skuWithTenantItemCode();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->assertSet('stockItemCodeDisplay', 'system')
+            ->assertSee('DSP-000001')
+            ->assertDontSee('TENANT-DISPLAY-001');
+
+        $this->assertSame('SKU-DISPLAY', $sku->sku);
+    }
+
+    public function test_sku_index_stock_item_code_display_can_use_tenant_code(): void
+    {
+        $this->skuWithTenantItemCode();
+        $user = $this->internalUser();
+        $user->setPreference('stock_item_code_display', 'tenant');
+
+        Livewire::actingAs($user)
+            ->test(SkusIndex::class)
+            ->assertSet('stockItemCodeDisplay', 'tenant')
+            ->assertSee('TENANT-DISPLAY-001')
+            ->assertDontSee('DSP-000001');
+    }
+
+    public function test_sku_index_stock_item_code_display_can_show_both_codes(): void
+    {
+        $this->skuWithTenantItemCode();
+        $user = $this->internalUser();
+        $user->setPreference('stock_item_code_display', 'both');
+
+        Livewire::actingAs($user)
+            ->test(SkusIndex::class)
+            ->assertSee('TENANT-DISPLAY-001 / DSP-000001');
+    }
+
+    public function test_sku_index_stock_item_code_display_falls_back_when_tenant_code_is_blank(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'FBK']);
         $shop = Shop::factory()->for($tenant)->create();
         $stockItem = StockItem::factory()->for($tenant)->create([
-            'code' => 'DSP-000001',
-            'tenant_item_code' => 'TENANT-DISPLAY-001',
-            'name' => 'Display Stock',
+            'code' => 'FBK-000001',
+            'tenant_item_code' => null,
         ]);
-        $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create(['sku' => 'SKU-DISPLAY']);
+        Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create(['sku' => 'SKU-FALLBACK']);
+        $user = $this->internalUser();
+        $user->setPreference('stock_item_code_display', 'tenant');
+
+        Livewire::actingAs($user)
+            ->test(SkusIndex::class)
+            ->assertSee('FBK-000001');
+    }
+
+    public function test_sku_index_view_settings_save_persists_stock_item_code_display_preference(): void
+    {
+        $this->skuWithTenantItemCode();
         $user = $this->internalUser();
 
         Livewire::actingAs($user)
             ->test(SkusIndex::class)
-            ->assertSet('showTenantItemCode', false)
-            ->assertSee('DSP-000001')
-            ->assertDontSee('TENANT-DISPLAY-001')
-            ->set('showTenantItemCode', true)
-            ->assertSee('TENANT-DISPLAY-001')
-            ->assertSee('DSP-000001');
+            ->call('openViewSettings')
+            ->assertSet('viewSettingsOpen', true)
+            ->set('stockItemCodeDisplay', 'both')
+            ->call('saveViewSettings')
+            ->assertSet('viewSettingsOpen', false)
+            ->assertSee('TENANT-DISPLAY-001 / DSP-000001');
 
-        $this->assertTrue((bool) $user->refresh()->preference('show_tenant_item_code'));
+        $this->assertSame('both', $user->refresh()->preference('stock_item_code_display'));
+    }
+
+    public function test_sku_index_invalid_stock_item_code_display_preference_falls_back_to_system(): void
+    {
+        $this->skuWithTenantItemCode();
+        $user = $this->internalUser();
+        $user->setPreference('stock_item_code_display', 'barcode');
 
         Livewire::actingAs($user)
             ->test(SkusIndex::class)
-            ->assertSet('showTenantItemCode', true)
+            ->assertSet('stockItemCodeDisplay', 'system')
+            ->assertSee('DSP-000001')
+            ->assertDontSee('TENANT-DISPLAY-001');
+    }
+
+    public function test_sku_index_search_still_matches_tenant_item_code(): void
+    {
+        $sku = $this->skuWithTenantItemCode();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
             ->set('search', 'TENANT-DISPLAY-001')
             ->assertSee($sku->sku);
     }
@@ -2261,7 +2325,7 @@ class SkuManagementTest extends TestCase
         $sku = Sku::factory()->for($tenant)->for($stockItem)->create(['sku' => 'SKU-RESOLVE']);
         $user = $this->internalUser();
 
-        $user->setPreference('show_tenant_item_code', true);
+        $user->setPreference('stock_item_code_display', 'both');
         $resolver = app(FulfillmentItemCodeResolver::class);
 
         $this->assertSame('SKU-RESOLVE', $resolver->resolve($tenant, $sku, $stockItem));
@@ -2274,6 +2338,19 @@ class SkuManagementTest extends TestCase
 
         $tenant->update(['fulfillment_item_code_source' => Tenant::FULFILLMENT_ITEM_CODE_SOURCE_STOCK_ITEM_CODE]);
         $this->assertSame('SYS-RESOLVE', $resolver->resolve($tenant->refresh(), $sku, $stockItem));
+    }
+
+    private function skuWithTenantItemCode(): Sku
+    {
+        $tenant = Tenant::factory()->create(['code' => 'DSP']);
+        $shop = Shop::factory()->for($tenant)->create();
+        $stockItem = StockItem::factory()->for($tenant)->create([
+            'code' => 'DSP-000001',
+            'tenant_item_code' => 'TENANT-DISPLAY-001',
+            'name' => 'Display Stock',
+        ]);
+
+        return Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create(['sku' => 'SKU-DISPLAY']);
     }
 
     private function internalUser(): User
