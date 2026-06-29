@@ -8,6 +8,7 @@ use App\Livewire\OutboundOrderIndex;
 use App\Livewire\OutboundOrderShip;
 use App\Models\Carrier;
 use App\Models\CourierExportBatch;
+use App\Models\FbaWarehouse;
 use App\Models\InventoryBalance;
 use App\Models\InventoryMovement;
 use App\Models\OutboundOrder;
@@ -130,6 +131,53 @@ class OutboundOrderTest extends TestCase
         $this->assertSame(5, $reserveMovement->reserved_delta);
     }
 
+    public function test_create_draft_warns_without_creating_order(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(20);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('reason', OutboundOrder::REASON_SAMPLE)
+            ->set('lines.0.sku_id', (string) $sku->id)
+            ->set('lines.0.qty', '5')
+            ->call('save')
+            ->assertNoRedirect()
+            ->assertSee(__('outbound.draft_not_submitted_warning'));
+
+        $balance = $this->balance($tenant, $warehouse, $sku->stockItem);
+
+        $this->assertSame(0, OutboundOrder::count());
+        $this->assertSame(0, $balance->reserved_qty);
+        $this->assertSame(20, $balance->available_qty);
+        $this->assertSame(0, InventoryMovement::where('movement_type', InventoryMovement::TYPE_RESERVE)->count());
+    }
+
+    public function test_create_pending_order_does_not_reserve_stock(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(20);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('status', OutboundOrder::STATUS_PENDING)
+            ->set('reason', OutboundOrder::REASON_SAMPLE)
+            ->set('lines.0.sku_id', (string) $sku->id)
+            ->set('lines.0.qty', '5')
+            ->call('save')
+            ->assertRedirect(route('outbound.index'));
+
+        $order = OutboundOrder::firstOrFail();
+        $balance = $this->balance($tenant, $warehouse, $sku->stockItem);
+
+        $this->assertSame(OutboundOrder::STATUS_PENDING, $order->status);
+        $this->assertSame(0, $balance->reserved_qty);
+        $this->assertSame(20, $balance->available_qty);
+        $this->assertSame(0, InventoryMovement::where('movement_type', InventoryMovement::TYPE_RESERVE)->count());
+    }
+
     public function test_create_uses_shipping_method_dropdown_value(): void
     {
         [$tenant, $warehouse, $sku] = $this->skuWithStock(20);
@@ -139,6 +187,7 @@ class OutboundOrderTest extends TestCase
             ->test(OutboundOrderCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
+            ->set('status', OutboundOrder::STATUS_RESERVED)
             ->set('shippingMethodId', (string) $method->id)
             ->set('reason', OutboundOrder::REASON_SAMPLE)
             ->set('lines.0.sku_id', (string) $sku->id)
@@ -157,6 +206,7 @@ class OutboundOrderTest extends TestCase
             ->test(OutboundOrderCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
+            ->set('status', OutboundOrder::STATUS_PENDING)
             ->set('reason', OutboundOrder::REASON_FBA)
             ->set('lines.0.sku_id', (string) $sku->id)
             ->set('lines.0.qty', '1')
@@ -165,6 +215,36 @@ class OutboundOrderTest extends TestCase
 
         $order = OutboundOrder::firstOrFail();
         $this->assertSame(OutboundOrder::REASON_FBA, $order->reason);
+    }
+
+    public function test_create_can_fill_recipient_from_fba_warehouse(): void
+    {
+        $fbaWarehouse = FbaWarehouse::factory()->create([
+            'code' => 'FBA-NRT',
+            'name' => 'Amazon NRT',
+            'phone' => '03-0000-0000',
+            'country_code' => 'JP',
+            'postal_code' => '272-0001',
+            'state' => 'Chiba',
+            'city' => 'Ichikawa',
+            'address_line1' => 'Shiohama 1-1',
+            'address_line2' => 'FC',
+            'status' => FbaWarehouse::STATUS_ACTIVE,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('reason', OutboundOrder::REASON_FBA)
+            ->assertSee('FBA-NRT')
+            ->set('fbaWarehouseId', (string) $fbaWarehouse->id)
+            ->assertSet('recipientName', 'Amazon NRT')
+            ->assertSet('recipientPhone', '03-0000-0000')
+            ->assertSet('recipientCountryCode', 'JP')
+            ->assertSet('recipientPostalCode', '272-0001')
+            ->assertSet('recipientState', 'Chiba')
+            ->assertSet('recipientCity', 'Ichikawa')
+            ->assertSet('recipientAddressLine1', 'Shiohama 1-1')
+            ->assertSet('recipientAddressLine2', 'FC');
     }
 
     public function test_create_shop_filter_scopes_sku_selection(): void
@@ -199,6 +279,7 @@ class OutboundOrderTest extends TestCase
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('shopId', (string) $shopA->id)
+            ->set('status', OutboundOrder::STATUS_PENDING)
             ->set('reason', OutboundOrder::REASON_SAMPLE)
             ->set('lines.0.sku_id', (string) $skuA->id)
             ->set('lines.0.qty', '2')
@@ -310,6 +391,7 @@ class OutboundOrderTest extends TestCase
             ->test(OutboundOrderCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
+            ->set('status', OutboundOrder::STATUS_PENDING)
             ->set('reason', OutboundOrder::REASON_SAMPLE)
             ->set('lines.0.sku_id', (string) $bundleSku->id)
             ->set('lines.0.qty', '1')
@@ -338,12 +420,13 @@ class OutboundOrderTest extends TestCase
             ->test(OutboundOrderCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
+            ->set('reason', OutboundOrder::REASON_SAMPLE)
             ->set('lines', [
                 ['sku_id' => (string) $sku->id, 'qty' => '1', 'note' => ''],
                 ['sku_id' => (string) $sku->id, 'qty' => '2', 'note' => ''],
             ])
             ->call('save')
-            ->assertHasErrors(['lines']);
+            ->assertHasErrors(['lines.1.sku_id']);
     }
 
     public function test_create_rejects_inactive_warehouse(): void
@@ -837,6 +920,7 @@ class OutboundOrderTest extends TestCase
             ->test(OutboundOrderCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
+            ->set('status', OutboundOrder::STATUS_RESERVED)
             ->set('shippingMethodId', (string) $method->id)
             ->set('reason', OutboundOrder::REASON_REPLACEMENT)
             ->set('recipientName', 'Test Recipient')
@@ -1064,12 +1148,14 @@ class OutboundOrderTest extends TestCase
         int $qty,
         string $ref,
         ?User $user = null,
+        string $status = OutboundOrder::STATUS_RESERVED,
     ): Testable {
         return Livewire::actingAs($user ?? $this->internalUser())
             ->test(OutboundOrderCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
             ->set('ref', $ref)
+            ->set('status', $status)
             ->set('reason', OutboundOrder::REASON_SAMPLE)
             ->set('lines.0.sku_id', (string) $sku->id)
             ->set('lines.0.qty', (string) $qty)

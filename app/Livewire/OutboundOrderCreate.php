@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Livewire\Concerns\AutoSelectsSingleActiveWarehouse;
+use App\Models\FbaWarehouse;
 use App\Models\OutboundOrder;
 use App\Models\ShippingMethod;
 use App\Models\Shop;
@@ -58,6 +59,12 @@ class OutboundOrderCreate extends Component
 
     public string $reason = '';
 
+    public string $status = OutboundOrder::STATUS_DRAFT;
+
+    public string $fbaWarehouseId = '';
+
+    public bool $recipientCollapsed = false;
+
     public array $lines = [
         ['sku_id' => '', 'qty' => '', 'note' => ''],
     ];
@@ -107,6 +114,44 @@ class OutboundOrderCreate extends Component
         $this->skuSearches = [''];
     }
 
+    public function updatedReason(): void
+    {
+        if ($this->reason !== OutboundOrder::REASON_FBA) {
+            $this->fbaWarehouseId = '';
+        }
+    }
+
+    public function updatedFbaWarehouseId(): void
+    {
+        if ($this->fbaWarehouseId === '') {
+            return;
+        }
+
+        $warehouse = FbaWarehouse::query()
+            ->where('status', FbaWarehouse::STATUS_ACTIVE)
+            ->find($this->fbaWarehouseId);
+
+        if (! $warehouse) {
+            $this->fbaWarehouseId = '';
+
+            return;
+        }
+
+        $this->recipientName = $warehouse->name;
+        $this->recipientPhone = (string) ($warehouse->phone ?? '');
+        $this->recipientCountryCode = $warehouse->country_code;
+        $this->recipientPostalCode = (string) ($warehouse->postal_code ?? '');
+        $this->recipientState = (string) ($warehouse->state ?? '');
+        $this->recipientCity = (string) ($warehouse->city ?? '');
+        $this->recipientAddressLine1 = (string) ($warehouse->address_line1 ?? '');
+        $this->recipientAddressLine2 = (string) ($warehouse->address_line2 ?? '');
+    }
+
+    public function toggleRecipientCollapsed(): void
+    {
+        $this->recipientCollapsed = ! $this->recipientCollapsed;
+    }
+
     public function updatedSkuSearches(mixed $_value, mixed $key): void
     {
         $index = (int) $key;
@@ -139,12 +184,18 @@ class OutboundOrderCreate extends Component
         $tenantId = $this->validatedTenantId();
         $this->validateInput($tenantId);
 
+        if ($this->status === OutboundOrder::STATUS_DRAFT) {
+            session()->flash('warning', __('outbound.draft_not_submitted_warning'));
+
+            return null;
+        }
+
         DB::transaction(function () use ($tenantId) {
             $order = OutboundOrder::create([
                 'tenant_id' => $tenantId,
                 'warehouse_id' => (int) $this->warehouseId,
                 'ref' => $this->ref !== '' ? $this->nullableString($this->ref) : 'OB-PENDING-'.Str::uuid(),
-                'status' => OutboundOrder::STATUS_RESERVED,
+                'status' => $this->status,
                 'reason' => $this->reason,
                 'note' => $this->nullableString($this->note),
                 'recipient_name' => $this->nullableString($this->recipientName),
@@ -174,7 +225,7 @@ class OutboundOrderCreate extends Component
                 $lineNote = $this->nullableString($lineInput['note'] ?? '');
 
                 if ($sku->sku_type === 'virtual_bundle') {
-                    $this->createVirtualBundleLines($order, $sku, $tenantId, $userQty, $lineNote, $index);
+                    $this->createVirtualBundleLines($order, $sku, $tenantId, $userQty, $lineNote, $index, $this->status === OutboundOrder::STATUS_RESERVED);
 
                     continue;
                 }
@@ -185,7 +236,9 @@ class OutboundOrderCreate extends Component
                     ]);
                 }
 
-                $this->reserveLine($tenantId, (int) $this->warehouseId, $sku->stock_item_id, $userQty, $order->id, $index);
+                if ($this->status === OutboundOrder::STATUS_RESERVED) {
+                    $this->reserveLine($tenantId, (int) $this->warehouseId, $sku->stock_item_id, $userQty, $order->id, $index);
+                }
 
                 $order->lines()->create([
                     'tenant_id' => $tenantId,
@@ -208,7 +261,9 @@ class OutboundOrderCreate extends Component
             'tenants' => $this->tenantOptions(),
             'shops' => $this->shopOptions(),
             'warehouses' => $this->warehouseOptions(),
+            'fbaWarehouses' => $this->fbaWarehouseOptions(),
             'shippingMethods' => $this->shippingMethodOptions(),
+            'statusOptions' => $this->statusOptions(),
             'skuOptionsByLine' => $this->skuOptionsByLine(),
             'showTenantSelect' => $this->isInternalUser(),
             'currentTenant' => $this->currentTenant(),
@@ -240,7 +295,7 @@ class OutboundOrderCreate extends Component
         $this->recipientAddressLine1 = $address['address_line1'];
     }
 
-    private function createVirtualBundleLines(OutboundOrder $order, Sku $sku, int $tenantId, int $userQty, ?string $lineNote, int $index): void
+    private function createVirtualBundleLines(OutboundOrder $order, Sku $sku, int $tenantId, int $userQty, ?string $lineNote, int $index, bool $reserveStock): void
     {
         $components = $sku->bundleComponents;
 
@@ -280,7 +335,9 @@ class OutboundOrderCreate extends Component
 
         foreach ($components as $component) {
             $componentQty = $userQty * $component->quantity;
-            $this->reserveLine($tenantId, (int) $this->warehouseId, $component->component_stock_item_id, $componentQty, $order->id, $index);
+            if ($reserveStock) {
+                $this->reserveLine($tenantId, (int) $this->warehouseId, $component->component_stock_item_id, $componentQty, $order->id, $index);
+            }
 
             $order->lines()->create([
                 'parent_line_id' => $parentLine->id,
@@ -321,7 +378,7 @@ class OutboundOrderCreate extends Component
             $skuExistsRule->where('shop_id', (int) $this->shopId);
         }
 
-        validator($this->formData(), [
+        $validator = validator($this->formData(), [
             'tenant_id' => ['required', 'integer'],
             'warehouse_id' => ['required', 'integer', Rule::exists('warehouses', 'id')->where('status', 'active')],
             'shop_id' => ['nullable', 'integer', Rule::exists('shops', 'id')->where('tenant_id', $tenantId)],
@@ -336,23 +393,35 @@ class OutboundOrderCreate extends Component
             'recipient_address_line1' => ['nullable', 'string', 'max:255'],
             'recipient_address_line2' => ['nullable', 'string', 'max:255'],
             'shipping_method_id' => ['nullable', Rule::exists('shipping_methods', 'id')->where('status', 'active')],
+            'status' => ['required', Rule::in(array_keys($this->statusOptions()))],
             'reason' => ['required', Rule::in($this->manualReasons())],
-            'lines' => [
-                'required',
-                'array',
-                'min:1',
-                function ($attribute, $value, $fail) {
-                    $ids = collect($value)->pluck('sku_id')->filter()->values();
-
-                    if ($ids->count() !== $ids->unique()->count()) {
-                        $fail(__('outbound.duplicate_skus'));
-                    }
-                },
-            ],
+            'lines' => ['required', 'array', 'min:1'],
             'lines.*.sku_id' => ['required', 'integer', $skuExistsRule],
             'lines.*.qty' => ['required', 'integer', 'min:1'],
             'lines.*.note' => ['nullable', 'string', 'max:500'],
-        ])->validate();
+        ]);
+
+        $validator->after(function ($validator): void {
+            $seen = [];
+
+            foreach ($this->lines as $index => $line) {
+                $skuId = (string) ($line['sku_id'] ?? '');
+
+                if ($skuId === '') {
+                    continue;
+                }
+
+                if (isset($seen[$skuId])) {
+                    $validator->errors()->add("lines.{$index}.sku_id", __('outbound.duplicate_skus'));
+
+                    continue;
+                }
+
+                $seen[$skuId] = true;
+            }
+        });
+
+        $validator->validate();
     }
 
     private function formData(): array
@@ -372,8 +441,18 @@ class OutboundOrderCreate extends Component
             'recipient_address_line1' => $this->recipientAddressLine1,
             'recipient_address_line2' => $this->recipientAddressLine2,
             'shipping_method_id' => $this->shippingMethodId,
+            'status' => $this->status,
             'reason' => $this->reason,
             'lines' => $this->lines,
+        ];
+    }
+
+    private function statusOptions(): array
+    {
+        return [
+            OutboundOrder::STATUS_DRAFT => __('outbound.status_draft'),
+            OutboundOrder::STATUS_PENDING => __('outbound.status_pending'),
+            OutboundOrder::STATUS_RESERVED => __('outbound.status_reserved'),
         ];
     }
 
@@ -413,6 +492,15 @@ class OutboundOrderCreate extends Component
             ->with('carrier:id,code,name')
             ->ordered()
             ->get(['shipping_methods.id', 'shipping_methods.carrier_id', 'shipping_methods.code', 'shipping_methods.name']);
+    }
+
+    private function fbaWarehouseOptions(): Collection
+    {
+        return FbaWarehouse::query()
+            ->where('status', FbaWarehouse::STATUS_ACTIVE)
+            ->orderBy('country_code')
+            ->orderBy('code')
+            ->get(['id', 'country_code', 'code', 'name', 'postal_code', 'state', 'city']);
     }
 
     private function skuOptionsByLine(): array

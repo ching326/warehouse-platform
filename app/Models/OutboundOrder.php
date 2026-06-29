@@ -26,6 +26,10 @@ class OutboundOrder extends Model
         return 'OB-'.$tenantCode.'-'.$date->format('ymd').'-'.str_pad((string) $id, 4, '0', STR_PAD_LEFT);
     }
 
+    public const STATUS_DRAFT = 'draft';
+
+    public const STATUS_PENDING = 'pending';
+
     public const STATUS_RESERVED = 'reserved';
 
     public const STATUS_SHIPPED = 'shipped';
@@ -112,6 +116,8 @@ class OutboundOrder extends Model
     public static function statusColorFor(string $status): string
     {
         return match ($status) {
+            self::STATUS_DRAFT => 'zinc',
+            self::STATUS_PENDING => 'blue',
             self::STATUS_RESERVED => 'blue',
             self::STATUS_SHIPPED => 'green',
             self::STATUS_CANCELLED => 'red',

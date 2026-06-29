@@ -339,6 +339,8 @@ class OutboundOrderDetail extends Component
     public function statusLabel(string $status): string
     {
         return match ($status) {
+            OutboundOrder::STATUS_DRAFT => __('outbound.status_draft'),
+            OutboundOrder::STATUS_PENDING => __('outbound.status_pending'),
             OutboundOrder::STATUS_RESERVED => __('outbound.status_reserved'),
             OutboundOrder::STATUS_SHIPPED => __('outbound.status_shipped'),
             OutboundOrder::STATUS_CANCELLED => __('outbound.status_cancelled'),

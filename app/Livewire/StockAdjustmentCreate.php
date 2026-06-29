@@ -75,15 +75,7 @@ class StockAdjustmentCreate extends Component
             $this->tenantId = (string) ($this->activeTenantIds()[0] ?? '');
         }
 
-        if ($this->warehouseId === '') {
-            $savedWarehouseId = Auth::user()?->preference(self::PREF_DEFAULT_WAREHOUSE_ID);
-
-            if ($this->validActiveWarehouseId($savedWarehouseId)) {
-                $this->warehouseId = (string) $savedWarehouseId;
-            }
-        }
-
-        $this->autoSelectSingleActiveWarehouse();
+        $this->selectPreferredWarehouse();
         $this->syncCurrentWarehouseIsDefault();
     }
 
@@ -92,6 +84,8 @@ class StockAdjustmentCreate extends Component
         $this->warehouseId = '';
         $this->stockItemId = '';
         $this->stockItemSearch = '';
+        $this->selectPreferredWarehouse();
+        $this->syncCurrentWarehouseIsDefault();
     }
 
     public function updatedWarehouseId(): void
@@ -264,6 +258,23 @@ class StockAdjustmentCreate extends Component
             ->whereKey((int) $warehouseId)
             ->where('status', 'active')
             ->exists();
+    }
+
+    private function selectPreferredWarehouse(): void
+    {
+        if ($this->warehouseId !== '') {
+            return;
+        }
+
+        $savedWarehouseId = Auth::user()?->preference(self::PREF_DEFAULT_WAREHOUSE_ID);
+
+        if ($this->validActiveWarehouseId($savedWarehouseId)) {
+            $this->warehouseId = (string) $savedWarehouseId;
+
+            return;
+        }
+
+        $this->autoSelectSingleActiveWarehouse();
     }
 
     private function syncCurrentWarehouseIsDefault(): void

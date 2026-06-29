@@ -135,6 +135,32 @@ class StockAdjustmentCreateTest extends TestCase
             ->assertSet('currentWarehouseIsDefault', false);
     }
 
+    public function test_changing_tenant_reselects_saved_stock_adjustment_default_warehouse(): void
+    {
+        $user = $this->internalUser();
+        $tenant = Tenant::factory()->create();
+        $defaultWarehouse = Warehouse::factory()->create(['status' => 'active']);
+        Warehouse::factory()->create(['status' => 'active']);
+        $user->setPreference('stock_adjustment_default_warehouse_id', (string) $defaultWarehouse->id);
+
+        Livewire::actingAs($user)
+            ->test(StockAdjustmentCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->assertSet('warehouseId', (string) $defaultWarehouse->id)
+            ->assertSet('currentWarehouseIsDefault', true);
+    }
+
+    public function test_changing_tenant_reselects_only_active_warehouse(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $warehouse = Warehouse::factory()->create(['status' => 'active']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(StockAdjustmentCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->assertSet('warehouseId', (string) $warehouse->id);
+    }
+
     public function test_negative_adjustment_cannot_make_inventory_negative(): void
     {
         [$tenant, $warehouse, $stockItem] = $this->targetModels();
