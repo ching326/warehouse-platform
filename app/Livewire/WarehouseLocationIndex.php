@@ -108,8 +108,12 @@ class WarehouseLocationIndex extends Component
         ]);
     }
 
-    public function zoneTypeLabel(string $type): string
+    public function zoneTypeLabel(?string $type): string
     {
+        if ($type === null || $type === '') {
+            return '-';
+        }
+
         return $this->zoneTypes()[$type] ?? str($type)->replace('_', ' ')->title()->toString();
     }
 

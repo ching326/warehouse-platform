@@ -159,6 +159,13 @@ class WarehouseLocationTest extends TestCase
             ->assertSee('Create Location');
     }
 
+    public function test_location_index_handles_missing_zone_type_from_legacy_data(): void
+    {
+        $component = new WarehouseLocationIndex;
+
+        $this->assertSame('-', $component->zoneTypeLabel(null));
+    }
+
     public function test_warehouse_filter_shows_only_matching_warehouse(): void
     {
         $warehouseA = Warehouse::factory()->create(['code' => 'WH-LOC-A', 'name' => 'Alpha Warehouse']);
