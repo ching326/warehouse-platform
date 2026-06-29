@@ -102,9 +102,17 @@
                 <div class="template-list">
                     @foreach ($savedTemplates as $template)
                         <div class="template-row">
-                            <span class="template-name">{{ $template->name }}</span>
+                            <span class="template-name">
+                                {{ $template->name }}
+                                @if ($template->is_default)
+                                    <flux:badge color="blue">{{ __('sku_import.template_default_badge') }}</flux:badge>
+                                @endif
+                            </span>
                             <div class="template-actions">
                                 <flux:button size="sm" wire:click="loadTemplate({{ $template->id }})">{{ __('sku_import.map_btn_load') }}</flux:button>
+                                @unless ($template->is_default)
+                                    <flux:button size="sm" variant="outline" wire:click="setDefaultTemplate({{ $template->id }})">{{ __('sku_import.map_btn_set_default') }}</flux:button>
+                                @endunless
                                 <flux:button size="sm" variant="danger" wire:click="deleteTemplate({{ $template->id }})" wire:confirm="{{ __('sku_import.map_btn_delete') }}?">{{ __('sku_import.map_btn_delete') }}</flux:button>
                             </div>
                         </div>
@@ -268,6 +276,9 @@
             </div>
             @if ($doSaveTemplate)
                 <flux:input wire:model="saveTemplateName" :label="__('sku_import.option_template_name')" :placeholder="__('sku_import.option_template_name')" />
+                <div class="checkbox-stack">
+                    <label><input type="checkbox" wire:model.live="saveTemplateAsDefault"> {{ __('sku_import.option_save_template_as_default') }}</label>
+                </div>
             @endif
         </section>
 

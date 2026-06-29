@@ -64,6 +64,8 @@ class SkuImport extends Component
 
     public string $saveTemplateName = '';
 
+    public bool $saveTemplateAsDefault = false;
+
     // Step 4 results
     public int $resultCreated = 0;
 
@@ -131,6 +133,7 @@ class SkuImport extends Component
         $this->sampleRows = array_slice($data['rows'], 0, 5);
         $this->totalDataRows = $data['total'];
         $this->mapping = SkuImportFields::autoGuess($this->fileHeaders);
+        $this->applyDefaultTemplateForTenant($tenantId);
         $this->step = 'map';
     }
 
@@ -167,20 +170,24 @@ class SkuImport extends Component
             return;
         }
 
-        $validHeaders = array_flip($this->fileHeaders);
-        $loaded = [];
+        $this->applyTemplateMapping($template);
+    }
 
-        foreach ((array) ($template->mapping ?? []) as $fieldKey => $header) {
-            $loaded[$fieldKey] = isset($validHeaders[$header]) ? $header : '';
+    public function setDefaultTemplate(int $id): void
+    {
+        $tenantId = $this->validatedTenantId();
+        $template = SkuImportMapping::where('tenant_id', $tenantId)->find($id);
+
+        if ($template === null) {
+            return;
         }
 
-        foreach (SkuImportFields::all() as $field) {
-            if (! array_key_exists($field->key, $loaded)) {
-                $loaded[$field->key] = $this->mapping[$field->key] ?? '';
-            }
-        }
+        DB::transaction(function () use ($tenantId, $template): void {
+            SkuImportMapping::where('tenant_id', $tenantId)->update(['is_default' => false]);
+            $template->update(['is_default' => true]);
+        });
 
-        $this->mapping = $loaded;
+        session()->flash('status', __('sku_import.template_default_saved'));
     }
 
     public function deleteTemplate(int $id): void
@@ -284,12 +291,19 @@ class SkuImport extends Component
                 return;
             }
 
-            SkuImportMapping::create([
-                'tenant_id' => $tenantId,
-                'name' => trim($this->saveTemplateName),
-                'mapping' => $this->mapping,
-                'created_by_user_id' => Auth::id(),
-            ]);
+            DB::transaction(function () use ($tenantId): void {
+                if ($this->saveTemplateAsDefault) {
+                    SkuImportMapping::where('tenant_id', $tenantId)->update(['is_default' => false]);
+                }
+
+                SkuImportMapping::create([
+                    'tenant_id' => $tenantId,
+                    'name' => trim($this->saveTemplateName),
+                    'mapping' => $this->mapping,
+                    'is_default' => $this->saveTemplateAsDefault,
+                    'created_by_user_id' => Auth::id(),
+                ]);
+            });
         }
 
         $data = $this->readStoredImportFile();
@@ -385,7 +399,7 @@ class SkuImport extends Component
         $this->reset([
             'file', 'fileHeaders', 'sampleRows', 'totalDataRows', 'filePath',
             'mapping', 'validRowCount', 'existsRowCount', 'errorRowCount', 'previewRows',
-            'defaultBarcodeType', 'allowUpsert', 'doSaveTemplate', 'saveTemplateName',
+            'defaultBarcodeType', 'allowUpsert', 'doSaveTemplate', 'saveTemplateName', 'saveTemplateAsDefault',
             'resultCreated', 'resultUpdated', 'resultSkipped', 'resultFailed', 'errorRows',
         ]);
         $this->step = 'upload';
@@ -696,8 +710,42 @@ class SkuImport extends Component
         }
 
         return SkuImportMapping::where('tenant_id', $tenantId)
+            ->orderByDesc('is_default')
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'is_default']);
+    }
+
+    private function applyDefaultTemplateForTenant(int $tenantId): void
+    {
+        $template = SkuImportMapping::query()
+            ->where('tenant_id', $tenantId)
+            ->where('is_default', true)
+            ->first(['id', 'mapping']);
+
+        if (! $template) {
+            return;
+        }
+
+        $this->applyTemplateMapping($template);
+        session()->flash('status', __('sku_import.template_default_loaded'));
+    }
+
+    private function applyTemplateMapping(SkuImportMapping $template): void
+    {
+        $validHeaders = array_flip($this->fileHeaders);
+        $loaded = [];
+
+        foreach ((array) ($template->mapping ?? []) as $fieldKey => $header) {
+            $loaded[$fieldKey] = isset($validHeaders[$header]) ? $header : '';
+        }
+
+        foreach (SkuImportFields::all() as $field) {
+            if (! array_key_exists($field->key, $loaded)) {
+                $loaded[$field->key] = $this->mapping[$field->key] ?? '';
+            }
+        }
+
+        $this->mapping = $loaded;
     }
 
     private function tenantOptions(): Collection

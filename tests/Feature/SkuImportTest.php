@@ -739,6 +739,30 @@ class SkuImportTest extends TestCase
         ]);
     }
 
+    public function test_saved_template_can_be_created_as_default(): void
+    {
+        [$tenant] = $this->tenantWithShop(['code' => 'TDF']);
+        $csv = "sku,name,brand\nTDF001,Product,Acme\n";
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', $csv))
+            ->call('readFile')
+            ->call('advanceToPreview')
+            ->set('doSaveTemplate', true)
+            ->set('saveTemplateName', 'Default Template')
+            ->set('saveTemplateAsDefault', true)
+            ->call('confirmImport')
+            ->assertSet('step', 'result');
+
+        $this->assertDatabaseHas('sku_import_mappings', [
+            'tenant_id' => $tenant->id,
+            'name' => 'Default Template',
+            'is_default' => true,
+        ]);
+    }
+
     public function test_saved_template_can_be_loaded_on_map_step(): void
     {
         [$tenant] = $this->tenantWithShop(['code' => 'TLD']);
@@ -759,6 +783,53 @@ class SkuImportTest extends TestCase
             ->call('loadTemplate', $template->id)
             ->assertSet('mapping.sku', 'product_code')
             ->assertSet('mapping.name', 'title');
+    }
+
+    public function test_default_template_loads_after_file_headers_are_read(): void
+    {
+        [$tenant] = $this->tenantWithShop(['code' => 'TAL']);
+        SkuImportMapping::create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Default layout',
+            'mapping' => ['sku' => 'merchant_code', 'name' => 'item_title'],
+            'is_default' => true,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', "merchant_code,item_title\nX001,Prod\n"))
+            ->call('readFile')
+            ->assertSet('step', 'map')
+            ->assertSet('mapping.sku', 'merchant_code')
+            ->assertSet('mapping.name', 'item_title')
+            ->assertSee(__('sku_import.template_default_loaded'));
+    }
+
+    public function test_set_default_template_unsets_previous_default(): void
+    {
+        [$tenant] = $this->tenantWithShop(['code' => 'TSD']);
+        $oldDefault = SkuImportMapping::create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Old default',
+            'mapping' => ['sku' => 'sku'],
+            'is_default' => true,
+        ]);
+        $newDefault = SkuImportMapping::create([
+            'tenant_id' => $tenant->id,
+            'name' => 'New default',
+            'mapping' => ['sku' => 'product_code'],
+            'is_default' => false,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->call('setDefaultTemplate', $newDefault->id)
+            ->assertSee(__('sku_import.template_default_saved'));
+
+        $this->assertFalse($oldDefault->refresh()->is_default);
+        $this->assertTrue($newDefault->refresh()->is_default);
     }
 
     public function test_saved_template_name_duplicate_shows_error(): void
@@ -852,6 +923,28 @@ class SkuImportTest extends TestCase
             'id' => $template->id,
             'tenant_id' => $tenantA->id,
         ]);
+    }
+
+    public function test_tenant_user_cannot_set_another_tenants_template_as_default_by_spoofing_tenant_id(): void
+    {
+        [$tenantA] = $this->tenantUser();
+        [$tenantB, $userB] = $this->tenantUser();
+
+        $template = SkuImportMapping::create([
+            'tenant_id' => $tenantA->id,
+            'name' => 'Tenant A Template',
+            'mapping' => ['sku' => 'product_code'],
+            'is_default' => false,
+        ]);
+
+        Livewire::actingAs($userB)
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenantB->id)
+            ->set('tenantId', (string) $tenantA->id)
+            ->call('setDefaultTemplate', $template->id)
+            ->assertHasErrors(['tenantId']);
+
+        $this->assertFalse($template->refresh()->is_default);
     }
 
     public function test_import_shows_clean_error_when_stored_file_is_missing_before_confirm(): void
