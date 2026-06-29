@@ -716,7 +716,7 @@
             .movement-toolbar.inventory-toolbar .inventory-filter-row {
                 grid-column: 1 / -1;
                 display: grid;
-                grid-template-columns: repeat(5, minmax(0, 1fr));
+                grid-template-columns: repeat(5, minmax(0, 1fr)) max-content;
                 gap: 12px;
                 width: 100%;
             }
@@ -2151,7 +2151,9 @@
                 white-space: nowrap;
             }
 
+            .rows-per-page-select,
             .sku-per-page-select {
+                align-self: end;
                 width: 66px;
                 min-height: 28px;
                 border: 1px solid var(--line);

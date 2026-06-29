@@ -46,6 +46,8 @@ class InventoryMovementsIndex extends Component
 
     public int $perPage = 15;
 
+    private const PER_PAGE_OPTIONS = [15, 30, 50, 100];
+
     private bool $visibleTenantIdsResolved = false;
 
     private ?array $visibleTenantIdsCache = null;
@@ -103,6 +105,12 @@ class InventoryMovementsIndex extends Component
         $this->resetPage();
     }
 
+    public function updatedPerPage(): void
+    {
+        $this->perPage = $this->normalizePerPage($this->perPage);
+        $this->resetPage();
+    }
+
     public function clearFilters(): void
     {
         $this->reset(['search', 'tenantId', 'warehouseId', 'movementType', 'stockItemId', 'stockItemSearch', 'userId', 'dateFrom', 'dateTo']);
@@ -122,6 +130,7 @@ class InventoryMovementsIndex extends Component
             'users' => $this->userOptions(),
             'showTenantColumn' => $this->showTenantColumn(),
             'selectedStockItem' => $this->selectedStockItem(),
+            'perPageOptions' => self::PER_PAGE_OPTIONS,
         ])->layout('inventory', [
             'title' => __('movements.page_title'),
             'subtitle' => __('movements.page_subtitle'),
@@ -371,5 +380,10 @@ class InventoryMovementsIndex extends Component
         }
 
         return $this->visibleTenantIdsCache = $user->activeTenantIds();
+    }
+
+    private function normalizePerPage(int $perPage): int
+    {
+        return in_array($perPage, self::PER_PAGE_OPTIONS, true) ? $perPage : 15;
     }
 }

@@ -63,6 +63,8 @@ class InventoryIndex extends Component
         self::STOCK_ITEM_CODE_DISPLAY_BOTH,
     ];
 
+    private const PER_PAGE_OPTIONS = [10, 15, 30, 50, 100];
+
     public function mount(): void
     {
         $this->stockItemCodeDisplay = $this->stockItemCodeDisplayPreference();
@@ -129,6 +131,12 @@ class InventoryIndex extends Component
         $this->resetPage();
     }
 
+    public function updatedPerPage(): void
+    {
+        $this->perPage = $this->normalizePerPage($this->perPage);
+        $this->resetPage();
+    }
+
     public function render()
     {
         return view('livewire.inventory-index', [
@@ -140,6 +148,7 @@ class InventoryIndex extends Component
             'productTypes' => $this->productTypeOptions(),
             'statuses' => $this->statusOptions(),
             'showTenantColumn' => $this->showTenantColumn(),
+            'perPageOptions' => self::PER_PAGE_OPTIONS,
         ])->layout('inventory', [
             'title' => __('inventory.page_title'),
             'subtitle' => __('inventory.page_subtitle'),
@@ -391,6 +400,11 @@ class InventoryIndex extends Component
         return is_string($value) && in_array($value, self::STOCK_ITEM_CODE_DISPLAY_OPTIONS, true)
             ? $value
             : self::STOCK_ITEM_CODE_DISPLAY_SYSTEM;
+    }
+
+    private function normalizePerPage(int $perPage): int
+    {
+        return in_array($perPage, self::PER_PAGE_OPTIONS, true) ? $perPage : 10;
     }
 
     private function stockItemCodeDisplayPreference(): string

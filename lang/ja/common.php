@@ -48,6 +48,7 @@ return [
     'search' => '検索',
     'clear' => 'クリア',
     'remove' => '削除',
+    'rows_per_page' => '1ページあたりの行数',
     'copy' => 'Copy',
     'copied' => 'Copied',
     'cancel' => 'キャンセル',

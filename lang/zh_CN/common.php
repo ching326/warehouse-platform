@@ -48,6 +48,7 @@ return [
     'search' => '搜索',
     'clear' => '清除',
     'remove' => '移除',
+    'rows_per_page' => '每页行数',
     'copy' => 'Copy',
     'copied' => 'Copied',
     'cancel' => '取消',

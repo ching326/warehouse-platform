@@ -495,11 +495,7 @@
         <div class="sku-pagination-row">
             @if ($skus->total() > 0)
                 <div class="sku-pagination-summary">
-                    <select wire:model.live="perPage" class="sku-per-page-select" aria-label="Rows per page">
-                        @foreach ($perPageOptions as $option)
-                            <option value="{{ $option }}">{{ $option }}</option>
-                        @endforeach
-                    </select>
+                    <x-rows-per-page-select :options="$perPageOptions" />
                     <span>
                         {!! __('Showing') !!} {{ $skus->firstItem() }} {!! __('to') !!} {{ $skus->lastItem() }} {!! __('of') !!} {{ $skus->total() }} {!! __('results') !!}
                     </span>

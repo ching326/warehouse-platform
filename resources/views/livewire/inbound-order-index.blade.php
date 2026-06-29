@@ -39,6 +39,8 @@
                 @endforeach
             </flux:select>
 
+            <x-rows-per-page-select :options="$perPageOptions" />
+
             <flux:button href="{{ route('inbound.create') }}" variant="primary">
                 {{ __('inbound.btn_create') }}
             </flux:button>

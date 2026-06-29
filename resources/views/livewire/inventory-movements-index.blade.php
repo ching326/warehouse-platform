@@ -90,6 +90,8 @@
 
             <flux:input wire:model.live="dateTo" type="date" :label="__('movements.filter_date_to')" />
 
+            <x-rows-per-page-select :options="$perPageOptions" />
+
             <flux:button wire:click="clearFilters" variant="primary">
                 {{ __('common.clear') }}
             </flux:button>

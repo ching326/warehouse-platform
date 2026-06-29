@@ -82,6 +82,8 @@
                         <flux:select.option value="{{ $statusOption }}">{{ $this->statusLabel($statusOption) }}</flux:select.option>
                     @endforeach
                 </flux:select>
+
+                <x-rows-per-page-select :options="$perPageOptions" />
             </div>
         </div>
 

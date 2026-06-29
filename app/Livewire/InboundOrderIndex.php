@@ -27,6 +27,8 @@ class InboundOrderIndex extends Component
 
     public int $perPage = 15;
 
+    private const PER_PAGE_OPTIONS = [15, 30, 50, 100];
+
     private bool $visibleTenantIdsResolved = false;
 
     private ?array $visibleTenantIdsCache = null;
@@ -54,6 +56,12 @@ class InboundOrderIndex extends Component
 
     public function updatedStatus(): void
     {
+        $this->resetPage();
+    }
+
+    public function updatedPerPage(): void
+    {
+        $this->perPage = $this->normalizePerPage($this->perPage);
         $this->resetPage();
     }
 
@@ -88,6 +96,7 @@ class InboundOrderIndex extends Component
                 InboundOrder::STATUS_RECEIVED,
                 InboundOrder::STATUS_CANCELLED,
             ],
+            'perPageOptions' => self::PER_PAGE_OPTIONS,
         ])->layout('inventory', [
             'title' => __('inbound.page_title'),
             'subtitle' => __('inbound.page_subtitle'),
@@ -183,5 +192,10 @@ class InboundOrderIndex extends Component
             ->where('status', 'active')
             ->orderBy('name')
             ->get(['id', 'tenant_id', 'code', 'name']);
+    }
+
+    private function normalizePerPage(int $perPage): int
+    {
+        return in_array($perPage, self::PER_PAGE_OPTIONS, true) ? $perPage : 15;
     }
 }

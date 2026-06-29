@@ -44,6 +44,7 @@ return [
     'search' => 'Search',
     'clear' => 'Clear',
     'remove' => 'Remove',
+    'rows_per_page' => 'Rows per page',
     'copy' => 'Copy',
     'copied' => 'Copied',
     'cancel' => 'Cancel',
