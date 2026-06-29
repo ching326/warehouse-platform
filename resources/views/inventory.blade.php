@@ -2119,6 +2119,12 @@
                 min-width: 0;
             }
 
+            .sku-shipping-stack-cell {
+                display: grid;
+                gap: 6px;
+                min-width: 150px;
+            }
+
             .sku-product-type-cell select.table-control {
                 max-width: 100%;
             }

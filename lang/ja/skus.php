@@ -85,6 +85,7 @@ return [
     'col_product_type' => '商品タイプ',
     'col_platform_ids' => 'プラットフォームID',
     'col_packaging' => '梱包資材',
+    'col_shipping' => '発送',
     'col_shipping_method' => '配送方法',
     'col_seller_sku' => '出品者SKU',
     'col_asin' => 'ASIN',

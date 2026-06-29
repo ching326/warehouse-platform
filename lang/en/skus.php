@@ -85,6 +85,7 @@ return [
     'col_product_type' => 'Product type',
     'col_platform_ids' => 'Platform IDs',
     'col_packaging' => 'Packaging',
+    'col_shipping' => 'Shipping',
     'col_shipping_method' => 'Shipping method',
     'col_seller_sku' => 'Seller SKU',
     'col_asin' => 'ASIN',

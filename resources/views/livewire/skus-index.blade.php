@@ -196,7 +196,7 @@
                     <flux:table.column>{{ __('skus.col_stock_item') }}</flux:table.column>
                     <flux:table.column>{{ __('skus.col_shop') }}</flux:table.column>
                     <flux:table.column>{{ __('skus.col_platform_ids') }}</flux:table.column>
-                    <flux:table.column>{{ __('skus.col_packaging') }}</flux:table.column>
+                    <flux:table.column>{{ __('skus.col_shipping') }}</flux:table.column>
                     <flux:table.column>{{ __('skus.col_actions') }}</flux:table.column>
                 </flux:table.columns>
 
@@ -219,7 +219,9 @@
                             <flux:table.cell class="sku-primary-cell">
                                 <strong>{{ $sku->sku }}</strong>
                                 <span>{{ $sku->name }}</span>
-                                <small>{{ $this->skuTypeLabel($sku->sku_type) }}</small>
+                                @if ($sku->sku_type !== 'single')
+                                    <small>{{ $this->skuTypeLabel($sku->sku_type) }}</small>
+                                @endif
                                 @if ($sku->status === 'inactive')
                                     <flux:badge color="zinc">{{ __('skus.status_inactive') }}</flux:badge>
                                 @endif
@@ -228,7 +230,9 @@
                                 @if ($sku->stockItem)
                                     <strong>{{ $this->stockItemDisplayCode($sku->stockItem) }}</strong>
                                     <span>{{ $sku->stockItem->name }}</span>
-                                    <small>{{ $sku->stockItem->barcode ?? __('skus.no_barcode') }}</small>
+                                    @if ($sku->stockItem->barcode)
+                                        <small>{{ $sku->stockItem->barcode }}</small>
+                                    @endif
                                 @elseif ($sku->sku_type === 'virtual_bundle')
                                     <strong>{{ __('skus.virtual_bundle') }}</strong>
                                     <span title="{{ $this->bundleComposition($sku, 999) }}">{{ $this->bundleComposition($sku) }}</span>
@@ -239,24 +243,45 @@
                             </flux:table.cell>
                             <flux:table.cell class="sku-muted-cell">
                                 @if ($sku->shop)
-                                    <strong>{{ $sku->shop->code }}</strong>
+                                    <strong>{{ $sku->tenant->code }} / {{ $sku->shop->code }}</strong>
                                     <span>{{ $sku->shop->name }}</span>
                                 @else
                                     <span class="muted-dash">{{ __('skus.no_shop') }}</span>
                                 @endif
-                                <small>{{ $sku->tenant->code }} / {{ $sku->tenant->name }}</small>
                             </flux:table.cell>
                             <flux:table.cell class="sku-platform-cell">
                                 <span>{{ $sku->platform_sku ?: '-' }}</span>
                                 <small>{{ $sku->platform_product_id ?: '-' }} / {{ $sku->platform_variant_id ?: '-' }}</small>
                                 <small>{{ $sku->platform_label_code ?: '-' }}</small>
                             </flux:table.cell>
-                            <flux:table.cell class="sku-muted-cell">
-                                @if ($sku->defaultPackagingMaterial)
-                                    <strong>{{ $sku->defaultPackagingMaterial->code }}</strong>
-                                @else
-                                    <span class="muted-dash">-</span>
-                                @endif
+                            <flux:table.cell class="sku-select-cell sku-shipping-stack-cell">
+                                <select wire:model="logisticsDrafts.{{ $sku->id }}.default_packaging_material_id" wire:change="saveLogisticsField({{ $sku->id }}, 'default_packaging_material_id')">
+                                    <option value=""></option>
+                                    @foreach ($packagingMaterials as $material)
+                                        <option value="{{ $material->id }}">{{ $material->code }}</option>
+                                    @endforeach
+                                </select>
+
+                                <select wire:model="logisticsDrafts.{{ $sku->id }}.default_shipping_method_id" wire:change="saveLogisticsField({{ $sku->id }}, 'default_shipping_method_id')">
+                                    <option value=""></option>
+                                    @php
+                                        $currentShippingMethodId = (string) ($sku->default_shipping_method_id ?? '');
+                                    @endphp
+                                    @foreach ($shippingMethods as $method)
+                                        @php
+                                            $isInactiveShippingMethod = $method->status !== 'active';
+                                            $isCurrentShippingMethod = (string) $method->id === $currentShippingMethodId;
+                                        @endphp
+                                        @continue($isInactiveShippingMethod && ! $isCurrentShippingMethod)
+
+                                        <option value="{{ $method->id }}" @disabled($isInactiveShippingMethod && ! $isCurrentShippingMethod)>
+                                            {{ $method->name }}
+                                            @if ($method->status !== 'active')
+                                                ({{ __('skus.inactive_shipping_method') }})
+                                            @endif
+                                        </option>
+                                    @endforeach
+                                </select>
                             </flux:table.cell>
                             <flux:table.cell>
                                 <div class="sku-row-actions">

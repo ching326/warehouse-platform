@@ -85,6 +85,7 @@ return [
     'col_product_type' => '商品类型',
     'col_platform_ids' => '平台 ID',
     'col_packaging' => '包装材料',
+    'col_shipping' => '出货',
     'col_shipping_method' => '配送方式',
     'col_seller_sku' => '卖家 SKU',
     'col_asin' => 'ASIN',
