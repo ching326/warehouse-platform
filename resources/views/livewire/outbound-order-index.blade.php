@@ -113,7 +113,7 @@
                             @elseif ($order->status === \App\Models\OutboundOrder::STATUS_RESERVED)
                                 <div class="outbound-row-actions">
                                     <flux:button class="action-button-md" href="{{ route('outbound.ship', $order) }}" size="sm" variant="primary" wire:navigate>
-                                        {{ __('outbound.btn_ship') }}
+                                        {{ __('outbound.btn_direct_pack') }}
                                     </flux:button>
                                 </div>
                             @else

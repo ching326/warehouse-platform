@@ -70,7 +70,7 @@
             <div class="pack-actions-right">
                 @if ($order->hold_status !== \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
                     <flux:button class="action-button-md" href="{{ route('outbound.ship', $order) }}" size="sm" variant="primary" wire:navigate>
-                        {{ __('outbound.btn_ship') }}
+                        {{ __('outbound.btn_direct_pack') }}
                     </flux:button>
                 @endif
 

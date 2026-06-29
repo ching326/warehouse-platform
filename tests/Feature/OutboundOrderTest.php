@@ -520,7 +520,7 @@ class OutboundOrderTest extends TestCase
             ->assertSee(route('outbound.show', $order), false)
             ->assertSee($order->ref)
             ->assertDontSee('#'.$order->id.' '.$order->ref)
-            ->assertSee(__('outbound.btn_ship'))
+            ->assertSee(__('outbound.btn_direct_pack'))
             ->assertDontSee(__('outbound.btn_cancel_order'));
     }
 
@@ -691,7 +691,7 @@ class OutboundOrderTest extends TestCase
         $this->assertSame(OutboundOrder::STATUS_SHIPPED, $order->refresh()->status);
     }
 
-    public function test_ship_page_is_blocked_for_non_pending_order(): void
+    public function test_direct_pack_page_is_blocked_for_non_reserved_order(): void
     {
         [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
         $this->createOrder($tenant, $warehouse, $sku, qty: 4, ref: 'OB-BLOCKED');
@@ -789,7 +789,7 @@ class OutboundOrderTest extends TestCase
         $this->actingAs($this->internalUser())->get(route('outbound.show', $order))->assertOk()->assertSee('OB-ROUTE');
     }
 
-    public function test_direct_ship_page_shows_order_actions(): void
+    public function test_direct_pack_page_shows_order_actions(): void
     {
         [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
         $this->createOrder($tenant, $warehouse, $sku, qty: 1, ref: 'OB-DIRECT-ACTIONS');
@@ -803,7 +803,7 @@ class OutboundOrderTest extends TestCase
             ->assertSee(__('outbound.hold'));
     }
 
-    public function test_direct_ship_page_allows_release_hold_without_mark_shipped_actions(): void
+    public function test_direct_pack_page_allows_release_hold_without_mark_shipped_actions(): void
     {
         [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
         $this->createOrder($tenant, $warehouse, $sku, qty: 1, ref: 'OB-DIRECT-HOLD');

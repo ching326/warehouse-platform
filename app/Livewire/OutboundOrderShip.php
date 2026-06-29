@@ -176,8 +176,8 @@ class OutboundOrderShip extends Component
             'order' => $order,
             'shippingMethods' => $this->shippingMethodOptions($order),
         ])->layout('inventory', [
-            'title' => __('outbound.ship_page_title'),
-            'subtitle' => __('outbound.ship_page_subtitle'),
+            'title' => __('outbound.direct_pack_page_title'),
+            'subtitle' => __('outbound.direct_pack_page_subtitle'),
         ]);
     }
 
