@@ -959,6 +959,12 @@ class SkuManagementTest extends TestCase
     public function test_empty_state_colspan_matches_current_view(): void
     {
         $this->actingAs($this->internalUser())
+            ->get('/skus?view=detailed')
+            ->assertOk()
+            ->assertSee('colspan="9"', false)
+            ->assertSee(__('skus.col_available_inventory'));
+
+        $this->actingAs($this->internalUser())
             ->get('/skus?view=catalog')
             ->assertOk()
             ->assertSee('colspan="11"', false);
@@ -971,7 +977,8 @@ class SkuManagementTest extends TestCase
         $this->actingAs($this->internalUser())
             ->get('/skus?view=logistics')
             ->assertOk()
-            ->assertSee('colspan="12"', false);
+            ->assertSee('colspan="11"', false)
+            ->assertSee(__('skus.col_weight_short_g'));
     }
 
     public function test_internal_user_can_upload_stock_item_image(): void
@@ -1599,7 +1606,7 @@ class SkuManagementTest extends TestCase
             ->test(SkusIndex::class)
             ->assertSee(__('skus.col_stock_item'))
             ->assertSee(__('skus.col_name'))
-            ->assertSee(__('skus.col_weight_g'))
+            ->assertSee(__('skus.col_weight_short_g'))
             ->assertSee(__('skus.col_length_cm'))
             ->assertSee(__('skus.col_width_cm'))
             ->assertSee(__('skus.col_height_cm'))

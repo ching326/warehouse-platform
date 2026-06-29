@@ -2047,11 +2047,14 @@
             .sku-image-cell,
             .sku-detailed-table th:nth-child(2),
             .sku-detailed-table td:nth-child(2),
-            .sku-logistics-table th:nth-child(2),
-            .sku-logistics-table td:nth-child(2),
             .sku-catalog-table th:nth-child(2),
             .sku-catalog-table td:nth-child(2) {
                 width: 64px;
+            }
+
+            .sku-detailed-table th:nth-child(8),
+            .sku-detailed-table td:nth-child(8) {
+                width: 90px;
             }
 
             .sku-row-actions {
@@ -2085,24 +2088,37 @@
                 width: 26%;
             }
 
+            .sku-logistics-table th:nth-child(6),
+            .sku-logistics-table td:nth-child(6) {
+                width: 76px;
+            }
+
+            .sku-logistics-table th:nth-child(2),
+            .sku-logistics-table td:nth-child(2) {
+                width: 140px;
+            }
+
+            .sku-logistics-table th:nth-child(5),
+            .sku-logistics-table td:nth-child(5) {
+                width: 150px;
+            }
+
             .sku-logistics-table th:nth-child(7),
             .sku-logistics-table th:nth-child(8),
             .sku-logistics-table th:nth-child(9),
-            .sku-logistics-table th:nth-child(10),
             .sku-logistics-table td:nth-child(7),
             .sku-logistics-table td:nth-child(8),
-            .sku-logistics-table td:nth-child(9),
+            .sku-logistics-table td:nth-child(9) {
+                width: 82px;
+            }
+
+            .sku-logistics-table th:nth-child(10),
             .sku-logistics-table td:nth-child(10) {
-                width: 92px;
+                width: 150px;
             }
 
             .sku-logistics-table th:nth-child(11),
             .sku-logistics-table td:nth-child(11) {
-                width: 150px;
-            }
-
-            .sku-logistics-table th:nth-child(12),
-            .sku-logistics-table td:nth-child(12) {
                 width: 170px;
             }
 
@@ -2117,12 +2133,6 @@
             .sku-select-cell select {
                 width: 100%;
                 min-width: 0;
-            }
-
-            .sku-shipping-stack-cell {
-                display: grid;
-                gap: 6px;
-                min-width: 150px;
             }
 
             .sku-product-type-cell select.table-control {
@@ -2741,14 +2751,6 @@
 
             .paste-column-map-select {
                 width: 100%;
-                height: 24px;
-                border: 1px solid var(--line);
-                border-radius: 4px;
-                background: #fff;
-                color: var(--ink);
-                font-size: 11px;
-                font-weight: 700;
-                padding: 2px 4px;
             }
 
             .paste-column-map-select:focus {
@@ -3257,24 +3259,28 @@
                 color: var(--accent);
             }
 
-            .mapping-extra-option {
+            .mapping-inline-option {
                 display: grid;
                 gap: 6px;
-                max-width: 420px;
-                padding: 14px 0 0;
+                max-width: 360px;
+                padding-top: 8px;
             }
 
-            .mapping-extra-option label {
+            .mapping-inline-option label {
                 font-weight: 600;
             }
 
-            .mapping-extra-option select {
+            .mapping-inline-option select {
                 margin: 0;
             }
 
-            .mapping-extra-option span {
+            .mapping-inline-option span {
                 color: var(--muted);
                 font-size: 13px;
+            }
+
+            .required-indicator {
+                color: var(--danger);
             }
 
             .map-sample {
@@ -3588,14 +3594,20 @@
                 box-sizing: border-box;
             }
 
-            .compact-select-control,
-            .so-shipping-cell select.table-control {
+            .data-table select.table-control,
+            .data-table input.table-control,
+            .table-shell table select.table-control,
+            .table-shell table input.table-control {
                 box-sizing: border-box;
                 height: 34px;
                 min-height: 34px;
                 padding: 4px 6px;
                 font-size: 13px;
                 line-height: 1.25;
+            }
+
+            .data-table select.table-control,
+            .table-shell table select.table-control {
                 appearance: none;
                 padding-left: 8px;
                 padding-right: 24px;

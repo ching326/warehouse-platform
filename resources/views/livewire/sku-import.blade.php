@@ -138,7 +138,7 @@
                             <tr @class(['is-mapped' => $mappedField !== ''])>
                                 <td><strong>{{ $header }}</strong></td>
                                 <td>
-                                    <select wire:change="setFieldForColumn({{ $colIdx }}, $event.target.value)">
+                                    <select class="table-control" wire:change="setFieldForColumn({{ $colIdx }}, $event.target.value)">
                                         <option value="">{{ __('sku_import.map_ignore') }}</option>
                                         <optgroup label="{{ __('sku_import.map_group_sku') }}">
                                             @foreach ($fields as $field)
@@ -155,6 +155,19 @@
                                             @endforeach
                                         </optgroup>
                                     </select>
+
+                                    @if ($mappedField === 'barcode' && $needsDefaultBarcodeType)
+                                        <div class="mapping-inline-option">
+                                            <label for="sku-import-default-barcode-type-{{ $colIdx }}">{{ __('sku_import.default_barcode_type') }} <span class="required-indicator">*</span></label>
+                                            <select id="sku-import-default-barcode-type-{{ $colIdx }}" class="table-control" wire:model.live="defaultBarcodeType">
+                                                <option value="">{{ __('sku_import.default_barcode_type_placeholder') }}</option>
+                                                @foreach ($barcodeTypeOptions as $value => $label)
+                                                    <option value="{{ $value }}">{{ $label }}</option>
+                                                @endforeach
+                                            </select>
+                                            <span>{{ __('sku_import.default_barcode_type_hint') }}</span>
+                                        </div>
+                                    @endif
                                 </td>
                                 <td class="map-sample">{{ $sampleValue }}</td>
                             </tr>
@@ -162,19 +175,6 @@
                     </tbody>
                 </table>
             </div>
-
-            @if ($needsDefaultBarcodeType)
-                <div class="mapping-extra-option">
-                    <label for="sku-import-default-barcode-type">{{ __('sku_import.default_barcode_type') }} *</label>
-                    <select id="sku-import-default-barcode-type" wire:model.live="defaultBarcodeType">
-                        <option value="">{{ __('sku_import.default_barcode_type_placeholder') }}</option>
-                        @foreach ($barcodeTypeOptions as $value => $label)
-                            <option value="{{ $value }}">{{ $label }}</option>
-                        @endforeach
-                    </select>
-                    <span>{{ __('sku_import.default_barcode_type_hint') }}</span>
-                </div>
-            @endif
         </section>
 
         {{-- Sample preview --}}

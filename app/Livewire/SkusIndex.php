@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Exceptions\AliasCollisionException;
 use App\Livewire\Concerns\HasEnumLabels;
 use App\Models\BarcodeAlias;
+use App\Models\InventoryBalance;
 use App\Models\MediaAsset;
 use App\Models\PackagingMaterial;
 use App\Models\ProductType;
@@ -951,9 +952,11 @@ class SkusIndex extends Component
         $this->visibleSkuIds = $skus->getCollection()->pluck('id')->map(fn ($id) => (int) $id)->all();
         $this->prepareCatalogDrafts($skus->getCollection());
         $this->prepareLogisticsDrafts($skus->getCollection());
+        $availableInventoryByStockItem = $this->availableInventoryByStockItem($skus->getCollection());
 
         return view('livewire.skus-index', [
             'skus' => $skus,
+            'availableInventoryByStockItem' => $availableInventoryByStockItem,
             'tenants' => $this->tenantOptions(),
             'shops' => $this->shopOptions(),
             'statuses' => $this->statusOptions(),
@@ -1430,9 +1433,34 @@ class SkusIndex extends Component
         return match ($this->view) {
             self::VIEW_CATALOG => 11,
             self::VIEW_MARKETPLACE => 6,
-            self::VIEW_LOGISTICS => 12,
-            default => 8,
+            self::VIEW_LOGISTICS => 11,
+            default => 9,
         };
+    }
+
+    /**
+     * @param  Collection<int, Sku>  $skus
+     * @return array<int, int>
+     */
+    private function availableInventoryByStockItem(Collection $skus): array
+    {
+        $stockItemIds = $skus
+            ->pluck('stock_item_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($stockItemIds->isEmpty()) {
+            return [];
+        }
+
+        return InventoryBalance::query()
+            ->whereIn('stock_item_id', $stockItemIds)
+            ->select('stock_item_id', DB::raw('SUM(available_qty) as available_qty'))
+            ->groupBy('stock_item_id')
+            ->pluck('available_qty', 'stock_item_id')
+            ->mapWithKeys(fn ($quantity, $stockItemId) => [(int) $stockItemId => (int) $quantity])
+            ->all();
     }
 
     private function syncDefaultViewPreference(): void

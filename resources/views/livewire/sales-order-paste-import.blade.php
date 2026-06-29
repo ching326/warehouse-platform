@@ -154,7 +154,7 @@
                         @foreach ($columnLabels as $colIndex => $label)
                             <th>
                                 <select
-                                    class="paste-column-map-select"
+                                    class="table-control paste-column-map-select"
                                     wire:model.live="columnFieldMapping.{{ $colIndex }}"
                                     aria-label="{{ $label }} {{ __('sales_orders.paste_import_column_map_short') }}"
                                 >

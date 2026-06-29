@@ -382,7 +382,7 @@ class SkuImportTest extends TestCase
             ->assertHasErrors(['file']);
     }
 
-    public function test_map_step_requires_sku_and_name_fields(): void
+    public function test_map_step_requires_sku_field_only(): void
     {
         [$tenant] = $this->tenantWithShop(['code' => 'REQ']);
         $component = Livewire::actingAs($this->internalUser())
@@ -392,7 +392,8 @@ class SkuImportTest extends TestCase
             ->call('readFile')
             ->assertSet('step', 'map');
 
-        // mapping has no sku/name columns guessed -> advancing to preview should fail
+        // mapping has no SKU column guessed -> advancing to preview should fail.
+        // Stock item name is optional; blank names are allowed for quick SKU imports.
         $component
             ->set('mapping.sku', '')
             ->set('mapping.name', '')
@@ -412,9 +413,25 @@ class SkuImportTest extends TestCase
             ->call('readFile')
             ->assertSet('step', 'map')
             ->assertSee('Barcode type for imported barcodes')
+            ->assertSee('Choose barcode type')
             ->call('advanceToPreview')
             ->assertSet('step', 'map')
             ->assertSee('Barcode type for imported barcodes');
+    }
+
+    public function test_map_step_allows_import_without_stock_item_name(): void
+    {
+        [$tenant] = $this->tenantWithShop(['code' => 'NONAME']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', "sku\nNONAME-001\n"))
+            ->call('readFile')
+            ->set('mapping.name', '')
+            ->call('advanceToPreview')
+            ->assertSet('step', 'preview')
+            ->assertSet('validRowCount', 1);
     }
 
     public function test_advance_to_preview_validates_all_rows(): void

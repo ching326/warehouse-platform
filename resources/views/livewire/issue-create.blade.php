@@ -140,14 +140,14 @@
                             <flux:table.cell align="end">{{ number_format($line['max_qty']) }}</flux:table.cell>
                             <flux:table.cell align="end"><input type="number" min="1" max="{{ $line['max_qty'] }}" wire:model="salesOrderLines.{{ $index }}.qty"></flux:table.cell>
                             <flux:table.cell>
-                                <select wire:model="salesOrderLines.{{ $index }}.condition">
+                                <select class="table-control" wire:model="salesOrderLines.{{ $index }}.condition">
                                     @foreach ($conditions as $value => $label)
                                         <option value="{{ $value }}">{{ $label }}</option>
                                     @endforeach
                                 </select>
                             </flux:table.cell>
                             <flux:table.cell>
-                                <select wire:model="salesOrderLines.{{ $index }}.action">
+                                <select class="table-control" wire:model="salesOrderLines.{{ $index }}.action">
                                     @foreach ($actions as $value => $label)
                                         <option value="{{ $value }}">{{ $label }}</option>
                                     @endforeach

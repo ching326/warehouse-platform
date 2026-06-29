@@ -129,14 +129,14 @@
                         </flux:table.cell>
                         <flux:table.cell align="end">{{ number_format($line->qty) }}</flux:table.cell>
                         <flux:table.cell>
-                            <select wire:model="lineDrafts.{{ $line->id }}.condition" @disabled($case->isClosed())>
+                            <select class="table-control" wire:model="lineDrafts.{{ $line->id }}.condition" @disabled($case->isClosed())>
                                 @foreach ($conditions as $value => $label)
                                     <option value="{{ $value }}">{{ $label }}</option>
                                 @endforeach
                             </select>
                         </flux:table.cell>
                         <flux:table.cell>
-                            <select wire:model="lineDrafts.{{ $line->id }}.action" @disabled($case->isClosed())>
+                            <select class="table-control" wire:model="lineDrafts.{{ $line->id }}.action" @disabled($case->isClosed())>
                                 @foreach ($actions as $value => $label)
                                     <option value="{{ $value }}">{{ $label }}</option>
                                 @endforeach

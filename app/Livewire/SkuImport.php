@@ -500,16 +500,8 @@ class SkuImport extends Component
         }
 
         $skuCode = trim($rowData['sku'] ?? '');
-        $name = trim($rowData['name'] ?? '');
-
         if ($skuCode === '') {
             $errors[] = __('sku_import.error_sku_required');
-        }
-
-        if ($name === '') {
-            $errors[] = __('sku_import.error_name_required', [
-                'field' => $this->fieldLabel('name'),
-            ]);
         }
 
         if ($errors !== []) {
@@ -660,10 +652,6 @@ class SkuImport extends Component
             if ($field->required && ($this->mapping[$field->key] ?? '') === '') {
                 $missing[] = $this->fieldLabel($field->key);
             }
-        }
-
-        if (($this->mapping['name'] ?? '') === '') {
-            $missing[] = $this->fieldLabel('name');
         }
 
         if ($this->needsDefaultBarcodeType() && $this->defaultBarcodeType === '') {
