@@ -5,6 +5,14 @@
 ])
 
 @php
+    $shipToFbaQuery = [];
+    $currentWarehouseId = request()->query('warehouse_id');
+    if (is_scalar($currentWarehouseId) && trim((string) $currentWarehouseId) !== '') {
+        $shipToFbaQuery['warehouse_id'] = (string) $currentWarehouseId;
+    }
+    $shipToFbaQuery['reason'] = \App\Models\OutboundOrder::REASON_FBA;
+    $shipToFbaHref = route('outbound.create', $shipToFbaQuery);
+
     $sectionNavLinks = match (true) {
         request()->routeIs('inventory.*', 'stock-adjustments.*') => [
             ['label' => __('common.nav_inventory_overview'), 'href' => route('inventory.index'), 'active' => request()->routeIs('inventory.index')],
@@ -12,9 +20,10 @@
             ['label' => __('common.nav_stock_adjustment'), 'href' => route('stock-adjustments.create'), 'active' => request()->routeIs('stock-adjustments.*')],
         ],
         request()->routeIs('outbound.*', 'fulfillment.*') => [
-            ['label' => __('common.nav_outbound_orders'), 'href' => route('outbound.index'), 'active' => request()->routeIs('outbound.index', 'outbound.create', 'outbound.show', 'outbound.ship')],
+            ['label' => __('common.nav_outbound_orders'), 'href' => route('outbound.index'), 'active' => request()->routeIs('outbound.index', 'outbound.create', 'outbound.show', 'outbound.ship') && request()->query('reason') !== \App\Models\OutboundOrder::REASON_FBA],
             ['label' => __('common.nav_fulfillment'), 'href' => route('fulfillment.index'), 'active' => request()->routeIs('fulfillment.index')],
             ['label' => __('common.nav_pick_summary'), 'href' => route('fulfillment.pick-summary'), 'active' => request()->routeIs('fulfillment.pick-summary')],
+            ['label' => __('common.nav_ship_to_fba'), 'href' => $shipToFbaHref, 'active' => request()->routeIs('outbound.create') && request()->query('reason') === \App\Models\OutboundOrder::REASON_FBA],
             ['label' => __('common.nav_scan_pack'), 'href' => route('fulfillment.pack.start'), 'active' => request()->routeIs('fulfillment.pack.*', 'fulfillment.pack-scans.*', 'outbound.pack')],
         ],
         request()->routeIs('setup.*') => [

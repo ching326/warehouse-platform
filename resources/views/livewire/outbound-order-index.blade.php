@@ -52,6 +52,7 @@
                 <flux:table.column>{{ __('outbound.col_ref') }}</flux:table.column>
                 <flux:table.column>{{ __('outbound.col_tenant_warehouse') }}</flux:table.column>
                 <flux:table.column>{{ __('outbound.col_reason') }}</flux:table.column>
+                <flux:table.column>{{ __('outbound.col_created_at') }}</flux:table.column>
                 <flux:table.column>{{ __('outbound.col_shipped_at') }}</flux:table.column>
                 <flux:table.column>{{ __('outbound.col_lines') }}</flux:table.column>
                 <flux:table.column>{{ __('outbound.col_status') }}</flux:table.column>
@@ -89,7 +90,8 @@
                         <flux:table.cell>
                             <strong>{{ $order->reasonLabel() ?? '-' }}</strong>
                         </flux:table.cell>
-                        <flux:table.cell>{{ $order->shipped_at ? $order->shipped_at->format('Y-m-d H:i') : '-' }}</flux:table.cell>
+                        <flux:table.cell>{{ $order->created_at?->format('Y-m-d') ?? '-' }}</flux:table.cell>
+                        <flux:table.cell>{{ $order->shipped_at ? $order->shipped_at->format('Y-m-d') : '-' }}</flux:table.cell>
                         <flux:table.cell>
                             @foreach ($order->parentLines as $line)
                                 <span class="subtle">{{ number_format($line->qty) }} x {{ $line->sku->sku }}</span>
@@ -123,7 +125,7 @@
                     </flux:table.row>
                 @empty
                     <flux:table.row>
-                        <flux:table.cell colspan="7">
+                        <flux:table.cell colspan="8">
                             <div class="empty-state">{{ __('outbound.empty_state') }}</div>
                         </flux:table.cell>
                     </flux:table.row>

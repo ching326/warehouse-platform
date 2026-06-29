@@ -19,6 +19,7 @@ return [
     'nav_sales_orders' => '訂單管理',
     'nav_fulfillment' => '發貨列表',
     'nav_pick_summary' => '揀貨彙總',
+    'nav_ship_to_fba' => 'Ship to FBA',
     'nav_scan_pack' => 'Scan Pack',
     'nav_issues' => '問題案件',
     'nav_setup' => '設定',

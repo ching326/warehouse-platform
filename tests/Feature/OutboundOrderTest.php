@@ -144,7 +144,10 @@ class OutboundOrderTest extends TestCase
             ->set('lines.0.qty', '5')
             ->call('save')
             ->assertNoRedirect()
-            ->assertSee(__('outbound.draft_not_submitted_warning'));
+            ->assertSee(__('outbound.draft_not_submitted_warning'))
+            ->assertSee(__('outbound.draft_confirm_question'))
+            ->assertSee(__('common.cancel'))
+            ->assertSee(__('outbound.confirm_save_draft'));
 
         $balance = $this->balance($tenant, $warehouse, $sku->stockItem);
 
@@ -152,6 +155,50 @@ class OutboundOrderTest extends TestCase
         $this->assertSame(0, $balance->reserved_qty);
         $this->assertSame(20, $balance->available_qty);
         $this->assertSame(0, InventoryMovement::where('movement_type', InventoryMovement::TYPE_RESERVE)->count());
+    }
+
+    public function test_create_draft_can_be_confirmed_without_reserving_stock(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(20);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('reason', OutboundOrder::REASON_SAMPLE)
+            ->set('lines.0.sku_id', (string) $sku->id)
+            ->set('lines.0.qty', '5')
+            ->call('save')
+            ->assertNoRedirect()
+            ->call('confirmSaveDraft')
+            ->assertRedirect(route('outbound.index'));
+
+        $order = OutboundOrder::firstOrFail();
+        $balance = $this->balance($tenant, $warehouse, $sku->stockItem);
+
+        $this->assertSame(OutboundOrder::STATUS_DRAFT, $order->status);
+        $this->assertSame(0, $balance->reserved_qty);
+        $this->assertSame(20, $balance->available_qty);
+        $this->assertSame(0, InventoryMovement::where('movement_type', InventoryMovement::TYPE_RESERVE)->count());
+    }
+
+    public function test_create_draft_confirmation_can_be_cancelled(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(20);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('reason', OutboundOrder::REASON_SAMPLE)
+            ->set('lines.0.sku_id', (string) $sku->id)
+            ->set('lines.0.qty', '5')
+            ->call('save')
+            ->assertSet('showDraftSaveConfirmation', true)
+            ->call('cancelSaveDraft')
+            ->assertSet('showDraftSaveConfirmation', false);
+
+        $this->assertSame(0, OutboundOrder::count());
     }
 
     public function test_create_pending_order_does_not_reserve_stock(): void
@@ -176,6 +223,14 @@ class OutboundOrderTest extends TestCase
         $this->assertSame(0, $balance->reserved_qty);
         $this->assertSame(20, $balance->available_qty);
         $this->assertSame(0, InventoryMovement::where('movement_type', InventoryMovement::TYPE_RESERVE)->count());
+    }
+
+    public function test_ship_to_fba_create_url_preselects_reason(): void
+    {
+        Livewire::withQueryParams(['reason' => OutboundOrder::REASON_FBA])
+            ->actingAs($this->internalUser())
+            ->test(OutboundOrderCreate::class)
+            ->assertSet('reason', OutboundOrder::REASON_FBA);
     }
 
     public function test_create_uses_shipping_method_dropdown_value(): void
@@ -542,6 +597,27 @@ class OutboundOrderTest extends TestCase
         $this->assertSame(OutboundOrder::HOLD_STATUS_ACTIVE, $order->refresh()->hold_status);
     }
 
+    public function test_outbound_index_shows_created_and_shipped_dates_without_times(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
+        $this->createOrder($tenant, $warehouse, $sku, qty: 1, ref: 'OB-DATES');
+        $order = OutboundOrder::where('ref', 'OB-DATES')->firstOrFail();
+        $order->forceFill([
+            'created_at' => CarbonImmutable::create(2026, 6, 28, 9, 15, 0, 'UTC'),
+            'updated_at' => CarbonImmutable::create(2026, 6, 28, 9, 15, 0, 'UTC'),
+            'shipped_at' => CarbonImmutable::create(2026, 6, 29, 17, 45, 0, 'UTC'),
+        ])->save();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderIndex::class)
+            ->assertSee(__('outbound.col_created_at'))
+            ->assertSee(__('outbound.col_shipped_at'))
+            ->assertSee('2026-06-28')
+            ->assertSee('2026-06-29')
+            ->assertDontSee('09:15')
+            ->assertDontSee('17:45');
+    }
+
     public function test_outbound_index_auto_selects_single_active_warehouse(): void
     {
         $warehouse = Warehouse::factory()->create(['status' => 'active']);
@@ -550,6 +626,20 @@ class OutboundOrderTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(OutboundOrderIndex::class)
             ->assertSet('warehouseId', (string) $warehouse->id);
+    }
+
+    public function test_outbound_nav_has_ship_to_fba_link_preserving_warehouse(): void
+    {
+        $warehouse = Warehouse::factory()->create(['status' => 'active']);
+
+        $this->actingAs($this->internalUser())
+            ->get(route('outbound.index', ['warehouse_id' => $warehouse->id]))
+            ->assertOk()
+            ->assertSee(__('common.nav_ship_to_fba'))
+            ->assertSee(route('outbound.create', [
+                'warehouse_id' => $warehouse->id,
+                'reason' => OutboundOrder::REASON_FBA,
+            ]));
     }
 
     public function test_outbound_index_query_warehouse_overrides_single_active_warehouse_default(): void

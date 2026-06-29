@@ -1,7 +1,25 @@
 <div class="outbound-create-page">
     <x-flash-toast />
 
-<form wire:submit="save" class="sku-form">
+    @if ($showDraftSaveConfirmation)
+        <div class="app-toast app-toast-warning app-toast-confirm" role="alert">
+            <div class="app-toast-body">
+                <strong class="app-toast-title">{{ __('common.toast.warning') }}</strong>
+                <span class="app-toast-text">{{ __('outbound.draft_not_submitted_warning') }}</span>
+                <span class="app-toast-text">{{ __('outbound.draft_confirm_question') }}</span>
+                <div class="app-toast-actions">
+                    <flux:button type="button" size="sm" variant="outline" wire:click="cancelSaveDraft">
+                        {{ __('common.cancel') }}
+                    </flux:button>
+                    <flux:button type="button" size="sm" variant="primary" wire:click="confirmSaveDraft">
+                        {{ __('outbound.confirm_save_draft') }}
+                    </flux:button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <form wire:submit="save" class="sku-form">
         <section class="table-shell flux-panel form-panel">
             <div class="form-panel-header">
                 <div>

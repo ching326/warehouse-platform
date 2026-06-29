@@ -8,6 +8,13 @@
     $fulfillmentActive = request()->routeIs('fulfillment.*');
     $issuesActive = request()->routeIs('issues.*');
     $setupActive     = request()->routeIs('setup.*');
+    $shipToFbaQuery = [];
+    $currentWarehouseId = request()->query('warehouse_id');
+    if (is_scalar($currentWarehouseId) && trim((string) $currentWarehouseId) !== '') {
+        $shipToFbaQuery['warehouse_id'] = (string) $currentWarehouseId;
+    }
+    $shipToFbaQuery['reason'] = \App\Models\OutboundOrder::REASON_FBA;
+    $shipToFbaHref = route('outbound.create', $shipToFbaQuery);
 @endphp
 
 <nav class="top-nav" aria-label="{{ __('common.app_eyebrow') }}">
@@ -139,6 +146,14 @@
                         @click="open = false"
                     >
                         {{ __('common.nav_pick_summary') }}
+                    </a>
+                    <a
+                        href="{{ $shipToFbaHref }}"
+                        class="{{ request()->routeIs('outbound.create') && request()->query('reason') === \App\Models\OutboundOrder::REASON_FBA ? 'is-active' : '' }}"
+                        wire:navigate
+                        @click="open = false"
+                    >
+                        {{ __('common.nav_ship_to_fba') }}
                     </a>
                 </div>
             </div>

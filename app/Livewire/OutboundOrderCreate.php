@@ -57,6 +57,7 @@ class OutboundOrderCreate extends Component
 
     public string $shippingMethodId = '';
 
+    #[Url(as: 'reason', except: '')]
     public string $reason = '';
 
     public string $status = OutboundOrder::STATUS_DRAFT;
@@ -64,6 +65,8 @@ class OutboundOrderCreate extends Component
     public string $fbaWarehouseId = '';
 
     public bool $recipientCollapsed = false;
+
+    public bool $showDraftSaveConfirmation = false;
 
     public array $lines = [
         ['sku_id' => '', 'qty' => '', 'note' => ''],
@@ -96,6 +99,10 @@ class OutboundOrderCreate extends Component
             $this->tenantId = (string) ($this->activeTenantIds()[0] ?? '');
         }
 
+        if ($this->reason !== '' && ! in_array($this->reason, $this->manualReasons(), true)) {
+            $this->reason = '';
+        }
+
         $this->autoSelectSingleActiveWarehouse();
     }
 
@@ -119,6 +126,11 @@ class OutboundOrderCreate extends Component
         if ($this->reason !== OutboundOrder::REASON_FBA) {
             $this->fbaWarehouseId = '';
         }
+    }
+
+    public function updatedStatus(): void
+    {
+        $this->showDraftSaveConfirmation = false;
     }
 
     public function updatedFbaWarehouseId(): void
@@ -179,16 +191,18 @@ class OutboundOrderCreate extends Component
         $this->skuSearches = array_values($this->skuSearches);
     }
 
-    public function save()
+    public function save(bool $confirmedDraft = false)
     {
         $tenantId = $this->validatedTenantId();
         $this->validateInput($tenantId);
 
-        if ($this->status === OutboundOrder::STATUS_DRAFT) {
-            session()->flash('warning', __('outbound.draft_not_submitted_warning'));
+        if ($this->status === OutboundOrder::STATUS_DRAFT && ! $confirmedDraft) {
+            $this->showDraftSaveConfirmation = true;
 
             return null;
         }
+
+        $this->showDraftSaveConfirmation = false;
 
         DB::transaction(function () use ($tenantId) {
             $order = OutboundOrder::create([
@@ -253,6 +267,16 @@ class OutboundOrderCreate extends Component
         session()->flash('status', __('outbound.order_created'));
 
         return redirect()->route('outbound.index');
+    }
+
+    public function confirmSaveDraft()
+    {
+        return $this->save(confirmedDraft: true);
+    }
+
+    public function cancelSaveDraft(): void
+    {
+        $this->showDraftSaveConfirmation = false;
     }
 
     public function render()
