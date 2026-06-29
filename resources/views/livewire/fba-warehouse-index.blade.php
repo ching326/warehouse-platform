@@ -75,9 +75,7 @@
                         </flux:table.cell>
                         <flux:table.cell>{{ $fbaWarehouse->phone ?: '-' }}</flux:table.cell>
                         <flux:table.cell>
-                            <flux:badge color="{{ $this->statusColor($fbaWarehouse->status) }}">
-                                {{ $this->statusLabel($fbaWarehouse->status) }}
-                            </flux:badge>
+                            <x-status-badge :status="$fbaWarehouse->status" :label="$this->statusLabel($fbaWarehouse->status)" />
                         </flux:table.cell>
                         <flux:table.cell>
                             <div class="fba-note-cell" title="{{ $fbaWarehouse->note }}">{{ $fbaWarehouse->note ?: '-' }}</div>

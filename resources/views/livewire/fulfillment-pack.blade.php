@@ -17,11 +17,9 @@
                 <span>{{ $order->tenant->code }} / {{ $order->recipient_name ?: '-' }}</span>
             </div>
             <div class="active-filter-row">
-                <flux:badge color="{{ \App\Models\OutboundOrder::statusColorFor($order->status) }}">
-                    {{ __('fulfillment.status_'.$statusKey) }}
-                </flux:badge>
+                <x-status-badge :status="$order->status" :label="__('fulfillment.status_'.$statusKey)" />
                 @if ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
-                    <flux:badge color="amber">{{ __('outbound.on_hold') }}</flux:badge>
+                    <x-status-badge :status="$order->hold_status" :label="__('outbound.on_hold')" />
                 @endif
                 <flux:button href="{{ route('fulfillment.pack-scans.index', ['outbound_order_id' => $order->id]) }}" variant="outline" wire:navigate>
                     {{ __('fulfillment_pack.scan_history_title') }}

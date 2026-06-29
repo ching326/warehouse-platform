@@ -371,7 +371,7 @@
                 },
             }"
         >
-        <div class="sales-order-action-row" data-testid="sales-order-selection-actions">
+        <div class="table-action-row" data-testid="sales-order-selection-actions">
             <div class="selection-count-slot" aria-live="polite">
                 <flux:badge color="blue" x-show="has()" x-cloak>
                     <span x-text="selectedList().length"></span>
@@ -602,14 +602,10 @@
                                 </div>
                             </flux:table.cell>
                             <flux:table.cell>
-                                <div class="status-stack">
-                                    <flux:badge color="{{ $this->fulfillmentStatusColor($order->fulfillment_status) }}">
-                                        {{ $this->fulfillmentStatusLabel($order->fulfillment_status) }}
-                                    </flux:badge>
+                                <div class="record-status-stack">
+                                    <x-status-badge :status="$order->fulfillment_status" :label="$this->fulfillmentStatusLabel($order->fulfillment_status)" />
                                     @if ($order->order_status !== \App\Models\SalesOrder::ORDER_STATUS_PENDING)
-                                        <flux:badge color="{{ $this->orderStatusColor($order->order_status) }}">
-                                            {{ $this->orderStatusLabel($order->order_status) }}
-                                        </flux:badge>
+                                        <x-status-badge :status="$order->order_status" :label="$this->orderStatusLabel($order->order_status)" />
                                     @endif
                                 </div>
                             </flux:table.cell>

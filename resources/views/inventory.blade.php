@@ -1711,7 +1711,7 @@
                 height: 15px;
             }
 
-            .sales-order-action-row {
+            .table-action-row {
                 display: flex;
                 align-items: center;
                 flex-wrap: wrap;
@@ -1753,6 +1753,14 @@
                 min-height: 28px;
                 background: var(--line);
                 margin: 0 2px;
+            }
+
+            .record-status-stack,
+            .status-stack {
+                align-items: flex-start;
+                display: grid;
+                gap: 4px;
+                justify-items: start;
             }
 
             .action-menu.small summary,
@@ -3551,6 +3559,11 @@
                 padding: 5px 7px;
                 font: inherit;
                 background: #fff;
+            }
+
+            select.table-control,
+            input.table-control {
+                box-sizing: border-box;
             }
 
             .compact-select-control,

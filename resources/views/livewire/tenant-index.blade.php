@@ -51,9 +51,7 @@
                         </flux:table.cell>
                         <flux:table.cell>{{ $tenant->billing_terms ?: '-' }}</flux:table.cell>
                         <flux:table.cell>
-                            <flux:badge color="{{ $this->statusColor($tenant->status) }}">
-                                {{ $this->statusLabel($tenant->status) }}
-                            </flux:badge>
+                            <x-status-badge :status="$tenant->status" :label="$this->statusLabel($tenant->status)" />
                         </flux:table.cell>
                         <flux:table.cell>
                             <flux:button

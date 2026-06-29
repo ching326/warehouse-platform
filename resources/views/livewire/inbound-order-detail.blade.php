@@ -7,9 +7,7 @@
                 <span>#{{ $order->id }} / {{ $order->created_at->format('Y-m-d H:i') }}</span>
             </div>
             <div class="active-filter-row">
-                <flux:badge color="{{ $this->statusColor($order->status) }}">
-                    {{ $this->statusLabel($order->status) }}
-                </flux:badge>
+                <x-status-badge :status="$order->status" :label="$this->statusLabel($order->status)" />
                 <flux:button href="{{ route('inbound.index') }}" variant="outline" wire:navigate>
                     {{ __('inbound.btn_back_to_index') }}
                 </flux:button>

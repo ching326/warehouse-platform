@@ -287,7 +287,7 @@
                 },
             }"
         >
-        <div class="sales-order-action-row" data-testid="fulfillment-group-selection-actions">
+        <div class="table-action-row" data-testid="fulfillment-group-selection-actions">
             <div class="selection-count-slot" aria-live="polite">
                 <flux:badge color="blue" x-show="has()" x-cloak>
                     <span x-text="selectedList().length"></span>
@@ -505,7 +505,7 @@
 
                         <flux:table.cell>
                             <select
-                                class="fg-inline-input"
+                                class="table-control"
                                 wire:change="updateShippingMethod({{ $order->id }}, $event.target.value)"
                             >
                                 <option value="">-</option>
@@ -518,7 +518,7 @@
                         <flux:table.cell>
                             <input
                                 type="text"
-                                class="fg-inline-input"
+                                class="table-control"
                                 value="{{ $trackingDrafts[$order->id] ?? '' }}"
                                 placeholder="{{ __('fulfillment.tracking_placeholder') }}"
                                 wire:change="updateTracking({{ $order->id }}, $event.target.value)"
@@ -528,7 +528,7 @@
                         <flux:table.cell>
                             <input
                                 type="text"
-                                class="fg-inline-input"
+                                class="table-control"
                                 value="{{ $noteDrafts[$order->id] ?? '' }}"
                                 placeholder="{{ __('fulfillment.note_placeholder') }}"
                                 wire:change="updateNote({{ $order->id }}, $event.target.value)"
@@ -550,14 +550,10 @@
                         </flux:table.cell>
 
                         <flux:table.cell>
-                            <div class="fg-status-stack">
-                                <flux:badge color="{{ $this->statusColor($order->status) }}">
-                                    {{ $this->statusLabel($order->status) }}
-                                </flux:badge>
+                            <div class="record-status-stack">
+                                <x-status-badge :status="$order->status" :label="$this->statusLabel($order->status)" />
                                 @if ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
-                                    <flux:badge color="amber">
-                                        {{ $this->holdStatusLabel($order->hold_status) }}
-                                    </flux:badge>
+                                    <x-status-badge :status="$order->hold_status" :label="$this->holdStatusLabel($order->hold_status)" />
                                 @endif
                             </div>
                         </flux:table.cell>
@@ -703,23 +699,6 @@
             font-size: 11px;
         }
 
-        .fg-inline-input {
-            width: 100%;
-            min-width: 120px;
-            height: 30px;
-            padding: 4px 8px;
-            border: 1px solid var(--line);
-            border-radius: 6px;
-            font-size: 13px;
-            background: #fff;
-            color: var(--ink);
-        }
-
-        .fg-inline-input:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-
         .fg-col-select {
             width: 34px;
         }
@@ -745,13 +724,6 @@
         .fg-printed-stack {
             display: grid;
             gap: 2px;
-        }
-
-        .fg-status-stack {
-            align-items: flex-start;
-            display: grid;
-            gap: 4px;
-            justify-items: start;
         }
 
         .tracking-import-backdrop {

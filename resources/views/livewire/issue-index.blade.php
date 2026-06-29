@@ -48,7 +48,7 @@
             </div>
         </div>
 
-        <div class="sales-order-action-row" data-testid="issue-selection-actions">
+        <div class="table-action-row" data-testid="issue-selection-actions">
             <div class="selection-count-slot" aria-live="polite">
                 @if (count($selectedIds) > 0)
                     <flux:badge color="blue">{{ count($selectedIds) }}</flux:badge>

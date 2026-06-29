@@ -73,9 +73,7 @@
                         <flux:table.cell>{{ $this->zoneTypeLabel($location->zone_type) }}</flux:table.cell>
                         <flux:table.cell>{{ $this->storageUnitTypeLabel($location->storage_unit_type) }}</flux:table.cell>
                         <flux:table.cell>
-                            <flux:badge color="{{ $this->statusColor($location->status) }}">
-                                {{ $this->statusLabel($location->status) }}
-                            </flux:badge>
+                            <x-status-badge :status="$location->status" :label="$this->statusLabel($location->status)" />
                         </flux:table.cell>
                         <flux:table.cell>
                             <span class="subtle">{{ $location->note ?: __('common.no_note') }}</span>

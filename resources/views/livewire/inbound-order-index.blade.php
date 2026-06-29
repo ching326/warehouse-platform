@@ -89,9 +89,7 @@
                         <flux:table.cell>{{ $cartonsLabel }}</flux:table.cell>
                         <flux:table.cell align="center" class="inbound-lines-cell">{{ number_format($order->lines_count) }}</flux:table.cell>
                         <flux:table.cell>
-                            <flux:badge color="{{ $this->statusColor($order->status) }}">
-                                {{ $this->statusLabel($order->status) }}
-                            </flux:badge>
+                            <x-status-badge :status="$order->status" :label="$this->statusLabel($order->status)" />
                         </flux:table.cell>
                         <flux:table.cell>
                             @if ($order->status === 'pending')

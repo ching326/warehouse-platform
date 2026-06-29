@@ -210,7 +210,7 @@
                             </flux:table.cell>
                             <flux:table.cell>{{ $case->typeLabel() }}</flux:table.cell>
                             <flux:table.cell>
-                                <flux:badge color="{{ $case->statusColor() }}">{{ $case->statusLabel() }}</flux:badge>
+                                <x-status-badge :status="$case->status" :label="$case->statusLabel()" />
                             </flux:table.cell>
                             <flux:table.cell>{{ $case->updated_at->format('Y-m-d H:i') }}</flux:table.cell>
                         </flux:table.row>

@@ -129,7 +129,7 @@
                 },
             }"
         >
-        <div class="sales-order-action-row sku-selection-action-row" data-testid="sku-selection-actions">
+        <div class="table-action-row sku-selection-action-row" data-testid="sku-selection-actions">
             <div class="selection-count-slot" aria-live="polite">
                 <flux:badge color="blue" x-show="has()" x-cloak>
                     <span x-text="selectedList().length"></span>

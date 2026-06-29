@@ -83,9 +83,7 @@
                         <flux:table.cell>{{ $carrier->country_code ?: '-' }}</flux:table.cell>
                         <flux:table.cell>{{ $carrier->shipping_methods_count }}</flux:table.cell>
                         <flux:table.cell>
-                            <flux:badge color="{{ $this->statusColor($carrier->status) }}">
-                                {{ $this->statusLabel($carrier->status) }}
-                            </flux:badge>
+                            <x-status-badge :status="$carrier->status" :label="$this->statusLabel($carrier->status)" />
                         </flux:table.cell>
                         <flux:table.cell>
                             <div class="active-filter-row">
@@ -191,9 +189,7 @@
                             {{ $rate ? $rate->currency.' '.number_format((float) $rate->price) : '-' }}
                         </flux:table.cell>
                         <flux:table.cell>
-                            <flux:badge color="{{ $this->statusColor($method->status) }}">
-                                {{ $this->statusLabel($method->status) }}
-                            </flux:badge>
+                            <x-status-badge :status="$method->status" :label="$this->statusLabel($method->status)" />
                         </flux:table.cell>
                         <flux:table.cell>
                             <div class="active-filter-row">

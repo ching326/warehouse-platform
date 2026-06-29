@@ -82,9 +82,7 @@
                             @endif
                         </flux:table.cell>
                         <flux:table.cell>
-                            <flux:badge color="{{ $this->statusColor($item->status) }}">
-                                {{ $this->statusLabel($item->status) }}
-                            </flux:badge>
+                            <x-status-badge :status="$item->status" :label="$this->statusLabel($item->status)" />
                         </flux:table.cell>
                         <flux:table.cell>
                             <flux:button

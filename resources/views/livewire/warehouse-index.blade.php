@@ -51,9 +51,7 @@
                         </flux:table.cell>
                         <flux:table.cell>{{ $warehouse->timezone }}</flux:table.cell>
                         <flux:table.cell>
-                            <flux:badge color="{{ $this->statusColor($warehouse->status) }}">
-                                {{ $this->statusLabel($warehouse->status) }}
-                            </flux:badge>
+                            <x-status-badge :status="$warehouse->status" :label="$this->statusLabel($warehouse->status)" />
                         </flux:table.cell>
                         <flux:table.cell>
                             <flux:button

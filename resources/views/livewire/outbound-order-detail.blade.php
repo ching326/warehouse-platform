@@ -44,9 +44,7 @@
                 <span>#{{ $order->id }} / {{ $order->created_at->format('Y-m-d H:i') }}</span>
             </div>
             <div class="active-filter-row">
-                <flux:badge color="{{ $this->statusColor($order->status) }}">
-                    {{ $this->statusLabel($order->status) }}
-                </flux:badge>
+                <x-status-badge :status="$order->status" :label="$this->statusLabel($order->status)" />
                 @if ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
                     <flux:badge color="amber">{{ __('outbound.on_hold') }}</flux:badge>
                 @endif

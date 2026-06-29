@@ -17,7 +17,7 @@
         <flux:input wire:model.live.debounce.300ms="search" :label="__('common.search')" :placeholder="__('return_orders.search_placeholder')" />
     </div>
 
-    <div class="sales-order-action-row" data-testid="return-order-selection-actions">
+    <div class="table-action-row" data-testid="return-order-selection-actions">
         <div class="selection-count-slot" aria-live="polite">
             @if (count($selectedIds) > 0)
                 <flux:badge color="blue">{{ count($selectedIds) }}</flux:badge>

@@ -96,12 +96,10 @@
                             @endforeach
                         </flux:table.cell>
                         <flux:table.cell>
-                            <div class="fg-status-stack">
-                                <flux:badge color="{{ $this->statusColor($order->status) }}">
-                                    {{ $this->statusLabel($order->status) }}
-                                </flux:badge>
+                            <div class="record-status-stack">
+                                <x-status-badge :status="$order->status" :label="$this->statusLabel($order->status)" />
                                 @if ($order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ON_HOLD)
-                                    <flux:badge color="amber">{{ __('outbound.on_hold') }}</flux:badge>
+                                    <x-status-badge :status="$order->hold_status" :label="__('outbound.on_hold')" />
                                 @endif
                             </div>
                         </flux:table.cell>
@@ -139,13 +137,6 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
-        }
-
-        .fg-status-stack {
-            align-items: flex-start;
-            display: grid;
-            gap: 4px;
-            justify-items: start;
         }
 
         .outbound-index-toolbar {

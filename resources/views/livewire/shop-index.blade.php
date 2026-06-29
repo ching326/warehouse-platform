@@ -70,9 +70,7 @@
                             <span class="subtle">{{ $shop->contact_email ?: '-' }}</span>
                         </flux:table.cell>
                         <flux:table.cell>
-                            <flux:badge color="{{ $this->statusColor($shop->status) }}">
-                                {{ $this->statusLabel($shop->status) }}
-                            </flux:badge>
+                            <x-status-badge :status="$shop->status" :label="$this->statusLabel($shop->status)" />
                         </flux:table.cell>
                         <flux:table.cell>
                             <flux:button

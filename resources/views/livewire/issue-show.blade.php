@@ -8,7 +8,7 @@
             </div>
             <div class="active-filter-row">
                 <flux:badge>{{ $case->typeLabel() }}</flux:badge>
-                <flux:badge color="{{ $case->statusColor() }}">{{ $case->statusLabel() }}</flux:badge>
+                <x-status-badge :status="$case->status" :label="$case->statusLabel()" />
             </div>
         </div>
 
@@ -175,7 +175,7 @@
                 @forelse ($case->returnOrders as $returnOrder)
                     <flux:table.row :key="$returnOrder->id">
                         <flux:table.cell><strong>{{ $returnOrder->return_no }}</strong></flux:table.cell>
-                        <flux:table.cell><flux:badge color="{{ $returnOrder->statusColor() }}">{{ $returnOrder->statusLabel() }}</flux:badge></flux:table.cell>
+                        <flux:table.cell><x-status-badge :status="$returnOrder->status" :label="$returnOrder->statusLabel()" /></flux:table.cell>
                         <flux:table.cell>{{ $returnOrder->tracking_no ?: '-' }}</flux:table.cell>
                         <flux:table.cell><flux:button size="sm" href="{{ route('return-orders.show', $returnOrder) }}" wire:navigate>{{ __('common.view') }}</flux:button></flux:table.cell>
                     </flux:table.row>
@@ -189,4 +189,3 @@
         <flux:button href="{{ route('issues.index') }}" variant="outline" wire:navigate>{{ __('issues.btn_back') }}</flux:button>
     </div>
 </div>
-
