@@ -1,6 +1,11 @@
 <div class="shop-index-page">
     <x-flash-toast />
 
+    <x-page-panel-header
+        :title="__('shop.shops_page_title')"
+        :subtitle="__('shop.shops_page_subtitle')"
+    />
+
 <section class="table-shell flux-panel">
         <div class="movement-toolbar">
             <flux:select wire:model.live="tenantId" :label="__('shop.field_tenant')">

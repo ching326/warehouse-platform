@@ -54,14 +54,6 @@
                 width: min(1440px, calc(100% - 32px));
             }
 
-            .page-header {
-                display: flex;
-                align-items: end;
-                justify-content: space-between;
-                gap: 24px;
-                margin-bottom: 12px;
-            }
-
             .section-nav {
                 display: flex;
                 align-items: center;
@@ -261,11 +253,6 @@
                 font-size: 24px;
                 line-height: 1.2;
                 letter-spacing: 0;
-            }
-
-            .page-header p:last-child {
-                margin: 8px 0 0;
-                color: var(--muted);
             }
 
             .summary-grid {
@@ -932,6 +919,7 @@
                 margin-bottom: 10px;
             }
 
+            .page-panel-header,
             .sku-page-actions,
             .form-panel-header,
             .form-actions {
@@ -941,22 +929,88 @@
                 gap: 16px;
             }
 
+            .page-panel-header,
             .sku-page-actions {
                 margin-bottom: 14px;
             }
 
+            .inventory-summary-heading {
+                grid-column: 1 / -1;
+                margin-bottom: 2px;
+            }
+
+            .page-panel-header strong,
             .sku-page-actions strong,
             .form-panel-header strong {
                 display: block;
                 font-size: 16px;
             }
 
+            .page-panel-header span,
             .sku-page-actions span,
             .form-panel-header span {
                 display: block;
                 margin-top: 3px;
                 color: var(--muted);
                 font-size: 13px;
+            }
+
+            .page-title-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .view-settings-trigger {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 28px;
+                height: 28px;
+                border: 1px solid transparent;
+                border-radius: 7px;
+                background: transparent;
+                color: #64748b;
+                cursor: pointer;
+                line-height: 1;
+                transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+            }
+
+            .view-settings-trigger-icon {
+                width: 16px;
+                height: 16px;
+            }
+
+            .view-settings-trigger:hover,
+            .view-settings-trigger:focus-visible {
+                border-color: color-mix(in oklab, var(--color-teal-600), transparent 55%);
+                background: color-mix(in oklab, var(--color-teal-600), transparent 92%);
+                color: var(--color-teal-700);
+                outline: none;
+            }
+
+            .view-settings-form {
+                display: grid;
+                gap: 18px;
+            }
+
+            .view-settings-field {
+                display: grid;
+                gap: 6px;
+                color: var(--ink);
+                font-size: 14px;
+                font-weight: 700;
+            }
+
+            .view-settings-field select {
+                min-height: 40px;
+                border: 1px solid #cbd5e1;
+                border-radius: 8px;
+                background: #fff;
+                color: var(--ink);
+                font-size: 14px;
+                font-weight: 400;
+                padding: 6px 10px;
             }
 
             .localized-field {
@@ -1550,6 +1604,40 @@
                 right: 0;
             }
 
+            .inline-page-actions {
+                margin-bottom: 0;
+                margin-left: auto;
+            }
+
+            .inline-page-action-link {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                min-height: 32px;
+                border: 1px solid var(--color-accent);
+                border-radius: 6px;
+                background: var(--color-accent);
+                color: var(--color-accent-foreground);
+                font-size: 13px;
+                font-weight: 800;
+                line-height: 1;
+                padding: 8px 11px;
+                text-decoration: none;
+                box-shadow: 0 1px 2px rgb(16 24 40 / 8%);
+            }
+
+            .inline-page-action-link:hover,
+            .inline-page-action-link:focus-visible {
+                background: var(--accent);
+                color: var(--color-accent-foreground);
+                outline: none;
+            }
+
+            .inline-page-action-link svg {
+                width: 15px;
+                height: 15px;
+            }
+
             .sales-order-action-row {
                 display: flex;
                 align-items: center;
@@ -2089,80 +2177,6 @@
                 border-bottom: 1px solid var(--line);
             }
 
-            .image-gallery {
-                display: grid;
-                gap: 14px;
-                padding-top: 16px;
-            }
-
-            .image-gallery-stage {
-                display: grid;
-                place-items: center;
-                min-height: min(56vh, 520px);
-                border: 1px solid var(--line);
-                border-radius: 8px;
-                background: #f8fafc;
-                overflow: hidden;
-            }
-
-            .image-gallery-stage img {
-                max-width: 100%;
-                max-height: min(56vh, 520px);
-                object-fit: contain;
-            }
-
-            .image-gallery-meta {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 12px;
-            }
-
-            .image-gallery-meta strong,
-            .image-gallery-meta span {
-                display: block;
-                min-width: 0;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            }
-
-            .image-gallery-meta span {
-                margin-top: 2px;
-                color: var(--muted);
-                font-size: 12px;
-            }
-
-            .image-gallery-thumbs {
-                display: flex;
-                gap: 8px;
-                overflow-x: auto;
-                padding-bottom: 2px;
-            }
-
-            .image-gallery-thumb {
-                width: 62px;
-                height: 62px;
-                flex: 0 0 auto;
-                padding: 2px;
-                border: 1px solid var(--line);
-                border-radius: 7px;
-                background: #fff;
-                cursor: pointer;
-            }
-
-            .image-gallery-thumb.is-active {
-                border-color: var(--accent);
-                box-shadow: 0 0 0 2px rgba(20, 108, 95, 0.18);
-            }
-
-            .image-gallery-thumb img {
-                width: 100%;
-                height: 100%;
-                border-radius: 5px;
-                object-fit: cover;
-            }
-
             .image-upload-form label {
                 display: grid;
                 gap: 6px;
@@ -2246,7 +2260,8 @@
             }
 
             .image-preview-item strong,
-            .image-preview-item span {
+            .image-preview-item span,
+            .image-preview-item small {
                 display: block;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -2266,6 +2281,11 @@
                 color: var(--accent);
                 font-size: 11px;
                 font-weight: 700;
+            }
+
+            .image-preview-item small {
+                color: var(--muted);
+                font-size: 11px;
             }
 
             .image-preview-item .image-preview-file-icon {
@@ -2737,8 +2757,10 @@
 
             .view-switcher {
                 display: inline-flex;
-                gap: 6px;
+                align-items: flex-end;
+                gap: 2px;
                 padding: 0;
+                border-bottom: 1px solid var(--line);
                 background: transparent;
                 border-radius: 0;
             }
@@ -2746,9 +2768,12 @@
             .view-switcher-btn {
                 display: inline-flex;
                 align-items: center;
-                padding: 6px 14px;
-                border-radius: 6px;
+                min-height: 34px;
+                margin-bottom: -1px;
+                padding: 7px 16px;
+                border-radius: 7px 7px 0 0;
                 border: 1px solid transparent;
+                border-bottom-color: var(--line);
                 background: transparent;
                 color: var(--muted);
                 cursor: pointer;
@@ -2761,14 +2786,23 @@
 
             .view-switcher-btn:hover {
                 border-color: var(--line);
-                background: var(--surface);
+                background: #f8fafc;
                 color: var(--ink);
             }
 
             .view-switcher-btn.is-active {
-                border-color: color-mix(in oklab, var(--color-teal-600), transparent 70%);
-                background: color-mix(in oklab, var(--color-teal-600), transparent 90%);
+                border-color: var(--line);
+                border-bottom-color: var(--panel);
+                background: var(--panel);
                 color: var(--color-teal-700);
+            }
+
+            .sku-view-tabs-row {
+                display: flex;
+                margin-bottom: -1px;
+                padding: 0 18px;
+                position: relative;
+                z-index: 1;
             }
 
             .default-view-toggle {
@@ -3617,10 +3651,6 @@
                     width: min(100% - 20px, 1440px);
                 }
 
-                .page-header {
-                    display: block;
-                }
-
                 .summary-grid,
                 .table-toolbar,
                 .movement-toolbar,
@@ -3631,6 +3661,7 @@
                     grid-template-columns: 1fr;
                 }
 
+                .page-panel-header,
                 .sku-page-actions,
                 .form-panel-header,
                 .form-actions {
@@ -3663,52 +3694,6 @@
         <x-layout.navigation />
 
         <main class="page {{ ($pageWide ?? false) ? 'page--wide' : '' }}">
-            @php
-            $sectionNavLinks = match(true) {
-                request()->routeIs('inventory.*', 'stock-adjustments.*') => [
-                    ['label' => __('common.nav_inventory_overview'), 'href' => route('inventory.index'),           'active' => request()->routeIs('inventory.index')],
-                    ['label' => __('common.nav_movements'),          'href' => route('inventory.movements.index'), 'active' => request()->routeIs('inventory.movements.index')],
-                    ['label' => __('common.nav_stock_adjustment'),   'href' => route('stock-adjustments.create'),  'active' => request()->routeIs('stock-adjustments.*')],
-                ],
-                request()->routeIs('outbound.*', 'fulfillment.*') => [
-                    ['label' => __('common.nav_outbound_orders'), 'href' => route('outbound.index'),             'active' => request()->routeIs('outbound.index', 'outbound.create', 'outbound.show', 'outbound.ship')],
-                    ['label' => __('common.nav_fulfillment'),     'href' => route('fulfillment.index'),          'active' => request()->routeIs('fulfillment.index')],
-                    ['label' => __('common.nav_pick_summary'),    'href' => route('fulfillment.pick-summary'),   'active' => request()->routeIs('fulfillment.pick-summary')],
-                    ['label' => __('common.nav_scan_pack'),       'href' => route('fulfillment.pack.start'),     'active' => request()->routeIs('fulfillment.pack.*', 'fulfillment.pack-scans.*', 'outbound.pack')],
-                ],
-                request()->routeIs('setup.*') => [
-                    ['label' => __('common.nav_tenants'),        'href' => route('setup.tenants.index'),    'active' => request()->routeIs('setup.tenants.*')],
-                    ['label' => __('common.nav_shops'),          'href' => route('setup.shops.index'),      'active' => request()->routeIs('setup.shops.*')],
-                    ['label' => __('common.nav_shipping_methods'), 'href' => route('setup.shipping-methods.index'), 'active' => request()->routeIs('setup.shipping-methods.*')],
-                    ['label' => __('common.nav_locations'),      'href' => route('setup.locations.index'),   'active' => request()->routeIs('setup.locations.*')],
-                    ['label' => __('common.nav_packagings'),     'href' => route('setup.packagings.index'),  'active' => request()->routeIs('setup.packagings.*')],
-                    ['label' => __('common.nav_other_settings'), 'href' => route('setup.other-settings'),   'active' => request()->routeIs('setup.other-settings', 'setup.warehouses.*', 'setup.product-types.*', 'setup.fba-warehouses.*')],
-                ],
-                default => [],
-            };
-            @endphp
-
-            @if (! ($hidePageHeader ?? false))
-                <header class="page-header">
-                    <div>
-                        <h1>{{ $title ?? __('inventory.page_title') }}</h1>
-                        <p>{{ $subtitle ?? __('inventory.page_subtitle') }}</p>
-                    </div>
-
-                    @if ($sectionNavLinks)
-                        <nav class="section-nav">
-                            @foreach ($sectionNavLinks as $link)
-                                <a
-                                    href="{{ $link['href'] }}"
-                                    class="section-nav-link {{ $link['active'] ? 'is-active' : '' }}"
-                                    wire:navigate
-                                >{{ $link['label'] }}</a>
-                            @endforeach
-                        </nav>
-                    @endif
-                </header>
-            @endif
-
             {{ $slot }}
         </main>
 

@@ -153,6 +153,14 @@
             </section>
         </div>
     @endif
+    <div class="page-panel-header">
+        <div>
+            <div class="page-title-row">
+                <strong>{{ __('sales_orders.index_page_title') }}</strong>
+            </div>
+        </div>
+    </div>
+
 <section class="table-shell flux-panel">
         @if ($filterWarning)
             <div class="active-filter-row">
@@ -360,6 +368,7 @@
             x-data="{
                 selected: $wire.entangle('selectedIds'),
                 visible: $wire.entangle('visibleOrderIds'),
+                openActionMenu: null,
                 selectedList() { return (this.selected || []).map(String); },
                 visibleList() { return (this.visible || []).map(String); },
                 has() { return this.selectedList().length > 0; },
@@ -400,51 +409,6 @@
                 },
             }"
         >
-        <div class="sales-order-page-actions" data-testid="sales-order-page-actions" x-data="{ openActionMenu: null }">
-            <details
-                class="action-menu primary action-menu-align-left"
-                data-testid="sales-order-page-import-menu"
-                x-bind:open="openActionMenu === 'import'"
-                x-on:click.outside="if (openActionMenu === 'import') openActionMenu = null"
-            >
-                <summary x-on:click.prevent="openActionMenu = openActionMenu === 'import' ? null : 'import'"><span class="action-menu-label"><flux:icon.arrow-up-tray />{{ __('sales_orders.import_btn') }}</span></summary>
-                <div class="action-menu-panel action-menu-panel-sectioned">
-                    <div class="action-menu-section" data-testid="sales-order-orders-import-menu">
-                        <span>{{ __('sales_orders.import_orders_menu') }}</span>
-                        <a href="{{ route('sales.orders.import') }}" wire:navigate>
-                            {{ __('sales_orders.import_file_upload') }}
-                        </a>
-                        <a href="{{ route('sales.orders.import.paste') }}" wire:navigate>
-                            {{ __('sales_orders.import_paste_grid') }}
-                        </a>
-                        <a href="{{ route('sales.orders.create') }}" wire:navigate>
-                            {{ __('sales_orders.import_manual_input') }}
-                        </a>
-                    </div>
-
-                </div>
-            </details>
-            <details
-                class="action-menu primary action-menu-align-right"
-                data-testid="sales-order-page-export-menu"
-                x-bind:open="openActionMenu === 'export'"
-                x-on:click.outside="if (openActionMenu === 'export') openActionMenu = null"
-            >
-                <summary x-on:click.prevent="openActionMenu = openActionMenu === 'export' ? null : 'export'"><span class="action-menu-label"><flux:icon.arrow-down-tray />{{ __('sales_orders.export_menu') }}</span></summary>
-                <div class="action-menu-panel action-menu-panel-sectioned">
-                    <div class="action-menu-section" data-testid="sales-order-shipping-notice-export-menu">
-                        <span>{{ __('sales_orders.shipping_notice_menu') }}</span>
-                        <button type="button" wire:click="validateMarketplaceShippingNoticeExport('amazon')">
-                            {{ __('sales_orders.btn_export_amazon_ship_notice') }}
-                        </button>
-                        <button type="button" wire:click="validateMarketplaceShippingNoticeExport('rakuten')">
-                            {{ __('sales_orders.btn_export_rakuten_ship_notice') }}
-                        </button>
-                    </div>
-                </div>
-            </details>
-        </div>
-
         <div class="sales-order-action-row" data-testid="sales-order-selection-actions">
             <div class="selection-count-slot" aria-live="polite">
                 <flux:badge color="blue" x-show="has()" x-cloak>
@@ -521,6 +485,50 @@
                 >
                     {{ __('sales_orders.btn_bulk_delete') }}
                 </flux:button>
+            </div>
+
+            <div class="sales-order-page-actions inline-page-actions" data-testid="sales-order-page-actions">
+                <details
+                    class="action-menu primary action-menu-align-left"
+                    data-testid="sales-order-page-import-menu"
+                    x-bind:open="openActionMenu === 'import'"
+                    x-on:click.outside="if (openActionMenu === 'import') openActionMenu = null"
+                >
+                    <summary x-on:click.prevent="openActionMenu = openActionMenu === 'import' ? null : 'import'"><span class="action-menu-label"><flux:icon.arrow-up-tray />{{ __('sales_orders.import_btn') }}</span></summary>
+                    <div class="action-menu-panel action-menu-panel-sectioned">
+                        <div class="action-menu-section" data-testid="sales-order-orders-import-menu">
+                            <span>{{ __('sales_orders.import_orders_menu') }}</span>
+                            <a href="{{ route('sales.orders.import') }}" wire:navigate>
+                                {{ __('sales_orders.import_file_upload') }}
+                            </a>
+                            <a href="{{ route('sales.orders.import.paste') }}" wire:navigate>
+                                {{ __('sales_orders.import_paste_grid') }}
+                            </a>
+                            <a href="{{ route('sales.orders.create') }}" wire:navigate>
+                                {{ __('sales_orders.import_manual_input') }}
+                            </a>
+                        </div>
+                    </div>
+                </details>
+                <details
+                    class="action-menu primary action-menu-align-right"
+                    data-testid="sales-order-page-export-menu"
+                    x-bind:open="openActionMenu === 'export'"
+                    x-on:click.outside="if (openActionMenu === 'export') openActionMenu = null"
+                >
+                    <summary x-on:click.prevent="openActionMenu = openActionMenu === 'export' ? null : 'export'"><span class="action-menu-label"><flux:icon.arrow-down-tray />{{ __('sales_orders.export_menu') }}</span></summary>
+                    <div class="action-menu-panel action-menu-panel-sectioned">
+                        <div class="action-menu-section" data-testid="sales-order-shipping-notice-export-menu">
+                            <span>{{ __('sales_orders.shipping_notice_menu') }}</span>
+                            <button type="button" wire:click="validateMarketplaceShippingNoticeExport('amazon')">
+                                {{ __('sales_orders.btn_export_amazon_ship_notice') }}
+                            </button>
+                            <button type="button" wire:click="validateMarketplaceShippingNoticeExport('rakuten')">
+                                {{ __('sales_orders.btn_export_rakuten_ship_notice') }}
+                            </button>
+                        </div>
+                    </div>
+                </details>
             </div>
         </div>
 

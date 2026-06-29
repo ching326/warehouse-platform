@@ -1,6 +1,11 @@
 <div class="warehouse-location-index-page">
     <x-flash-toast />
 
+    <x-page-panel-header
+        :title="__('locations.page_title')"
+        :subtitle="__('locations.page_subtitle')"
+    />
+
 <section class="table-shell flux-panel">
         <div class="movement-toolbar">
             <flux:select wire:model.live="warehouseId" :label="__('locations.field_warehouse')">

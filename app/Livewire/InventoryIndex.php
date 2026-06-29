@@ -14,6 +14,7 @@ use App\Models\Warehouse;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -37,7 +38,9 @@ class InventoryIndex extends Component
 
     public int $perPage = 10;
 
-    public bool $showTenantItemCode = false;
+    public bool $viewSettingsOpen = false;
+
+    public string $stockItemCodeDisplay = self::STOCK_ITEM_CODE_DISPLAY_SYSTEM;
 
     private bool $visibleTenantIdsResolved = false;
 
@@ -48,22 +51,51 @@ class InventoryIndex extends Component
      */
     public array $expandedStockItems = [];
 
+    private const STOCK_ITEM_CODE_DISPLAY_SYSTEM = 'system';
+
+    private const STOCK_ITEM_CODE_DISPLAY_TENANT = 'tenant';
+
+    private const STOCK_ITEM_CODE_DISPLAY_BOTH = 'both';
+
+    private const STOCK_ITEM_CODE_DISPLAY_OPTIONS = [
+        self::STOCK_ITEM_CODE_DISPLAY_SYSTEM,
+        self::STOCK_ITEM_CODE_DISPLAY_TENANT,
+        self::STOCK_ITEM_CODE_DISPLAY_BOTH,
+    ];
+
     public function mount(): void
     {
-        $this->showTenantItemCode = (bool) Auth::user()?->preference('show_tenant_item_code', false);
+        $this->stockItemCodeDisplay = $this->stockItemCodeDisplayPreference();
         $this->autoSelectSingleActiveWarehouse();
     }
 
-    public function updatedShowTenantItemCode(bool $checked): void
+    public function openViewSettings(): void
     {
-        $user = Auth::user();
+        $this->stockItemCodeDisplay = $this->stockItemCodeDisplayPreference();
+        $this->viewSettingsOpen = true;
+    }
 
-        if (! $user) {
-            return;
+    public function closeViewSettings(): void
+    {
+        $this->viewSettingsOpen = false;
+    }
+
+    public function saveViewSettings(): void
+    {
+        $data = validator([
+            'stock_item_code_display' => $this->stockItemCodeDisplay,
+        ], [
+            'stock_item_code_display' => ['required', Rule::in(self::STOCK_ITEM_CODE_DISPLAY_OPTIONS)],
+        ])->validate();
+
+        $this->stockItemCodeDisplay = $data['stock_item_code_display'];
+
+        if ($user = Auth::user()) {
+            $user->setPreference('stock_item_code_display', $this->stockItemCodeDisplay);
+            session()->flash('status', __('skus.view_settings_saved'));
         }
 
-        $user->setPreference('show_tenant_item_code', $checked);
-        session()->flash('status', __('skus.tenant_code_preference_saved'));
+        $this->viewSettingsOpen = false;
     }
 
     public function updatingSearch(): void
@@ -267,12 +299,32 @@ class InventoryIndex extends Component
 
     public function stockItemPrimaryCode(StockItem $stockItem): string
     {
-        return $stockItem->preferredDisplayCode($this->showTenantItemCode);
+        $tenantCode = trim((string) $stockItem->tenant_item_code);
+
+        if (in_array($this->stockItemCodeDisplay, [self::STOCK_ITEM_CODE_DISPLAY_TENANT, self::STOCK_ITEM_CODE_DISPLAY_BOTH], true)
+            && $tenantCode !== '') {
+            return $tenantCode;
+        }
+
+        return (string) $stockItem->code;
     }
 
     public function stockItemSecondaryCode(StockItem $stockItem): ?string
     {
-        return $stockItem->secondaryDisplayCode($this->showTenantItemCode);
+        if ($this->stockItemCodeDisplay !== self::STOCK_ITEM_CODE_DISPLAY_BOTH) {
+            return null;
+        }
+
+        return filled($stockItem->tenant_item_code) ? (string) $stockItem->code : null;
+    }
+
+    public function stockItemCodeDisplayOptions(): array
+    {
+        return [
+            self::STOCK_ITEM_CODE_DISPLAY_SYSTEM => __('skus.stock_item_code_display_system'),
+            self::STOCK_ITEM_CODE_DISPLAY_TENANT => __('skus.stock_item_code_display_tenant'),
+            self::STOCK_ITEM_CODE_DISPLAY_BOTH => __('skus.stock_item_code_display_both'),
+        ];
     }
 
     private function warehouseOptions(): Collection
@@ -332,5 +384,26 @@ class InventoryIndex extends Component
         }
 
         return $this->visibleTenantIdsCache = $user->activeTenantIds();
+    }
+
+    private function normalizeStockItemCodeDisplay(mixed $value): string
+    {
+        return is_string($value) && in_array($value, self::STOCK_ITEM_CODE_DISPLAY_OPTIONS, true)
+            ? $value
+            : self::STOCK_ITEM_CODE_DISPLAY_SYSTEM;
+    }
+
+    private function stockItemCodeDisplayPreference(): string
+    {
+        $user = Auth::user();
+        $preference = $user?->preference('stock_item_code_display');
+
+        if (is_string($preference)) {
+            return $this->normalizeStockItemCodeDisplay($preference);
+        }
+
+        return $user?->preference('show_tenant_item_code', false)
+            ? self::STOCK_ITEM_CODE_DISPLAY_BOTH
+            : self::STOCK_ITEM_CODE_DISPLAY_SYSTEM;
     }
 }

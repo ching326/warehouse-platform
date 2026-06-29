@@ -1,6 +1,11 @@
 <div class="shipping-method-index-page">
     <x-flash-toast />
 
+    <x-page-panel-header
+        :title="__('shipping.index_page_title')"
+        :subtitle="__('shipping.index_page_subtitle')"
+    />
+
 <section class="table-shell flux-panel">
         <div class="form-panel-header">
             <div>

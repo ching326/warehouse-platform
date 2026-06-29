@@ -1,6 +1,11 @@
 <div class="warehouse-index-page">
     <x-flash-toast />
 
+    <x-page-panel-header
+        :title="__('setup.warehouses_page_title')"
+        :subtitle="__('setup.warehouses_page_subtitle')"
+    />
+
 <section class="table-shell flux-panel">
         <div class="movement-toolbar warehouse-toolbar">
             <flux:select wire:model.live="statusFilter" :label="__('setup.field_status')">

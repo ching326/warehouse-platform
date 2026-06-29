@@ -4,42 +4,41 @@
         $managedAliasSku = $managedAliasSku ?? null;
     @endphp
 
-    <section class="table-shell flux-panel">
-        <div class="sku-page-actions">
-            <div>
+    <div class="sku-page-actions">
+        <div>
+            <div class="page-title-row">
                 <strong>{{ __('skus.page_title') }}</strong>
-                <span>{{ __('skus.page_subtitle') }}</span>
+                <button
+                    type="button"
+                    class="view-settings-trigger"
+                    wire:click="openViewSettings"
+                    aria-label="{{ __('skus.view_settings') }}"
+                    title="{{ __('skus.view_settings') }}"
+                >
+                    <flux:icon.eye class="view-settings-trigger-icon" />
+                </button>
             </div>
-            <div style="display:flex;gap:0.5rem;align-items:center;">
-                <flux:button href="{{ route('skus.import') }}" variant="primary">{{ __('sku_import.btn_import') }}</flux:button>
-                <flux:button href="{{ route('skus.create') }}" variant="primary">{{ __('skus.btn_create') }}</flux:button>
-            </div>
+            <span>{{ __('skus.page_subtitle') }}</span>
         </div>
-        <x-flash-toast />
+    </div>
 
-        <div class="active-filter-row">
-            <div class="view-switcher" role="group" aria-label="{{ __('skus.view_switcher_label') }}">
-                @foreach ($views as $viewKey => $viewLabel)
-                    <button
-                        type="button"
-                        @class(['view-switcher-btn', 'is-active' => $view === $viewKey])
-                        aria-pressed="{{ $view === $viewKey ? 'true' : 'false' }}"
-                        wire:click="switchView('{{ $viewKey }}')"
-                    >
-                        {{ $viewLabel }}
-                    </button>
-                @endforeach
-            </div>
-            @if ($canSaveDefaultView)
-                <label class="default-view-toggle">
-                    <input type="checkbox" wire:model.live="currentViewIsDefault">
-                    <span>{{ __('skus.default_view_checkbox') }}</span>
-                </label>
-            @endif
-            <flux:button type="button" size="sm" variant="outline" wire:click="openViewSettings">
-                {{ __('skus.view_settings') }}
-            </flux:button>
+    <div class="sku-view-tabs-row">
+        <div class="view-switcher" role="group" aria-label="{{ __('skus.view_switcher_label') }}">
+            @foreach ($views as $viewKey => $viewLabel)
+                <button
+                    type="button"
+                    @class(['view-switcher-btn', 'is-active' => $view === $viewKey])
+                    aria-pressed="{{ $view === $viewKey ? 'true' : 'false' }}"
+                    wire:click="switchView('{{ $viewKey }}')"
+                >
+                    {{ $viewLabel }}
+                </button>
+            @endforeach
         </div>
+    </div>
+
+    <section class="table-shell flux-panel">
+        <x-flash-toast />
 
         <div class="sku-toolbar">
             <flux:input
@@ -137,7 +136,6 @@
                 </flux:badge>
             </div>
             <div class="selection-action-group" data-testid="sku-bulk-actions">
-                <span>{{ __('skus.bulk_actions_group') }}</span>
                 <flux:button type="button" size="sm" variant="outline" disabled x-show="! single()">
                     {{ __('skus.btn_edit') }}
                 </flux:button>
@@ -165,6 +163,17 @@
                 <flux:button type="button" size="sm" variant="danger" wire:click="bulkDelete" wire:confirm="{{ __('skus.confirm_delete_permanently') }}" x-show="has()" x-cloak>
                     {{ __('skus.action_delete_permanently') }}
                 </flux:button>
+            </div>
+
+            <div class="sales-order-page-actions inline-page-actions" data-testid="sku-page-actions">
+                <a href="{{ route('skus.import') }}" class="inline-page-action-link" wire:navigate>
+                    <flux:icon.arrow-up-tray />
+                    {{ __('sku_import.btn_import') }}
+                </a>
+                <a href="{{ route('skus.create') }}" class="inline-page-action-link" wire:navigate>
+                    <flux:icon.plus />
+                    {{ __('skus.btn_create') }}
+                </a>
             </div>
         </div>
 
@@ -540,8 +549,7 @@
             <div class="image-panel-backdrop app-modal-backdrop">
                 <section class="image-panel app-modal-panel tracking-import-modal flux-panel" style="--app-modal-width: 920px;" aria-label="{{ __('skus.manage_images') }}">
                     @php
-                        $imageAssets = $managedStockItem->mediaAssets;
-                        $viewingImage = $imageAssets->firstWhere('id', $viewingImageId) ?? $imageAssets->first();
+                        $imageCards = $this->stockImageCards($managedStockItem);
                     @endphp
                     <header class="image-panel-header tracking-import-header">
                         <div>
@@ -551,187 +559,185 @@
                         <button type="button" class="modal-icon-close" wire:click="closeImagePanel" aria-label="{{ __('skus.btn_cancel') }}">&times;</button>
                     </header>
 
-                    @if ($imagePanelMode === 'gallery' && $viewingImage)
-                        <div class="image-gallery">
-                            <div class="image-gallery-stage">
-                                <img src="{{ $this->mediaUrl($viewingImage) }}" alt="{{ $viewingImage->file_name }}">
-                            </div>
-                            <div class="image-gallery-meta">
-                                <div>
-                                    <strong>{{ $viewingImage->file_name }}</strong>
-                                    @if ($viewingImage->width && $viewingImage->height)
-                                        <span>{{ $viewingImage->width }} x {{ $viewingImage->height }}</span>
-                                    @endif
-                                </div>
-                                <flux:button type="button" variant="primary" wire:click="manageImages">
-                                    {{ __('skus.manage_photos') }}
-                                </flux:button>
-                            </div>
-                            <div class="image-gallery-thumbs">
-                                @foreach ($imageAssets as $asset)
-                                    <button
-                                        type="button"
-                                        class="image-gallery-thumb {{ $viewingImage->id === $asset->id ? 'is-active' : '' }}"
-                                        wire:click="showImageGallery({{ $asset->id }})"
-                                        aria-label="{{ $asset->file_name }}"
-                                        wire:key="gallery-thumb-{{ $asset->id }}"
-                                    >
-                                        <img src="{{ $this->mediaUrl($asset) }}" alt="{{ $asset->file_name }}">
-                                    </button>
-                                @endforeach
-                            </div>
-                        </div>
-                    @else
-                        <form
-                            class="image-upload-form"
-                            wire:submit="uploadStockImage"
-                            x-data="{
-                                previews: [],
-                                setFiles(event) {
-                                    this.revokePreviews();
-                                    this.previews = Array.from(event.target.files || [])
-                                        .filter((file) => file.type.startsWith('image/'))
-                                        .map((file, originalIndex) => ({
-                                            file,
-                                            name: file.name,
-                                            key: originalIndex,
-                                            url: URL.createObjectURL(file),
-                                        }));
-                                    this.syncOrder();
-                                },
-                                movePreview(index, direction) {
-                                    const target = index + direction;
+                    <form
+                        class="image-upload-form"
+                        wire:submit="saveStockImages"
+                        x-on:submit="if (uploading) { $event.preventDefault(); }"
+                        x-data="{
+                            uploaded: @js($imageCards),
+                            previews: [],
+                            uploading: false,
+                            setFiles(event) {
+                                this.revokePreviews();
+                                this.previews = Array.from(event.target.files || [])
+                                    .filter((file) => file.type.startsWith('image/'))
+                                    .map((file, originalIndex) => ({
+                                        name: file.name,
+                                        key: originalIndex,
+                                        url: URL.createObjectURL(file),
+                                    }));
+                                this.syncUploadOrder();
+                            },
+                            moveUploaded(index, direction) {
+                                const target = index + direction;
 
-                                    if (target < 0 || target >= this.previews.length) {
-                                        return;
-                                    }
+                                if (target < 0 || target >= this.uploaded.length) {
+                                    return;
+                                }
 
-                                    const items = [...this.previews];
-                                    const moved = items.splice(index, 1)[0];
-                                    items.splice(target, 0, moved);
-                                    this.previews = items;
-                                    this.syncOrder();
-                                },
-                                removePreview(index) {
-                                    const removed = this.previews[index];
+                                const items = [...this.uploaded];
+                                const moved = items.splice(index, 1)[0];
+                                items.splice(target, 0, moved);
+                                this.uploaded = items;
+                                this.syncAssetOrder();
+                            },
+                            movePreview(index, direction) {
+                                const target = index + direction;
 
-                                    if (removed) {
-                                        URL.revokeObjectURL(removed.url);
-                                    }
+                                if (target < 0 || target >= this.previews.length) {
+                                    return;
+                                }
 
-                                    this.previews = this.previews.filter((_, itemIndex) => itemIndex !== index);
-                                    this.syncOrder();
-                                },
-                                syncOrder() {
-                                    this.$wire.set('stockImageOrder', this.previews.map((preview) => preview.key), false);
-                                },
-                                resetPreviews() {
-                                    this.revokePreviews();
-                                    this.previews = [];
-                                    this.syncOrder();
-                                    if (this.$refs.stockImageInput) {
-                                        this.$refs.stockImageInput.value = '';
-                                    }
-                                },
-                                revokePreviews() {
-                                    this.previews.forEach((preview) => URL.revokeObjectURL(preview.url));
-                                },
-                            }"
-                            x-on:stock-images-reset.window="resetPreviews()"
-                            x-on:livewire:navigating.window="revokePreviews()"
-                        >
-                            <label class="image-drop-zone tracking-import-dropzone">
-                                <strong>{{ __('skus.image_drop_title') }}</strong>
-                                <small>{{ __('skus.image_drop_hint') }}</small>
-                                <input
-                                    x-ref="stockImageInput"
-                                    type="file"
-                                    accept="image/jpeg,image/png,image/webp"
-                                    capture="environment"
-                                    multiple
-                                    wire:model="stockImages"
-                                    x-on:change="setFiles($event)"
-                                >
-                            </label>
-                            @error('stockImages')
-                                <span class="field-error">{{ $message }}</span>
-                            @enderror
-                            @error('stockImages.*')
-                                <span class="field-error">{{ $message }}</span>
-                            @enderror
+                                const items = [...this.previews];
+                                const moved = items.splice(index, 1)[0];
+                                items.splice(target, 0, moved);
+                                this.previews = items;
+                                this.syncUploadOrder();
+                            },
+                            removePreview(index) {
+                                const removed = this.previews[index];
 
-                            <template x-if="previews.length > 0">
-                                <div class="image-selected-preview">
-                                    <template x-for="(preview, index) in previews" :key="preview.name + '-' + index">
-                                        <article class="image-preview-item">
-                                            <div class="image-preview-frame">
-                                                <img :src="preview.url" :alt="preview.name">
-                                                <button type="button" class="image-preview-remove-button" x-on:click="removePreview(index)" aria-label="{{ __('common.delete') }}">
-                                                    &times;
-                                                </button>
-                                            </div>
-                                            <div>
-                                                <strong x-text="preview.name"></strong>
-                                                <span>{{ __('skus.image_preview_ready') }}</span>
-                                            </div>
-                                            <div class="image-preview-actions">
-                                                <button type="button" class="image-preview-order-button" x-on:click="movePreview(index, -1)" x-bind:disabled="index === 0" title="{{ __('skus.move_image_up') }}">
-                                                    &larr;
-                                                </button>
-                                                <button type="button" class="image-preview-order-button" x-on:click="movePreview(index, 1)" x-bind:disabled="index === previews.length - 1" title="{{ __('skus.move_image_down') }}">
-                                                    &rarr;
-                                                </button>
-                                            </div>
-                                        </article>
-                                    </template>
-                                </div>
+                                if (removed) {
+                                    URL.revokeObjectURL(removed.url);
+                                }
+
+                                this.previews = this.previews.filter((_, itemIndex) => itemIndex !== index);
+                                this.syncUploadOrder();
+                            },
+                            deleteUploaded(index) {
+                                const image = this.uploaded[index];
+
+                                if (! image) {
+                                    return;
+                                }
+
+                                this.uploaded = this.uploaded.filter((_, itemIndex) => itemIndex !== index);
+                                this.syncAssetOrder();
+                                this.$wire.deleteImage(image.id);
+                            },
+                            syncAssetOrder() {
+                                this.$wire.set('imageAssetOrder', this.uploaded.map((image) => image.id), false);
+                            },
+                            syncUploadOrder() {
+                                this.$wire.set('stockImageOrder', this.previews.map((preview) => preview.key), false);
+                            },
+                            resetPreviews() {
+                                this.revokePreviews();
+                                this.previews = [];
+                                this.uploading = false;
+                                this.syncUploadOrder();
+                                if (this.$refs.stockImageInput) {
+                                    this.$refs.stockImageInput.value = '';
+                                }
+                            },
+                            revokePreviews() {
+                                this.previews.forEach((preview) => URL.revokeObjectURL(preview.url));
+                            },
+                            init() {
+                                this.syncAssetOrder();
+                            },
+                        }"
+                        x-on:stock-images-reset.window="resetPreviews()"
+                        x-on:stock-images-synced.window="uploaded = $event.detail.images || []; syncAssetOrder()"
+                        x-on:livewire:navigating.window="revokePreviews()"
+                    >
+                        <label class="image-drop-zone tracking-import-dropzone">
+                            <strong>{{ __('skus.image_drop_title') }}</strong>
+                            <small>{{ __('skus.image_drop_hint') }}</small>
+                            <input
+                                x-ref="stockImageInput"
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                capture="environment"
+                                multiple
+                                wire:model="stockImages"
+                                x-on:change="setFiles($event)"
+                                x-on:livewire-upload-start="uploading = true"
+                                x-on:livewire-upload-finish="uploading = false"
+                                x-on:livewire-upload-error="uploading = false"
+                                x-on:livewire-upload-cancel="uploading = false"
+                            >
+                        </label>
+                        @error('stockImages')
+                            <span class="field-error">{{ $message }}</span>
+                        @enderror
+                        @error('stockImages.*')
+                            <span class="field-error">{{ $message }}</span>
+                        @enderror
+
+                        <div class="image-selected-preview" x-show="uploaded.length > 0 || previews.length > 0">
+                            <template x-for="(image, index) in uploaded" :key="'saved-' + image.id">
+                                <article class="image-preview-item">
+                                    <div class="image-preview-frame">
+                                        <img :src="image.url" :alt="image.name">
+                                        <button type="button" class="image-preview-remove-button" x-on:click="deleteUploaded(index)" aria-label="{{ __('skus.delete_image') }}">
+                                            &times;
+                                        </button>
+                                    </div>
+                                    <div>
+                                        <strong x-text="image.name"></strong>
+                                        <span x-show="index === 0">{{ __('skus.primary_image') }}</span>
+                                        <small x-show="image.width && image.height" x-text="image.width + ' x ' + image.height"></small>
+                                    </div>
+                                    <div class="image-preview-actions">
+                                        <button type="button" class="image-preview-order-button" x-on:click="moveUploaded(index, -1)" x-bind:disabled="index === 0" title="{{ __('skus.move_image_up') }}">
+                                            &larr;
+                                        </button>
+                                        <button type="button" class="image-preview-order-button" x-on:click="moveUploaded(index, 1)" x-bind:disabled="index === uploaded.length - 1" title="{{ __('skus.move_image_down') }}">
+                                            &rarr;
+                                        </button>
+                                    </div>
+                                </article>
                             </template>
 
-                            <footer class="tracking-import-footer image-upload-footer">
-                                @if ($imageAssets->isNotEmpty())
-                                    <flux:button type="button" variant="outline" wire:click="showImageGallery">
-                                        {{ __('skus.back_to_gallery') }}
-                                    </flux:button>
-                                @endif
-                                <flux:button type="submit" variant="primary">{{ __('skus.upload_image') }}</flux:button>
-                            </footer>
-                        </form>
-
-                        <div class="image-list">
-                            @forelse ($imageAssets as $asset)
-                                <article class="image-list-item" wire:key="media-asset-{{ $asset->id }}">
-                                    <button type="button" class="image-list-preview" wire:click="showImageGallery({{ $asset->id }})">
-                                        <img src="{{ $this->mediaUrl($asset) }}" alt="{{ $asset->file_name }}">
-                                    </button>
+                            <template x-for="(preview, index) in previews" :key="'new-' + preview.name + '-' + index">
+                                <article class="image-preview-item">
+                                    <div class="image-preview-frame">
+                                        <img :src="preview.url" :alt="preview.name">
+                                        <button type="button" class="image-preview-remove-button" x-on:click="removePreview(index)" aria-label="{{ __('common.delete') }}">
+                                            &times;
+                                        </button>
+                                    </div>
                                     <div>
-                                        <strong>{{ $asset->file_name }}</strong>
-                                        @if ($asset->is_primary)
-                                            <span>{{ __('skus.primary_image') }}</span>
-                                        @endif
-                                        @if ($asset->width && $asset->height)
-                                            <small>{{ $asset->width }} x {{ $asset->height }}</small>
-                                        @endif
+                                        <strong x-text="preview.name"></strong>
+                                        <span x-text="uploaded.length === 0 && index === 0 ? @js(__('skus.primary_image')) : @js(__('skus.image_preview_ready'))"></span>
                                     </div>
-                                    <div class="image-sort-actions">
-                                        <flux:button type="button" size="xs" variant="subtle" wire:click="moveImageUp({{ $asset->id }})" title="{{ __('skus.move_image_up') }}">
-                                            {{ __('skus.move_image_up_short') }}
-                                        </flux:button>
-                                        <flux:button type="button" size="xs" variant="subtle" wire:click="moveImageDown({{ $asset->id }})" title="{{ __('skus.move_image_down') }}">
-                                            {{ __('skus.move_image_down_short') }}
-                                        </flux:button>
+                                    <div class="image-preview-actions">
+                                        <button type="button" class="image-preview-order-button" x-on:click="movePreview(index, -1)" x-bind:disabled="index === 0" title="{{ __('skus.move_image_up') }}">
+                                            &larr;
+                                        </button>
+                                        <button type="button" class="image-preview-order-button" x-on:click="movePreview(index, 1)" x-bind:disabled="index === previews.length - 1" title="{{ __('skus.move_image_down') }}">
+                                            &rarr;
+                                        </button>
                                     </div>
-                                    <flux:button type="button" size="xs" variant="subtle" wire:click="setPrimaryImage({{ $asset->id }})" :disabled="$asset->is_primary">
-                                        {{ __('skus.set_primary') }}
-                                    </flux:button>
-                                    <flux:button type="button" size="xs" variant="danger" wire:click="deleteImage({{ $asset->id }})">
-                                        {{ __('skus.delete_image') }}
-                                    </flux:button>
                                 </article>
-                            @empty
-                                <div class="empty-state">{{ __('skus.no_images') }}</div>
-                            @endforelse
+                            </template>
                         </div>
-                    @endif
+
+                        <div class="empty-state" x-show="uploaded.length === 0 && previews.length === 0">{{ __('skus.no_images') }}</div>
+
+                        <footer class="tracking-import-footer image-upload-footer">
+                            <flux:button
+                                type="submit"
+                                variant="primary"
+                                x-bind:disabled="uploading"
+                                wire:loading.attr="disabled"
+                                wire:target="stockImages,saveStockImages"
+                            >
+                                {{ __('skus.upload_image') }}
+                            </flux:button>
+                        </footer>
+                    </form>
                 </section>
             </div>
         @endif
@@ -802,15 +808,24 @@
                     </div>
 
                     <form class="view-settings-form" wire:submit="saveViewSettings">
-                        <fieldset class="view-settings-fieldset">
-                            <legend>{{ __('skus.stock_item_code_display') }}</legend>
-                            @foreach ($this->stockItemCodeDisplayOptions() as $value => $label)
-                                <label class="view-settings-option">
-                                    <input type="radio" wire:model="stockItemCodeDisplay" value="{{ $value }}">
-                                    <span>{{ $label }}</span>
-                                </label>
-                            @endforeach
-                        </fieldset>
+                        <label class="view-settings-field">
+                            <span>{{ __('skus.stock_item_code_display') }}</span>
+                            <select wire:model="stockItemCodeDisplay">
+                                @foreach ($this->stockItemCodeDisplayOptions() as $value => $label)
+                                    <option value="{{ $value }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+
+                        @if ($canSaveDefaultView)
+                            <label class="view-settings-field">
+                                <span>{{ __('skus.default_view_checkbox') }}</span>
+                                <select wire:model="defaultViewPreference">
+                                    <option value="0">{{ __('skus.default_view_no') }}</option>
+                                    <option value="1">{{ __('skus.default_view_yes') }}</option>
+                                </select>
+                            </label>
+                        @endif
 
                         <footer class="tracking-import-footer">
                             <flux:button type="submit" variant="primary">{{ __('skus.view_settings_save') }}</flux:button>
@@ -822,34 +837,6 @@
     </section>
 
     <style>
-        .view-settings-form {
-            display: grid;
-            gap: 18px;
-        }
-
-        .view-settings-fieldset {
-            display: grid;
-            gap: 10px;
-            border: 0;
-            margin: 0;
-            padding: 0;
-        }
-
-        .view-settings-fieldset legend {
-            margin-bottom: 4px;
-            color: var(--ink);
-            font-size: 14px;
-            font-weight: 700;
-        }
-
-        .view-settings-option {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: var(--ink);
-            font-size: 14px;
-        }
-
         .alias-form {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));

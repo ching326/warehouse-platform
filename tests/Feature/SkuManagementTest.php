@@ -1183,16 +1183,6 @@ class SkuManagementTest extends TestCase
         $this->assertSame(2, $second->sort_order);
         Storage::disk('public')->assertExists($first->path);
         Storage::disk('public')->assertExists($second->path);
-
-        Livewire::actingAs($this->internalUser())
-            ->test(SkusIndex::class)
-            ->call('moveImageUp', $second->id)
-            ->assertHasNoErrors();
-
-        $this->assertTrue($second->refresh()->is_primary);
-        $this->assertSame(1, $second->sort_order);
-        $this->assertFalse($first->refresh()->is_primary);
-        $this->assertSame(2, $first->sort_order);
     }
 
     public function test_stock_image_upload_respects_preview_order_and_removed_images(): void
@@ -1217,7 +1207,7 @@ class SkuManagementTest extends TestCase
         $this->assertTrue(MediaAsset::where('file_name', 'STK-PREVIEW-01.jpg')->firstOrFail()->is_primary);
     }
 
-    public function test_image_panel_opens_gallery_for_existing_images_and_manage_for_empty_stock_item(): void
+    public function test_image_panel_loads_existing_images_into_manage_state(): void
     {
         $tenant = Tenant::factory()->create();
         $emptyStockItem = StockItem::factory()->for($tenant)->create();
@@ -1227,19 +1217,32 @@ class SkuManagementTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(SkusIndex::class)
             ->call('openImagePanel', $emptyStockItem->id)
-            ->assertSet('imagePanelMode', 'manage')
-            ->assertSet('viewingImageId', null);
+            ->assertSet('imageAssetOrder', []);
 
         Livewire::actingAs($this->internalUser())
             ->test(SkusIndex::class)
             ->call('openImagePanel', $stockItem->id)
-            ->assertSet('imagePanelMode', 'gallery')
-            ->assertSet('viewingImageId', $asset->id)
-            ->call('manageImages')
-            ->assertSet('imagePanelMode', 'manage')
-            ->call('showImageGallery', $asset->id)
-            ->assertSet('imagePanelMode', 'gallery')
-            ->assertSet('viewingImageId', $asset->id);
+            ->assertSet('imageAssetOrder', [$asset->id]);
+    }
+
+    public function test_save_images_updates_existing_image_order_and_primary(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        $first = $this->mediaAsset($stockItem, ['is_primary' => true, 'sort_order' => 1]);
+        $second = $this->mediaAsset($stockItem, ['is_primary' => false, 'sort_order' => 2]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->call('openImagePanel', $stockItem->id)
+            ->set('imageAssetOrder', [$second->id, $first->id])
+            ->call('saveStockImages')
+            ->assertHasNoErrors();
+
+        $this->assertTrue($second->refresh()->is_primary);
+        $this->assertSame(1, $second->sort_order);
+        $this->assertFalse($first->refresh()->is_primary);
+        $this->assertSame(2, $first->sort_order);
     }
 
     public function test_upload_resizes_large_stock_item_image_to_max_2000px_side(): void
@@ -1266,22 +1269,6 @@ class SkuManagementTest extends TestCase
 
         $this->assertSame(2000, $storedSize[0]);
         $this->assertSame(800, $storedSize[1]);
-    }
-
-    public function test_set_primary_action_changes_primary_image(): void
-    {
-        $tenant = Tenant::factory()->create();
-        $stockItem = StockItem::factory()->for($tenant)->create();
-        $first = $this->mediaAsset($stockItem, ['is_primary' => true, 'sort_order' => 1]);
-        $second = $this->mediaAsset($stockItem, ['is_primary' => false, 'sort_order' => 2]);
-
-        Livewire::actingAs($this->internalUser())
-            ->test(SkusIndex::class)
-            ->call('setPrimaryImage', $second->id)
-            ->assertHasNoErrors();
-
-        $this->assertFalse($first->refresh()->is_primary);
-        $this->assertTrue($second->refresh()->is_primary);
     }
 
     public function test_delete_image_removes_media_row_and_file(): void
@@ -1879,9 +1866,11 @@ class SkuManagementTest extends TestCase
         Livewire::actingAs($user)
             ->withQueryParams(['view' => 'logistics'])
             ->test(SkusIndex::class)
-            ->assertSet('currentViewIsDefault', false)
-            ->set('currentViewIsDefault', true)
-            ->assertSee(__('skus.default_view_saved'));
+            ->assertSet('defaultViewPreference', '0')
+            ->call('openViewSettings')
+            ->set('defaultViewPreference', '1')
+            ->call('saveViewSettings')
+            ->assertSee(__('skus.view_settings_saved'));
 
         $this->assertSame('logistics', $user->refresh()->preference('skus_view'));
 
@@ -1893,7 +1882,7 @@ class SkuManagementTest extends TestCase
             ->withQueryParams(['view' => 'catalog'])
             ->test(SkusIndex::class)
             ->assertSet('view', 'catalog')
-            ->assertSet('currentViewIsDefault', false);
+            ->assertSet('defaultViewPreference', '0');
     }
 
     public function test_default_view_checkbox_can_clear_saved_preference(): void
@@ -1904,9 +1893,11 @@ class SkuManagementTest extends TestCase
         Livewire::actingAs($user)
             ->withQueryParams(['view' => 'catalog'])
             ->test(SkusIndex::class)
-            ->assertSet('currentViewIsDefault', true)
-            ->set('currentViewIsDefault', false)
-            ->assertSee(__('skus.default_view_cleared'));
+            ->assertSet('defaultViewPreference', '1')
+            ->call('openViewSettings')
+            ->set('defaultViewPreference', '0')
+            ->call('saveViewSettings')
+            ->assertSee(__('skus.view_settings_saved'));
 
         $this->assertNull($user->refresh()->preference('skus_view'));
     }
@@ -2253,6 +2244,18 @@ class SkuManagementTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(SkusIndex::class)
+            ->assertSee('TENANT-DISPLAY-001 / DSP-000001');
+    }
+
+    public function test_sku_index_legacy_tenant_code_preference_maps_to_both_codes(): void
+    {
+        $this->skuWithTenantItemCode();
+        $user = $this->internalUser();
+        $user->setPreference('show_tenant_item_code', true);
+
+        Livewire::actingAs($user)
+            ->test(SkusIndex::class)
+            ->assertSet('stockItemCodeDisplay', 'both')
             ->assertSee('TENANT-DISPLAY-001 / DSP-000001');
     }
 

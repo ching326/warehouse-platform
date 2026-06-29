@@ -1,6 +1,12 @@
 <div class="issue-index-page">
     <x-flash-toast />
 
+    <x-page-panel-header
+        :title="__('issues.page_title')"
+        :subtitle="__('issues.page_subtitle')"
+        :show-nav="false"
+    />
+
 <section class="table-shell flux-panel">
         <div class="issue-filter-stack">
             <div class="issue-filter-row issue-filter-row-primary">

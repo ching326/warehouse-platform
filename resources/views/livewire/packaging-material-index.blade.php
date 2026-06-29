@@ -1,6 +1,11 @@
 <div class="packaging-index-page">
     <x-flash-toast />
 
+    <x-page-panel-header
+        :title="__('setup.packagings_page_title')"
+        :subtitle="__('setup.packagings_page_subtitle')"
+    />
+
 <section class="table-shell flux-panel">
         <div class="movement-toolbar packaging-toolbar">
             <flux:select wire:model.live="typeFilter" :label="__('setup.field_type')">

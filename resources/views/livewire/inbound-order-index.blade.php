@@ -1,7 +1,13 @@
 <div class="inbound-index-page">
-    <x-flash-toast />
+    <x-page-panel-header
+        :title="__('inbound.page_title')"
+        :subtitle="__('inbound.page_subtitle')"
+        :show-nav="false"
+    />
 
-<section class="table-shell flux-panel">
+    <section class="table-shell flux-panel">
+        <x-flash-toast />
+
         <div class="movement-toolbar">
             @if ($showTenantFilter)
                 <flux:select wire:model.live="tenantId" :label="__('inbound.field_tenant')">

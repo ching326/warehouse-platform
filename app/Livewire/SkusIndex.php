@@ -67,7 +67,7 @@ class SkusIndex extends Component
 
     public array $logisticsDrafts = [];
 
-    public bool $currentViewIsDefault = false;
+    public string $defaultViewPreference = '0';
 
     public bool $viewSettingsOpen = false;
 
@@ -75,15 +75,14 @@ class SkusIndex extends Component
 
     public ?int $managingStockItemId = null;
 
-    public string $imagePanelMode = 'gallery';
-
-    public ?int $viewingImageId = null;
-
     /** @var array<int, TemporaryUploadedFile> */
     public array $stockImages = [];
 
     /** @var array<int, string> */
     public array $stockImageOrder = [];
+
+    /** @var array<int, int> */
+    public array $imageAssetOrder = [];
 
     public ?int $managingAliasSkuId = null;
 
@@ -138,10 +137,8 @@ class SkusIndex extends Component
             default => self::VIEW_DETAILED,
         };
 
-        $this->stockItemCodeDisplay = $this->normalizeStockItemCodeDisplay(
-            Auth::user()?->preference('stock_item_code_display', self::STOCK_ITEM_CODE_DISPLAY_SYSTEM),
-        );
-        $this->syncCurrentViewIsDefault();
+        $this->stockItemCodeDisplay = $this->stockItemCodeDisplayPreference();
+        $this->syncDefaultViewPreference();
     }
 
     public function updatedView(): void
@@ -150,7 +147,7 @@ class SkusIndex extends Component
             $this->view = self::VIEW_DETAILED;
         }
 
-        $this->syncCurrentViewIsDefault();
+        $this->syncDefaultViewPreference();
         $this->resetPage();
     }
 
@@ -198,32 +195,14 @@ class SkusIndex extends Component
     public function switchView(string $view): void
     {
         $this->view = $this->isAllowedView($view) ? $view : self::VIEW_DETAILED;
-        $this->syncCurrentViewIsDefault();
+        $this->syncDefaultViewPreference();
         $this->resetPage();
-    }
-
-    public function updatedCurrentViewIsDefault(bool $checked): void
-    {
-        $user = Auth::user();
-
-        if (! $user || ! $this->isAllowedView($this->view)) {
-            return;
-        }
-
-        if ($checked) {
-            $user->setPreference('skus_view', $this->view);
-            $this->flashStatus(__('skus.default_view_saved'));
-
-            return;
-        }
-
-        $user->forgetPreference('skus_view');
-        $this->flashStatus(__('skus.default_view_cleared'));
     }
 
     public function openViewSettings(): void
     {
-        $this->stockItemCodeDisplay = $this->normalizeStockItemCodeDisplay($this->stockItemCodeDisplay);
+        $this->stockItemCodeDisplay = $this->stockItemCodeDisplayPreference();
+        $this->syncDefaultViewPreference();
         $this->viewSettingsOpen = true;
     }
 
@@ -236,16 +215,24 @@ class SkusIndex extends Component
     {
         $data = validator([
             'stock_item_code_display' => $this->stockItemCodeDisplay,
+            'default_view_preference' => $this->defaultViewPreference,
         ], [
             'stock_item_code_display' => ['required', Rule::in(self::STOCK_ITEM_CODE_DISPLAY_OPTIONS)],
+            'default_view_preference' => ['required', Rule::in(['0', '1'])],
         ])->validate();
 
         $this->stockItemCodeDisplay = $data['stock_item_code_display'];
+        $this->defaultViewPreference = $data['default_view_preference'];
 
         $user = Auth::user();
 
         if ($user) {
             $user->setPreference('stock_item_code_display', $this->stockItemCodeDisplay);
+            if ($this->defaultViewPreference === '1' && $this->isAllowedView($this->view)) {
+                $user->setPreference('skus_view', $this->view);
+            } else {
+                $user->forgetPreference('skus_view');
+            }
             $this->flashStatus(__('skus.view_settings_saved'));
         }
 
@@ -339,39 +326,7 @@ class SkusIndex extends Component
         $this->resetValidation();
         $this->resetImageForm();
         $this->managingStockItemId = $stockItem->id;
-        $primaryImage = $stockItem->primaryImage()->first();
-        $this->viewingImageId = $primaryImage?->id;
-        $this->imagePanelMode = $primaryImage ? 'gallery' : 'manage';
-    }
-
-    public function manageImages(): void
-    {
-        $this->managedStockItem();
-        $this->resetValidation();
-        $this->imagePanelMode = 'manage';
-    }
-
-    public function showImageGallery(?int $mediaAssetId = null): void
-    {
-        $stockItem = $this->managedStockItem();
-        $this->resetValidation();
-        $this->resetImageForm();
-
-        if ($mediaAssetId !== null) {
-            $asset = $this->scopedMediaAssetQuery()
-                ->where('model_id', $stockItem->id)
-                ->find($mediaAssetId);
-
-            if (! $asset) {
-                abort(404);
-            }
-
-            $this->viewingImageId = $asset->id;
-        } else {
-            $this->viewingImageId = $stockItem->primaryImage()->first()?->id;
-        }
-
-        $this->imagePanelMode = 'gallery';
+        $this->syncImageAssetState($stockItem);
     }
 
     public function closeImagePanel(): void
@@ -379,8 +334,7 @@ class SkusIndex extends Component
         $this->resetValidation();
         $this->resetImageForm();
         $this->managingStockItemId = null;
-        $this->viewingImageId = null;
-        $this->imagePanelMode = 'gallery';
+        $this->imageAssetOrder = [];
     }
 
     public function openAliasPanel(int $skuId): void
@@ -784,97 +738,28 @@ class SkusIndex extends Component
 
         $this->resetImageForm();
         $this->dispatch('stock-images-reset');
+        $stockItem = $stockItem->refresh();
+        $this->syncImageAssetState($stockItem);
+        $this->dispatch('stock-images-synced', images: $this->stockImageCards($stockItem));
         $this->flashStatus(trans_choice('skus.images_uploaded', count($uploadedAssets), ['count' => count($uploadedAssets)]));
     }
 
-    public function moveImageUp(int $mediaAssetId): void
+    public function saveStockImages(): void
     {
-        $this->moveImage($mediaAssetId, -1);
-    }
+        $stockItem = $this->managedStockItem();
+        $hasExistingImages = $stockItem->mediaAssets()->exists();
 
-    public function moveImageDown(int $mediaAssetId): void
-    {
-        $this->moveImage($mediaAssetId, 1);
-    }
+        if ($this->stockImages !== []) {
+            if ($hasExistingImages) {
+                $this->saveImageArrangement(flash: false);
+            }
 
-    private function moveImage(int $mediaAssetId, int $direction): void
-    {
-        $asset = $this->scopedMediaAssetQuery()->find($mediaAssetId);
+            $this->uploadStockImage();
 
-        if (! $asset) {
-            abort(404);
-        }
-
-        $stockItem = $this->scopedStockItemQuery()->find($asset->model_id);
-
-        if (! $stockItem) {
-            abort(404);
-        }
-
-        $assets = $stockItem->mediaAssets()->get()->values();
-        $index = $assets->search(fn (MediaAsset $item) => $item->id === $asset->id);
-        $targetIndex = is_int($index) ? $index + $direction : -1;
-
-        if (! is_int($index) || ! $assets->has($targetIndex)) {
             return;
         }
 
-        $ordered = $assets->all();
-        [$moved] = array_splice($ordered, $index, 1);
-        array_splice($ordered, $targetIndex, 0, [$moved]);
-
-        DB::transaction(function () use ($ordered, $stockItem): void {
-            foreach ($ordered as $position => $item) {
-                $item->forceFill([
-                    'sort_order' => $position + 1,
-                    'is_primary' => $position === 0,
-                ])->save();
-            }
-
-            $this->syncFirstImageAsPrimary($stockItem->id);
-        });
-
-    }
-
-    public function setPrimaryImage(int $mediaAssetId): void
-    {
-        $asset = $this->scopedMediaAssetQuery()->find($mediaAssetId);
-
-        if (! $asset) {
-            abort(404);
-        }
-
-        $stockItem = $this->scopedStockItemQuery()->find($asset->model_id);
-
-        if (! $stockItem) {
-            abort(404);
-        }
-
-        DB::transaction(function () use ($asset, $stockItem): void {
-            $assets = $stockItem->mediaAssets()->get()->reject(fn (MediaAsset $item) => $item->id === $asset->id)->values();
-            $this->clearPrimaryImages($stockItem->id);
-
-            $sortOrder = 1;
-            $asset->forceFill([
-                'is_primary' => true,
-                'sort_order' => $sortOrder++,
-            ])->save();
-
-            foreach ($assets as $item) {
-                $item->forceFill([
-                    'is_primary' => false,
-                    'sort_order' => $sortOrder++,
-                ])->save();
-            }
-        });
-
-        activity('stock_item')
-            ->performedOn($stockItem)
-            ->causedBy(Auth::user())
-            ->withProperties(['media_asset_id' => $asset->id])
-            ->log('primary image changed');
-
-        $this->flashStatus(__('skus.image_primary_changed'));
+        $this->saveImageArrangement();
     }
 
     public function deleteImage(int $mediaAssetId): void
@@ -920,6 +805,9 @@ class SkusIndex extends Component
             ->withProperties(['media_asset_id' => $mediaAssetId])
             ->log('image deleted');
 
+        $stockItem = $stockItem->refresh();
+        $this->syncImageAssetState($stockItem);
+        $this->dispatch('stock-images-synced', images: $this->stockImageCards($stockItem));
     }
 
     public function importAmazonImage(int $skuId): void
@@ -1086,7 +974,6 @@ class SkusIndex extends Component
         ])->layout('inventory', [
             'title' => __('skus.page_title'),
             'subtitle' => __('skus.page_subtitle'),
-            'hidePageHeader' => true,
             'pageWide' => true,
         ]);
     }
@@ -1543,15 +1430,29 @@ class SkusIndex extends Component
         };
     }
 
-    private function syncCurrentViewIsDefault(): void
+    private function syncDefaultViewPreference(): void
     {
-        $this->currentViewIsDefault = Auth::user()?->preference('skus_view') === $this->view;
+        $this->defaultViewPreference = Auth::user()?->preference('skus_view') === $this->view ? '1' : '0';
     }
 
     private function normalizeStockItemCodeDisplay(mixed $value): string
     {
         return is_string($value) && in_array($value, self::STOCK_ITEM_CODE_DISPLAY_OPTIONS, true)
             ? $value
+            : self::STOCK_ITEM_CODE_DISPLAY_SYSTEM;
+    }
+
+    private function stockItemCodeDisplayPreference(): string
+    {
+        $user = Auth::user();
+        $preference = $user?->preference('stock_item_code_display');
+
+        if (is_string($preference)) {
+            return $this->normalizeStockItemCodeDisplay($preference);
+        }
+
+        return $user?->preference('show_tenant_item_code', false)
+            ? self::STOCK_ITEM_CODE_DISPLAY_BOTH
             : self::STOCK_ITEM_CODE_DISPLAY_SYSTEM;
     }
 
@@ -1868,6 +1769,61 @@ class SkusIndex extends Component
         $this->stockImageOrder = [];
     }
 
+    private function saveImageArrangement(bool $flash = true): void
+    {
+        $stockItem = $this->managedStockItem();
+        $assets = $stockItem->mediaAssets()->get()->keyBy('id');
+
+        if ($assets->isEmpty()) {
+            throw ValidationException::withMessages([
+                'stockImages' => __('skus.image_file_required'),
+            ]);
+        }
+
+        $orderedIds = collect($this->imageAssetOrder)
+            ->filter(fn ($id): bool => is_numeric($id) && $assets->has((int) $id))
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values();
+
+        $missingIds = $assets->keys()
+            ->map(fn ($id): int => (int) $id)
+            ->diff($orderedIds)
+            ->values();
+
+        $finalOrder = $orderedIds->merge($missingIds)->values();
+        $primaryId = $finalOrder->first();
+
+        DB::transaction(function () use ($assets, $finalOrder, $primaryId): void {
+            foreach ($finalOrder as $position => $assetId) {
+                $asset = $assets->get($assetId);
+
+                if (! $asset) {
+                    continue;
+                }
+
+                $asset->forceFill([
+                    'sort_order' => $position + 1,
+                    'is_primary' => $asset->id === $primaryId,
+                ])->save();
+            }
+        });
+
+        $stockItem = $stockItem->refresh();
+        $this->syncImageAssetState($stockItem);
+        $this->dispatch('stock-images-synced', images: $this->stockImageCards($stockItem));
+
+        if ($flash) {
+            $this->flashStatus(__('skus.image_order_updated'));
+        }
+    }
+
+    private function syncImageAssetState(StockItem $stockItem): void
+    {
+        $assets = $stockItem->mediaAssets()->get();
+        $this->imageAssetOrder = $assets->pluck('id')->map(fn ($id): int => (int) $id)->all();
+    }
+
     /**
      * @return array<int, TemporaryUploadedFile>
      */
@@ -1958,6 +1914,21 @@ class SkusIndex extends Component
         }
 
         return route('media.show', $asset);
+    }
+
+    public function stockImageCards(StockItem $stockItem): array
+    {
+        return $stockItem->mediaAssets()
+            ->get()
+            ->map(fn (MediaAsset $asset): array => [
+                'id' => (int) $asset->id,
+                'name' => $asset->file_name,
+                'url' => $this->mediaUrl($asset),
+                'width' => $asset->width,
+                'height' => $asset->height,
+            ])
+            ->values()
+            ->all();
     }
 
     public function canImportAmazonImage(Sku $sku): bool

@@ -37,6 +37,11 @@
         </div>
     @endif
 
+    <x-page-panel-header
+        :title="__('fulfillment.page_title')"
+        :subtitle="__('fulfillment.page_subtitle')"
+    />
+
     <section class="table-shell flux-panel">
         <div
             class="sales-order-filter-grid sales-order-filter-toolbar"
@@ -282,53 +287,6 @@
                 },
             }"
         >
-        <div class="sales-order-page-actions" data-testid="fulfillment-group-page-actions">
-            <details
-                class="action-menu primary action-menu-align-left"
-                x-bind:open="openActionMenu === 'import'"
-                x-on:click.outside="if (openActionMenu === 'import') openActionMenu = null"
-            >
-                <summary x-on:click.prevent="openActionMenu = openActionMenu === 'import' ? null : 'import'">
-                    <span class="action-menu-label">
-                        <flux:icon.arrow-up-tray />
-                        {{ __('fulfillment.bulk_import_group') }}
-                    </span>
-                </summary>
-                <div class="action-menu-panel action-menu-panel-sectioned">
-                    <div class="action-menu-section">
-                        <span>{{ __('fulfillment.tracking_import_menu') }}</span>
-                        <button type="button" wire:click="openTrackingImportModal" x-on:click="openActionMenu = null">
-                            {{ __('fulfillment.batch_import_tracking') }}
-                        </button>
-                    </div>
-                </div>
-            </details>
-
-            <details
-                class="action-menu primary action-menu-align-right"
-                x-bind:open="openActionMenu === 'export'"
-                x-on:click.outside="if (openActionMenu === 'export') openActionMenu = null"
-            >
-                <summary x-on:click.prevent="openActionMenu = openActionMenu === 'export' ? null : 'export'">
-                    <span class="action-menu-label">
-                        <flux:icon.arrow-down-tray />
-                        {{ __('fulfillment.bulk_export_group') }}
-                    </span>
-                </summary>
-                <div class="action-menu-panel action-menu-panel-sectioned">
-                    <div class="action-menu-section">
-                        <span>{{ __('fulfillment.courier_export_menu') }}</span>
-                        <button type="button" wire:click="exportYamato" x-on:click="openActionMenu = null">
-                            {{ __('fulfillment.batch_export_yamato') }}
-                        </button>
-                        <button type="button" wire:click="exportSagawa" x-on:click="openActionMenu = null">
-                            {{ __('fulfillment.batch_export_sagawa') }}
-                        </button>
-                    </div>
-                </div>
-            </details>
-        </div>
-
         <div class="sales-order-action-row" data-testid="fulfillment-group-selection-actions">
             <div class="selection-count-slot" aria-live="polite">
                 <flux:badge color="blue" x-show="has()" x-cloak>
@@ -361,6 +319,53 @@
                 <flux:button type="button" size="sm" variant="primary" wire:click="remapShipping" x-show="has()" x-cloak>
                     {{ __('fulfillment.btn_remap_shipping') }}
                 </flux:button>
+            </div>
+
+            <div class="sales-order-page-actions inline-page-actions" data-testid="fulfillment-group-page-actions">
+                <details
+                    class="action-menu primary action-menu-align-left"
+                    x-bind:open="openActionMenu === 'import'"
+                    x-on:click.outside="if (openActionMenu === 'import') openActionMenu = null"
+                >
+                    <summary x-on:click.prevent="openActionMenu = openActionMenu === 'import' ? null : 'import'">
+                        <span class="action-menu-label">
+                            <flux:icon.arrow-up-tray />
+                            {{ __('fulfillment.bulk_import_group') }}
+                        </span>
+                    </summary>
+                    <div class="action-menu-panel action-menu-panel-sectioned">
+                        <div class="action-menu-section">
+                            <span>{{ __('fulfillment.tracking_import_menu') }}</span>
+                            <button type="button" wire:click="openTrackingImportModal" x-on:click="openActionMenu = null">
+                                {{ __('fulfillment.batch_import_tracking') }}
+                            </button>
+                        </div>
+                    </div>
+                </details>
+
+                <details
+                    class="action-menu primary action-menu-align-right"
+                    x-bind:open="openActionMenu === 'export'"
+                    x-on:click.outside="if (openActionMenu === 'export') openActionMenu = null"
+                >
+                    <summary x-on:click.prevent="openActionMenu = openActionMenu === 'export' ? null : 'export'">
+                        <span class="action-menu-label">
+                            <flux:icon.arrow-down-tray />
+                            {{ __('fulfillment.bulk_export_group') }}
+                        </span>
+                    </summary>
+                    <div class="action-menu-panel action-menu-panel-sectioned">
+                        <div class="action-menu-section">
+                            <span>{{ __('fulfillment.courier_export_menu') }}</span>
+                            <button type="button" wire:click="exportYamato" x-on:click="openActionMenu = null">
+                                {{ __('fulfillment.batch_export_yamato') }}
+                            </button>
+                            <button type="button" wire:click="exportSagawa" x-on:click="openActionMenu = null">
+                                {{ __('fulfillment.batch_export_sagawa') }}
+                            </button>
+                        </div>
+                    </div>
+                </details>
             </div>
         </div>
 

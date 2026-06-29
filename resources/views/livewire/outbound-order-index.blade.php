@@ -1,6 +1,11 @@
 <div class="outbound-index-page">
     <x-flash-toast />
-<section class="table-shell flux-panel">
+    <x-page-panel-header
+        :title="__('outbound.page_title')"
+        :subtitle="__('outbound.page_subtitle')"
+    />
+
+    <section class="table-shell flux-panel">
         <div class="movement-toolbar outbound-index-toolbar">
             <flux:select wire:model.live="tenantId" :label="__('outbound.field_tenant')">
                 <flux:select.option value="">{{ __('common.all_tenants') }}</flux:select.option>

@@ -1,5 +1,23 @@
 <div class="inventory-index">
     <section class="summary-grid" aria-label="Inventory summary">
+        <x-page-panel-header
+            class="inventory-summary-heading"
+            :title="__('inventory.page_title')"
+            :subtitle="__('inventory.page_subtitle')"
+        >
+            <x-slot:actions>
+                <button
+                    type="button"
+                    class="view-settings-trigger"
+                    wire:click="openViewSettings"
+                    aria-label="{{ __('skus.view_settings') }}"
+                    title="{{ __('skus.view_settings') }}"
+                >
+                    <flux:icon.eye class="view-settings-trigger-icon" />
+                </button>
+            </x-slot:actions>
+        </x-page-panel-header>
+
         <flux:card size="sm" class="summary-card">
             <span>{{ __('inventory.summary_stock_items') }}</span>
             <strong>{{ number_format($summary['stock_items']) }}</strong>
@@ -19,6 +37,8 @@
     </section>
 
     <section class="table-shell flux-panel">
+        <x-flash-toast />
+
         <div class="movement-toolbar inventory-toolbar">
             <flux:input
                 wire:model.live.debounce.300ms="search"
@@ -28,11 +48,6 @@
             />
 
             <div class="inventory-filter-row">
-                <label class="default-view-toggle">
-                    <input type="checkbox" wire:model.live="showTenantItemCode">
-                    <span>{{ __('skus.tenant_code_toggle') }}</span>
-                </label>
-
                 <flux:select wire:model.live="tenantId" :label="__('common.tenant')">
                     <flux:select.option value="">{{ __('common.all_tenants') }}</flux:select.option>
                     @foreach ($tenants as $tenant)
@@ -198,5 +213,33 @@
                 @endforelse
             </flux:table.rows>
         </flux:table>
+
+        @if ($viewSettingsOpen)
+            <div class="image-panel-backdrop app-modal-backdrop">
+                <section class="image-panel app-modal-panel flux-panel" style="--app-modal-width: 420px;" aria-label="{{ __('skus.view_settings_title') }}">
+                    <div class="image-panel-header">
+                        <div>
+                            <strong>{{ __('skus.view_settings_title') }}</strong>
+                        </div>
+                        <button type="button" class="modal-icon-close" wire:click="closeViewSettings" aria-label="{{ __('common.cancel') }}">&times;</button>
+                    </div>
+
+                    <form class="view-settings-form" wire:submit="saveViewSettings">
+                        <label class="view-settings-field">
+                            <span>{{ __('skus.stock_item_code_display') }}</span>
+                            <select wire:model="stockItemCodeDisplay">
+                                @foreach ($this->stockItemCodeDisplayOptions() as $value => $label)
+                                    <option value="{{ $value }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+
+                        <footer class="tracking-import-footer">
+                            <flux:button type="submit" variant="primary">{{ __('skus.view_settings_save') }}</flux:button>
+                        </footer>
+                    </form>
+                </section>
+            </div>
+        @endif
     </section>
 </div>

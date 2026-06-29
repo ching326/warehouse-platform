@@ -1,5 +1,11 @@
 <div class="movements-page">
     <section class="summary-grid movements-summary" aria-label="Inventory movement summary">
+        <x-page-panel-header
+            class="inventory-summary-heading"
+            :title="__('movements.page_title')"
+            :subtitle="__('movements.page_subtitle')"
+        />
+
         <flux:card size="sm" class="summary-card">
             <span>{{ __('movements.summary_movements') }}</span>
             <strong>{{ number_format($summary['movements']) }}</strong>

@@ -132,12 +132,31 @@ class InventoryPageTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(InventoryIndex::class)
-            ->assertSet('showTenantItemCode', true)
+            ->assertSet('stockItemCodeDisplay', 'both')
             ->assertSee('TENANT-INV-001')
             ->assertSee($rows['alphaStock']->code)
             ->set('search', 'TENANT-INV-001')
             ->assertSee($rows['alphaStock']->name)
             ->assertDontSee($rows['betaStock']->name);
+    }
+
+    public function test_inventory_view_settings_save_persists_stock_item_code_display_preference(): void
+    {
+        $rows = $this->createInventoryRows();
+        $rows['alphaStock']->update(['tenant_item_code' => 'TENANT-INV-002']);
+        $user = $this->internalUser();
+
+        Livewire::actingAs($user)
+            ->test(InventoryIndex::class)
+            ->call('openViewSettings')
+            ->assertSet('viewSettingsOpen', true)
+            ->set('stockItemCodeDisplay', 'tenant')
+            ->call('saveViewSettings')
+            ->assertSet('viewSettingsOpen', false)
+            ->assertSee('TENANT-INV-002')
+            ->assertDontSee($rows['alphaStock']->code);
+
+        $this->assertSame('tenant', $user->refresh()->preference('stock_item_code_display'));
     }
 
     public function test_inventory_filters_by_tenant_warehouse_shop_product_type_and_status(): void

@@ -1,4 +1,9 @@
 <div class="stock-adjustment-page">
+    <x-page-panel-header
+        :title="__('stock_adjustments.page_title')"
+        :subtitle="__('stock_adjustments.page_subtitle')"
+    />
+
     <form wire:submit="save" class="sku-form">
         <section class="table-shell flux-panel form-panel form-panel-with-overflow">
             <div class="form-panel-header">
