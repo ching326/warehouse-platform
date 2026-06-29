@@ -5,9 +5,9 @@ namespace App\Livewire;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderPasteImportMapping;
 use App\Models\Shop;
-use App\Models\Sku;
 use App\Models\Tenant;
 use App\Services\SalesOrders\SalesOrderImporter;
+use App\Support\SalesOrderSkuIdentifierMap;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -888,14 +888,7 @@ class SalesOrderPasteImport extends Component
 
     private function skuMapForShop(Shop $shop): Collection
     {
-        return Sku::query()
-            ->where('tenant_id', $shop->tenant_id)
-            ->where('shop_id', $shop->id)
-            ->where('status', 'active')
-            ->where(fn ($query) => $query
-                ->where('sku_type', 'virtual_bundle')
-                ->orWhereNotNull('stock_item_id'))
-            ->pluck('id', 'sku');
+        return SalesOrderSkuIdentifierMap::forShop($shop, 'active');
     }
 
     private function existingPlatformOrderIds(Shop $shop): array

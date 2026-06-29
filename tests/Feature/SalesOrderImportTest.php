@@ -64,6 +64,21 @@ class SalesOrderImportTest extends TestCase
         $this->assertSame($sku->id, $line->sku_id);
     }
 
+    public function test_import_resolves_sku_by_unique_tenant_item_code(): void
+    {
+        [, $shop, $sku] = $this->salesSku('SHOP-SKU-CODE');
+        $sku->stockItem->update(['tenant_item_code' => 'CLIENT-ITEM-001']);
+
+        $this->parseAndImport($shop, $this->csv([['SO-TENANT-CODE', 'CLIENT-ITEM-001', '1']]));
+
+        $line = SalesOrder::firstOrFail()->lines()->firstOrFail();
+
+        $this->assertDatabaseHas('sales_order_lines', [
+            'id' => $line->id,
+            'sku_id' => $sku->id,
+        ]);
+    }
+
     public function test_import_recipient_taken_from_first_row_of_group(): void
     {
         [, $shop, $sku] = $this->salesSku('REC-SKU');
@@ -573,6 +588,35 @@ class SalesOrderImportTest extends TestCase
             'sales_order_id' => $order->id,
             'sku_id' => $sku->id,
             'quantity' => 3,
+        ]);
+    }
+
+    public function test_paste_import_resolves_sku_by_unique_tenant_item_code(): void
+    {
+        [, $shop, $sku] = $this->salesSku('PASTE-TENANT-CODE');
+        $sku->stockItem->update(['tenant_item_code' => 'PASTE-CLIENT-001']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderPasteImport::class)
+            ->set('shopId', (string) $shop->id)
+            ->set('columnFieldMapping', [
+                '0' => 'platform_order_id',
+                '1' => 'sku',
+                '2' => 'quantity',
+            ])
+            ->set('grid', $this->pasteGrid([
+                ['WX-TENANT-CODE', 'PASTE-CLIENT-001', '2'],
+            ]))
+            ->call('preview')
+            ->assertSet('hasErrors', false)
+            ->call('import');
+
+        $order = SalesOrder::query()->where('platform_order_id', 'WX-TENANT-CODE')->firstOrFail();
+
+        $this->assertDatabaseHas('sales_order_lines', [
+            'sales_order_id' => $order->id,
+            'sku_id' => $sku->id,
+            'quantity' => 2,
         ]);
     }
 

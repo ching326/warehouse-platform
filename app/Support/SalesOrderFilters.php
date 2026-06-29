@@ -158,7 +158,9 @@ class SalesOrderFilters
                     ->orWhere('name', 'like', $like))
                 ->orWhereHas('lines.sku.stockItem', fn ($stockItemQuery) => $stockItemQuery
                     ->where('short_name', 'like', $like)
-                    ->orWhere('name', 'like', $like));
+                    ->orWhere('name', 'like', $like)
+                    ->orWhere('code', 'like', $like)
+                    ->orWhere('tenant_item_code', 'like', $like));
         });
     }
 

@@ -1604,7 +1604,7 @@ class SalesOrderTest extends TestCase
     {
         [, $shop, $sku] = $this->salesSku();
         $stockItem = $sku->stockItem;
-        $stockItem->update(['short_name' => 'ShortFind', 'name' => 'Stock Long Find']);
+        $stockItem->update(['short_name' => 'ShortFind', 'name' => 'Stock Long Find', 'tenant_item_code' => 'TENANT-FIND-001']);
         $sku->update(['sku' => 'SKU-FIND-ME', 'name' => 'Sku Name Find']);
         $target = $this->createPersistedOrder($shop, $sku, [
             'platform_order_id' => 'SEARCH-TARGET',
@@ -1617,7 +1617,7 @@ class SalesOrderTest extends TestCase
         $missSku = Sku::factory()->for($shop->tenant)->for($shop)->for(StockItem::factory()->for($shop->tenant)->create())->create(['sku_type' => 'single', 'sku' => 'MISS-SKU']);
         $this->createPersistedOrder($shop, $missSku, ['platform_order_id' => 'SEARCH-MISS']);
 
-        foreach (['PHONE-FIND', 'Address Find', 'TRACK-FIND', 'Order Note Find', 'Line Note Find', 'SKU-FIND-ME', 'Sku Name Find', 'ShortFind'] as $term) {
+        foreach (['PHONE-FIND', 'Address Find', 'TRACK-FIND', 'Order Note Find', 'Line Note Find', 'SKU-FIND-ME', 'Sku Name Find', 'ShortFind', 'TENANT-FIND-001'] as $term) {
             Livewire::actingAs($this->internalUser())
                 ->test(SalesOrderIndex::class)
                 ->set('search', $term)
