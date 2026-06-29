@@ -825,7 +825,7 @@ class FulfillmentGroupTest extends TestCase
             ->set('shippingMethodId', (string) $method->id)
             ->set('trackingNo', 'TRACK-1')
             ->call('save')
-            ->assertRedirect(route('outbound.index'));
+            ->assertSee(__('outbound.order_shipped'));
 
         $this->assertSame(OutboundOrder::STATUS_SHIPPED, $outbound->refresh()->status);
         $this->assertNotNull($outbound->shipped_at);
@@ -1612,7 +1612,7 @@ class FulfillmentGroupTest extends TestCase
             ->test(FulfillmentIndex::class)
             ->html();
 
-        $this->assertStringContainsString('fg-reference-copy', $html);
+        $this->assertStringContainsString('record-ref-copy', $html);
         $this->assertStringContainsString('data-copy-icon="square-2-stack"', $html);
         $this->assertStringContainsString(__('fulfillment.copy_reference_no').' '.$outbound->ref, $html);
         $this->assertStringContainsString("copy('{$outbound->ref}')", $html);

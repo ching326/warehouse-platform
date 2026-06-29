@@ -939,7 +939,7 @@ class SalesOrderTest extends TestCase
             ->test(SalesOrderIndex::class)
             ->html();
 
-        $this->assertStringContainsString('so-order-id-copy', $html);
+        $this->assertStringContainsString('record-ref-copy', $html);
         $this->assertStringContainsString('data-copy-icon="square-2-stack"', $html);
         $this->assertStringContainsString(__('sales_orders.copy_order_id').' COPY-ORDER-ID', $html);
         $this->assertStringContainsString("copy('COPY-ORDER-ID')", $html);

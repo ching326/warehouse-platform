@@ -67,7 +67,7 @@ class SkusIndex extends Component
 
     public array $logisticsDrafts = [];
 
-    public string $defaultViewPreference = '0';
+    public string $defaultView = '';
 
     public bool $viewSettingsOpen = false;
 
@@ -202,7 +202,7 @@ class SkusIndex extends Component
     public function openViewSettings(): void
     {
         $this->stockItemCodeDisplay = $this->stockItemCodeDisplayPreference();
-        $this->syncDefaultViewPreference();
+        $this->defaultView = $this->defaultViewPreference();
         $this->viewSettingsOpen = true;
     }
 
@@ -215,21 +215,21 @@ class SkusIndex extends Component
     {
         $data = validator([
             'stock_item_code_display' => $this->stockItemCodeDisplay,
-            'default_view_preference' => $this->defaultViewPreference,
+            'default_view' => $this->defaultView,
         ], [
             'stock_item_code_display' => ['required', Rule::in(self::STOCK_ITEM_CODE_DISPLAY_OPTIONS)],
-            'default_view_preference' => ['required', Rule::in(['0', '1'])],
+            'default_view' => ['nullable', Rule::in(array_keys($this->viewOptions()))],
         ])->validate();
 
         $this->stockItemCodeDisplay = $data['stock_item_code_display'];
-        $this->defaultViewPreference = $data['default_view_preference'];
+        $this->defaultView = $data['default_view'] ?? '';
 
         $user = Auth::user();
 
         if ($user) {
             $user->setPreference('stock_item_code_display', $this->stockItemCodeDisplay);
-            if ($this->defaultViewPreference === '1' && $this->isAllowedView($this->view)) {
-                $user->setPreference('skus_view', $this->view);
+            if ($this->defaultView !== '') {
+                $user->setPreference('skus_view', $this->defaultView);
             } else {
                 $user->forgetPreference('skus_view');
             }
@@ -1432,7 +1432,14 @@ class SkusIndex extends Component
 
     private function syncDefaultViewPreference(): void
     {
-        $this->defaultViewPreference = Auth::user()?->preference('skus_view') === $this->view ? '1' : '0';
+        $this->defaultView = $this->defaultViewPreference();
+    }
+
+    private function defaultViewPreference(): string
+    {
+        $preference = Auth::user()?->preference('skus_view');
+
+        return is_string($preference) && $this->isAllowedView($preference) ? $preference : '';
     }
 
     private function normalizeStockItemCodeDisplay(mixed $value): string

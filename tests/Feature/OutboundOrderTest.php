@@ -413,7 +413,7 @@ class OutboundOrderTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(OutboundOrderShip::class, ['order' => $order])
             ->call('save')
-            ->assertRedirect(route('outbound.index'));
+            ->assertSee(__('outbound.order_shipped'));
 
         $balanceA = $this->balance($tenant, $warehouse, $componentA);
         $balanceB = $this->balance($tenant, $warehouse, $componentB);
@@ -435,7 +435,8 @@ class OutboundOrderTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(OutboundOrderIndex::class)
             ->assertSee(route('outbound.show', $order), false)
-            ->assertSee('#'.$order->id)
+            ->assertSee($order->ref)
+            ->assertDontSee('#'.$order->id.' '.$order->ref)
             ->assertSee(__('outbound.btn_ship'))
             ->assertDontSee(__('outbound.btn_cancel_order'));
     }

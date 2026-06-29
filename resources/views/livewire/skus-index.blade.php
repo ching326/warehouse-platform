@@ -819,10 +819,12 @@
 
                         @if ($canSaveDefaultView)
                             <label class="view-settings-field">
-                                <span>{{ __('skus.default_view_checkbox') }}</span>
-                                <select wire:model="defaultViewPreference">
-                                    <option value="0">{{ __('skus.default_view_no') }}</option>
-                                    <option value="1">{{ __('skus.default_view_yes') }}</option>
+                                <span>{{ __('skus.default_view') }}</span>
+                                <select wire:model="defaultView">
+                                    <option value="">{{ __('skus.default_view_none') }}</option>
+                                    @foreach ($views as $viewKey => $viewLabel)
+                                        <option value="{{ $viewKey }}">{{ $viewLabel }}</option>
+                                    @endforeach
                                 </select>
                             </label>
                         @endif

@@ -48,6 +48,8 @@ return [
     'search' => '搜尋',
     'clear' => '清除',
     'remove' => '移除',
+    'copy' => 'Copy',
+    'copied' => 'Copied',
     'cancel' => '取消',
     'no_note' => '無備註',
     'statuses' => [

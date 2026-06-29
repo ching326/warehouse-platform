@@ -198,22 +198,21 @@
                     <flux:table.column>{{ __('issues.col_type') }}</flux:table.column>
                     <flux:table.column>{{ __('issues.col_status') }}</flux:table.column>
                     <flux:table.column>{{ __('issues.col_updated') }}</flux:table.column>
-                    <flux:table.column>{{ __('issues.col_actions') }}</flux:table.column>
                 </flux:table.columns>
                 <flux:table.rows>
                     @foreach ($order->issues as $case)
                         <flux:table.row :key="$case->id">
-                            <flux:table.cell><strong>{{ $case->issue_no }}</strong></flux:table.cell>
+                            <flux:table.cell>
+                                <x-record-ref-link
+                                    :href="route('issues.show', $case)"
+                                    :value="$case->issue_no"
+                                />
+                            </flux:table.cell>
                             <flux:table.cell>{{ $case->typeLabel() }}</flux:table.cell>
                             <flux:table.cell>
                                 <flux:badge color="{{ $case->statusColor() }}">{{ $case->statusLabel() }}</flux:badge>
                             </flux:table.cell>
                             <flux:table.cell>{{ $case->updated_at->format('Y-m-d H:i') }}</flux:table.cell>
-                            <flux:table.cell>
-                                <flux:button href="{{ route('issues.show', $case) }}" size="xs" variant="outline" wire:navigate>
-                                    {{ __('issues.btn_view') }}
-                                </flux:button>
-                            </flux:table.cell>
                         </flux:table.row>
                     @endforeach
                 </flux:table.rows>

@@ -85,6 +85,37 @@ class ReturnOrderTest extends TestCase
             ->assertDontSee('JPY 123.45');
     }
 
+    public function test_return_order_index_can_inline_save_status_and_note(): void
+    {
+        [$order] = $this->returnOrderWithLine();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ReturnOrderIndex::class)
+            ->call('updateStatus', $order->id, ReturnOrder::STATUS_INSPECTED)
+            ->assertHasNoErrors()
+            ->call('updateNote', $order->id, 'Updated return note')
+            ->assertHasNoErrors();
+
+        $order->refresh();
+        $this->assertSame(ReturnOrder::STATUS_INSPECTED, $order->status);
+        $this->assertSame('Updated return note', $order->note);
+    }
+
+    public function test_return_order_index_can_close_selected_returns(): void
+    {
+        [$order] = $this->returnOrderWithLine();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ReturnOrderIndex::class)
+            ->set('selectedIds', [$order->id])
+            ->call('closeSelected')
+            ->assertHasNoErrors();
+
+        $order->refresh();
+        $this->assertSame(ReturnOrder::STATUS_CLOSED, $order->status);
+        $this->assertNotNull($order->closed_at);
+    }
+
     public function test_receive_return_does_not_create_inventory_movement(): void
     {
         [$order, $line, , , $location] = $this->returnOrderWithLine(expectedQty: 2);

@@ -473,6 +473,21 @@
                 object-fit: cover;
             }
 
+            .table-note-text {
+                display: inline-block;
+                max-width: 220px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                vertical-align: middle;
+            }
+
+            .table-note-input {
+                min-width: 180px;
+                min-height: 42px;
+                resize: vertical;
+            }
+
             .sku-chip {
                 display: inline-flex;
                 flex-direction: column;
@@ -551,6 +566,58 @@
                 justify-content: center;
                 line-height: 1;
                 white-space: nowrap;
+            }
+
+            .record-ref-line {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                max-width: 100%;
+                min-width: 0;
+            }
+
+            .record-ref-link {
+                display: inline-flex;
+                align-items: center;
+                max-width: 100%;
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                color: var(--accent);
+                font-size: 13px;
+                font-weight: 700;
+                line-height: 1.2;
+                text-decoration: none;
+            }
+
+            .record-ref-link:hover {
+                color: color-mix(in oklab, var(--accent), black 16%);
+                text-decoration: underline;
+            }
+
+            .record-ref-copy {
+                align-items: center;
+                background: transparent;
+                border: 0;
+                color: var(--muted);
+                cursor: pointer;
+                display: inline-flex;
+                flex: 0 0 auto;
+                height: 22px;
+                justify-content: center;
+                padding: 0;
+                width: 22px;
+            }
+
+            .record-ref-copy:hover,
+            .record-ref-copy.is-copied {
+                color: var(--accent);
+            }
+
+            .record-ref-copy svg {
+                height: 15px;
+                width: 15px;
             }
 
             .sku-chip small {
@@ -1210,18 +1277,18 @@
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                gap: 8px;
+                gap: 10px;
                 min-width: 0;
                 border: 1px solid var(--line);
-                border-radius: 6px;
+                border-radius: 7px;
                 background: #fff;
                 color: var(--ink);
                 cursor: pointer;
-                font-size: 13px;
-                font-weight: 700;
-                min-height: 38px;
-                padding: 8px 9px;
-                box-shadow: 0 1px 1px rgba(15, 23, 42, 0.03);
+                font-size: 14px;
+                font-weight: 500;
+                min-height: 42px;
+                padding: 9px 12px;
+                box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
                 list-style: none;
             }
 
@@ -1233,9 +1300,15 @@
             .filter-menu .filter-button::after,
             .action-menu summary::after {
                 color: var(--muted);
-                content: "v";
+                content: "";
+                width: 14px;
+                height: 14px;
+                flex: 0 0 14px;
+                background-color: currentColor;
+                clip-path: polygon(20% 36%, 50% 66%, 80% 36%, 88% 44%, 50% 82%, 12% 44%);
                 font-size: 12px;
                 line-height: 1;
+                opacity: .45;
             }
 
             .filter-menu[open] .filter-button,
@@ -1270,8 +1343,8 @@
 
             .filter-menu .filter-button span {
                 color: var(--ink);
-                font-size: 13px;
-                font-weight: 700;
+                font-size: 14px;
+                font-weight: 500;
             }
 
             .filter-menu.is-active .filter-button span,

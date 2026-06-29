@@ -48,6 +48,8 @@ return [
     'search' => '検索',
     'clear' => 'クリア',
     'remove' => '削除',
+    'copy' => 'Copy',
+    'copied' => 'Copied',
     'cancel' => 'キャンセル',
     'no_note' => 'メモなし',
     'statuses' => [

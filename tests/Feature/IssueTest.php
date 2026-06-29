@@ -54,6 +54,39 @@ class IssueTest extends TestCase
             ->assertDontSee($otherCase->issue_no);
     }
 
+    public function test_issue_index_can_inline_save_status_and_note(): void
+    {
+        [, $order] = $this->salesOrderWithLine(null, 'INLINE-ISSUE-SKU', 'INLINE-ISSUE-ORDER');
+        $case = $this->issueForOrder($order);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(IssueIndex::class)
+            ->call('updateStatus', $case->id, Issue::STATUS_INVESTIGATING)
+            ->assertHasNoErrors()
+            ->call('updateNote', $case->id, 'Updated from index')
+            ->assertHasNoErrors();
+
+        $case->refresh();
+        $this->assertSame(Issue::STATUS_INVESTIGATING, $case->status);
+        $this->assertSame('Updated from index', $case->note);
+    }
+
+    public function test_issue_index_can_close_selected_cases(): void
+    {
+        [, $order] = $this->salesOrderWithLine(null, 'CLOSE-ISSUE-SKU', 'CLOSE-ISSUE-ORDER');
+        $case = $this->issueForOrder($order);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(IssueIndex::class)
+            ->set('selectedIds', [$case->id])
+            ->call('closeSelected')
+            ->assertHasNoErrors();
+
+        $case->refresh();
+        $this->assertSame(Issue::STATUS_CLOSED, $case->status);
+        $this->assertNotNull($case->resolved_at);
+    }
+
     public function test_tenant_user_cannot_create_issue_for_another_tenant_sales_order(): void
     {
         [, $user] = $this->tenantUser();

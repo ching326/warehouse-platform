@@ -1866,9 +1866,9 @@ class SkuManagementTest extends TestCase
         Livewire::actingAs($user)
             ->withQueryParams(['view' => 'logistics'])
             ->test(SkusIndex::class)
-            ->assertSet('defaultViewPreference', '0')
+            ->assertSet('defaultView', '')
             ->call('openViewSettings')
-            ->set('defaultViewPreference', '1')
+            ->set('defaultView', 'logistics')
             ->call('saveViewSettings')
             ->assertSee(__('skus.view_settings_saved'));
 
@@ -1882,10 +1882,10 @@ class SkuManagementTest extends TestCase
             ->withQueryParams(['view' => 'catalog'])
             ->test(SkusIndex::class)
             ->assertSet('view', 'catalog')
-            ->assertSet('defaultViewPreference', '0');
+            ->assertSet('defaultView', 'logistics');
     }
 
-    public function test_default_view_checkbox_can_clear_saved_preference(): void
+    public function test_default_view_dropdown_can_clear_saved_preference(): void
     {
         $user = $this->internalUser();
         $user->setPreference('skus_view', 'catalog');
@@ -1893,9 +1893,9 @@ class SkuManagementTest extends TestCase
         Livewire::actingAs($user)
             ->withQueryParams(['view' => 'catalog'])
             ->test(SkusIndex::class)
-            ->assertSet('defaultViewPreference', '1')
+            ->assertSet('defaultView', 'catalog')
             ->call('openViewSettings')
-            ->set('defaultViewPreference', '0')
+            ->set('defaultView', '')
             ->call('saveViewSettings')
             ->assertSee(__('skus.view_settings_saved'));
 

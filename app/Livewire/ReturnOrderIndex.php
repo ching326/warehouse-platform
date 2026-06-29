@@ -6,7 +6,9 @@ use App\Livewire\Concerns\AutoSelectsSingleActiveWarehouse;
 use App\Models\ReturnOrder;
 use App\Models\Tenant;
 use App\Models\Warehouse;
+use App\Support\BulkActionMessage;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -37,15 +39,83 @@ class ReturnOrderIndex extends Component
     #[Url(except: '')]
     public string $search = '';
 
+    public array $selectedIds = [];
+
     public function mount(): void
     {
         $this->autoSelectSingleActiveWarehouse();
     }
 
+    public function updateStatus(int $orderId, string $value): void
+    {
+        validator(['status' => $value], [
+            'status' => ['required', Rule::in(array_keys(ReturnOrder::statusOptions()))],
+        ])->validate();
+
+        $payload = [
+            'status' => $value,
+        ];
+
+        if ($value === ReturnOrder::STATUS_CLOSED) {
+            $payload['closed_at'] = now();
+        } elseif ($value === ReturnOrder::STATUS_CANCELLED) {
+            $payload['cancelled_at'] = now();
+            $payload['cancelled_by_user_id'] = Auth::id();
+        }
+
+        $this->returnOrderQuery()->findOrFail($orderId)->update($payload);
+
+        session()->flash('status', __('return_orders.status_updated'));
+    }
+
+    public function updateNote(int $orderId, string $value): void
+    {
+        validator(['note' => $value], [
+            'note' => ['nullable', 'string', 'max:2000'],
+        ])->validate();
+
+        $this->returnOrderQuery()->findOrFail($orderId)->update([
+            'note' => $this->nullableString($value),
+        ]);
+
+        session()->flash('status', __('return_orders.note_updated'));
+    }
+
+    public function closeSelected(): void
+    {
+        $selectedIds = $this->normalizedSelectedIds();
+
+        if ($selectedIds === []) {
+            session()->flash('error', __('return_orders.select_returns_first'));
+
+            return;
+        }
+
+        $updated = $this->returnOrderQuery()
+            ->whereIn('id', $selectedIds)
+            ->where('status', '!=', ReturnOrder::STATUS_CLOSED)
+            ->update([
+                'status' => ReturnOrder::STATUS_CLOSED,
+                'closed_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        $this->selectedIds = [];
+
+        session()->flash('status', BulkActionMessage::make('return_orders.close_selected_result', $updated, count($selectedIds) - $updated));
+    }
+
     public function render()
     {
         $orders = ReturnOrder::query()
-            ->with(['tenant:id,code,name', 'warehouse:id,code,name', 'lines.sku:id,sku,name', 'lines.stockItem:id,code,name', 'costs'])
+            ->with([
+                'tenant:id,code,name',
+                'warehouse:id,code,name',
+                'lines.sku:id,sku,name',
+                'lines.stockItem:id,code,name',
+                'costs',
+                'mediaAssets:id,tenant_id,model_type,model_id,disk,path,file_name,mime_type,sort_order,is_primary',
+            ])
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->when($this->tenantId !== '', fn ($q) => $q->where('tenant_id', $this->tenantId))
             ->when($this->warehouseId !== '', fn ($q) => $q->where('warehouse_id', $this->warehouseId))
@@ -79,7 +149,11 @@ class ReturnOrderIndex extends Component
             'reasons' => ReturnOrder::reasonOptions(),
             'paymentTypes' => ReturnOrder::paymentTypeOptions(),
             'showTenantSelect' => $this->isInternalUser(),
-        ])->layout('inventory', ['title' => __('return_orders.page_title'), 'subtitle' => __('return_orders.page_subtitle')]);
+        ])->layout('inventory', [
+            'title' => __('return_orders.page_title'),
+            'subtitle' => __('return_orders.page_subtitle'),
+            'pageWide' => true,
+        ]);
     }
 
     private function isInternalUser(): bool
@@ -90,5 +164,22 @@ class ReturnOrderIndex extends Component
     private function allowedTenantIds(): array
     {
         return $this->isInternalUser() ? Tenant::query()->pluck('id')->all() : (Auth::user()?->activeTenantIds() ?? []);
+    }
+
+    private function returnOrderQuery()
+    {
+        return ReturnOrder::query()->whereIn('tenant_id', $this->allowedTenantIds());
+    }
+
+    private function normalizedSelectedIds(): array
+    {
+        return array_values(array_unique(array_map('intval', $this->selectedIds)));
+    }
+
+    private function nullableString(string $value): ?string
+    {
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
     }
 }

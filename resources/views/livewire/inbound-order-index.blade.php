@@ -74,9 +74,10 @@
                                 : '-';
                         @endphp
                         <flux:table.cell>
-                            <a class="inbound-order-number-text" href="{{ route('inbound.show', $order) }}" wire:navigate>
-                                {{ $order->ref ?: '-' }}
-                            </a>
+                            <x-record-ref-link
+                                :href="route('inbound.show', $order)"
+                                :value="$order->ref"
+                            />
                         </flux:table.cell>
                         <flux:table.cell>
                             <span class="inbound-inline-pair">
@@ -145,26 +146,6 @@
             max-width: 100%;
             min-width: 0;
             white-space: nowrap;
-        }
-
-        .inbound-order-number-text {
-            display: inline-flex;
-            align-items: center;
-            max-width: 100%;
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            color: #2563eb;
-            font-size: 13px;
-            font-weight: 700;
-            line-height: 1.2;
-            text-decoration: none;
-        }
-
-        .inbound-order-number-text:hover {
-            color: #1d4ed8;
-            text-decoration: none;
         }
 
         .inbound-inline-muted {

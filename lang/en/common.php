@@ -44,6 +44,8 @@ return [
     'search' => 'Search',
     'clear' => 'Clear',
     'remove' => 'Remove',
+    'copy' => 'Copy',
+    'copied' => 'Copied',
     'cancel' => 'Cancel',
     'no_note' => 'No note',
     'statuses' => [

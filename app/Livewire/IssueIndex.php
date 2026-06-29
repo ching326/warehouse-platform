@@ -4,7 +4,9 @@ namespace App\Livewire;
 
 use App\Models\Issue;
 use App\Models\Tenant;
+use App\Support\BulkActionMessage;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -37,6 +39,8 @@ class IssueIndex extends Component
     #[Url(as: 'q', except: '')]
     public string $search = '';
 
+    public array $selectedIds = [];
+
     private bool $allowedTenantIdsResolved = false;
 
     private array $allowedTenantIdsCache = [];
@@ -55,6 +59,61 @@ class IssueIndex extends Component
         }
     }
 
+    public function updateStatus(int $issueId, string $value): void
+    {
+        validator(['status' => $value], [
+            'status' => ['required', Rule::in(array_keys(Issue::statusOptions()))],
+        ])->validate();
+
+        $case = $this->issueQuery()->findOrFail($issueId);
+        $case->update([
+            'status' => $value,
+            'resolved_at' => in_array($value, [Issue::STATUS_RESOLVED, Issue::STATUS_CLOSED], true) ? now() : null,
+            'updated_by_user_id' => Auth::id(),
+        ]);
+
+        session()->flash('status', __('issues.status_updated'));
+    }
+
+    public function updateNote(int $issueId, string $value): void
+    {
+        validator(['note' => $value], [
+            'note' => ['nullable', 'string', 'max:2000'],
+        ])->validate();
+
+        $this->issueQuery()->findOrFail($issueId)->update([
+            'note' => $this->nullableString($value),
+            'updated_by_user_id' => Auth::id(),
+        ]);
+
+        session()->flash('status', __('issues.note_updated'));
+    }
+
+    public function closeSelected(): void
+    {
+        $selectedIds = $this->normalizedSelectedIds();
+
+        if ($selectedIds === []) {
+            session()->flash('error', __('issues.select_cases_first'));
+
+            return;
+        }
+
+        $updated = $this->issueQuery()
+            ->whereIn('id', $selectedIds)
+            ->whereNotIn('status', [Issue::STATUS_RESOLVED, Issue::STATUS_CLOSED])
+            ->update([
+                'status' => Issue::STATUS_CLOSED,
+                'resolved_at' => now(),
+                'updated_by_user_id' => Auth::id(),
+                'updated_at' => now(),
+            ]);
+
+        $this->selectedIds = [];
+
+        session()->flash('status', BulkActionMessage::make('issues.close_selected_result', $updated, count($selectedIds) - $updated));
+    }
+
     public function render()
     {
         $cases = Issue::query()
@@ -64,6 +123,7 @@ class IssueIndex extends Component
                 'outboundOrder:id,ref',
                 'lines.sku:id,sku,name',
                 'lines.stockItem:id,code,name',
+                'mediaAssets:id,tenant_id,model_type,model_id,disk,path,file_name,mime_type,sort_order,is_primary',
             ])
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->when($this->tenantId !== '', fn ($query) => $query->where('tenant_id', (int) $this->tenantId))
@@ -151,5 +211,22 @@ class IssueIndex extends Component
         }
 
         return $this->allowedTenantIdsCache = $user->activeTenantIds();
+    }
+
+    private function issueQuery()
+    {
+        return Issue::query()->whereIn('tenant_id', $this->allowedTenantIds());
+    }
+
+    private function normalizedSelectedIds(): array
+    {
+        return array_values(array_unique(array_map('intval', $this->selectedIds)));
+    }
+
+    private function nullableString(string $value): ?string
+    {
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
     }
 }

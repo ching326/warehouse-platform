@@ -1,44 +1,6 @@
 <div class="sales-order-index-page">
     <x-flash-toast />
 
-    <style>
-        .sales-order-index-page .so-order-id-line {
-            align-items: center;
-            display: flex;
-            gap: 6px;
-            max-width: 100%;
-            min-width: 0;
-        }
-
-        .sales-order-index-page .so-order-id-line a {
-            min-width: 0;
-        }
-
-        .sales-order-index-page .so-order-id-copy {
-            align-items: center;
-            background: transparent;
-            border: 0;
-            color: var(--muted);
-            cursor: pointer;
-            display: inline-flex;
-            flex: 0 0 auto;
-            height: 22px;
-            justify-content: center;
-            padding: 0;
-            width: 22px;
-        }
-
-        .sales-order-index-page .so-order-id-copy:hover,
-        .sales-order-index-page .so-order-id-copy.is-copied {
-            color: var(--accent);
-        }
-
-        .sales-order-index-page .so-order-id-copy svg {
-            height: 15px;
-            width: 15px;
-        }
-    </style>
-
 @if ($pendingExportWarning)
         <div class="active-filter-row">
             <div class="export-warning-message">{{ $pendingExportWarning }}</div>
@@ -570,52 +532,12 @@
                                 </label>
                             </flux:table.cell>
                             <flux:table.cell class="so-order-cell">
-                                <div
-                                    class="so-order-id-line"
-                                    x-data="{
-                                        copied: false,
-                                        async copy(value) {
-                                            if (! value) {
-                                                return;
-                                            }
-
-                                            try {
-                                                await navigator.clipboard.writeText(value);
-                                            } catch (error) {
-                                                const input = document.createElement('textarea');
-                                                input.value = value;
-                                                input.setAttribute('readonly', 'readonly');
-                                                input.style.position = 'fixed';
-                                                input.style.opacity = '0';
-                                                document.body.appendChild(input);
-                                                input.select();
-                                                document.execCommand('copy');
-                                                document.body.removeChild(input);
-                                            }
-
-                                            this.copied = true;
-                                            window.setTimeout(() => { this.copied = false; }, 1200);
-                                        },
-                                    }"
-                                >
-                                    <flux:link href="{{ route('sales.orders.show', $order) }}" wire:navigate>
-                                        <strong>{{ $order->platform_order_id ?: '-' }}</strong>
-                                    </flux:link>
-                                    @if ($order->platform_order_id)
-                                        <button
-                                            type="button"
-                                            class="so-order-id-copy"
-                                            data-copy-icon="square-2-stack"
-                                            x-bind:class="{ 'is-copied': copied }"
-                                            x-on:click.stop.prevent="copy(@js($order->platform_order_id))"
-                                            x-bind:title="copied ? @js(__('sales_orders.order_id_copied')) : @js(__('sales_orders.copy_order_id'))"
-                                            aria-label="{{ __('sales_orders.copy_order_id') }} {{ $order->platform_order_id }}"
-                                        >
-                                            <flux:icon.square-2-stack x-show="! copied" />
-                                            <flux:icon.check x-cloak x-show="copied" />
-                                        </button>
-                                    @endif
-                                </div>
+                                <x-record-ref-link
+                                    :href="route('sales.orders.show', $order)"
+                                    :value="$order->platform_order_id"
+                                    :copy-label="__('sales_orders.copy_order_id')"
+                                    :copied-label="__('sales_orders.order_id_copied')"
+                                />
                                 <span class="subtle">{{ $order->shop->name }}</span>
                                 <span class="subtle">{{ $order->shop->tenant->code }} / {{ $order->shop->platform }}</span>
                             </flux:table.cell>

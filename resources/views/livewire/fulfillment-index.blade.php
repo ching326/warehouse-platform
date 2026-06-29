@@ -425,52 +425,12 @@
                         </flux:table.cell>
 
                         <flux:table.cell class="so-order-cell">
-                            <div
-                                class="fg-reference-line"
-                                x-data="{
-                                    copied: false,
-                                    async copy(value) {
-                                        if (! value) {
-                                            return;
-                                        }
-
-                                        try {
-                                            await navigator.clipboard.writeText(value);
-                                        } catch (error) {
-                                            const input = document.createElement('textarea');
-                                            input.value = value;
-                                            input.setAttribute('readonly', 'readonly');
-                                            input.style.position = 'fixed';
-                                            input.style.opacity = '0';
-                                            document.body.appendChild(input);
-                                            input.select();
-                                            document.execCommand('copy');
-                                            document.body.removeChild(input);
-                                        }
-
-                                        this.copied = true;
-                                        window.setTimeout(() => { this.copied = false; }, 1200);
-                                    },
-                                }"
-                            >
-                                <flux:link href="{{ route('outbound.show', $order) }}" wire:navigate>
-                                    <strong>{{ $reference }}</strong>
-                                </flux:link>
-                                @if ($reference)
-                                    <button
-                                        type="button"
-                                        class="fg-reference-copy"
-                                        data-copy-icon="square-2-stack"
-                                        x-bind:class="{ 'is-copied': copied }"
-                                        x-on:click.stop.prevent="copy(@js($reference))"
-                                        x-bind:title="copied ? @js(__('fulfillment.reference_copied')) : @js(__('fulfillment.copy_reference_no'))"
-                                        aria-label="{{ __('fulfillment.copy_reference_no') }} {{ $reference }}"
-                                    >
-                                        <flux:icon.square-2-stack x-show="! copied" />
-                                        <flux:icon.check x-cloak x-show="copied" />
-                                    </button>
-                                @endif
-                            </div>
+                            <x-record-ref-link
+                                :href="route('outbound.show', $order)"
+                                :value="$reference"
+                                :copy-label="__('fulfillment.copy_reference_no')"
+                                :copied-label="__('fulfillment.reference_copied')"
+                            />
                             @forelse ($orderIds as $orderId)
                                 <span class="subtle">{{ $orderId }}</span>
                             @empty
@@ -758,42 +718,6 @@
         .fg-inline-input:focus {
             outline: none;
             border-color: var(--accent);
-        }
-
-        .fg-reference-line {
-            align-items: center;
-            display: flex;
-            gap: 6px;
-            max-width: 100%;
-            min-width: 0;
-        }
-
-        .fg-reference-line a {
-            min-width: 0;
-        }
-
-        .fg-reference-copy {
-            align-items: center;
-            background: transparent;
-            border: 0;
-            color: var(--muted);
-            cursor: pointer;
-            display: inline-flex;
-            flex: 0 0 auto;
-            height: 22px;
-            justify-content: center;
-            padding: 0;
-            width: 22px;
-        }
-
-        .fg-reference-copy:hover,
-        .fg-reference-copy.is-copied {
-            color: var(--accent);
-        }
-
-        .fg-reference-copy svg {
-            height: 15px;
-            width: 15px;
         }
 
         .fg-col-select {

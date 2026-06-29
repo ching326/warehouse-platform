@@ -75,9 +75,10 @@
                             };
                         @endphp
                         <flux:table.cell>
-                            <a class="outbound-order-number-link" href="{{ route('outbound.show', $order) }}" wire:navigate>
-                                {{ $order->ref ?: '-' }}
-                            </a>
+                            <x-record-ref-link
+                                :href="route('outbound.show', $order)"
+                                :value="$order->ref"
+                            />
                         </flux:table.cell>
                         <flux:table.cell>
                             <span class="outbound-inline-pair">
@@ -162,26 +163,6 @@
             max-width: 100%;
             min-width: 0;
             white-space: nowrap;
-        }
-
-        .outbound-order-number-link {
-            display: inline-flex;
-            align-items: center;
-            max-width: 100%;
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            color: #2563eb;
-            font-size: 13px;
-            font-weight: 700;
-            line-height: 1.2;
-            text-decoration: none;
-        }
-
-        .outbound-order-number-link:hover {
-            color: #1d4ed8;
-            text-decoration: none;
         }
 
         .outbound-inline-muted {
