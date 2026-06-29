@@ -1996,7 +1996,7 @@ class SkuManagementTest extends TestCase
         $this->assertDatabaseHas('stock_items', ['id' => $stockItem->id]);
     }
 
-    public function test_used_sku_cannot_be_permanently_deleted(): void
+    public function test_used_sku_is_deactivated_when_delete_is_not_safe(): void
     {
         $tenant = Tenant::factory()->create();
         $shop = Shop::factory()->for($tenant)->create();
@@ -2007,11 +2007,29 @@ class SkuManagementTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(SkusIndex::class)
             ->call('deleteSku', $sku->id)
-            ->assertSee(__('skus.delete_blocked_deactivate_instead'))
-            ->call('deactivateSku', $sku->id)
-            ->assertSee(__('skus.deactivated'));
+            ->assertSee(__('skus.delete_blocked_deactivated_instead'));
 
         $this->assertDatabaseHas('skus', ['id' => $sku->id, 'status' => 'inactive']);
+    }
+
+    public function test_bulk_delete_deactivates_used_skus_and_deletes_unused_skus(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $shop = Shop::factory()->for($tenant)->create();
+        $used = Sku::factory()->for($tenant)->for($shop)->create(['status' => 'active']);
+        $unused = Sku::factory()->for($tenant)->for($shop)->create(['status' => 'active']);
+        $order = SalesOrder::factory()->for($tenant)->for($shop)->create();
+        SalesOrderLine::factory()->for($order)->for($used)->create();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->set('selectedIds', [$used->id, $unused->id])
+            ->call('bulkDelete')
+            ->assertSee(__('skus.bulk_deleted_with_deactivated', ['deleted' => 1, 'deactivated' => 1]))
+            ->assertSet('selectedIds', []);
+
+        $this->assertDatabaseHas('skus', ['id' => $used->id, 'status' => 'inactive']);
+        $this->assertDatabaseMissing('skus', ['id' => $unused->id]);
     }
 
     public function test_tenant_user_cannot_deactivate_other_tenants_sku(): void

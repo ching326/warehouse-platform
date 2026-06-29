@@ -434,7 +434,8 @@ class SkusIndex extends Component
         $sku = $this->skuForAction($skuId);
 
         if (! $sku->canBeDeleted()) {
-            $this->flashError(__('skus.delete_blocked_deactivate_instead'));
+            $sku->update(['status' => 'inactive']);
+            $this->flashStatus(__('skus.delete_blocked_deactivated_instead'));
 
             return;
         }
@@ -445,7 +446,9 @@ class SkusIndex extends Component
                 $sku->delete();
             });
         } catch (QueryException) {
-            $this->flashError(__('skus.delete_blocked_deactivate_instead'));
+            $sku->refresh();
+            $sku->update(['status' => 'inactive']);
+            $this->flashStatus(__('skus.delete_blocked_deactivated_instead'));
 
             return;
         }
@@ -511,7 +514,7 @@ class SkusIndex extends Component
         }
 
         $deleted = 0;
-        $blocked = 0;
+        $deactivated = 0;
 
         $skus = Sku::query()
             ->when($this->visibleTenantIds() !== null, fn ($query) => $query->whereIn('tenant_id', $this->visibleTenantIds()))
@@ -520,7 +523,8 @@ class SkusIndex extends Component
 
         foreach ($skus as $sku) {
             if (! $sku->canBeDeleted()) {
-                $blocked++;
+                $sku->update(['status' => 'inactive']);
+                $deactivated++;
 
                 continue;
             }
@@ -533,14 +537,16 @@ class SkusIndex extends Component
 
                 $deleted++;
             } catch (QueryException) {
-                $blocked++;
+                $sku->refresh();
+                $sku->update(['status' => 'inactive']);
+                $deactivated++;
             }
         }
 
         $this->clearSelection();
 
-        if ($deleted > 0 && $blocked > 0) {
-            $this->flashError(__('skus.bulk_deleted_with_blocked', ['deleted' => $deleted, 'blocked' => $blocked]));
+        if ($deleted > 0 && $deactivated > 0) {
+            $this->flashStatus(__('skus.bulk_deleted_with_deactivated', ['deleted' => $deleted, 'deactivated' => $deactivated]));
 
             return;
         }
@@ -551,7 +557,9 @@ class SkusIndex extends Component
             return;
         }
 
-        $this->flashError(__('skus.delete_blocked_deactivate_instead'));
+        if ($deactivated > 0) {
+            $this->flashStatus(__('skus.bulk_deactivated_instead', ['count' => $deactivated]));
+        }
     }
 
     public function deactivateBarcodeAlias(int $aliasId): void
