@@ -716,7 +716,7 @@
             .movement-toolbar.inventory-toolbar .inventory-filter-row {
                 grid-column: 1 / -1;
                 display: grid;
-                grid-template-columns: repeat(5, minmax(0, 1fr)) max-content;
+                grid-template-columns: repeat(5, minmax(0, 1fr));
                 gap: 12px;
                 width: 100%;
             }
@@ -2163,6 +2163,20 @@
                 font-size: 12px;
                 font-weight: 700;
                 padding: 3px 8px;
+            }
+
+            .table-pagination-row {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                border-top: 1px solid var(--line);
+                padding-top: 12px;
+            }
+
+            .table-pagination-row > [data-flux-pagination] {
+                flex: 1;
+                border-top: 0 !important;
+                padding-top: 0 !important;
             }
 
             .sku-pagination-controls {

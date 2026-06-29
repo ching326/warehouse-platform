@@ -90,8 +90,6 @@
 
             <flux:input wire:model.live="dateTo" type="date" :label="__('movements.filter_date_to')" />
 
-            <x-rows-per-page-select :options="$perPageOptions" />
-
             <flux:button wire:click="clearFilters" variant="primary">
                 {{ __('common.clear') }}
             </flux:button>
@@ -107,7 +105,7 @@
             </div>
         @endif
 
-        <flux:table :paginate="$movements" class="movement-table">
+        <flux:table class="movement-table">
             <flux:table.columns>
                 <flux:table.column>{{ __('movements.col_created') }}</flux:table.column>
                 <flux:table.column>{{ __('movements.col_stock_item') }}</flux:table.column>
@@ -192,5 +190,10 @@
                 @endforelse
             </flux:table.rows>
         </flux:table>
+
+        <div class="table-pagination-row">
+            <x-rows-per-page-select :options="$perPageOptions" />
+            <flux:pagination :paginator="$movements" />
+        </div>
     </section>
 </div>

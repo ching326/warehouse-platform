@@ -82,12 +82,10 @@
                         <flux:select.option value="{{ $statusOption }}">{{ $this->statusLabel($statusOption) }}</flux:select.option>
                     @endforeach
                 </flux:select>
-
-                <x-rows-per-page-select :options="$perPageOptions" />
             </div>
         </div>
 
-        <flux:table :paginate="$balances" class="inventory-table">
+        <flux:table class="inventory-table">
             <flux:table.columns>
                 <flux:table.column>{{ __('inventory.col_stock_item_skus') }}</flux:table.column>
                 @if ($showTenantColumn)
@@ -215,6 +213,11 @@
                 @endforelse
             </flux:table.rows>
         </flux:table>
+
+        <div class="table-pagination-row">
+            <x-rows-per-page-select :options="$perPageOptions" />
+            <flux:pagination :paginator="$balances" />
+        </div>
 
         @if ($viewSettingsOpen)
             <div class="image-panel-backdrop app-modal-backdrop">

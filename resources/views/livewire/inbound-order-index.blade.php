@@ -39,14 +39,12 @@
                 @endforeach
             </flux:select>
 
-            <x-rows-per-page-select :options="$perPageOptions" />
-
             <flux:button href="{{ route('inbound.create') }}" variant="primary">
                 {{ __('inbound.btn_create') }}
             </flux:button>
         </div>
 
-        <flux:table :paginate="$orders" class="data-table">
+        <flux:table class="data-table">
             <flux:table.columns>
                 <flux:table.column>{{ __('inbound.col_ref') }}</flux:table.column>
                 <flux:table.column>{{ __('inbound.col_tenant_warehouse') }}</flux:table.column>
@@ -127,6 +125,11 @@
                 @endforelse
             </flux:table.rows>
         </flux:table>
+
+        <div class="table-pagination-row">
+            <x-rows-per-page-select :options="$perPageOptions" />
+            <flux:pagination :paginator="$orders" />
+        </div>
     </section>
 
     <style>
