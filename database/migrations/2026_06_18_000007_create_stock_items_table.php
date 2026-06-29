@@ -23,7 +23,7 @@ return new class extends Migration
             $table->string('color')->nullable();
             $table->string('size')->nullable();
             $table->string('barcode')->nullable();
-            $table->string('barcode_type')->default('unknown');
+            $table->string('barcode_type')->default('other');
             $table->string('product_type')->default('normal');
             $table->boolean('is_dangerous_goods')->default(false);
             $table->boolean('requires_expiry_tracking')->default(false);

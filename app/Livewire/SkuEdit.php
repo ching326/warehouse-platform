@@ -62,7 +62,7 @@ class SkuEdit extends Component
         'color' => '',
         'size' => '',
         'barcode' => '',
-        'barcode_type' => 'unknown',
+        'barcode_type' => 'other',
         'product_type' => 'normal',
         'is_dangerous_goods' => false,
         'requires_expiry_tracking' => false,
@@ -121,7 +121,7 @@ class SkuEdit extends Component
                 'color' => $si->color ?? '',
                 'size' => $si->size ?? '',
                 'barcode' => $this->stockItemPrimaryBarcode($si) ?? $si->barcode ?? '',
-                'barcode_type' => $this->stockItemPrimaryBarcodeType($si) ?? $si->barcode_type ?? 'unknown',
+                'barcode_type' => $this->stockItemPrimaryBarcodeType($si) ?? $si->barcode_type ?? 'other',
                 'product_type' => $si->product_type ?? 'normal',
                 'is_dangerous_goods' => (bool) $si->is_dangerous_goods,
                 'requires_expiry_tracking' => (bool) $si->requires_expiry_tracking,
@@ -201,7 +201,7 @@ class SkuEdit extends Component
                     $barcodeAliases->setPrimaryProductBarcode(
                         $this->sku->stockItem,
                         $this->stockItem['barcode'] ?? '',
-                        $this->stockItem['barcode_type'] ?: 'unknown',
+                        $this->stockItem['barcode_type'] ?: 'other',
                     );
                 }
             });

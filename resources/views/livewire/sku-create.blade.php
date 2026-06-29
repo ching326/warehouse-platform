@@ -111,7 +111,7 @@
             </div>
         </section>
         @else
-        <section class="table-shell flux-panel form-panel">
+        <section class="table-shell flux-panel form-panel form-panel-with-overflow">
             <div class="form-panel-header">
                 <div>
                     <strong>{{ __('skus.section_stock_item_mode') }}</strong>
@@ -174,7 +174,6 @@
                     <flux:input wire:model="stockItem.size" :label="__('skus.field_size')" />
                     <flux:input wire:model="stockItem.barcode" :label="__('skus.field_barcode')" />
                     <flux:select wire:model="stockItem.barcode_type" :label="__('skus.field_barcode_type')">
-                        <flux:select.option value="unknown">{{ __('common.barcode_types.unknown') }}</flux:select.option>
                         <flux:select.option value="jan">{{ __('common.barcode_types.jan') }}</flux:select.option>
                         <flux:select.option value="ean">{{ __('common.barcode_types.ean') }}</flux:select.option>
                         <flux:select.option value="upc">{{ __('common.barcode_types.upc') }}</flux:select.option>

@@ -77,7 +77,7 @@ class SkuCreate extends Component
         'color' => '',
         'size' => '',
         'barcode' => '',
-        'barcode_type' => 'unknown',
+        'barcode_type' => 'other',
         'product_type' => 'normal',
         'is_dangerous_goods' => false,
         'requires_expiry_tracking' => false,
@@ -149,7 +149,7 @@ class SkuCreate extends Component
                         $barcodeAliases->setPrimaryProductBarcode(
                             $stockItem,
                             $this->stockItem['barcode'] ?? '',
-                            $this->stockItem['barcode_type'] ?: 'unknown',
+                            $this->stockItem['barcode_type'] ?: 'other',
                         );
                     }
                 }
@@ -244,7 +244,10 @@ class SkuCreate extends Component
                 'nullable',
                 'string',
                 'max:255',
-                Rule::unique('stock_items', 'tenant_item_code')->where('tenant_id', $tenantId),
+                Rule::when(
+                    $this->stockItemMode === 'create' && $this->skuType !== 'virtual_bundle',
+                    Rule::unique('stock_items', 'tenant_item_code')->where('tenant_id', $tenantId),
+                ),
             ],
             'stock_item.weight_value' => ['nullable', 'numeric', 'min:0'],
             'stock_item.length_value' => ['nullable', 'numeric', 'min:0'],

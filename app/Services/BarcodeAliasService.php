@@ -41,7 +41,7 @@ class BarcodeAliasService
         });
     }
 
-    public function setPrimaryProductBarcode(StockItem $stockItem, ?string $barcode, string $barcodeType = 'unknown', ?string $source = null): ?BarcodeAlias
+    public function setPrimaryProductBarcode(StockItem $stockItem, ?string $barcode, string $barcodeType = 'other', ?string $source = null): ?BarcodeAlias
     {
         $barcode = trim((string) $barcode);
 
@@ -56,7 +56,7 @@ class BarcodeAliasService
             modelType: BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
             modelId: (int) $stockItem->id,
             barcode: $barcode,
-            barcodeType: $barcodeType ?: 'unknown',
+            barcodeType: $barcodeType ?: 'other',
             source: $source ?? BarcodeAlias::SOURCE_MANUAL,
             label: null,
             conflictMessage: __('skus.alias_conflict_other_product'),

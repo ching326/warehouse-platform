@@ -499,7 +499,7 @@ class SkuManagementTest extends TestCase
             'model_id' => $stockItem->id,
             'barcode' => '4912345678901',
             'normalized_barcode' => '4912345678901',
-            'barcode_type' => 'unknown',
+            'barcode_type' => 'other',
             'is_active' => true,
             'source' => BarcodeAlias::SOURCE_IMPORT,
         ]);
@@ -2036,7 +2036,7 @@ class SkuManagementTest extends TestCase
             'model_id' => $sku->id,
             'barcode' => 'DELETE-ME',
             'normalized_barcode' => 'DELETE-ME',
-            'barcode_type' => 'unknown',
+            'barcode_type' => 'other',
             'is_primary' => false,
             'is_active' => true,
             'source' => BarcodeAlias::SOURCE_MANUAL,
@@ -2193,6 +2193,30 @@ class SkuManagementTest extends TestCase
         $otherStock = StockItem::factory()->for($otherTenant)->create(['tenant_item_code' => 'DUP-001']);
 
         $this->assertSame('DUP-001', $otherStock->tenant_item_code);
+    }
+
+    public function test_link_existing_stock_item_ignores_hidden_tenant_item_code_draft(): void
+    {
+        $tenant = Tenant::factory()->create(['code' => 'TUL']);
+        $shop = Shop::factory()->for($tenant)->create();
+        StockItem::factory()->for($tenant)->create(['tenant_item_code' => 'DUP-LINK']);
+        $linkedStockItem = StockItem::factory()->for($tenant)->create(['tenant_item_code' => 'LINK-TARGET']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('shopId', (string) $shop->id)
+            ->set('stockItem.tenant_item_code', 'DUP-LINK')
+            ->set('stockItemMode', 'link')
+            ->set('existingStockItemId', (string) $linkedStockItem->id)
+            ->set('sku', 'SKU-LINK-HIDDEN-CODE')
+            ->set('name', 'Linked stock item ignores hidden code')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('skus.index'));
+
+        $sku = Sku::where('sku', 'SKU-LINK-HIDDEN-CODE')->firstOrFail();
+        $this->assertSame($linkedStockItem->id, $sku->stock_item_id);
     }
 
     public function test_sku_index_tenant_code_preference_controls_stock_item_display_and_search(): void

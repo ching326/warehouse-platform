@@ -32,7 +32,6 @@ class BarcodeAlias extends Model
         'internal_label',
         'supplier_label',
         'other',
-        'unknown',
     ];
 
     protected $fillable = [

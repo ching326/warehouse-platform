@@ -76,7 +76,6 @@ return [
     // even though requires_expiry_tracking also exists as a boolean flag on stock_items.
     // This is a known design inconsistency to be addressed in a future refactor.
     'barcode_types' => [
-        'unknown' => '不明',
         'jan' => 'JAN',
         'ean' => 'EAN',
         'upc' => 'UPC',

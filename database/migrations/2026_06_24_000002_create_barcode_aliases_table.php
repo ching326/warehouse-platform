@@ -15,7 +15,7 @@ return new class extends Migration
             $table->unsignedBigInteger('model_id');
             $table->string('barcode');
             $table->string('normalized_barcode');
-            $table->string('barcode_type')->default('unknown');
+            $table->string('barcode_type')->default('other');
             $table->string('label')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();

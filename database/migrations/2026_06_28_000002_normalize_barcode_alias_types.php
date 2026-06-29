@@ -22,6 +22,14 @@ return new class extends Migration
         DB::table('barcode_aliases')
             ->where('barcode_type', 'gtin')
             ->update(['barcode_type' => 'other']);
+
+        DB::table('barcode_aliases')
+            ->where('barcode_type', 'unknown')
+            ->update(['barcode_type' => 'other']);
+
+        DB::table('stock_items')
+            ->where('barcode_type', 'unknown')
+            ->update(['barcode_type' => 'other']);
     }
 
     public function down(): void

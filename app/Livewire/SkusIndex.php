@@ -87,7 +87,7 @@ class SkusIndex extends Component
 
     public string $aliasBarcode = '';
 
-    public string $aliasBarcodeType = 'unknown';
+    public string $aliasBarcodeType = 'other';
 
     public string $aliasLabel = '';
 
@@ -95,7 +95,7 @@ class SkusIndex extends Component
 
     public array $aliasEdit = [
         'barcode' => '',
-        'barcode_type' => 'unknown',
+        'barcode_type' => 'other',
         'label' => '',
     ];
 
@@ -1867,7 +1867,7 @@ class SkusIndex extends Component
     private function resetAliasForm(): void
     {
         $this->aliasBarcode = '';
-        $this->aliasBarcodeType = 'unknown';
+        $this->aliasBarcodeType = 'other';
         $this->aliasLabel = '';
         $this->resetAliasEditForm();
     }
@@ -1877,7 +1877,7 @@ class SkusIndex extends Component
         $this->editingAliasId = null;
         $this->aliasEdit = [
             'barcode' => '',
-            'barcode_type' => 'unknown',
+            'barcode_type' => 'other',
             'label' => '',
         ];
     }

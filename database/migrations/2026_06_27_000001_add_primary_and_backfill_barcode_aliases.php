@@ -28,7 +28,7 @@ return new class extends Migration
                         modelType: BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
                         modelId: (int) $stockItem->id,
                         barcode: (string) $stockItem->barcode,
-                        barcodeType: (string) ($stockItem->barcode_type ?: 'unknown'),
+                        barcodeType: (string) ($stockItem->barcode_type ?: 'other'),
                         label: 'Legacy stock item barcode',
                         now: $now,
                     );
