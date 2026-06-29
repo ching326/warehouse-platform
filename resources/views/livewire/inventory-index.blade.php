@@ -111,9 +111,6 @@
                                     @if ($this->stockItemSecondaryCode($balance->stockItem))
                                         <span class="subtle">{{ $this->stockItemSecondaryCode($balance->stockItem) }}</span>
                                     @endif
-                                    @if ($balance->stockItem->barcode)
-                                        <span class="subtle">{{ __('inventory.barcode_label', ['barcode' => $balance->stockItem->barcode]) }}</span>
-                                    @endif
                                 </div>
                             </div>
 

@@ -133,7 +133,7 @@ class ReturnOrderIndex extends Component
                 $term = '%'.trim($this->search).'%';
                 $q->where(function ($nested) use ($term): void {
                     $nested->where('return_no', 'like', $term)->orWhere('tracking_no', 'like', $term)->orWhere('original_order_no', 'like', $term)->orWhere('customer_name', 'like', $term)->orWhere('external_return_id', 'like', $term)->orWhere('note', 'like', $term)
-                        ->orWhereHas('lines.sku', fn ($line) => $line->where('sku', 'like', $term)->orWhere('name', 'like', $term))
+                        ->orWhereHas('lines.sku', fn ($line) => $line->where('sku', 'like', $term))
                         ->orWhereHas('lines.stockItem', fn ($line) => $line->where('code', 'like', $term)->orWhere('name', 'like', $term));
                 });
             })

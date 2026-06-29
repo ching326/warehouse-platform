@@ -149,11 +149,6 @@ class SkuWriter
         return [
             'stock_item_id' => $stockItemId,
             'sku' => trim($skuData['sku'] ?? ''),
-            'name' => trim($skuData['name'] ?? ''),
-            'name_en' => $this->nullableString($skuData['name_en'] ?? ''),
-            'name_ja' => $this->nullableString($skuData['name_ja'] ?? ''),
-            'name_zh_tw' => $this->nullableString($skuData['name_zh_tw'] ?? ''),
-            'name_zh_cn' => $this->nullableString($skuData['name_zh_cn'] ?? ''),
             'platform_sku' => $this->nullableString($skuData['platform_sku'] ?? ''),
             'platform_product_id' => $this->nullableString($skuData['platform_product_id'] ?? ''),
             'platform_variant_id' => $this->nullableString($skuData['platform_variant_id'] ?? ''),
@@ -178,7 +173,7 @@ class SkuWriter
         $siNameZhCn = $this->nullableString($data['si_name_zh_cn'] ?? '');
 
         return [
-            'name' => trim($skuData['name'] ?? ''),
+            'name' => trim($data['name'] ?? ''),
             'name_ja' => $siNameJa,
             'name_zh_tw' => $siNameZhTw,
             'name_zh_cn' => $siNameZhCn,
@@ -231,7 +226,7 @@ class SkuWriter
             $this->barcodeAliases->setPrimaryProductBarcode(
                 $stockItem,
                 $stockItemData['barcode'] ?? '',
-                ($stockItemData['barcode_type'] ?? '') ?: 'unknown',
+                ($stockItemData['barcode_type'] ?? '') ?: 'other',
                 BarcodeAlias::SOURCE_IMPORT,
             );
         }

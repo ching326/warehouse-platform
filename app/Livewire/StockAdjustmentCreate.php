@@ -308,15 +308,12 @@ class StockAdjustmentCreate extends Component
                         ->orWhere('name_zh_cn', 'like', $search)
                         ->orWhere('short_name', 'like', $search)
                         ->orWhere('tenant_item_code', 'like', $search)
-                        ->orWhere('barcode', 'like', $search)
+                        ->orWhereHas('barcodeAliases', fn ($query) => $query
+                            ->where('is_active', true)
+                            ->where('barcode', 'like', $search))
                         ->orWhereHas('skus', function ($query) use ($search): void {
                             $query
                                 ->where('sku', 'like', $search)
-                                ->orWhere('name', 'like', $search)
-                                ->orWhere('name_en', 'like', $search)
-                                ->orWhere('name_ja', 'like', $search)
-                                ->orWhere('name_zh_tw', 'like', $search)
-                                ->orWhere('name_zh_cn', 'like', $search)
                                 ->orWhere('platform_sku', 'like', $search)
                                 ->orWhere('platform_label_code', 'like', $search);
                         });
@@ -324,7 +321,7 @@ class StockAdjustmentCreate extends Component
             })
             ->orderBy('code')
             ->limit(30)
-            ->get(['id', 'code', 'tenant_item_code', ...StockItem::DISPLAY_NAME_COLUMNS, 'barcode']);
+            ->get(['id', 'code', 'tenant_item_code', ...StockItem::DISPLAY_NAME_COLUMNS]);
     }
 
     private function selectedStockItem(): ?StockItem

@@ -3,13 +3,11 @@
 namespace App\Livewire;
 
 use App\Exceptions\AliasCollisionException;
-use App\Models\BarcodeAlias;
 use App\Models\PackagingMaterial;
 use App\Models\ProductType;
 use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
-use App\Models\StockItem;
 use App\Services\BarcodeAliasService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -25,10 +23,6 @@ class SkuEdit extends Component
     public string $skuCode = '';
 
     public string $shopId = '';
-
-    public string $name = '';
-
-    public array $nameTranslations = ['en' => '', 'ja' => '', 'zh_TW' => '', 'zh_CN' => ''];
 
     public string $platformSku = '';
 
@@ -61,8 +55,6 @@ class SkuEdit extends Component
         'variation_code' => '',
         'color' => '',
         'size' => '',
-        'barcode' => '',
-        'barcode_type' => 'other',
         'product_type' => 'normal',
         'is_dangerous_goods' => false,
         'requires_expiry_tracking' => false,
@@ -83,18 +75,11 @@ class SkuEdit extends Component
     {
         $this->authorizeAccess($sku);
 
-        $sku->load(['stockItem.barcodeAliases', 'tenant']);
+        $sku->load(['stockItem', 'tenant']);
         $this->sku = $sku;
 
         $this->skuCode = $sku->sku;
         $this->shopId = (string) ($sku->shop_id ?? '');
-        $this->name = $sku->name;
-        $this->nameTranslations = [
-            'en' => $sku->name_en ?? '',
-            'ja' => $sku->name_ja ?? '',
-            'zh_TW' => $sku->name_zh_tw ?? '',
-            'zh_CN' => $sku->name_zh_cn ?? '',
-        ];
         $this->platformSku = $sku->platform_sku ?? '';
         $this->platformProductId = $sku->platform_product_id ?? '';
         $this->platformVariantId = $sku->platform_variant_id ?? '';
@@ -120,8 +105,6 @@ class SkuEdit extends Component
                 'variation_code' => $si->variation_code ?? '',
                 'color' => $si->color ?? '',
                 'size' => $si->size ?? '',
-                'barcode' => $this->stockItemPrimaryBarcode($si) ?? $si->barcode ?? '',
-                'barcode_type' => $this->stockItemPrimaryBarcodeType($si) ?? $si->barcode_type ?? 'other',
                 'product_type' => $si->product_type ?? 'normal',
                 'is_dangerous_goods' => (bool) $si->is_dangerous_goods,
                 'requires_expiry_tracking' => (bool) $si->requires_expiry_tracking,
@@ -146,16 +129,9 @@ class SkuEdit extends Component
 
         try {
             DB::transaction(function () {
-                $barcodeAliases = app(BarcodeAliasService::class);
-
                 $this->sku->update([
                     'sku' => trim($this->skuCode),
                     'shop_id' => $this->nullableId($this->shopId),
-                    'name' => trim($this->name),
-                    'name_en' => $this->nullableString($this->nameTranslations['en'] ?? ''),
-                    'name_ja' => $this->nullableString($this->nameTranslations['ja'] ?? ''),
-                    'name_zh_tw' => $this->nullableString($this->nameTranslations['zh_TW'] ?? ''),
-                    'name_zh_cn' => $this->nullableString($this->nameTranslations['zh_CN'] ?? ''),
                     'platform_sku' => $this->nullableString($this->platformSku),
                     'platform_product_id' => $this->nullableString($this->platformProductId),
                     'platform_variant_id' => $this->nullableString($this->platformVariantId),
@@ -166,11 +142,11 @@ class SkuEdit extends Component
                     'note' => $this->nullableString($this->note),
                 ]);
 
-                $barcodeAliases->setSkuPlatformLabel($this->sku->refresh(), $this->platformLabelCode);
+                app(BarcodeAliasService::class)->setSkuPlatformLabel($this->sku->refresh(), $this->platformLabelCode);
 
                 if ($this->sku->stockItem) {
                     $this->sku->stockItem->update([
-                        'name' => trim($this->stockItem['name']) ?: trim($this->name),
+                        'name' => trim($this->stockItem['name']),
                         'name_en' => $this->nullableString($this->stockItem['name_en'] ?? ''),
                         'name_ja' => $this->nullableString($this->stockItem['name_ja'] ?? ''),
                         'name_zh_tw' => $this->nullableString($this->stockItem['name_zh_tw'] ?? ''),
@@ -197,12 +173,6 @@ class SkuEdit extends Component
                         'dimension_unit' => $this->stockItem['dimension_unit'] ?: 'cm',
                         'status' => $this->stockItem['status'] ?: 'active',
                     ]);
-
-                    $barcodeAliases->setPrimaryProductBarcode(
-                        $this->sku->stockItem,
-                        $this->stockItem['barcode'] ?? '',
-                        $this->stockItem['barcode_type'] ?: 'other',
-                    );
                 }
             });
         } catch (AliasCollisionException) {
@@ -223,9 +193,7 @@ class SkuEdit extends Component
             'packagingMaterials' => $this->packagingMaterialOptions(),
             'shippingMethods' => $this->shippingMethodOptions(),
             'productTypes' => ProductType::orderBy('sort_order')->orderBy('name')->get(['slug', 'name']),
-            'skuNameBaseLocale' => $tenant?->sku_name_locale ?: 'en',
             'stockItemNameBaseLocale' => $tenant?->stock_item_name_locale ?: 'en',
-            'skuNameHasTranslations' => array_filter($this->nameTranslations) !== [],
             'stockItemHasTranslations' => $this->sku->stockItem !== null && array_filter([
                 $this->stockItem['name_en'],
                 $this->stockItem['name_ja'],
@@ -251,26 +219,6 @@ class SkuEdit extends Component
         }
     }
 
-    private function stockItemPrimaryBarcode(StockItem $stockItem): ?string
-    {
-        $alias = $stockItem->barcodeAliases
-            ->where('is_active', true)
-            ->sortByDesc('is_primary')
-            ->first();
-
-        return $alias instanceof BarcodeAlias ? $alias->barcode : null;
-    }
-
-    private function stockItemPrimaryBarcodeType(StockItem $stockItem): ?string
-    {
-        $alias = $stockItem->barcodeAliases
-            ->where('is_active', true)
-            ->sortByDesc('is_primary')
-            ->first();
-
-        return $alias instanceof BarcodeAlias ? $alias->barcode_type : null;
-    }
-
     private function validateInput(): void
     {
         $tenantId = $this->sku->tenant_id;
@@ -278,8 +226,6 @@ class SkuEdit extends Component
 
         validator([
             'sku' => trim($this->skuCode),
-            'name' => trim($this->name),
-            'name_translations' => $this->nameTranslations,
             'shop_id' => $shopId,
             'default_packaging_material_id' => $this->defaultPackagingMaterialId === '' ? null : $this->defaultPackagingMaterialId,
             'default_shipping_method_id' => $this->defaultShippingMethodId === '' ? null : $this->defaultShippingMethodId,
@@ -302,8 +248,6 @@ class SkuEdit extends Component
                     ->when($shopId === null, fn ($r) => $r->whereNull('shop_id'), fn ($r) => $r->where('shop_id', $shopId))
                     ->ignore($this->sku->id),
             ],
-            'name' => ['required', 'string', 'max:255'],
-            'name_translations.*' => ['nullable', 'string', 'max:255'],
             'shop_id' => ['nullable', Rule::exists('shops', 'id')->where('tenant_id', $tenantId)],
             'default_packaging_material_id' => ['nullable', Rule::exists('packaging_materials', 'id')],
             'default_shipping_method_id' => ['nullable', Rule::exists('shipping_methods', 'id')->where('status', 'active')],

@@ -54,7 +54,6 @@
                         'value' => $item->id,
                         'label' => $item->code.' - '.$item->displayName(),
                         'meta' => collect([
-                            $item->barcode ? 'Barcode '.$item->barcode : null,
                             $item->skus->pluck('sku')->take(3)->implode(', '),
                         ])->filter()->implode(' / '),
                     ]);

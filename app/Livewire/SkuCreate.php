@@ -30,12 +30,6 @@ class SkuCreate extends Component
     #[Url(as: 'sku', except: '')]
     public string $sku = '';
 
-    #[Url(as: 'name', except: '')]
-    public string $name = '';
-
-    /** Per-locale SKU name overrides keyed by app locale; base name is the fallback. */
-    public array $nameTranslations = ['en' => '', 'ja' => '', 'zh_TW' => '', 'zh_CN' => ''];
-
     #[Url(as: 'platform_sku', except: '')]
     public string $platformSku = '';
 
@@ -76,8 +70,6 @@ class SkuCreate extends Component
         'variation_code' => '',
         'color' => '',
         'size' => '',
-        'barcode' => '',
-        'barcode_type' => 'other',
         'product_type' => 'normal',
         'is_dangerous_goods' => false,
         'requires_expiry_tracking' => false,
@@ -145,13 +137,6 @@ class SkuCreate extends Component
                         $stockItemId = $stockItem->id;
                     }
 
-                    if ($stockItem && trim((string) ($this->stockItem['barcode'] ?? '')) !== '') {
-                        $barcodeAliases->setPrimaryProductBarcode(
-                            $stockItem,
-                            $this->stockItem['barcode'] ?? '',
-                            $this->stockItem['barcode_type'] ?: 'other',
-                        );
-                    }
                 }
 
                 $sku = Sku::create([
@@ -159,11 +144,6 @@ class SkuCreate extends Component
                     'shop_id' => $this->nullableId($this->shopId),
                     'stock_item_id' => $stockItemId,
                     'sku' => trim($this->sku),
-                    'name' => trim($this->name),
-                    'name_en' => $this->nullableString($this->nameTranslations['en'] ?? ''),
-                    'name_ja' => $this->nullableString($this->nameTranslations['ja'] ?? ''),
-                    'name_zh_tw' => $this->nullableString($this->nameTranslations['zh_TW'] ?? ''),
-                    'name_zh_cn' => $this->nullableString($this->nameTranslations['zh_CN'] ?? ''),
                     'platform_sku' => $this->nullableString($this->platformSku),
                     'platform_product_id' => $this->nullableString($this->platformProductId),
                     'platform_variant_id' => $this->nullableString($this->platformVariantId),
@@ -200,7 +180,6 @@ class SkuCreate extends Component
             'productTypes' => ProductType::orderBy('sort_order')->orderBy('name')->get(['slug', 'name']),
             'showTenantSelect' => $this->isInternalUser(),
             'currentTenant' => $currentTenant,
-            'skuNameBaseLocale' => $currentTenant?->sku_name_locale ?: 'en',
             'stockItemNameBaseLocale' => $currentTenant?->stock_item_name_locale ?: 'en',
         ])->layout('inventory', [
             'title' => __('skus.create_page_title'),
@@ -223,8 +202,6 @@ class SkuCreate extends Component
                     ->where('tenant_id', $tenantId)
                     ->when($shopId === null, fn ($rule) => $rule->whereNull('shop_id'), fn ($rule) => $rule->where('shop_id', $shopId)),
             ],
-            'name' => ['required', 'string', 'max:255'],
-            'name_translations.*' => ['nullable', 'string', 'max:255'],
             'sku_type' => ['required', Rule::in(['single', 'virtual_bundle', 'physical_bundle'])],
             'default_packaging_material_id' => ['nullable', Rule::exists('packaging_materials', 'id')],
             'default_shipping_method_id' => ['nullable', Rule::exists('shipping_methods', 'id')->where('status', 'active')],
@@ -262,8 +239,6 @@ class SkuCreate extends Component
             'tenant_id' => $this->tenantId,
             'shop_id' => $this->shopId === '' ? null : $this->shopId,
             'sku' => trim($this->sku),
-            'name' => trim($this->name),
-            'name_translations' => $this->nameTranslations,
             'sku_type' => $this->skuType,
             'default_packaging_material_id' => $this->defaultPackagingMaterialId === '' ? null : $this->defaultPackagingMaterialId,
             'default_shipping_method_id' => $this->defaultShippingMethodId === '' ? null : $this->defaultShippingMethodId,
@@ -282,7 +257,7 @@ class SkuCreate extends Component
         return [
             'tenant_id' => $tenantId,
             'code' => $this->nextStockItemCode($tenantId),
-            'name' => trim($this->stockItem['name']) ?: trim($this->name),
+            'name' => trim($this->stockItem['name']),
             'name_en' => $this->nullableString($this->stockItem['name_en'] ?? ''),
             'name_ja' => $this->nullableString($this->stockItem['name_ja'] ?? ''),
             'name_zh_tw' => $this->nullableString($this->stockItem['name_zh_tw'] ?? ''),
@@ -411,11 +386,10 @@ class SkuCreate extends Component
                         ->orWhere('name_zh_tw', 'like', $search)
                         ->orWhere('name_zh_cn', 'like', $search)
                         ->orWhere('short_name', 'like', $search)
-                        ->orWhere('barcode', 'like', $search)
+                        ->orWhereHas('barcodeAliases', fn ($query) => $query->where('barcode', 'like', $search))
                         ->orWhereHas('skus', function ($query) use ($search) {
                             $query
                                 ->where('sku', 'like', $search)
-                                ->orWhere('name', 'like', $search)
                                 ->orWhere('platform_sku', 'like', $search)
                                 ->orWhere('platform_label_code', 'like', $search);
                         });
@@ -423,7 +397,7 @@ class SkuCreate extends Component
             })
             ->orderBy('code')
             ->limit(30)
-            ->get(['id', 'code', 'tenant_item_code', ...StockItem::DISPLAY_NAME_COLUMNS, 'barcode']);
+            ->get(['id', 'code', 'tenant_item_code', ...StockItem::DISPLAY_NAME_COLUMNS]);
     }
 
     private function currentTenant(): ?Tenant
@@ -438,6 +412,11 @@ class SkuCreate extends Component
     private function normalizeQueryPrefill(): void
     {
         $allowedTenantIds = $this->allowedTenantIds();
+        $queryName = trim((string) request()->query('name', ''));
+
+        if ($queryName !== '' && trim((string) ($this->stockItem['name'] ?? '')) === '') {
+            $this->stockItem['name'] = $queryName;
+        }
 
         if ($this->shopId !== '') {
             $shop = Shop::query()

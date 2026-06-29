@@ -80,7 +80,7 @@
                             @if ($scan->stockItem)
                                 <span class="subtle pack-scan-text">{{ $scan->stockItem->code }} / {{ $scan->stockItem->displayName() }}</span>
                             @elseif ($scan->sku)
-                                <span class="subtle pack-scan-text">{{ $scan->sku->localizedName() }}</span>
+                                <span class="subtle pack-scan-text">{{ $scan->sku->displayName() }}</span>
                             @endif
                         </flux:table.cell>
                         <flux:table.cell align="end">{{ number_format($scan->quantity) }}</flux:table.cell>

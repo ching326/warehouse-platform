@@ -303,7 +303,7 @@
                     <flux:table.row :key="'parent-'.$line->id">
                         <flux:table.cell>
                             <strong>{{ $line->sku->sku }}</strong>
-                            <span class="subtle">{{ $line->sku->name ?: '-' }}</span>
+                            <span class="subtle">{{ $line->sku->displayName() ?: '-' }}</span>
                         </flux:table.cell>
                         <flux:table.cell>
                             @if ($line->stockItem)

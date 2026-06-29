@@ -21,7 +21,6 @@ class SkuFactory extends Factory
             'shop_id' => Shop::factory(),
             'stock_item_id' => StockItem::factory(),
             'sku' => 'SKU-'.fake()->unique()->bothify('??####'),
-            'name' => fake()->words(3, true),
             'platform_sku' => fake()->optional()->bothify('PLT-??####'),
             'platform_product_id' => fake()->optional()->bothify('ASIN########'),
             'platform_variant_id' => fake()->optional()->bothify('VAR########'),

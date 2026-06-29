@@ -66,7 +66,7 @@
                 <div class="receive-line-panel">
                     <div class="form-panel-header">
                         <div>
-                            <strong>{{ $line->sku->sku }} - {{ $line->sku->name }}</strong>
+                            <strong>{{ $line->sku->sku }} - {{ $line->sku->displayName() }}</strong>
                             <span>{{ $line->stockItem->code }} - {{ $line->stockItem->name }}</span>
                         </div>
                     </div>

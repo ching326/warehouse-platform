@@ -184,7 +184,6 @@ class FulfillmentPackScanHistoryTest extends TestCase
         ]);
         $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create([
             'sku' => $skuCode,
-            'name' => $skuCode.' Name',
         ]);
         $order = SalesOrder::factory()->for($tenant)->for($shop)->create([
             'platform_order_id' => 'SO-'.$barcode,

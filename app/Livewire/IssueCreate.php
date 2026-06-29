@@ -255,7 +255,7 @@ class IssueCreate extends Component
             ->map(fn (SalesOrderLine $line) => [
                 'selected' => false,
                 'sales_order_line_id' => $line->id,
-                'label' => $line->sku?->sku.' / '.$line->sku?->name,
+                'label' => $line->sku?->sku.' / '.$line->sku?->displayName(),
                 'stock_item' => $line->sku?->stockItem?->code,
                 'max_qty' => $line->quantity,
                 'qty' => 1,
@@ -476,11 +476,6 @@ class IssueCreate extends Component
                 $query->where(function ($query) use ($search): void {
                     $query
                         ->where('sku', 'like', $search)
-                        ->orWhere('name', 'like', $search)
-                        ->orWhere('name_en', 'like', $search)
-                        ->orWhere('name_ja', 'like', $search)
-                        ->orWhere('name_zh_tw', 'like', $search)
-                        ->orWhere('name_zh_cn', 'like', $search)
                         ->orWhere('platform_sku', 'like', $search)
                         ->orWhere('platform_label_code', 'like', $search)
                         ->orWhereHas('stockItem', function ($query) use ($search): void {
@@ -492,14 +487,16 @@ class IssueCreate extends Component
                                 ->orWhere('name_zh_tw', 'like', $search)
                                 ->orWhere('name_zh_cn', 'like', $search)
                                 ->orWhere('short_name', 'like', $search)
-                                ->orWhere('barcode', 'like', $search);
+                                ->orWhereHas('barcodeAliases', fn ($query) => $query
+                                    ->where('is_active', true)
+                                    ->where('barcode', 'like', $search));
                         });
                 });
             })
-            ->with('stockItem:id,code,name')
+            ->with('stockItem:id,code,name,short_name,name_en,name_ja,name_zh_tw,name_zh_cn')
             ->orderBy('sku')
             ->limit(50)
-            ->get(['id', 'tenant_id', 'stock_item_id', 'sku', 'name', 'platform_sku', 'platform_label_code']);
+            ->get(['id', 'tenant_id', 'stock_item_id', 'sku', 'platform_sku', 'platform_label_code']);
     }
 
     private function manualLineStockItems(?int $tenantId)

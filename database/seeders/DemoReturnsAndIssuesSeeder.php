@@ -313,7 +313,6 @@ class DemoReturnsAndIssuesSeeder extends Seeder
                 [
                     'name' => 'Demo Return Item '.$i,
                     'short_name' => 'Demo Item '.$i,
-                    'barcode_type' => 'unknown',
                     'product_type' => 'normal',
                     'is_dangerous_goods' => false,
                     'requires_expiry_tracking' => false,
@@ -326,7 +325,6 @@ class DemoReturnsAndIssuesSeeder extends Seeder
                 ['tenant_id' => $tenant->id, 'shop_id' => $shop->id, 'sku' => 'DEMO-RET-SKU-'.$i],
                 [
                     'stock_item_id' => $stockItem->id,
-                    'name' => 'Demo Return SKU '.$i,
                     'sku_type' => 'single',
                     'status' => 'active',
                 ],

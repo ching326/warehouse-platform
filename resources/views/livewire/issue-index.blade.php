@@ -132,7 +132,7 @@
                             @foreach ($case->lines->take(2) as $line)
                                 <div class="so-item-line">
                                     <strong>{{ $line->sku?->sku ?? $line->stockItem?->code ?? '-' }}</strong>
-                                    <span class="subtle">{{ number_format($line->qty) }} x {{ $line->stockItem?->name ?? $line->sku?->name ?? '-' }}</span>
+                                    <span class="subtle">{{ number_format($line->qty) }} x {{ $line->stockItem?->name ?? $line->sku?->displayName() ?? '-' }}</span>
                                 </div>
                             @endforeach
                             @if ($case->lines->count() > 2)

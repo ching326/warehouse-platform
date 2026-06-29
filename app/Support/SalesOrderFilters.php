@@ -153,9 +153,7 @@ class SalesOrderFilters
                 ->orWhere('tracking_no', 'like', $like)
                 ->orWhere('note', 'like', $like)
                 ->orWhereHas('lines', fn ($lineQuery) => $lineQuery->where('note', 'like', $like))
-                ->orWhereHas('lines.sku', fn ($skuQuery) => $skuQuery
-                    ->where('sku', 'like', $like)
-                    ->orWhere('name', 'like', $like))
+                ->orWhereHas('lines.sku', fn ($skuQuery) => $skuQuery->where('sku', 'like', $like))
                 ->orWhereHas('lines.sku.stockItem', fn ($stockItemQuery) => $stockItemQuery
                     ->where('short_name', 'like', $like)
                     ->orWhere('name', 'like', $like)

@@ -43,7 +43,7 @@
                     $skuOptions = collect($skuOptionsByLine[$index] ?? [])->map(fn ($sku) => [
                         'value' => $sku->id,
                         'label' => $sku->sku,
-                        'meta' => trim(($sku->stockItem?->code ? $sku->stockItem->code.' / ' : '').($sku->stockItem?->name ?? $sku->name ?? '')),
+                        'meta' => trim(($sku->stockItem?->code ? $sku->stockItem->code.' / ' : '').($sku->displayName() ?: '')),
                     ]);
                     $selectedSku = $skuOptions->firstWhere('value', (int) ($line['sku_id'] ?? 0));
                 @endphp

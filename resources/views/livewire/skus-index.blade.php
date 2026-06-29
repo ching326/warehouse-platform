@@ -218,7 +218,7 @@
                             </flux:table.cell>
                             <flux:table.cell class="sku-primary-cell">
                                 <strong>{{ $sku->sku }}</strong>
-                                <span>{{ $sku->name }}</span>
+                                <span>{{ $sku->displayName() }}</span>
                                 @if ($sku->sku_type !== 'single')
                                     <small>{{ $this->skuTypeLabel($sku->sku_type) }}</small>
                                 @endif
@@ -230,9 +230,6 @@
                                 @if ($sku->stockItem)
                                     <strong>{{ $this->stockItemDisplayCode($sku->stockItem) }}</strong>
                                     <span>{{ $sku->stockItem->name }}</span>
-                                    @if ($sku->stockItem->barcode)
-                                        <small>{{ $sku->stockItem->barcode }}</small>
-                                    @endif
                                 @elseif ($sku->sku_type === 'virtual_bundle')
                                     <strong>{{ __('skus.virtual_bundle') }}</strong>
                                     <span title="{{ $this->bundleComposition($sku, 999) }}">{{ $this->bundleComposition($sku) }}</span>
@@ -769,7 +766,7 @@
                     <div class="image-panel-header">
                         <div>
                             <strong>{{ __('skus.manage_aliases') }}</strong>
-                            <span>{{ $managedAliasSku->sku }} - {{ $managedAliasSku->name }}</span>
+                            <span>{{ $managedAliasSku->sku }} - {{ $managedAliasSku->displayName() }}</span>
                         </div>
                         <button type="button" class="modal-icon-close" wire:click="closeAliasPanel" aria-label="{{ __('skus.btn_cancel') }}">&times;</button>
                     </div>

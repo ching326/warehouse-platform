@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\InventoryMovementsIndex;
+use App\Models\BarcodeAlias;
 use App\Models\InventoryMovement;
 use App\Models\StockItem;
 use App\Models\Tenant;
@@ -163,13 +164,33 @@ class InventoryMovementsPageTest extends TestCase
         $alphaStock = StockItem::factory()->for($alphaTenant)->create([
             'code' => 'STK-MOVE-ALPHA',
             'name' => 'Alpha Movement Charger',
-            'barcode' => '4911111111111',
         ]);
 
         $betaStock = StockItem::factory()->for($betaTenant)->create([
             'code' => 'STK-MOVE-BETA',
             'name' => 'Beta Movement Cream',
+        ]);
+
+        BarcodeAlias::create([
+            'tenant_id' => $alphaTenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
+            'model_id' => $alphaStock->id,
+            'barcode' => '4911111111111',
+            'normalized_barcode' => '4911111111111',
+            'barcode_type' => 'jan',
+            'is_primary' => true,
+            'is_active' => true,
+        ]);
+
+        BarcodeAlias::create([
+            'tenant_id' => $betaTenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
+            'model_id' => $betaStock->id,
             'barcode' => '4922222222222',
+            'normalized_barcode' => '4922222222222',
+            'barcode_type' => 'jan',
+            'is_primary' => true,
+            'is_active' => true,
         ]);
 
         $alphaUser = User::factory()->create(['name' => 'Alpha Operator']);

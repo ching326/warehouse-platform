@@ -34,8 +34,6 @@ class LocalizedProductNameTest extends TestCase
 
     public function test_stock_item_short_name_is_language_neutral(): void
     {
-        // short_name behaves like brand/model_number: one value, no per-locale
-        // variants, and it wins over the localized full name regardless of locale.
         $item = StockItem::factory()->create([
             'name' => 'Base Name',
             'name_ja' => 'ジャパン名称',
@@ -64,7 +62,6 @@ class LocalizedProductNameTest extends TestCase
         app()->setLocale('zh_TW');
         $this->assertSame('繁中名稱', $item->displayName());
 
-        // No zh_CN override -> base name. Source locale (en) -> base name.
         app()->setLocale('zh_CN');
         $this->assertSame('Base Name', $item->displayName());
 
@@ -81,16 +78,8 @@ class LocalizedProductNameTest extends TestCase
             'short_name' => null,
         ]);
 
-        $sku = Sku::factory()->for($item, 'stockItem')->create([
-            'name' => 'Base Japanese SKU',
-            'name_en' => 'English SKU Override',
-            'name_ja' => null,
-        ]);
-
         $this->assertSame('English Override Name', $item->localizedName('en'));
         $this->assertSame('Base Japanese Name', $item->localizedName('ja'));
-        $this->assertSame('English SKU Override', $sku->localizedName('en'));
-        $this->assertSame('Base Japanese SKU', $sku->localizedName('ja'));
     }
 
     public function test_default_english_base_still_falls_back_to_name_for_every_locale(): void
@@ -110,42 +99,26 @@ class LocalizedProductNameTest extends TestCase
         $this->assertSame('Base Name', $item->localizedName('zh_CN'));
     }
 
-    public function test_sku_display_name_delegates_to_stock_item_then_own_localized_name(): void
+    public function test_sku_display_name_delegates_to_stock_item(): void
     {
         $item = StockItem::factory()->create([
             'name' => 'Item Name',
             'short_name' => 'Item Short',
         ]);
-        $sku = Sku::factory()->for($item, 'stockItem')->create([
-            'name' => 'Sku Name',
-            'name_ja' => 'SKUジャパン',
-        ]);
+        $sku = Sku::factory()->for($item, 'stockItem')->create();
 
-        // Stock item short_name wins (language-neutral).
         app()->setLocale('ja');
         $this->assertSame('Item Short', $sku->displayName());
 
-        // With no linked stock item, the SKU uses its own localized name.
-        $orphan = Sku::factory()->create([
-            'stock_item_id' => null,
-            'name' => 'Orphan Sku',
-            'name_ja' => 'みなしSKU',
-        ]);
+        $item->update(['short_name' => null, 'name_ja' => '商品日本語名']);
 
-        $this->assertSame('みなしSKU', $orphan->displayName());
-        $this->assertSame('みなしSKU', $orphan->localizedName());
+        $this->assertSame('商品日本語名', $sku->refresh()->displayName());
     }
 
-    public function test_sku_display_name_prefers_own_name_over_stock_item_full_name(): void
+    public function test_sku_without_stock_item_has_no_product_name(): void
     {
-        // When the stock item has no short name, the SKU list ordering shows the
-        // SKU's own name ahead of the stock item's verbose full name.
-        $item = StockItem::factory()->create([
-            'name' => 'Stock Item Verbose Name',
-            'short_name' => null,
-        ]);
-        $sku = Sku::factory()->for($item, 'stockItem')->create(['name' => 'Concise Sku Name']);
+        $sku = Sku::factory()->create(['stock_item_id' => null]);
 
-        $this->assertSame('Concise Sku Name', $sku->displayName());
+        $this->assertSame('', $sku->displayName());
     }
 }

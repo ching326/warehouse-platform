@@ -144,7 +144,7 @@ class InventoryMovementsIndex extends Component
             ->with([
                 'tenant:id,code,name',
                 'warehouse:id,code,name',
-                'stockItem:id,tenant_id,code,name,barcode',
+                'stockItem:id,tenant_id,code,name',
                 'user:id,name,email',
             ])
             ->latest('created_at')
@@ -271,7 +271,9 @@ class InventoryMovementsIndex extends Component
                             $query
                                 ->where('code', 'like', $search)
                                 ->orWhere('name', 'like', $search)
-                                ->orWhere('barcode', 'like', $search);
+                                ->orWhereHas('barcodeAliases', fn ($query) => $query
+                                    ->where('is_active', true)
+                                    ->where('barcode', 'like', $search));
                         });
                 });
             });
@@ -313,11 +315,12 @@ class InventoryMovementsIndex extends Component
                         ->orWhere('name_zh_cn', 'like', $search)
                         ->orWhere('short_name', 'like', $search)
                         ->orWhere('tenant_item_code', 'like', $search)
-                        ->orWhere('barcode', 'like', $search)
+                        ->orWhereHas('barcodeAliases', fn ($query) => $query
+                            ->where('is_active', true)
+                            ->where('barcode', 'like', $search))
                         ->orWhereHas('skus', function ($query) use ($search) {
                             $query
                                 ->where('sku', 'like', $search)
-                                ->orWhere('name', 'like', $search)
                                 ->orWhere('platform_sku', 'like', $search)
                                 ->orWhere('platform_label_code', 'like', $search);
                         });
@@ -325,7 +328,7 @@ class InventoryMovementsIndex extends Component
             })
             ->orderBy('code')
             ->limit(50)
-            ->get(['id', 'tenant_id', 'code', 'tenant_item_code', ...StockItem::DISPLAY_NAME_COLUMNS, 'barcode']);
+            ->get(['id', 'tenant_id', 'code', 'tenant_item_code', ...StockItem::DISPLAY_NAME_COLUMNS]);
     }
 
     private function movementTypeOptions(): Collection

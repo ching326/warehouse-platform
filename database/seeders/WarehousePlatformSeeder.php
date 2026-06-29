@@ -340,8 +340,6 @@ class WarehousePlatformSeeder extends Seeder
                         'brand' => $tenant->code.' Gear',
                         'model_number' => $prod[3],
                         'color' => $prod[4],
-                        'barcode' => '49012345'.$tenant->id.$idx,
-                        'barcode_type' => 'jan',
                         'product_type' => 'normal',
                         'is_dangerous_goods' => false,
                         'requires_expiry_tracking' => false,
@@ -377,7 +375,6 @@ class WarehousePlatformSeeder extends Seeder
                         ['tenant_id' => $tenant->id, 'shop_id' => $shop->id, 'sku' => "{$shop->code}-SKU-{$pi}"],
                         [
                             'stock_item_id' => $item->id,
-                            'name' => $item->name." ({$shop->marketplace})",
                             'sku_type' => 'single',
                             'default_packaging_material_id' => $packagingMaterials[0]->id,
                             'status' => 'active',
@@ -466,8 +463,6 @@ class WarehousePlatformSeeder extends Seeder
                     'short_name' => $shortName,
                     'brand' => str_contains($name, 'ムラタ') || str_contains($name, 'murata') ? 'Murata' : 'Demo Battery',
                     'model_number' => $shortName,
-                    'barcode' => null,
-                    'barcode_type' => 'unknown',
                     'product_type' => 'normal',
                     'is_dangerous_goods' => false,
                     'requires_expiry_tracking' => false,
@@ -484,7 +479,6 @@ class WarehousePlatformSeeder extends Seeder
                 ['tenant_id' => $tenant->id, 'shop_id' => $shop->id, 'sku' => $skuCode],
                 [
                     'stock_item_id' => $stockItem->id,
-                    'name' => $name,
                     'platform_sku' => $skuCode,
                     'platform_product_id' => $asin,
                     'platform_variant_id' => $asin,

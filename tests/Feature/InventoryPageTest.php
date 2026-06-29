@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\InventoryIndex;
+use App\Models\BarcodeAlias;
 use App\Models\InventoryBalance;
 use App\Models\MediaAsset;
 use App\Models\Shop;
@@ -282,7 +283,6 @@ class InventoryPageTest extends TestCase
         $alphaStock = StockItem::factory()->for($alphaTenant)->create([
             'code' => 'STK-ALPHA',
             'name' => 'Alpha Charger',
-            'barcode' => '4900000000001',
             'product_type' => 'normal',
             'status' => 'active',
         ]);
@@ -290,9 +290,30 @@ class InventoryPageTest extends TestCase
         $betaStock = StockItem::factory()->for($betaTenant)->create([
             'code' => 'STK-BETA',
             'name' => 'Beta Skin Cream',
-            'barcode' => '4900000000002',
             'product_type' => 'cosmetic',
             'status' => 'archived',
+        ]);
+
+        BarcodeAlias::create([
+            'tenant_id' => $alphaTenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
+            'model_id' => $alphaStock->id,
+            'barcode' => '4900000000001',
+            'normalized_barcode' => '4900000000001',
+            'barcode_type' => 'jan',
+            'is_primary' => true,
+            'is_active' => true,
+        ]);
+
+        BarcodeAlias::create([
+            'tenant_id' => $betaTenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
+            'model_id' => $betaStock->id,
+            'barcode' => '4900000000002',
+            'normalized_barcode' => '4900000000002',
+            'barcode_type' => 'jan',
+            'is_primary' => true,
+            'is_active' => true,
         ]);
 
         $alphaSku = Sku::factory()->for($alphaTenant)->for($alphaShop)->for($alphaStock)->create([

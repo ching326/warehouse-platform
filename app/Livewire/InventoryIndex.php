@@ -215,10 +215,10 @@ class InventoryIndex extends Component
                     'code',
                     'tenant_item_code',
                     'name',
-                    'barcode',
                     'product_type',
                     'status',
                 ]),
+                'stockItem.barcodeAliases:id,tenant_id,model_type,model_id,barcode,is_primary,is_active',
                 'stockItem.primaryImage:id,tenant_id,model_type,model_id,type,disk,path,file_name,is_primary,sort_order',
                 'stockItem.skus' => fn ($query) => $query
                     ->select([
@@ -286,7 +286,9 @@ class InventoryIndex extends Component
                                 ->where('code', 'like', $search)
                                 ->orWhere('tenant_item_code', 'like', $search)
                                 ->orWhere('name', 'like', $search)
-                                ->orWhere('barcode', 'like', $search);
+                                ->orWhereHas('barcodeAliases', fn ($query) => $query
+                                    ->where('is_active', true)
+                                    ->where('barcode', 'like', $search));
                         })
                         ->orWhereHas('stockItem.skus', function ($query) use ($search) {
                             $query

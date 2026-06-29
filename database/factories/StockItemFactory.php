@@ -23,8 +23,6 @@ class StockItemFactory extends Factory
             'variation_code' => fake()->optional()->bothify('VAR-??'),
             'color' => fake()->optional()->safeColorName(),
             'size' => fake()->optional()->randomElement(['S', 'M', 'L', 'XL']),
-            'barcode' => fake()->optional()->ean13(),
-            'barcode_type' => 'jan',
             'product_type' => 'normal',
             'is_dangerous_goods' => false,
             'requires_expiry_tracking' => false,

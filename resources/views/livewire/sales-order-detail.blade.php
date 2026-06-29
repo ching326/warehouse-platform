@@ -288,7 +288,7 @@
                     $skuOptions = collect($skuOptionsByLine[$index] ?? [])->map(fn ($sku) => [
                         'value' => $sku->id,
                         'label' => $sku->sku,
-                        'meta' => trim(($sku->stockItem?->code ? $sku->stockItem->code.' / ' : '').($sku->stockItem?->name ?? $sku->name ?? '')),
+                        'meta' => trim(($sku->stockItem?->code ? $sku->stockItem->code.' / ' : '').($sku->displayName() ?: '')),
                     ]);
                     $selectedSku = $skuOptions->firstWhere('value', (int) ($line['sku_id'] ?? 0));
                 @endphp
@@ -334,7 +334,7 @@
                         <flux:table.row :key="$line->id">
                             <flux:table.cell>
                                 <strong>{{ $line->sku->sku }}</strong>
-                                <span class="subtle">{{ $line->sku->name }} / {{ $line->sku->stockItem?->code ?? __('common.sku_types.virtual_bundle') }}</span>
+                                <span class="subtle">{{ $line->sku->displayName() }} / {{ $line->sku->stockItem?->code ?? __('common.sku_types.virtual_bundle') }}</span>
                             </flux:table.cell>
                             <flux:table.cell align="end">{{ number_format($line->quantity) }}</flux:table.cell>
                             <flux:table.cell>

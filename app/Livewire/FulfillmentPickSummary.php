@@ -149,7 +149,7 @@ class FulfillmentPickSummary extends Component
                     $rows[$key]['sku_codes']['bundle-component'] = __('fulfillment_pick.bundle_component');
                 } elseif ($sku) {
                     $rows[$key]['sku_codes'][$sku->id] = $sku->sku;
-                    $rows[$key]['sku_names'][$sku->id] = $sku->localizedName();
+                    $rows[$key]['sku_names'][$sku->id] = $sku->displayName();
                 }
 
                 $rows[$key]['required_qty'] += (int) $line['required_qty'];
@@ -307,7 +307,6 @@ class FulfillmentPickSummary extends Component
             $stockItem?->code,
             $stockItem?->name,
             $stockItem?->short_name,
-            $stockItem?->barcode,
             implode(' ', $row['sku_codes']),
             implode(' ', $row['barcodes']),
         ];
@@ -335,8 +334,6 @@ class FulfillmentPickSummary extends Component
         return collect()
             ->merge($this->activeAliasBarcodes($stockItem?->barcodeAliases))
             ->merge($this->activeAliasBarcodes($sku?->barcodeAliases))
-            ->push($stockItem?->barcode)
-            ->push($sku?->barcode)
             ->filter(fn ($barcode): bool => filled($barcode))
             ->map(fn ($barcode): string => (string) $barcode)
             ->unique()

@@ -224,8 +224,14 @@
                             @endif
                         </flux:table.cell>
                         <flux:table.cell>{{ $line['stock_item']?->code ?: '-' }}</flux:table.cell>
-                        <flux:table.cell>{{ $line['sku']?->barcode ?: $line['stock_item']?->barcode ?: '-' }}</flux:table.cell>
-                        <flux:table.cell>{{ $line['stock_item']?->displayName() ?: $line['sku']?->localizedName() ?: '-' }}</flux:table.cell>
+                        <flux:table.cell>
+                            @php
+                                $stockBarcode = $line['stock_item']?->barcodeAliases?->where('is_active', true)->sortByDesc('is_primary')->first()?->barcode;
+                                $skuBarcode = $line['sku']?->barcodeAliases?->where('is_active', true)->sortByDesc('is_primary')->first()?->barcode;
+                            @endphp
+                            {{ $stockBarcode ?: $skuBarcode ?: '-' }}
+                        </flux:table.cell>
+                        <flux:table.cell>{{ $line['stock_item']?->displayName() ?: $line['sku']?->displayName() ?: '-' }}</flux:table.cell>
                         <flux:table.cell align="end">{{ number_format($line['required_qty']) }}</flux:table.cell>
                         <flux:table.cell align="end">{{ number_format($line['scanned_qty']) }}</flux:table.cell>
                         <flux:table.cell align="end">

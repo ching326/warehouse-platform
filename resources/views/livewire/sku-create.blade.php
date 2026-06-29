@@ -47,29 +47,27 @@
 
             <div class="form-grid three">
                 <flux:input wire:model="sku" required :label="__('skus.field_sku')" />
-                @include('livewire.partials.localized-name-field', [
-                    'label' => __('skus.field_sku_name'),
-                    'baseModel' => 'name',
-                    'required' => true,
-                    'baseLocale' => $skuNameBaseLocale,
-                    'localeModels' => [
-                        'en' => 'nameTranslations.en',
-                        'ja' => 'nameTranslations.ja',
-                        'zh_TW' => 'nameTranslations.zh_TW',
-                        'zh_CN' => 'nameTranslations.zh_CN',
-                    ],
-                ])
                 <flux:select wire:model="skuType" :label="__('skus.field_sku_type')">
                     <flux:select.option value="single">{{ __('common.sku_types.single') }}</flux:select.option>
                     <flux:select.option value="virtual_bundle">{{ __('common.sku_types.virtual_bundle') }}</flux:select.option>
                     <flux:select.option value="physical_bundle">{{ __('common.sku_types.physical_bundle') }}</flux:select.option>
                 </flux:select>
                 <flux:input wire:model="platformSku" :label="__('skus.field_platform_sku')" />
-                <flux:input wire:model="platformProductId" :label="__('skus.field_platform_product_id')" />
-                <flux:input wire:model="platformVariantId" :label="__('skus.field_platform_variant_id')" />
-                <flux:input wire:model="platformVariantName" :label="__('skus.field_platform_variant_name')" />
+                <div>
+                    <flux:input wire:model="platformProductId" :label="__('skus.field_platform_product_id')" />
+                    <small class="field-hint">{{ __('skus.field_platform_product_id_hint') }}</small>
+                </div>
+                <div>
+                    <flux:input wire:model="platformVariantId" :label="__('skus.field_platform_variant_id')" />
+                    <small class="field-hint">{{ __('skus.field_platform_variant_id_hint') }}</small>
+                </div>
+                <div>
+                    <flux:input wire:model="platformVariantName" :label="__('skus.field_platform_variant_name')" />
+                    <small class="field-hint">{{ __('skus.field_platform_variant_name_hint') }}</small>
+                </div>
                 <div>
                     <flux:input wire:model="platformLabelCode" :label="__('skus.field_platform_label_code')" />
+                    <small class="field-hint">{{ __('skus.field_platform_label_code_hint') }}</small>
                     <small class="field-hint">{{ __('skus.fnsku_also_scannable_hint') }}</small>
                 </div>
                 <flux:select wire:model="defaultPackagingMaterialId" :label="__('skus.field_default_packaging')">
@@ -96,7 +94,7 @@
                 </label>
             </div>
 
-            @foreach (['sku', 'name', 'sku_type', 'default_packaging_material_id', 'default_shipping_method_id', 'status'] as $field)
+            @foreach (['sku', 'sku_type', 'default_packaging_material_id', 'default_shipping_method_id', 'status'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
         </section>
@@ -172,12 +170,6 @@
                     <flux:input wire:model="stockItem.variation_code" :label="__('skus.field_variation_code')" />
                     <flux:input wire:model="stockItem.color" :label="__('skus.field_color')" />
                     <flux:input wire:model="stockItem.size" :label="__('skus.field_size')" />
-                    <flux:input wire:model="stockItem.barcode" :label="__('skus.field_barcode')" />
-                    <flux:select wire:model="stockItem.barcode_type" :label="__('skus.field_barcode_type')">
-                        <flux:select.option value="jan">{{ __('common.barcode_types.jan') }}</flux:select.option>
-                        <flux:select.option value="ean">{{ __('common.barcode_types.ean') }}</flux:select.option>
-                        <flux:select.option value="upc">{{ __('common.barcode_types.upc') }}</flux:select.option>
-                    </flux:select>
                     <flux:select wire:model="stockItem.product_type" :label="__('skus.field_product_type')">
                         @foreach ($productTypes as $type)
                             <flux:select.option value="{{ $type->slug }}">{{ $type->name }}</flux:select.option>

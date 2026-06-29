@@ -367,7 +367,6 @@ class FulfillmentPickSummaryTest extends TestCase
             $oldSku = Sku::factory()->for($tenant)->for($shop)->for($oldStockItem)->create([
                 'sku_type' => 'single',
                 'sku' => 'SKU-DATE-OLD',
-                'name' => 'Old date sku',
             ]);
             app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $oldStockItem->id, 50);
             $todayOrder = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-PICK-TODAY');
@@ -406,7 +405,6 @@ class FulfillmentPickSummaryTest extends TestCase
             $previousSku = Sku::factory()->for($tenant)->for($shop)->for($previousStockItem)->create([
                 'sku_type' => 'single',
                 'sku' => 'SKU-JST-PREV',
-                'name' => 'Previous JST sku',
             ]);
             app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $previousStockItem->id, 50);
 
@@ -452,7 +450,6 @@ class FulfillmentPickSummaryTest extends TestCase
             $nextSku = Sku::factory()->for($tenant)->for($shop)->for($nextStockItem)->create([
                 'sku_type' => 'single',
                 'sku' => 'SKU-US-NEXT',
-                'name' => 'Next US sku',
             ]);
             app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $nextStockItem->id, 50);
 
@@ -692,7 +689,6 @@ class FulfillmentPickSummaryTest extends TestCase
         $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create([
             'sku_type' => 'single',
             'sku' => $skuCode,
-            'name' => $skuCode.' name',
         ]);
         app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $stockItem->id, 50);
 
@@ -705,7 +701,6 @@ class FulfillmentPickSummaryTest extends TestCase
         $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create([
             'sku_type' => 'single',
             'sku' => $skuCode,
-            'name' => $skuCode.' name',
         ]);
         app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $stockItem->id, 50);
 

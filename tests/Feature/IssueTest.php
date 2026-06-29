@@ -693,7 +693,6 @@ class IssueTest extends TestCase
         $stockItem = StockItem::factory()->for($tenant)->create(['code' => $skuCode.'-STK', 'name' => $skuCode.' Stock']);
         $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create([
             'sku' => $skuCode,
-            'name' => $skuCode.' Name',
         ]);
         $order = SalesOrder::factory()->for($tenant)->for($shop)->create(array_merge(['platform_order_id' => $orderId], $orderAttributes));
         $line = SalesOrderLine::factory()->for($order)->for($sku)->create(['quantity' => $quantity]);

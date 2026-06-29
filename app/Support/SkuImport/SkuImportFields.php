@@ -13,21 +13,9 @@ class SkuImportFields
                 ['required', 'string', 'max:255'], 'string',
                 ['sku code', 'skucode', 'item code', 'article', 'seller sku', '品番', 'コード', 'SKUコード']),
 
-            new SkuImportField('name', 'sku_import.field_name', 'sku', false,
+            new SkuImportField('name', 'sku_import.field_name', 'stock_item', false,
                 ['nullable', 'string', 'max:255'], 'string',
-                ['product name', 'item name', 'title', 'product title', 'english name', 'sku name english']),
-
-            new SkuImportField('name_ja', 'sku_import.field_name_ja', 'sku', false,
-                ['nullable', 'string', 'max:255'], 'string',
-                ['name ja', 'name_ja', 'japanese name', '商品名', 'SKU名', '日本語名', 'SKU日本語名']),
-
-            new SkuImportField('name_zh_tw', 'sku_import.field_name_zh_tw', 'sku', false,
-                ['nullable', 'string', 'max:255'], 'string',
-                ['name zh tw', 'name_zhtw', 'traditional chinese name', '繁體中文名', '繁中名稱']),
-
-            new SkuImportField('name_zh_cn', 'sku_import.field_name_zh_cn', 'sku', false,
-                ['nullable', 'string', 'max:255'], 'string',
-                ['name zh cn', 'name_zhcn', 'simplified chinese name', '简体中文名', '简中名称']),
+                ['product name', 'item name', 'title', 'product title', 'english name', 'sku name english', 'stock item name', '商品名', '在庫商品名']),
 
             new SkuImportField('platform_sku', 'sku_import.field_platform_sku', 'sku', false,
                 ['nullable', 'string', 'max:255'], 'string',
@@ -68,7 +56,7 @@ class SkuImportFields
 
             new SkuImportField('si_name_ja', 'sku_import.field_si_name_ja', 'stock_item', false,
                 ['nullable', 'string', 'max:255'], 'string',
-                ['stock name ja', 'si name ja', 'stock item name ja', '在庫品名', '在庫品名日本語']),
+                ['stock name ja', 'si name ja', 'stock item name ja', '在庫商品名', '在庫商品名日本語']),
 
             new SkuImportField('si_name_zh_tw', 'sku_import.field_si_name_zh_tw', 'stock_item', false,
                 ['nullable', 'string', 'max:255'], 'string',

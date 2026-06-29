@@ -573,7 +573,8 @@ class FulfillmentIndex extends Component
                 'salesOrders.lines:id,sales_order_id,sku_id,quantity',
             ])
             ->when($this->detailed, fn ($query) => $query->with([
-                'salesOrders.lines.sku' => fn ($sku) => $sku->select(['id', 'sku', 'stock_item_id', ...Sku::DISPLAY_NAME_COLUMNS]),
+                'salesOrders.lines.sku' => fn ($sku) => $sku->select(['id', 'sku', 'stock_item_id']),
+                'salesOrders.lines.sku.stockItem:id,name,short_name,name_en,name_ja,name_zh_tw,name_zh_cn',
                 'salesOrders.lines.sku.stockItem' => fn ($stockItem) => $stockItem->select(['id', ...StockItem::DISPLAY_NAME_COLUMNS]),
             ]))
             ->when($this->tenantIds !== [], fn ($query) => $query

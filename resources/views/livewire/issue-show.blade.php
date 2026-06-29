@@ -125,7 +125,7 @@
                     <flux:table.row :key="$line->id">
                         <flux:table.cell>
                             <strong>{{ $line->sku?->sku ?? '-' }}</strong>
-                            <span class="subtle">{{ $line->stockItem?->code ?? __('common.sku_types.virtual_bundle') }} / {{ $line->stockItem?->name ?? $line->sku?->name ?? '-' }}</span>
+                            <span class="subtle">{{ $line->stockItem?->code ?? __('common.sku_types.virtual_bundle') }} / {{ $line->stockItem?->name ?? $line->sku?->displayName() ?? '-' }}</span>
                         </flux:table.cell>
                         <flux:table.cell align="end">{{ number_format($line->qty) }}</flux:table.cell>
                         <flux:table.cell>

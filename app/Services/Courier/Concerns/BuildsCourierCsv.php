@@ -36,7 +36,7 @@ trait BuildsCourierCsv
         return $order->lines
             ->map(fn ($line) => $this->normalizeCourierLine($line))
             ->filter()
-            ->map(fn (object $line) => trim((string) ($line->sku?->name ?: $line->sku?->stockItem?->short_name ?: $line->sku?->stockItem?->name ?: $line->sku?->sku)))
+            ->map(fn (object $line) => trim((string) ($line->sku?->displayName() ?: $line->sku?->sku)))
             ->filter()
             ->unique()
             ->take($limit)

@@ -996,7 +996,6 @@ class SkusIndex extends Component
                     'variation_code',
                     'color',
                     'size',
-                    'barcode',
                     'product_type',
                     'weight_value',
                     'weight_unit',
@@ -1084,10 +1083,10 @@ class SkusIndex extends Component
     {
         $value = match ($key) {
             'sku' => $sku->sku,
-            'name' => $sku->name,
+            'name' => $sku->displayName(),
             'brand' => $sku->stockItem?->brand,
             'variation_code' => $sku->stockItem?->variation_code,
-            'barcode' => $this->stockItemPrimaryBarcode($sku) ?? $sku->stockItem?->barcode,
+            'barcode' => $this->stockItemPrimaryBarcode($sku),
             'size' => $sku->stockItem?->size,
             'color' => $sku->stockItem?->color,
             'shop_code' => $sku->shop?->code,
@@ -1140,7 +1139,6 @@ class SkusIndex extends Component
                 $query->where(function ($query) use ($search, $normalizedSearch) {
                     $query
                         ->where('sku', 'like', $search)
-                        ->orWhere('name', 'like', $search)
                         ->orWhere('platform_sku', 'like', $search)
                         ->orWhere('platform_product_id', 'like', $search)
                         ->orWhere('platform_variant_id', 'like', $search)
@@ -1153,12 +1151,19 @@ class SkusIndex extends Component
                                         ->when($normalizedSearch !== null, fn ($query) => $query->orWhere('normalized_barcode', 'like', $normalizedSearch));
                                 });
                         })
-                        ->orWhereHas('stockItem', function ($query) use ($search) {
+                        ->orWhereHas('stockItem', function ($query) use ($search, $normalizedSearch) {
                             $query
                                 ->where('code', 'like', $search)
                                 ->orWhere('tenant_item_code', 'like', $search)
                                 ->orWhere('name', 'like', $search)
-                                ->orWhere('barcode', 'like', $search);
+                                ->orWhereHas('barcodeAliases', function ($query) use ($search, $normalizedSearch): void {
+                                    $query
+                                        ->where('is_active', true)
+                                        ->where(function ($query) use ($search, $normalizedSearch): void {
+                                            $query->where('barcode', 'like', $search)
+                                                ->when($normalizedSearch !== null, fn ($query) => $query->orWhere('normalized_barcode', 'like', $normalizedSearch));
+                                        });
+                                });
                         })
                         ->orWhereHas('stockItem.barcodeAliases', function ($query) use ($search, $normalizedSearch): void {
                             $query

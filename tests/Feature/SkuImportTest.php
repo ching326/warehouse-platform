@@ -128,11 +128,11 @@ class SkuImportTest extends TestCase
 
     public function test_auto_guess_maps_japanese_headers(): void
     {
-        $headers = ['SKUコード', 'SKU名', 'ブランド'];
+        $headers = ['SKUコード', '商品名', 'ブランド'];
         $mapping = SkuImportFields::autoGuess($headers);
 
         $this->assertSame('SKUコード', $mapping['sku']);
-        $this->assertSame('SKU名', $mapping['name_ja']);
+        $this->assertSame('商品名', $mapping['name']);
         $this->assertSame('ブランド', $mapping['brand']);
     }
 
@@ -203,22 +203,24 @@ class SkuImportTest extends TestCase
     public function test_writer_updates_existing_sku_in_upsert_mode(): void
     {
         $tenant = Tenant::factory()->create(['code' => 'UPS']);
-        $existing = Sku::factory()->for($tenant)->create(['sku' => 'UPS-001', 'name' => 'Original Name', 'shop_id' => null]);
+        $stockItem = StockItem::factory()->for($tenant)->create(['name' => 'Original Name']);
+        $existing = Sku::factory()->for($tenant)->for($stockItem)->create(['sku' => 'UPS-001', 'shop_id' => null]);
 
         DB::beginTransaction();
 
         $result = app(SkuWriter::class)->upsert(
             $tenant->id,
             null,
-            ['sku' => 'UPS-001', 'name' => 'Updated Name', 'status' => 'active'],
-            [],
+            ['sku' => 'UPS-001', 'status' => 'active'],
+            ['name' => 'Updated Name'],
             true,
         );
 
         DB::commit();
 
         $this->assertSame('updated', $result->status);
-        $this->assertDatabaseHas('skus', ['sku' => 'UPS-001', 'name' => 'Updated Name']);
+        $this->assertDatabaseHas('skus', ['sku' => 'UPS-001']);
+        $this->assertSame('Updated Name', $existing->stockItem->refresh()->name);
     }
 
     public function test_writer_links_existing_stock_item_by_code(): void
@@ -399,22 +401,6 @@ class SkuImportTest extends TestCase
             ->assertSee('required fields are not mapped');
     }
 
-    public function test_map_step_requires_the_tenants_base_sku_name_field(): void
-    {
-        [$tenant] = $this->tenantWithShop(['code' => 'RJA', 'sku_name_locale' => 'ja']);
-
-        Livewire::actingAs($this->internalUser())
-            ->test(SkuImport::class)
-            ->set('tenantId', (string) $tenant->id)
-            ->set('file', File::createWithContent('import.csv', "sku,name\nRJA-001,English Name\n"))
-            ->call('readFile')
-            ->assertSet('step', 'map')
-            ->call('advanceToPreview')
-            ->assertSet('step', 'map')
-            ->assertSee('SKU name (Japanese)')
-            ->assertDontSee('SKU name (English), SKU name (Japanese)');
-    }
-
     public function test_map_step_requires_default_barcode_type_when_barcode_has_no_type_column(): void
     {
         [$tenant] = $this->tenantWithShop(['code' => 'BTR']);
@@ -480,7 +466,8 @@ class SkuImportTest extends TestCase
     public function test_upsert_updates_existing_sku(): void
     {
         [$tenant, $shop] = $this->tenantWithShop(['code' => 'UPT']);
-        Sku::factory()->for($tenant)->for($shop)->create(['sku' => 'UPT-001', 'name' => 'Old Name']);
+        $stockItem = StockItem::factory()->for($tenant)->create();
+        Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create(['sku' => 'UPT-001']);
 
         $csv = "sku,name\nUPT-001,New Name\n";
         Livewire::actingAs($this->internalUser())
@@ -495,13 +482,18 @@ class SkuImportTest extends TestCase
             ->assertSet('resultUpdated', 1)
             ->assertSet('resultCreated', 0);
 
-        $this->assertDatabaseHas('skus', ['sku' => 'UPT-001', 'name' => 'New Name']);
+        $updatedSku = Sku::where('sku', 'UPT-001')
+            ->where('tenant_id', $tenant->id)
+            ->where('shop_id', $shop->id)
+            ->firstOrFail();
+
+        $this->assertSame('New Name', $updatedSku->stockItem->name);
     }
 
-    public function test_import_uses_tenant_base_sku_name_language(): void
+    public function test_import_writes_name_to_stock_item_not_sku(): void
     {
         [$tenant] = $this->tenantWithShop(['code' => 'JPN', 'sku_name_locale' => 'ja']);
-        $csv = "sku,name,name_ja\nJPN-001,English Name,譌･譛ｬ隱槫錐\n";
+        $csv = "sku,name,si_name_ja\nJPN-001,English Name,日本語在庫名\n";
 
         Livewire::actingAs($this->internalUser())
             ->test(SkuImport::class)
@@ -514,13 +506,11 @@ class SkuImportTest extends TestCase
             ->assertSet('resultCreated', 1)
             ->assertSet('resultFailed', 0);
 
-        $this->assertDatabaseHas('skus', [
-            'sku' => 'JPN-001',
-            'tenant_id' => $tenant->id,
-            'name' => '譌･譛ｬ隱槫錐',
-            'name_en' => 'English Name',
-            'name_ja' => '譌･譛ｬ隱槫錐',
-        ]);
+        $sku = Sku::where('sku', 'JPN-001')->where('tenant_id', $tenant->id)->firstOrFail();
+
+        $this->assertSame('English Name', $sku->stockItem->name);
+        $this->assertSame('日本語在庫名', $sku->stockItem->name_ja);
+        $this->assertSame('日本語在庫名', $sku->displayName('ja'));
     }
 
     public function test_import_creates_managed_alias_from_platform_label_code(): void
@@ -571,7 +561,6 @@ class SkuImportTest extends TestCase
 
         $sku = Sku::where('sku', 'PBI-001')->firstOrFail();
 
-        $this->assertNull($sku->stockItem->barcode);
         $this->assertDatabaseHas('barcode_aliases', [
             'tenant_id' => $tenant->id,
             'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,

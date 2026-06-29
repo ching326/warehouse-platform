@@ -45,8 +45,6 @@ class StockItem extends Model
         'variation_code',
         'color',
         'size',
-        'barcode',
-        'barcode_type',
         'product_type',
         'is_dangerous_goods',
         'requires_expiry_tracking',

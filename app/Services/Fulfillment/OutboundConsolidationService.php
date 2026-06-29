@@ -447,7 +447,8 @@ class OutboundConsolidationService
             ->with(['stockItem:id,short_name,'.implode(',', StockItem::DISPLAY_NAME_COLUMNS)])
             ->whereIn('id', $skuIds)
             ->orderBy('sku')
-            ->get(['id', 'stock_item_id', 'sku', 'name', 'name_en', 'name_ja', 'name_zh_tw', 'name_zh_cn']);
+            ->with('stockItem:id,name,short_name,name_en,name_ja,name_zh_tw,name_zh_cn')
+            ->get(['id', 'stock_item_id', 'sku']);
 
         $skuRows = $skus
             ->map(function (Sku $sku): string {

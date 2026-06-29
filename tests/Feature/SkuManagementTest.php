@@ -49,9 +49,8 @@ class SkuManagementTest extends TestCase
             ->set('tenantId', (string) $tenant->id)
             ->set('shopId', (string) $shop->id)
             ->set('sku', 'SKU-NEW-001')
-            ->set('name', 'New marketplace SKU')
+            ->set('stockItem.name', 'New marketplace SKU')
             ->set('stockItem.name', 'New Stock Item')
-            ->set('stockItem.barcode', '4900000000001')
             ->call('save')
             ->assertRedirect(route('skus.index'));
 
@@ -63,19 +62,9 @@ class SkuManagementTest extends TestCase
         $this->assertNotNull($sku->stock_item_id);
         $this->assertSame('ABC-000001', $sku->stockItem->code);
         $this->assertSame('New Stock Item', $sku->stockItem->name);
-        $this->assertNull($sku->stockItem->barcode);
-        $this->assertDatabaseHas('barcode_aliases', [
-            'tenant_id' => $tenant->id,
-            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
-            'model_id' => $sku->stock_item_id,
-            'barcode' => '4900000000001',
-            'normalized_barcode' => '4900000000001',
-            'is_primary' => true,
-            'is_active' => true,
-        ]);
     }
 
-    public function test_create_sku_persists_localized_name_overrides(): void
+    public function test_create_sku_persists_stock_item_localized_name_overrides(): void
     {
         $tenant = Tenant::factory()->create(['code' => 'LOC']);
         $shop = Shop::factory()->for($tenant)->create();
@@ -85,10 +74,7 @@ class SkuManagementTest extends TestCase
             ->set('tenantId', (string) $tenant->id)
             ->set('shopId', (string) $shop->id)
             ->set('sku', 'SKU-LOCALIZED')
-            ->set('name', 'Default SKU Name')
-            ->set('nameTranslations.en', 'English SKU Name')
-            ->set('nameTranslations.ja', 'SKU日本語名')
-            ->set('nameTranslations.zh_TW', 'SKU繁中名')
+            ->set('stockItem.name', 'Default SKU Name')
             ->set('stockItem.name', 'Default Stock Name')
             ->set('stockItem.name_en', 'English Stock Name')
             ->set('stockItem.name_ja', '在庫日本語名')
@@ -99,17 +85,12 @@ class SkuManagementTest extends TestCase
 
         $sku = Sku::where('sku', 'SKU-LOCALIZED')->firstOrFail();
 
-        $this->assertSame('English SKU Name', $sku->name_en);
-        $this->assertSame('SKU日本語名', $sku->name_ja);
-        $this->assertSame('SKU繁中名', $sku->name_zh_tw);
-        $this->assertNull($sku->name_zh_cn);
-
         $this->assertSame('English Stock Name', $sku->stockItem->name_en);
         $this->assertSame('在庫日本語名', $sku->stockItem->name_ja);
         $this->assertNull($sku->stockItem->name_zh_tw);
         $this->assertSame('库存简中名', $sku->stockItem->name_zh_cn);
 
-        $this->assertSame('English SKU Name', $sku->localizedName('en'));
+        $this->assertSame('English Stock Name', $sku->displayName('en'));
         $this->assertSame('English Stock Name', $sku->stockItem->localizedName('en'));
         app()->setLocale('ja');
         $this->assertSame('在庫日本語名', $sku->stockItem->displayName());
@@ -125,7 +106,7 @@ class SkuManagementTest extends TestCase
             ->test(SkuCreate::class)
             ->set('tenantId', (string) $otherTenant->id)
             ->set('sku', 'SKU-BAD-TENANT')
-            ->set('name', 'Wrong tenant SKU')
+            ->set('stockItem.name', 'Wrong tenant SKU')
             ->set('stockItem.name', 'Wrong Tenant Stock')
             ->call('save')
             ->assertHasErrors(['tenantId']);
@@ -136,7 +117,7 @@ class SkuManagementTest extends TestCase
             ->test(SkuCreate::class)
             ->assertSet('tenantId', (string) $ownTenant->id)
             ->set('sku', 'SKU-OWN-TENANT')
-            ->set('name', 'Own tenant SKU')
+            ->set('stockItem.name', 'Own tenant SKU')
             ->set('stockItem.name', 'Own Tenant Stock')
             ->call('save')
             ->assertRedirect(route('skus.index'));
@@ -164,7 +145,7 @@ class SkuManagementTest extends TestCase
             ->assertSet('tenantId', (string) $tenant->id)
             ->assertSet('shopId', (string) $shop->id)
             ->assertSet('sku', 'AMZ-MISSING-SKU')
-            ->assertSet('name', 'Missing Amazon Product')
+            ->assertSet('stockItem.name', 'Missing Amazon Product')
             ->assertSet('platformSku', 'AMZ-MISSING-SKU');
     }
 
@@ -179,7 +160,7 @@ class SkuManagementTest extends TestCase
             ->set('stockItemMode', 'link')
             ->set('existingStockItemId', (string) $otherStockItem->id)
             ->set('sku', 'SKU-CROSS-LINK')
-            ->set('name', 'Cross link SKU')
+            ->set('stockItem.name', 'Cross link SKU')
             ->call('save')
             ->assertHasErrors(['existing_stock_item_id']);
 
@@ -258,7 +239,7 @@ class SkuManagementTest extends TestCase
             ->test(SkuCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('sku', 'SKU-FNSKU-CREATE')
-            ->set('name', 'FNSKU create')
+            ->set('stockItem.name', 'FNSKU create')
             ->set('platformLabelCode', 'x00-abc 123')
             ->set('stockItem.name', 'FNSKU stock')
             ->call('save')
@@ -356,38 +337,6 @@ class SkuManagementTest extends TestCase
         $this->assertNull($sku->refresh()->platform_label_code);
     }
 
-    public function test_edit_page_reads_and_clears_stock_item_primary_barcode_alias(): void
-    {
-        $tenant = Tenant::factory()->create();
-        $stockItem = StockItem::factory()->for($tenant)->create(['barcode' => null]);
-        $shop = Shop::factory()->for($tenant)->create();
-        $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create(['sku' => 'SKU-EDIT-ALIAS-BARCODE']);
-        BarcodeAlias::create([
-            'tenant_id' => $tenant->id,
-            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
-            'model_id' => $stockItem->id,
-            'barcode' => 'PRIMARY-ALIAS-BAR',
-            'normalized_barcode' => 'PRIMARYALIASBAR',
-            'barcode_type' => 'jan',
-            'is_primary' => true,
-            'is_active' => true,
-        ]);
-
-        Livewire::actingAs($this->internalUser())
-            ->test(SkuEdit::class, ['sku' => $sku])
-            ->assertSet('stockItem.barcode', 'PRIMARY-ALIAS-BAR')
-            ->set('stockItem.barcode', '')
-            ->call('save')
-            ->assertHasNoErrors()
-            ->assertRedirect(route('skus.index'));
-
-        $this->assertDatabaseMissing('barcode_aliases', [
-            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
-            'model_id' => $stockItem->id,
-            'barcode' => 'PRIMARY-ALIAS-BAR',
-        ]);
-    }
-
     public function test_manual_alias_on_same_sku_wins_over_managed_alias(): void
     {
         [$tenant, $sku] = $this->skuForAliasSync('SKU-FNSKU-MANUAL', 'MANUAL-1');
@@ -417,7 +366,6 @@ class SkuManagementTest extends TestCase
         $secondStockItem = StockItem::factory()->for($tenant)->create();
         $secondSku = Sku::factory()->for($tenant)->for($secondStockItem)->create([
             'sku' => 'SKU-FNSKU-SECOND',
-            'name' => 'Second SKU',
             'shop_id' => null,
         ]);
         BarcodeAlias::create([
@@ -432,7 +380,7 @@ class SkuManagementTest extends TestCase
 
         Livewire::actingAs($this->internalUser())
             ->test(SkuEdit::class, ['sku' => $secondSku])
-            ->set('name', 'Should Roll Back')
+            ->set('stockItem.name', 'Should Roll Back')
             ->set('platformLabelCode', 'dup fnsku')
             ->call('save')
             ->assertHasErrors(['platformLabelCode']);
@@ -454,7 +402,7 @@ class SkuManagementTest extends TestCase
             ->test(SkuCreate::class)
             ->set('tenantId', (string) $secondTenant->id)
             ->set('sku', 'SKU-FNSKU-TENANT-B')
-            ->set('name', 'Cross tenant FNSKU')
+            ->set('stockItem.name', 'Cross tenant FNSKU')
             ->set('platformLabelCode', 'shared fnsku')
             ->set('stockItem.name', 'Cross tenant stock')
             ->call('save')
@@ -613,7 +561,7 @@ class SkuManagementTest extends TestCase
             ->test(SkuCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('sku', 'SKU-DUP-NULL-SHOP')
-            ->set('name', 'Duplicate SKU')
+            ->set('stockItem.name', 'Duplicate SKU')
             ->set('stockItem.name', 'Duplicate Stock Item')
             ->call('save')
             ->assertHasErrors(['sku']);
@@ -629,7 +577,7 @@ class SkuManagementTest extends TestCase
             ->set('stockItemMode', 'link')
             ->set('skuType', 'single')
             ->set('sku', 'SKU-SINGLE-NO-STOCK')
-            ->set('name', 'Single no stock')
+            ->set('stockItem.name', 'Single no stock')
             ->call('save')
             ->assertHasErrors(['existing_stock_item_id']);
     }
@@ -646,7 +594,7 @@ class SkuManagementTest extends TestCase
             ->set('stockItemMode', 'link')
             ->set('skuType', 'virtual_bundle')
             ->set('sku', 'SKU-VIRTUAL-001')
-            ->set('name', 'Virtual bundle')
+            ->set('stockItem.name', 'Virtual bundle')
             ->call('save')
             ->assertRedirect(route('skus.index'));
 
@@ -668,7 +616,7 @@ class SkuManagementTest extends TestCase
             ->set('skuType', 'virtual_bundle')
             ->assertSet('stockItemMode', 'create')
             ->set('sku', 'SKU-VIRTUAL-NO-STOCK-FIELDS')
-            ->set('name', 'Virtual no stock fields')
+            ->set('stockItem.name', 'Virtual no stock fields')
             ->call('save')
             ->assertHasNoErrors()
             ->assertRedirect(route('skus.index'));
@@ -689,7 +637,7 @@ class SkuManagementTest extends TestCase
             ->set('stockItemMode', 'create')
             ->set('skuType', 'single')
             ->set('sku', 'SKU-SINGLE-CREATE-STOCK')
-            ->set('name', 'Single create stock')
+            ->set('stockItem.name', 'Single create stock')
             ->set('stockItem.name', 'Single Created Stock')
             ->call('save')
             ->assertRedirect(route('skus.index'));
@@ -712,7 +660,7 @@ class SkuManagementTest extends TestCase
             ->set('stockItemMode', 'link')
             ->set('skuType', 'physical_bundle')
             ->set('sku', 'SKU-PHYSICAL-NO-STOCK')
-            ->set('name', 'Physical no stock')
+            ->set('stockItem.name', 'Physical no stock')
             ->call('save')
             ->assertHasErrors(['existing_stock_item_id']);
 
@@ -728,7 +676,7 @@ class SkuManagementTest extends TestCase
             ->test(SkuCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('sku', 'SKU-AUTO-CODE')
-            ->set('name', 'Auto code SKU')
+            ->set('stockItem.name', 'Auto code SKU')
             ->set('stockItem.name', 'Auto Code Stock')
             ->call('save')
             ->assertRedirect(route('skus.index'));
@@ -748,7 +696,7 @@ class SkuManagementTest extends TestCase
             ->test(SkuCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('sku', 'SKU-INDEX-001')
-            ->set('name', 'Index visible SKU')
+            ->set('stockItem.name', 'Index visible SKU')
             ->set('stockItem.name', 'Index Visible Stock')
             ->call('save');
 
@@ -799,7 +747,6 @@ class SkuManagementTest extends TestCase
         $tenant = Tenant::factory()->create(['code' => 'ABC']);
         $bundleSku = Sku::factory()->virtualBundle()->for($tenant)->create([
             'sku' => 'SKU-VIRTUAL-BUNDLE',
-            'name' => 'Virtual kit',
         ]);
         $firstStock = StockItem::factory()->for($tenant)->create(['code' => 'ABC-000001']);
         $secondStock = StockItem::factory()->for($tenant)->create(['code' => 'ABC-000002']);
@@ -855,7 +802,7 @@ class SkuManagementTest extends TestCase
             ->assertSee(__('skus.field_default_shipping_method'))
             ->assertSee('Create Ship Method')
             ->set('sku', 'SKU-DEFAULT-SHIP')
-            ->set('name', 'Default ship SKU')
+            ->set('stockItem.name', 'Default ship SKU')
             ->set('defaultShippingMethodId', (string) $method->id)
             ->call('save')
             ->assertRedirect(route('skus.index'));
@@ -872,7 +819,7 @@ class SkuManagementTest extends TestCase
             ->test(SkuCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('sku', 'SKU-BAD-SHIP')
-            ->set('name', 'Bad ship SKU')
+            ->set('stockItem.name', 'Bad ship SKU')
             ->set('defaultShippingMethodId', '999999')
             ->call('save')
             ->assertHasErrors(['default_shipping_method_id']);
@@ -881,7 +828,7 @@ class SkuManagementTest extends TestCase
             ->test(SkuCreate::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('sku', 'SKU-INACTIVE-SHIP')
-            ->set('name', 'Inactive ship SKU')
+            ->set('stockItem.name', 'Inactive ship SKU')
             ->set('defaultShippingMethodId', (string) $inactive->id)
             ->call('save')
             ->assertHasErrors(['default_shipping_method_id']);
@@ -939,12 +886,10 @@ class SkuManagementTest extends TestCase
             'variation_code' => 'BLUE-M',
             'size' => 'M',
             'color' => 'Blue',
-            'barcode' => null,
             'product_type' => 'normal',
         ]);
         $sku = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create([
             'sku' => 'SKU-FLAT-VIEWS',
-            'name' => 'Flat view SKU',
             'platform_sku' => 'SELLER-SKU',
             'platform_product_id' => 'B000ASIN',
             'platform_label_code' => 'FNSKU123',
@@ -976,7 +921,6 @@ class SkuManagementTest extends TestCase
             ->assertSee('M')
             ->assertSee('Blue')
             ->assertSee('4900000000001')
-            ->assertDontSee('Shorty')
             ->assertDontSee('STOCK1')
             ->assertDontSee(__('skus.col_platform_ids'))
             ->set("catalogDrafts.{$sku->id}.product_type", 'apparel')
@@ -1648,7 +1592,7 @@ class SkuManagementTest extends TestCase
         ]);
         $packaging = PackagingMaterial::factory()->create();
         $method = $this->shippingMethod('logistics_ship_method', 'Logistics Ship Method');
-        $sku = Sku::factory()->for($tenant)->for($stockItem)->create(['sku' => 'SKU-LOGISTICS', 'name' => 'Hidden logistics SKU name']);
+        $sku = Sku::factory()->for($tenant)->for($stockItem)->create(['sku' => 'SKU-LOGISTICS']);
 
         Livewire::actingAs($this->internalUser())
             ->withQueryParams(['view' => 'logistics'])
@@ -1715,7 +1659,6 @@ class SkuManagementTest extends TestCase
             ]);
             $sku = Sku::factory()->for($tenant)->for($stockItem)->create([
                 'sku' => 'SKU-LOCALE-NAME',
-                'name' => 'SKU fallback name',
             ]);
 
             Livewire::actingAs($this->internalUser())
@@ -2141,7 +2084,7 @@ class SkuManagementTest extends TestCase
             ->set('tenantId', (string) $tenant->id)
             ->set('shopId', (string) $shop->id)
             ->set('sku', 'SKU-TENANT-CODE')
-            ->set('name', 'SKU tenant code')
+            ->set('stockItem.name', 'SKU tenant code')
             ->set('stockItem.name', 'Stock tenant code')
             ->set('stockItem.tenant_item_code', 'CUSTOM-001')
             ->call('save')
@@ -2174,7 +2117,7 @@ class SkuManagementTest extends TestCase
             ->set('tenantId', (string) $tenant->id)
             ->set('shopId', (string) $shop->id)
             ->set('sku', 'SKU-DUP-TENANT')
-            ->set('name', 'Duplicate tenant code')
+            ->set('stockItem.name', 'Duplicate tenant code')
             ->set('stockItem.name', 'Duplicate stock')
             ->set('stockItem.tenant_item_code', 'DUP-001')
             ->call('save')
@@ -2201,7 +2144,7 @@ class SkuManagementTest extends TestCase
             ->set('stockItemMode', 'link')
             ->set('existingStockItemId', (string) $linkedStockItem->id)
             ->set('sku', 'SKU-LINK-HIDDEN-CODE')
-            ->set('name', 'Linked stock item ignores hidden code')
+            ->set('stockItem.name', 'Linked stock item ignores hidden code')
             ->call('save')
             ->assertHasNoErrors()
             ->assertRedirect(route('skus.index'));
@@ -2425,7 +2368,6 @@ class SkuManagementTest extends TestCase
         $stockItem = StockItem::factory()->for($tenant)->create();
         $sku = Sku::factory()->for($tenant)->for($stockItem)->create([
             'sku' => $skuCode,
-            'name' => $skuCode.' name',
             'platform_label_code' => $platformLabelCode,
             'shop_id' => null,
         ]);

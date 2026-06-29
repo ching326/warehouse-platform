@@ -170,8 +170,6 @@ class FulfillmentPackService
         $stockItem = $line['stock_item'];
 
         $candidates = [
-            $sku?->barcode,
-            $stockItem?->barcode,
             $sku?->sku,
         ];
 

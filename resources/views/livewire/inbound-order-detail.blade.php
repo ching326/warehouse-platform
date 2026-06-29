@@ -200,7 +200,7 @@
                     <flux:table.row :key="$line->id">
                         <flux:table.cell>
                             <strong>{{ $line->sku?->sku ?: '-' }}</strong>
-                            <span class="subtle">{{ $line->sku?->name ?: '-' }}</span>
+                            <span class="subtle">{{ $line->sku?->displayName() ?: '-' }}</span>
                         </flux:table.cell>
                         <flux:table.cell>
                             <strong>{{ $line->stockItem?->code ?: '-' }}</strong>

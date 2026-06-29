@@ -1873,8 +1873,8 @@ class FulfillmentGroupTest extends TestCase
     public function test_pack_page_scans_sku_and_stock_item_barcodes_and_persists_progress(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $sku->update(['barcode' => 'SKU-BAR-001']);
-        $sku->stockItem->update(['barcode' => 'STOCK-BAR-001']);
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'SKU-BAR-001');
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_STOCK_ITEM, $sku->stock_item_id, 'STOCK-BAR-001');
         $order = $this->readySalesOrder($tenant, $shop, $sku, 2, 'SO-PACK-SCAN');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
@@ -1986,11 +1986,12 @@ class FulfillmentGroupTest extends TestCase
         ]);
     }
 
-    public function test_existing_direct_sku_barcode_stock_barcode_and_sku_code_scans_still_work(): void
+    public function test_sku_alias_stock_item_alias_and_sku_code_scans_work(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $sku->update(['barcode' => 'DIRECT-SKU-BAR', 'sku' => 'DIRECT-SKU-CODE']);
-        $sku->stockItem->update(['barcode' => 'DIRECT-STOCK-BAR']);
+        $sku->update(['sku' => 'DIRECT-SKU-CODE']);
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'DIRECT-SKU-BAR');
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_STOCK_ITEM, $sku->stock_item_id, 'DIRECT-STOCK-BAR');
         $first = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-DIRECT-1');
         $second = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-DIRECT-2');
         $third = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-DIRECT-3');
@@ -2014,7 +2015,7 @@ class FulfillmentGroupTest extends TestCase
     public function test_pack_progress_sums_scan_quantity(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $sku->update(['barcode' => 'SKU-BAR-QTY-SUM']);
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'SKU-BAR-QTY-SUM');
         $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-PACK-QTY-SUM');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
@@ -2126,7 +2127,7 @@ class FulfillmentGroupTest extends TestCase
     public function test_accepted_scan_sets_last_scanned_line_key_and_marker(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $sku->update(['barcode' => 'SKU-BAR-LAST']);
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'SKU-BAR-LAST');
         $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-LAST');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
@@ -2158,7 +2159,7 @@ class FulfillmentGroupTest extends TestCase
     public function test_quantity_confirm_marks_line_as_last_scanned(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $sku->update(['barcode' => 'SKU-BAR-QTY-LAST']);
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'SKU-BAR-QTY-LAST');
         $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-PACK-QTY-LAST');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
@@ -2232,7 +2233,7 @@ class FulfillmentGroupTest extends TestCase
     public function test_normal_mode_scan_with_remaining_quantity_shows_pending_prompt(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $sku->update(['barcode' => 'SKU-BAR-QTY-PROMPT']);
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'SKU-BAR-QTY-PROMPT');
         $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-PACK-QTY-PROMPT');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
@@ -2253,7 +2254,7 @@ class FulfillmentGroupTest extends TestCase
     public function test_confirming_pending_quantity_adds_that_quantity(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $sku->update(['barcode' => 'SKU-BAR-QTY-ADD']);
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'SKU-BAR-QTY-ADD');
         $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-PACK-QTY-ADD');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
@@ -2276,7 +2277,7 @@ class FulfillmentGroupTest extends TestCase
     {
         foreach ([OutboundOrder::STATUS_SHIPPED, OutboundOrder::STATUS_CANCELLED] as $status) {
             [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-            $sku->update(['barcode' => 'SKU-BAR-QTY-BLOCK-'.$status]);
+            $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'SKU-BAR-QTY-BLOCK-'.$status);
             $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-PACK-QTY-BLOCK-'.$status);
             $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
             $outbound = OutboundOrder::query()->latest('id')->firstOrFail();
@@ -2310,7 +2311,7 @@ class FulfillmentGroupTest extends TestCase
     public function test_pending_quantity_cannot_exceed_remaining_quantity(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $sku->update(['barcode' => 'SKU-BAR-QTY-CLAMP']);
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'SKU-BAR-QTY-CLAMP');
         $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-PACK-QTY-CLAMP');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
@@ -2329,7 +2330,7 @@ class FulfillmentGroupTest extends TestCase
     public function test_remaining_quantity_one_accepts_immediately_without_prompt(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $sku->update(['barcode' => 'SKU-BAR-QTY-ONE']);
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'SKU-BAR-QTY-ONE');
         $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-QTY-ONE');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
@@ -2347,7 +2348,7 @@ class FulfillmentGroupTest extends TestCase
     public function test_strict_mode_never_shows_quantity_prompt_and_adds_only_one(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $sku->update(['barcode' => 'SKU-BAR-STRICT']);
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'SKU-BAR-STRICT');
         $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-PACK-STRICT');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
@@ -2367,7 +2368,7 @@ class FulfillmentGroupTest extends TestCase
     public function test_high_risk_stock_item_in_normal_mode_requires_strict_scan(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $sku->update(['barcode' => 'SKU-BAR-RISK']);
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'SKU-BAR-RISK');
         $sku->stockItem->update(['is_dangerous_goods' => true]);
         $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-PACK-RISK');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
@@ -2413,7 +2414,7 @@ class FulfillmentGroupTest extends TestCase
     {
         [$tenant, $warehouse, $shop, $skuA] = $this->skuWithStock(20);
         $stockItem = $skuA->stockItem;
-        $stockItem->update(['barcode' => 'SHARED-STOCK-BAR']);
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_STOCK_ITEM, $stockItem->id, 'SHARED-STOCK-BAR');
         $skuB = Sku::factory()->for($tenant)->for($shop)->for($stockItem)->create([
             'sku' => 'SKU-SHARED-B',
             'sku_type' => 'single',
@@ -2449,7 +2450,7 @@ class FulfillmentGroupTest extends TestCase
     public function test_pack_page_rejects_wrong_barcode_and_over_scan_with_audit_rows(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $sku->update(['barcode' => 'SKU-BAR-OVER']);
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'SKU-BAR-OVER');
         $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-REJECT');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
@@ -2481,7 +2482,7 @@ class FulfillmentGroupTest extends TestCase
     public function test_pack_mark_shipped_requires_completion_and_uses_outbound_shipping(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $sku->update(['barcode' => 'SKU-BAR-SHIP']);
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'SKU-BAR-SHIP');
         $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-SHIP');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
@@ -2512,7 +2513,7 @@ class FulfillmentGroupTest extends TestCase
     public function test_cannot_mark_shipped_while_pending_quantity_exists(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $sku->update(['barcode' => 'SKU-BAR-PENDING-SHIP']);
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'SKU-BAR-PENDING-SHIP');
         $order = $this->readySalesOrder($tenant, $shop, $sku, 2, 'SO-PACK-PENDING-SHIP');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
@@ -2531,7 +2532,7 @@ class FulfillmentGroupTest extends TestCase
     public function test_can_mark_shipped_after_quantity_scan_completes_lines(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $sku->update(['barcode' => 'SKU-BAR-QTY-SHIP']);
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'SKU-BAR-QTY-SHIP');
         $order = $this->readySalesOrder($tenant, $shop, $sku, 3, 'SO-PACK-QTY-SHIP');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
@@ -2552,7 +2553,7 @@ class FulfillmentGroupTest extends TestCase
     public function test_shipped_and_cancelled_groups_cannot_accept_new_scans(): void
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
-        $sku->update(['barcode' => 'SKU-BAR-BLOCK']);
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_SKU, $sku->id, 'SKU-BAR-BLOCK');
         $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-PACK-BLOCK');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
@@ -2605,9 +2606,9 @@ class FulfillmentGroupTest extends TestCase
         $warehouse = Warehouse::factory()->create();
         $shop = Shop::factory()->for($tenant)->create();
         $component = StockItem::factory()->for($tenant)->create(['code' => $tenant->code.'-000004']);
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_STOCK_ITEM, $component->id, 'COMPONENT-BAR-OUTBOUND');
         $bundle = Sku::factory()->virtualBundle()->for($tenant)->for($shop)->create([
             'sku' => 'BUNDLE-OUTBOUND',
-            'barcode' => 'BUNDLE-BAR-OUTBOUND',
         ]);
         SkuBundleComponent::factory()
             ->for($tenant)
@@ -2631,7 +2632,7 @@ class FulfillmentGroupTest extends TestCase
         $this->assertNull($lines[0]['sku_id']);
         $this->assertSame($component->id, $lines[0]['stock_item_id']);
         $this->assertSame(6, $lines[0]['required_qty']);
-        $this->assertTrue($service->lineMatchesScan($lines[0], $service->normalizeProductBarcode('BUNDLE-BAR-OUTBOUND')));
+        $this->assertTrue($service->lineMatchesScan($lines[0], $service->normalizeProductBarcode('COMPONENT-BAR-OUTBOUND')));
     }
 
     public function test_virtual_bundle_pack_lines_scan_component_stock_items(): void
@@ -2639,7 +2640,8 @@ class FulfillmentGroupTest extends TestCase
         $tenant = Tenant::factory()->create();
         $warehouse = Warehouse::factory()->create();
         $shop = Shop::factory()->for($tenant)->create();
-        $component = StockItem::factory()->for($tenant)->create(['barcode' => 'COMPONENT-BAR']);
+        $component = StockItem::factory()->for($tenant)->create();
+        $this->createBarcodeAlias($tenant, BarcodeAlias::MODEL_TYPE_STOCK_ITEM, $component->id, 'COMPONENT-BAR');
         $bundle = Sku::factory()->virtualBundle()->for($tenant)->for($shop)->create(['sku' => 'BUNDLE-1']);
         SkuBundleComponent::factory()->for($tenant)->for($bundle, 'bundleSku')->for($component, 'componentStockItem')->create(['quantity' => 2]);
         app(InventoryService::class)->adjustStock($tenant->id, $warehouse->id, $component->id, 10);
