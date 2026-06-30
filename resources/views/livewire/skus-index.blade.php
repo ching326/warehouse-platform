@@ -291,6 +291,9 @@
                                             {{ __('skus.fetch_amazon_image') }}
                                         </flux:button>
                                     @endif
+                                    <flux:button type="button" size="sm" variant="subtle" href="{{ route('skus.label', $sku) }}" wire:navigate>
+                                        {{ __('skus.btn_print_label') }}
+                                    </flux:button>
                                     <flux:button type="button" size="sm" variant="primary" wire:click="openAliasPanel({{ $sku->id }})">
                                         {{ __('skus.manage_aliases') }}
                                     </flux:button>

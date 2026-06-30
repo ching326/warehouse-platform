@@ -166,6 +166,42 @@ class StockItem extends Model
             ->where('model_type', BarcodeAlias::MODEL_TYPE_STOCK_ITEM);
     }
 
+    /**
+     * @return list<string>
+     */
+    public function primaryBarcodeTypes(): array
+    {
+        return BarcodeAlias::query()
+            ->where('tenant_id', $this->tenant_id)
+            ->where('model_type', BarcodeAlias::MODEL_TYPE_STOCK_ITEM)
+            ->where('model_id', $this->id)
+            ->where('is_active', true)
+            ->where('is_primary', true)
+            ->whereIn('barcode_type', BarcodeAlias::BARCODE_TYPES)
+            ->orderBy('barcode_type')
+            ->pluck('barcode_type')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public function primaryBarcodeAliasOfType(string $barcodeType): ?BarcodeAlias
+    {
+        if (! in_array($barcodeType, BarcodeAlias::BARCODE_TYPES, true)) {
+            return null;
+        }
+
+        return BarcodeAlias::query()
+            ->where('tenant_id', $this->tenant_id)
+            ->where('model_type', BarcodeAlias::MODEL_TYPE_STOCK_ITEM)
+            ->where('model_id', $this->id)
+            ->where('barcode_type', $barcodeType)
+            ->where('is_active', true)
+            ->where('is_primary', true)
+            ->orderBy('id')
+            ->first();
+    }
+
     public function inventoryBalances(): HasMany
     {
         return $this->hasMany(InventoryBalance::class);
