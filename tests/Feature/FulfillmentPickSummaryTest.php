@@ -51,7 +51,9 @@ class FulfillmentPickSummaryTest extends TestCase
         $this->actingAs($this->internalUser())
             ->get(route('fulfillment.pick-summary'))
             ->assertOk()
-            ->assertSee('Pick Summary');
+            ->assertSee('Pick Summary')
+            ->assertSee(__('fulfillment_pick.print_button'))
+            ->assertSee('window.print()', false);
     }
 
     public function test_default_warehouse_filter_is_all_warehouses(): void
@@ -106,21 +108,21 @@ class FulfillmentPickSummaryTest extends TestCase
             ->assertSet('warehouseId', (string) $queryWarehouse->id);
     }
 
-    public function test_default_date_filters_are_today(): void
+    public function test_date_filters_are_blank_by_default(): void
     {
         Carbon::setTestNow('2026-06-24 09:00:00');
 
         try {
             Livewire::actingAs($this->internalUser())
                 ->test(FulfillmentPickSummary::class)
-                ->assertSet('dateFrom', '2026-06-24')
-                ->assertSet('dateTo', '2026-06-24');
+                ->assertSet('dateFrom', '')
+                ->assertSet('dateTo', '');
         } finally {
             Carbon::setTestNow();
         }
     }
 
-    public function test_default_date_filters_use_jst_not_utc(): void
+    public function test_pick_summary_does_not_default_to_warehouse_timezone_date(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-24 00:30:00', 'Asia/Tokyo'));
 
@@ -134,14 +136,14 @@ class FulfillmentPickSummaryTest extends TestCase
             Livewire::actingAs($this->internalUser())
                 ->test(FulfillmentPickSummary::class)
                 ->assertSet('warehouseId', '')
-                ->assertSet('dateFrom', '2026-06-24')
-                ->assertSet('dateTo', '2026-06-24');
+                ->assertSet('dateFrom', '')
+                ->assertSet('dateTo', '');
         } finally {
             Carbon::setTestNow();
         }
     }
 
-    public function test_us_warehouse_default_date_uses_warehouse_timezone(): void
+    public function test_warehouse_query_does_not_default_date_filters(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-24 00:30:00', 'Asia/Tokyo'));
 
@@ -156,8 +158,8 @@ class FulfillmentPickSummaryTest extends TestCase
                 ->actingAs($this->internalUser())
                 ->test(FulfillmentPickSummary::class)
                 ->assertSet('warehouseId', (string) $warehouse->id)
-                ->assertSet('dateFrom', '2026-06-23')
-                ->assertSet('dateTo', '2026-06-23');
+                ->assertSet('dateFrom', '')
+                ->assertSet('dateTo', '');
         } finally {
             Carbon::setTestNow();
         }
@@ -225,6 +227,21 @@ class FulfillmentPickSummaryTest extends TestCase
             ->assertSee($reserved->ref)
             ->assertDontSee('SO-PICK-SHIPPED')
             ->assertDontSee('SO-PICK-CANCELLED');
+    }
+
+    public function test_printed_but_unshipped_group_stays_in_pick_summary(): void
+    {
+        [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-PICK-PRINTED', 'SKU-PICK-PRINTED');
+        $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-PICK-PRINTED');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $group = OutboundOrder::firstOrFail();
+        $group->update(['courier_csv_exported_at' => now()]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPickSummary::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->assertSee('STK-PICK-PRINTED')
+            ->assertSee($group->ref);
     }
 
     public function test_virtual_bundle_component_qty_aggregates(): void
@@ -477,7 +494,7 @@ class FulfillmentPickSummaryTest extends TestCase
             ->assertDontSee('SO-PICK-WH-HIDDEN');
     }
 
-    public function test_changing_and_clearing_date_filters_updates_visible_rows(): void
+    public function test_date_filters_can_scope_and_clear_visible_rows(): void
     {
         Carbon::setTestNow('2026-06-24 09:00:00');
 
@@ -502,13 +519,13 @@ class FulfillmentPickSummaryTest extends TestCase
                 ->test(FulfillmentPickSummary::class)
                 ->assertSet('warehouseId', '')
                 ->assertSee('STK-DATE-TODAY')
-                ->assertDontSee('STK-DATE-OLD')
-                ->call('clearDateFilters')
-                ->assertSee('STK-DATE-TODAY')
                 ->assertSee('STK-DATE-OLD')
                 ->set('dateFrom', '2026-06-23')
                 ->set('dateTo', '2026-06-23')
                 ->assertDontSee('STK-DATE-TODAY')
+                ->assertSee('STK-DATE-OLD')
+                ->call('clearDateFilters')
+                ->assertSee('STK-DATE-TODAY')
                 ->assertSee('STK-DATE-OLD');
         } finally {
             Carbon::setTestNow();
@@ -618,8 +635,8 @@ class FulfillmentPickSummaryTest extends TestCase
                 ->actingAs($this->internalUser())
                 ->test(FulfillmentPickSummary::class)
                 ->assertSet('warehouseId', (string) $warehouse->id)
-                ->assertSet('dateFrom', '2026-06-24')
-                ->assertSet('dateTo', '2026-06-24')
+                ->assertSet('dateFrom', '')
+                ->assertSet('dateTo', '')
                 ->assertSee('Pick rows');
         } finally {
             Carbon::setTestNow();
@@ -645,7 +662,7 @@ class FulfillmentPickSummaryTest extends TestCase
             Livewire::actingAs($this->internalUser())
                 ->test(FulfillmentPickSummary::class)
                 ->assertSee('Warehouse: '.__('common.all_warehouses'))
-                ->assertSee('Date: 2026-06-24 - 2026-06-24')
+                ->assertSee('Date: - - -')
                 ->assertSee('Generated: 2026-06-24 09:00')
                 ->assertSee('print-pick-table', false)
                 ->assertSee('Pick qty')
@@ -667,7 +684,7 @@ class FulfillmentPickSummaryTest extends TestCase
 
             Livewire::actingAs($this->internalUser())
                 ->test(FulfillmentPickSummary::class)
-                ->assertSee('Date: 2026-06-24 - 2026-06-24')
+                ->assertSee('Date: - - -')
                 ->assertSee('Generated: 2026-06-24 00:30');
         } finally {
             Carbon::setTestNow();

@@ -49,10 +49,6 @@ class FulfillmentPickSummary extends Component
     public function mount(): void
     {
         $this->authorizeInternalUser();
-
-        $today = now($this->warehouseTimezone())->toDateString();
-        $this->dateFrom = $this->dateFrom ?: $today;
-        $this->dateTo = $this->dateTo ?: $today;
     }
 
     public function updatedWarehouseId(): void

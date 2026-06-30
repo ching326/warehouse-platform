@@ -5,6 +5,9 @@
                 <strong>{{ __('fulfillment_pick.page_title') }}</strong>
                 <span>{{ __('fulfillment_pick.page_subtitle') }}</span>
             </div>
+            <flux:button type="button" variant="primary" icon="printer" x-data @click="window.print()">
+                {{ __('fulfillment_pick.print_button') }}
+            </flux:button>
         </div>
 
         <div class="pick-filter-grid">

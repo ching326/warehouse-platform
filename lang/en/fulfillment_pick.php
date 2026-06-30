@@ -37,6 +37,7 @@ return [
     'more_groups' => '+:count more',
     'view_groups' => 'View groups',
     'pack_first' => 'Scan Pack',
+    'print_button' => 'Print',
     'empty_state' => 'No pick rows match the current filters.',
     'no_location' => 'No location',
     'print_location_group' => 'Location :location',
