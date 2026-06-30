@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\Labels\SkuLabelPdfService;
+use App\Support\Labels\LabelLayout;
 use Tests\TestCase;
 
 class SkuLabelPdfServiceTest extends TestCase
@@ -26,5 +27,14 @@ class SkuLabelPdfServiceTest extends TestCase
 
         $this->assertStringStartsWith('%PDF', $pdf);
         $this->assertNotSame('', $pdf);
+    }
+
+    public function test_sheet_layout_fills_down_the_first_column_before_next_column(): void
+    {
+        $layout = LabelLayout::fromConfig('40up_a4');
+
+        $this->assertSame([0.0, 0.0], $layout->cellOrigin(0));
+        $this->assertSame([0.0, 29.7], $layout->cellOrigin(1));
+        $this->assertSame([52.5, 0.0], $layout->cellOrigin(10));
     }
 }

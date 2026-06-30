@@ -19,7 +19,7 @@ return [
         'barcode_height' => 8,
         'code_font_pt' => 8,
         'name_font_pt' => 7,
-        'fill' => 'row',
+        'fill' => 'column',
         'supports_skip' => true,
     ],
 
