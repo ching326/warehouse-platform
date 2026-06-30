@@ -25,18 +25,20 @@ class SkuLabelPrint extends Component
 
     public array $skipCells = [];
 
-    public function mount(Sku $sku): void
+    public function mount(?Sku $sku = null): void
     {
         $this->authorizeInternalUser();
 
-        $sku = Sku::query()
-            ->whereIn('tenant_id', $this->allowedTenantIds())
-            ->findOrFail($sku->id);
+        $skuIds = $this->seedSkuIds($sku);
 
-        $this->seedSkuId = (int) $sku->id;
-        $this->entries = [
-            ['sku_id' => (int) $sku->id, 'content' => '', 'qty' => 1],
-        ];
+        if ($skuIds === []) {
+            abort(404);
+        }
+
+        $this->seedSkuId = $skuIds[0];
+        $this->entries = collect($skuIds)
+            ->map(fn (int $skuId): array => ['sku_id' => $skuId, 'content' => '', 'qty' => 1])
+            ->all();
     }
 
     public function applyQtyToAll(): void
@@ -183,6 +185,47 @@ class SkuLabelPrint extends Component
         return Sku::query()
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->with('stockItem');
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function seedSkuIds(?Sku $sku): array
+    {
+        $requestedIds = $sku
+            ? [(int) $sku->id]
+            : $this->requestedSkuIds();
+
+        if ($requestedIds === []) {
+            return [];
+        }
+
+        $allowedIds = $this->skuQuery()
+            ->whereIn('id', $requestedIds)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        return collect($requestedIds)
+            ->filter(fn (int $id): bool => in_array($id, $allowedIds, true))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function requestedSkuIds(): array
+    {
+        $value = request()->query('sku_ids', '');
+        $ids = is_array($value) ? $value : explode(',', (string) $value);
+
+        return collect($ids)
+            ->map(fn ($id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function authorizeInternalUser(): void

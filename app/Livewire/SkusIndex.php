@@ -473,6 +473,41 @@ class SkusIndex extends Component
         return redirect()->route('skus.edit', $sku);
     }
 
+    public function printSelectedLabels()
+    {
+        if (Auth::user()?->user_type !== 'internal') {
+            abort(403);
+        }
+
+        $selectedIds = $this->normalizedSelectedIds();
+
+        if ($selectedIds === []) {
+            $this->flashError(__('skus.select_skus_to_print'));
+
+            return null;
+        }
+
+        $allowedIds = $this->scopedSkuQuery()
+            ->whereIn('id', $selectedIds)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+        $skuIds = collect($selectedIds)
+            ->filter(fn (int $id): bool => in_array($id, $allowedIds, true))
+            ->values()
+            ->all();
+
+        if ($skuIds === []) {
+            $this->flashError(__('skus.select_skus_to_print'));
+
+            return null;
+        }
+
+        return redirect()->route('skus.label.print', [
+            'sku_ids' => implode(',', $skuIds),
+        ]);
+    }
+
     public function bulkDeactivate(): void
     {
         $selectedIds = $this->normalizedSelectedIds();

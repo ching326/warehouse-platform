@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\SkuLabelPrint;
+use App\Livewire\SkusIndex;
 use App\Models\BarcodeAlias;
 use App\Models\Shop;
 use App\Models\Sku;
@@ -45,6 +46,34 @@ class SkuLabelPrintTest extends TestCase
             ->call('applyQtyToAll')
             ->assertSet('entries.0.qty', 7)
             ->assertSet('entries.1.qty', 7);
+    }
+
+    public function test_selected_skus_open_label_print_page_together(): void
+    {
+        [$first] = $this->skuWithStockItem();
+        [$second] = $this->skuWithStockItem();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->set('selectedIds', [$first->id, $second->id])
+            ->call('printSelectedLabels')
+            ->assertRedirect(route('skus.label.print', ['sku_ids' => $first->id.','.$second->id]));
+
+        Livewire::actingAs($this->internalUser())
+            ->withQueryParams(['sku_ids' => $first->id.','.$second->id])
+            ->test(SkuLabelPrint::class)
+            ->assertSet('entries.0.sku_id', $first->id)
+            ->assertSet('entries.1.sku_id', $second->id);
+    }
+
+    public function test_sku_index_shows_print_as_selected_action_not_row_action(): void
+    {
+        [$sku] = $this->skuWithStockItem();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->assertSee(__('skus.btn_print_label'))
+            ->assertDontSee(route('skus.label', $sku));
     }
 
     public function test_generate_redirects_and_download_returns_inline_pdf(): void

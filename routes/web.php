@@ -147,6 +147,7 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/skus', SkusIndex::class)->name('skus.index');
     Route::get('/skus/create', SkuCreate::class)->name('skus.create');
     Route::get('/skus/import', SkuImport::class)->name('skus.import');
+    Route::get('/skus/labels/print', SkuLabelPrint::class)->name('skus.label.print');
     Route::get('/skus/labels/download', [SkuLabelController::class, 'download'])->name('skus.label.download');
     Route::get('/skus/{sku}/label', SkuLabelPrint::class)->name('skus.label');
     Route::get('/skus/{sku}/edit', SkuEdit::class)->name('skus.edit');

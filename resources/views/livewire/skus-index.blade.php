@@ -185,6 +185,15 @@
                 </flux:badge>
             </div>
             <div class="selection-action-group" data-testid="sku-bulk-actions">
+                @if (auth()->user()?->user_type === 'internal')
+                    <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
+                        {{ __('skus.btn_print_label') }}
+                    </flux:button>
+                    <flux:button type="button" size="sm" variant="primary" wire:click="printSelectedLabels" x-show="has()" x-cloak>
+                        {{ __('skus.btn_print_label') }}
+                    </flux:button>
+                @endif
+
                 <flux:button type="button" size="sm" variant="outline" disabled x-show="! single()">
                     {{ __('skus.btn_edit') }}
                 </flux:button>
@@ -333,9 +342,6 @@
                                             {{ __('skus.fetch_amazon_image') }}
                                         </flux:button>
                                     @endif
-                                    <flux:button type="button" size="sm" variant="subtle" href="{{ route('skus.label', $sku) }}" wire:navigate>
-                                        {{ __('skus.btn_print_label') }}
-                                    </flux:button>
                                     <flux:button type="button" size="sm" variant="primary" wire:click="openAliasPanel({{ $sku->id }})">
                                         {{ __('skus.manage_aliases') }}
                                     </flux:button>

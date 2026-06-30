@@ -152,6 +152,7 @@ return [
     'select_visible_skus' => 'Select visible SKUs',
     'select_sku' => 'Select SKU',
     'select_one_to_edit' => 'Select one SKU to edit.',
+    'select_skus_to_print' => 'Select SKUs to print.',
     'confirm_deactivate' => 'This SKU will be hidden from normal lists and cannot be selected for new orders. Existing orders and history will remain unchanged.',
     'confirm_delete_permanently' => 'Delete this unused SKU permanently? This cannot be undone.',
     'deactivated' => 'SKU deactivated.',
