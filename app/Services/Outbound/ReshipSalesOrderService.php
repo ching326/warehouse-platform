@@ -179,7 +179,7 @@ class ReshipSalesOrderService
             ->get()
             ->keyBy('id');
 
-        $validated = [];
+        $selectedByLine = [];
 
         foreach ($lines as $index => $lineInput) {
             $lineId = (int) $lineInput['sales_order_line_id'];
@@ -203,14 +203,27 @@ class ReshipSalesOrderService
                 throw ValidationException::withMessages(["reshipLines.{$index}.sku_id" => __('outbound.sku_not_shippable')]);
             }
 
-            $validated[] = ['line' => $line, 'qty' => $qty];
+            if (! isset($selectedByLine[$lineId])) {
+                $selectedByLine[$lineId] = ['line' => $line, 'qty' => 0, 'index' => $index];
+            }
+
+            $selectedByLine[$lineId]['qty'] += $qty;
         }
 
-        if ($validated === []) {
+        if ($selectedByLine === []) {
             throw ValidationException::withMessages(['reshipLines' => __('outbound.reship_no_lines_selected')]);
         }
 
-        return $validated;
+        foreach ($selectedByLine as $linePayload) {
+            if ($linePayload['qty'] > (int) $linePayload['line']->quantity) {
+                throw ValidationException::withMessages(["reshipLines.{$linePayload['index']}.qty" => __('outbound.reship_qty_exceeds_line')]);
+            }
+        }
+
+        return array_values(array_map(
+            fn (array $linePayload): array => ['line' => $linePayload['line'], 'qty' => $linePayload['qty']],
+            $selectedByLine,
+        ));
     }
 
     private function nullableString(?string $value): ?string

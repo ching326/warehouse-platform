@@ -117,6 +117,26 @@ class ReshipSalesOrderTest extends TestCase
         );
     }
 
+    public function test_reship_rejects_duplicate_line_payload_when_total_exceeds_line_quantity(): void
+    {
+        [$salesOrder, $originalOutbound, $line, $stockItem, $warehouse] = $this->shippedSalesOrderWithLine(quantity: 3);
+        app(InventoryService::class)->adjustStock($salesOrder->tenant_id, $warehouse->id, $stockItem->id, 20);
+
+        $this->expectException(ValidationException::class);
+
+        app(ReshipSalesOrderService::class)->reship(
+            salesOrder: $salesOrder,
+            originalOutbound: $originalOutbound,
+            warehouseId: null,
+            issueType: Issue::TYPE_MISSING,
+            lines: [
+                ['sales_order_line_id' => $line->id, 'qty' => 2],
+                ['sales_order_line_id' => $line->id, 'qty' => 2],
+            ],
+            note: null,
+        );
+    }
+
     public function test_reship_virtual_bundle_expands_components_and_reserves_them(): void
     {
         [$tenant, $warehouse, $shop] = $this->tenantWarehouseShop();

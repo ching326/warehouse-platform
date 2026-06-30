@@ -445,6 +445,8 @@ class SalesOrderDetail extends Component
 
         $validator->after(function ($validator) use ($lineMax): void {
             $selected = 0;
+            $lineTotals = [];
+            $lineFirstIndexes = [];
 
             foreach ($this->reshipLines as $index => $line) {
                 $lineId = (int) ($line['sales_order_line_id'] ?? 0);
@@ -456,8 +458,19 @@ class SalesOrderDetail extends Component
 
                 $selected++;
 
-                if (! isset($lineMax[$lineId]) || $qty > $lineMax[$lineId]) {
+                if (! isset($lineMax[$lineId])) {
                     $validator->errors()->add("reshipLines.{$index}.qty", __('outbound.reship_qty_exceeds_line'));
+
+                    continue;
+                }
+
+                $lineTotals[$lineId] = ($lineTotals[$lineId] ?? 0) + $qty;
+                $lineFirstIndexes[$lineId] ??= $index;
+            }
+
+            foreach ($lineTotals as $lineId => $qty) {
+                if ($qty > $lineMax[$lineId]) {
+                    $validator->errors()->add("reshipLines.{$lineFirstIndexes[$lineId]}.qty", __('outbound.reship_qty_exceeds_line'));
                 }
             }
 
@@ -933,6 +946,7 @@ class SalesOrderDetail extends Component
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->with([
                 'lines.sku.bundleComponents',
+                'lines.sku.stockItem',
                 'outboundOrders',
             ]);
     }
