@@ -2,7 +2,6 @@
 
 namespace App\Livewire;
 
-use App\Models\Issue;
 use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
@@ -12,6 +11,7 @@ use App\Models\Tenant;
 use App\Models\Warehouse;
 use App\Services\Outbound\HoldOutboundOrderService;
 use App\Services\Outbound\ReshipSalesOrderService;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -53,6 +53,8 @@ class SalesOrderDetail extends Component
 
     public string $reshipSourceOutboundId = '';
 
+    public string $reshipSourceOutboundLabel = '';
+
     public string $reshipWarehouseId = '';
 
     public string $reshipReason = '';
@@ -76,6 +78,13 @@ class SalesOrderDetail extends Component
     public string $reshipRecipientAddressLine2 = '';
 
     public array $reshipLines = [];
+
+    public array $reshipExtraLines = [];
+
+    /**
+     * @var array<int, string>
+     */
+    public array $reshipSkuSearches = [];
 
     private bool $allowedTenantIdsResolved = false;
 
@@ -411,6 +420,7 @@ class SalesOrderDetail extends Component
         $order = $this->reshipOrderQuery()->findOrFail($this->orderId);
         $shippedOutbounds = $order->outboundOrders
             ->filter(fn (OutboundOrder $outbound): bool => $outbound->status === OutboundOrder::STATUS_SHIPPED)
+            ->sortByDesc(fn (OutboundOrder $outbound): string => ($outbound->shipped_at?->format('YmdHis') ?? '00000000000000').str_pad((string) $outbound->id, 12, '0', STR_PAD_LEFT))
             ->values();
 
         if ($shippedOutbounds->isEmpty()) {
@@ -419,49 +429,90 @@ class SalesOrderDetail extends Component
             return;
         }
 
-        $selectedOutbound = $shippedOutbounds->count() === 1 ? $shippedOutbounds->first() : null;
+        $selectedOutbound = $shippedOutbounds->first();
         $this->reshipSourceOutboundId = $selectedOutbound ? (string) $selectedOutbound->id : '';
+        $this->reshipSourceOutboundLabel = $this->reshipSourceOutboundLabel($selectedOutbound);
         $this->reshipWarehouseId = $selectedOutbound ? (string) $selectedOutbound->warehouse_id : '';
         $this->fillReshipRecipientFromOutbound($selectedOutbound);
-        $this->reshipReason = Issue::TYPE_MISSING;
-        $this->reshipNote = '';
+        $this->reshipReason = '';
+        $this->reshipNote = (string) ($order->note ?? '');
         $this->reshipLines = $order->lines
             ->map(fn (SalesOrderLine $line): array => [
                 'sales_order_line_id' => (int) $line->id,
-                'qty' => 0,
+                'qty' => (int) $line->quantity,
             ])
             ->all();
         $this->showReshipModal = true;
     }
 
-    public function updatedReshipSourceOutboundId(): void
-    {
-        if ($this->reshipSourceOutboundId === '') {
-            $this->reshipWarehouseId = '';
-            $this->fillReshipRecipientFromOutbound(null);
-
-            return;
-        }
-
-        $order = $this->reshipOrderQuery()->findOrFail($this->orderId);
-        $outbound = $order->outboundOrders
-            ->first(fn (OutboundOrder $outbound): bool => (int) $outbound->id === (int) $this->reshipSourceOutboundId
-                && $outbound->status === OutboundOrder::STATUS_SHIPPED);
-
-        if (! $outbound instanceof OutboundOrder) {
-            $this->reshipWarehouseId = '';
-            $this->fillReshipRecipientFromOutbound(null);
-
-            return;
-        }
-
-        $this->reshipWarehouseId = (string) $outbound->warehouse_id;
-        $this->fillReshipRecipientFromOutbound($outbound);
-    }
-
     public function closeReshipModal(): void
     {
         $this->resetReshipModal();
+    }
+
+    public function addReshipSku(): void
+    {
+        $this->reshipExtraLines[] = ['sku_id' => '', 'qty' => 1, 'note' => ''];
+        $this->reshipSkuSearches[] = '';
+    }
+
+    public function removeReshipSku(int $index): void
+    {
+        if (! isset($this->reshipExtraLines[$index])) {
+            return;
+        }
+
+        array_splice($this->reshipExtraLines, $index, 1);
+
+        if (isset($this->reshipSkuSearches[$index])) {
+            array_splice($this->reshipSkuSearches, $index, 1);
+        }
+
+        $this->reshipExtraLines = array_values($this->reshipExtraLines);
+        $this->reshipSkuSearches = array_values($this->reshipSkuSearches);
+    }
+
+    /**
+     * @return array<int, Collection<int, Sku>>
+     */
+    private function reshipSkuOptionsByLine(int $tenantId): array
+    {
+        return collect($this->reshipExtraLines)
+            ->keys()
+            ->mapWithKeys(fn ($index): array => [$index => $this->reshipSkuOptions($tenantId, (int) $index)])
+            ->all();
+    }
+
+    /**
+     * @return Collection<int, Sku>
+     */
+    private function reshipSkuOptions(int $tenantId, int $index): Collection
+    {
+        $searchTerm = trim((string) ($this->reshipSkuSearches[$index] ?? ''));
+        $search = '%'.$searchTerm.'%';
+
+        return Sku::query()
+            ->where('tenant_id', $tenantId)
+            ->where('status', 'active')
+            ->where(fn ($query) => $query
+                ->where('sku_type', 'virtual_bundle')
+                ->orWhereNotNull('stock_item_id'))
+            ->when($searchTerm !== '', function ($query) use ($search): void {
+                $query->where(function ($query) use ($search): void {
+                    $query
+                        ->where('sku', 'like', $search)
+                        ->orWhere('platform_sku', 'like', $search)
+                        ->orWhere('platform_label_code', 'like', $search)
+                        ->orWhereHas('stockItem', fn ($query) => $query
+                            ->where('code', 'like', $search)
+                            ->orWhere('name', 'like', $search)
+                            ->orWhere('short_name', 'like', $search));
+                });
+            })
+            ->with(['stockItem:id,code,name,short_name,name_en,name_ja,name_zh_tw,name_zh_cn'])
+            ->orderBy('sku')
+            ->limit(50)
+            ->get(['id', 'tenant_id', 'stock_item_id', 'sku', 'sku_type']);
     }
 
     public function confirmReship(ReshipSalesOrderService $service): void
@@ -487,6 +538,7 @@ class SalesOrderDetail extends Component
             'reshipRecipientAddressLine1' => $this->reshipRecipientAddressLine1,
             'reshipRecipientAddressLine2' => $this->reshipRecipientAddressLine2,
             'reshipLines' => $this->reshipLines,
+            'reshipExtraLines' => $this->reshipExtraLines,
         ], [
             'reshipSourceOutboundId' => ['required', 'integer'],
             'reshipWarehouseId' => ['nullable', 'integer', Rule::exists('warehouses', 'id')->where('status', 'active')],
@@ -503,6 +555,10 @@ class SalesOrderDetail extends Component
             'reshipLines' => ['required', 'array'],
             'reshipLines.*.sales_order_line_id' => ['required', 'integer'],
             'reshipLines.*.qty' => ['nullable', 'integer', 'min:0'],
+            'reshipExtraLines' => ['array'],
+            'reshipExtraLines.*.sku_id' => ['nullable', 'integer', Rule::exists('skus', 'id')->where('tenant_id', $order->tenant_id)->where('status', 'active')],
+            'reshipExtraLines.*.qty' => ['nullable', 'integer', 'min:0'],
+            'reshipExtraLines.*.note' => ['nullable', 'string', 'max:255'],
         ]);
 
         $validator->after(function ($validator) use ($lineMax): void {
@@ -534,6 +590,23 @@ class SalesOrderDetail extends Component
                 if ($qty > $lineMax[$lineId]) {
                     $validator->errors()->add("reshipLines.{$lineFirstIndexes[$lineId]}.qty", __('outbound.reship_qty_exceeds_line'));
                 }
+            }
+
+            foreach ($this->reshipExtraLines as $index => $extra) {
+                $skuId = (int) ($extra['sku_id'] ?? 0);
+                $qty = (int) ($extra['qty'] ?? 0);
+
+                if ($skuId <= 0) {
+                    continue;
+                }
+
+                if ($qty < 1) {
+                    $validator->errors()->add("reshipExtraLines.{$index}.qty", __('validation.min.numeric', ['attribute' => __('outbound.reship_qty'), 'min' => 1]));
+
+                    continue;
+                }
+
+                $selected++;
             }
 
             if ($selected === 0) {
@@ -571,6 +644,15 @@ class SalesOrderDetail extends Component
                 'recipient_address_line1' => $this->reshipRecipientAddressLine1,
                 'recipient_address_line2' => $this->reshipRecipientAddressLine2,
             ],
+            extraLines: collect($this->reshipExtraLines)
+                ->filter(fn (array $line): bool => (int) ($line['sku_id'] ?? 0) > 0)
+                ->map(fn (array $line): array => [
+                    'sku_id' => (int) $line['sku_id'],
+                    'qty' => (int) ($line['qty'] ?? 0),
+                    'note' => (string) ($line['note'] ?? ''),
+                ])
+                ->values()
+                ->all(),
         );
 
         $this->resetReshipModal();
@@ -864,9 +946,9 @@ class SalesOrderDetail extends Component
             'activities' => $activities,
             'skuOptionsByLine' => $this->skuOptionsByLine($order->tenant_id),
             'shippingMethods' => $this->shippingMethodOptions($order),
-            'shippedOutbounds' => $order->outboundOrders->where('status', OutboundOrder::STATUS_SHIPPED)->values(),
             'reshipReasonOptions' => ReshipSalesOrderService::reshipReasonOptions(),
             'reshipWarehouseOptions' => $this->warehouseOptions(),
+            'reshipSkuOptions' => $this->reshipSkuOptionsByLine((int) $order->tenant_id),
             'canReship' => $this->isInternalUser() && $order->outboundOrders->contains(fn (OutboundOrder $outbound): bool => $outbound->status === OutboundOrder::STATUS_SHIPPED),
         ])->layout('inventory', [
             'title' => __('sales_orders.detail_page_title'),
@@ -1019,7 +1101,7 @@ class SalesOrderDetail extends Component
             ->with([
                 'lines.sku.bundleComponents',
                 'lines.sku.stockItem',
-                'outboundOrders',
+                'outboundOrders.warehouse',
             ]);
     }
 
@@ -1035,11 +1117,14 @@ class SalesOrderDetail extends Component
     {
         $this->showReshipModal = false;
         $this->reshipSourceOutboundId = '';
+        $this->reshipSourceOutboundLabel = '';
         $this->reshipWarehouseId = '';
         $this->reshipReason = '';
         $this->reshipNote = '';
         $this->fillReshipRecipientFromOutbound(null);
         $this->reshipLines = [];
+        $this->reshipExtraLines = [];
+        $this->reshipSkuSearches = [];
     }
 
     private function fillReshipRecipientFromOutbound(?OutboundOrder $outbound): void
@@ -1052,6 +1137,15 @@ class SalesOrderDetail extends Component
         $this->reshipRecipientCity = (string) ($outbound?->recipient_city ?? '');
         $this->reshipRecipientAddressLine1 = (string) ($outbound?->recipient_address_line1 ?? '');
         $this->reshipRecipientAddressLine2 = (string) ($outbound?->recipient_address_line2 ?? '');
+    }
+
+    private function reshipSourceOutboundLabel(?OutboundOrder $outbound): string
+    {
+        if (! $outbound instanceof OutboundOrder) {
+            return '-';
+        }
+
+        return trim((string) $outbound->ref).' / '.($outbound->warehouse?->code ?? '-');
     }
 
     private function isLineShippable(SalesOrderLine $line, int $tenantId): bool

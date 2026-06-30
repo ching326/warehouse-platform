@@ -33,6 +33,8 @@ class ReshipSalesOrderTest extends TestCase
     public function test_reship_creates_reserved_outbound_issue_and_reserves_stock(): void
     {
         [$salesOrder, $originalOutbound, $line, $stockItem, $warehouse] = $this->shippedSalesOrderWithLine();
+        $salesOrder->update(['note' => 'Copy this sales order note']);
+        $originalOutbound->update(['ship_note' => 'Do not copy this outbound ship note']);
         app(InventoryService::class)->adjustStock($salesOrder->tenant_id, $warehouse->id, $stockItem->id, 10);
 
         $reship = app(ReshipSalesOrderService::class)->reship(
@@ -41,7 +43,7 @@ class ReshipSalesOrderTest extends TestCase
             warehouseId: null,
             issueType: Issue::TYPE_MISSING,
             lines: [['sales_order_line_id' => $line->id, 'qty' => 2]],
-            note: 'Missing items',
+            note: (string) $salesOrder->note,
         );
 
         $this->assertSame(OutboundOrder::REASON_RE_SHIP, $reship->reason);
@@ -51,6 +53,7 @@ class ReshipSalesOrderTest extends TestCase
         $this->assertSame($warehouse->id, $reship->warehouse_id);
         $this->assertSame($originalOutbound->shipping_method_id, $reship->shipping_method_id);
         $this->assertNull($reship->ship_note);
+        $this->assertSame('Copy this sales order note', $reship->note);
         $this->assertStringStartsWith('OB-', (string) $reship->ref);
         $this->assertStringNotContainsString('PENDING', (string) $reship->ref);
 
@@ -75,6 +78,62 @@ class ReshipSalesOrderTest extends TestCase
         $this->assertSame(2, $this->balance($salesOrder->tenant_id, $warehouse->id, $stockItem->id)->reserved_qty);
         $this->assertSame(SalesOrder::ORDER_STATUS_COMPLETED, $salesOrder->refresh()->order_status);
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_SHIPPED, $salesOrder->fulfillment_status);
+    }
+
+    public function test_reship_can_add_a_sku_not_on_the_original_order(): void
+    {
+        [$salesOrder, $originalOutbound, $line, $stockItem, $warehouse] = $this->shippedSalesOrderWithLine();
+        app(InventoryService::class)->adjustStock($salesOrder->tenant_id, $warehouse->id, $stockItem->id, 10);
+
+        $extraStockItem = StockItem::factory()->for($salesOrder->tenant)->create();
+        $extraSku = Sku::factory()->for($salesOrder->tenant)->for($salesOrder->shop)->for($extraStockItem)->create(['sku_type' => 'single']);
+        app(InventoryService::class)->adjustStock($salesOrder->tenant_id, $warehouse->id, $extraStockItem->id, 10);
+
+        $reship = app(ReshipSalesOrderService::class)->reship(
+            salesOrder: $salesOrder,
+            originalOutbound: $originalOutbound,
+            warehouseId: null,
+            issueType: Issue::TYPE_MISSING,
+            lines: [['sales_order_line_id' => $line->id, 'qty' => 1]],
+            note: null,
+            recipient: [],
+            extraLines: [['sku_id' => $extraSku->id, 'qty' => 5]],
+        );
+
+        // The added SKU is reshipped and reserved, with no order-line quantity cap.
+        $this->assertDatabaseHas('outbound_order_lines', [
+            'outbound_order_id' => $reship->id,
+            'sku_id' => $extraSku->id,
+            'stock_item_id' => $extraStockItem->id,
+            'qty' => 5,
+        ]);
+        $this->assertSame(5, $this->balance($salesOrder->tenant_id, $warehouse->id, $extraStockItem->id)->reserved_qty);
+    }
+
+    public function test_reship_can_be_created_from_only_an_added_sku(): void
+    {
+        [$salesOrder, $originalOutbound, $line, $stockItem, $warehouse] = $this->shippedSalesOrderWithLine();
+
+        $extraStockItem = StockItem::factory()->for($salesOrder->tenant)->create();
+        $extraSku = Sku::factory()->for($salesOrder->tenant)->for($salesOrder->shop)->for($extraStockItem)->create(['sku_type' => 'single']);
+        app(InventoryService::class)->adjustStock($salesOrder->tenant_id, $warehouse->id, $extraStockItem->id, 10);
+
+        $reship = app(ReshipSalesOrderService::class)->reship(
+            salesOrder: $salesOrder,
+            originalOutbound: $originalOutbound,
+            warehouseId: null,
+            issueType: Issue::TYPE_MISSING,
+            lines: [['sales_order_line_id' => $line->id, 'qty' => 0]],
+            note: null,
+            recipient: [],
+            extraLines: [['sku_id' => $extraSku->id, 'qty' => 2]],
+        );
+
+        $this->assertDatabaseHas('outbound_order_lines', [
+            'outbound_order_id' => $reship->id,
+            'sku_id' => $extraSku->id,
+            'qty' => 2,
+        ]);
     }
 
     public function test_two_reships_create_distinct_issues(): void
@@ -266,7 +325,37 @@ class ReshipSalesOrderTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->withQueryParams(['reship' => '1'])
             ->test(SalesOrderDetail::class, ['order' => $salesOrder])
-            ->assertSet('showReshipModal', true);
+            ->assertSet('showReshipModal', true)
+            ->assertSet('reshipLines.0.qty', 3);
+    }
+
+    public function test_reship_modal_auto_selects_latest_shipped_outbound(): void
+    {
+        [$salesOrder, $originalOutbound] = $this->shippedSalesOrderWithLine();
+        $latestWarehouse = Warehouse::factory()->create(['code' => 'LATE', 'status' => 'active']);
+        $latestOutbound = OutboundOrder::factory()->for($salesOrder->tenant)->for($latestWarehouse)->create([
+            'reason' => OutboundOrder::REASON_CUSTOMER_ORDER,
+            'status' => OutboundOrder::STATUS_SHIPPED,
+            'source_sales_order_id' => $salesOrder->id,
+            'ref' => 'OB-LATEST',
+            'recipient_name' => 'Latest Recipient',
+            'recipient_country_code' => 'JP',
+            'recipient_postal_code' => '150-0001',
+            'recipient_state' => 'Tokyo',
+            'recipient_city' => 'Shibuya',
+            'recipient_address_line1' => '2 Latest Street',
+            'shipped_at' => now()->addDay(),
+        ]);
+        $latestOutbound->salesOrders()->attach($salesOrder->id, ['arranged_at' => now()]);
+        $originalOutbound->update(['shipped_at' => now()->subDay()]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $salesOrder])
+            ->call('reship')
+            ->assertSet('reshipSourceOutboundId', (string) $latestOutbound->id)
+            ->assertSet('reshipSourceOutboundLabel', 'OB-LATEST / LATE')
+            ->assertSet('reshipWarehouseId', (string) $latestWarehouse->id)
+            ->assertSet('reshipRecipientName', 'Latest Recipient');
     }
 
     public function test_tenant_user_cannot_open_reship_modal(): void

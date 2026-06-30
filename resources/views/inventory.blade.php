@@ -1854,6 +1854,159 @@
                 font-size: 13px;
             }
 
+            .reship-modal {
+                --app-modal-width: 980px;
+            }
+
+            .reship-top-grid {
+                margin-bottom: 10px;
+            }
+
+            .reship-source-value {
+                margin: 2px 0 12px;
+                color: var(--text);
+                font-size: 14px;
+            }
+
+            .reship-recipient-block {
+                margin: 0 0 12px;
+            }
+
+            .reship-recipient-summary {
+                display: flex;
+                align-items: center;
+                justify-content: flex-start;
+                gap: 10px;
+            }
+
+            .reship-recipient-summary > div {
+                min-width: 0;
+            }
+
+            .reship-recipient-summary > div > span {
+                display: block;
+                overflow: hidden;
+                color: var(--text);
+                font-size: 16px;
+                font-weight: 400;
+                line-height: 1.3;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .reship-recipient-summary button {
+                flex: 0 0 auto;
+                color: var(--accent);
+                font-size: 14px;
+                font-weight: 500;
+            }
+
+            .reship-recipient-summary button svg {
+                width: 18px;
+                height: 18px;
+            }
+
+            .reship-lines-grid {
+                display: grid;
+                grid-template-columns: minmax(160px, 1fr) minmax(0, 1.6fr) 96px 120px;
+                width: 100%;
+                overflow: hidden;
+                border-top: 1px solid var(--line);
+            }
+
+            .reship-lines-head,
+            .reship-lines-cell {
+                min-width: 0;
+                border-bottom: 1px solid var(--line);
+                padding: 10px 12px;
+            }
+
+            .reship-lines-head {
+                background: #f8fafc;
+                color: var(--muted);
+                font-size: 12px;
+                font-weight: 700;
+                text-transform: uppercase;
+            }
+
+            .reship-lines-cell {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                color: var(--text);
+                font-size: 14px;
+            }
+
+            .reship-lines-cell strong,
+            .reship-lines-cell span {
+                display: block;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .reship-lines-cell span {
+                margin-top: 2px;
+            }
+
+            .reship-lines-number {
+                text-align: right;
+                align-items: flex-end;
+            }
+
+            .reship-lines-grid .reship-qty-input {
+                margin-left: auto;
+                text-align: right;
+                width: 84px;
+            }
+
+            .reship-copied-field {
+                background: #fffbeb;
+            }
+
+            .reship-additional-actions {
+                margin-top: 12px;
+            }
+
+            .reship-extra-row {
+                grid-template-columns: minmax(240px, 1.4fr) minmax(160px, 1fr) 110px auto;
+            }
+
+            .reship-extra-name-field {
+                display: grid;
+                gap: 6px;
+                min-width: 0;
+            }
+
+            .reship-extra-name-label {
+                color: var(--text);
+                font-size: 14px;
+                font-weight: 500;
+            }
+
+            .reship-extra-name-value {
+                display: flex;
+                align-items: center;
+                min-height: 38px;
+                overflow: hidden;
+                color: var(--text);
+                font-size: 14px;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .reship-note-field {
+                display: grid;
+                gap: 6px;
+                margin-top: 10px;
+            }
+
+            .reship-note-field span {
+                color: var(--text);
+                font-size: 14px;
+                font-weight: 500;
+            }
+
             .modal-icon-close {
                 display: inline-flex;
                 align-items: center;

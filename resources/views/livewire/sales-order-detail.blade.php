@@ -38,11 +38,10 @@
     @endif
     @if ($showReshipModal)
         <div class="tracking-import-backdrop" wire:key="sales-order-detail-reship-modal">
-            <section class="tracking-import-modal flux-panel">
+            <section class="tracking-import-modal flux-panel reship-modal">
                 <header class="tracking-import-header">
                     <div>
                         <h2>{{ __('outbound.reship_modal_title') }}</h2>
-                        <p>{{ __('outbound.reship') }}</p>
                     </div>
                     <flux:button
                         type="button"
@@ -56,13 +55,19 @@
                     </flux:button>
                 </header>
 
-                <div class="form-grid two">
-                    <flux:select wire:model="reshipSourceOutboundId" :label="__('outbound.reship_source_shipment')">
-                        <flux:select.option value="">{{ __('outbound.reship_source_shipment') }}</flux:select.option>
-                        @foreach ($shippedOutbounds as $outbound)
-                            <flux:select.option value="{{ $outbound->id }}">
-                                {{ $outbound->ref }} / {{ $outbound->warehouse?->code ?? '-' }}
-                            </flux:select.option>
+                <div class="form-panel-subsection">
+                    <strong>{{ __('outbound.reship_source_shipment') }}</strong>
+                </div>
+                <div class="reship-source-value">
+                    {{ $reshipSourceOutboundLabel }}
+                    <input type="hidden" wire:model="reshipSourceOutboundId">
+                </div>
+
+                <div class="form-grid two reship-top-grid">
+                    <flux:select wire:model="reshipReason" :label="__('outbound.reship_reason_label')">
+                        <flux:select.option value="">{{ __('outbound.reship_reason_label') }}</flux:select.option>
+                        @foreach ($reshipReasonOptions as $value => $label)
+                            <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
                         @endforeach
                     </flux:select>
                     <flux:select wire:model="reshipWarehouseId" :label="__('outbound.reship_warehouse')">
@@ -73,62 +78,111 @@
                             </flux:select.option>
                         @endforeach
                     </flux:select>
-                    <flux:select wire:model="reshipReason" :label="__('outbound.reship_reason_label')">
-                        @foreach ($reshipReasonOptions as $value => $label)
-                            <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
-                        @endforeach
-                    </flux:select>
-                    <flux:input wire:model="reshipNote" :label="__('outbound.reship_note')" />
                 </div>
 
                 @error('reshipSourceOutboundId') <p class="form-error">{{ $message }}</p> @enderror
                 @error('reshipLines') <p class="form-error">{{ $message }}</p> @enderror
 
+                <div class="reship-recipient-block" x-data="{ showRecipient: false }">
+                    <div class="form-panel-subsection">
+                        <strong>{{ __('outbound.section_recipient') }}</strong>
+                    </div>
+                    <div class="reship-recipient-summary">
+                        <div>
+                            <span>{{ $reshipRecipientName ?: '-' }}</span>
+                        </div>
+                        <flux:button type="button" variant="ghost" size="sm" icon="pencil-square" @click="showRecipient = ! showRecipient">
+                            <span x-text="showRecipient ? @js(__('fulfillment.btn_hide')) : @js(__('fulfillment.btn_edit'))"></span>
+                        </flux:button>
+                    </div>
+                    <div class="form-grid three form-grid-spaced" x-show="showRecipient" x-cloak>
+                        <flux:input wire:model="reshipRecipientName" :label="__('outbound.field_recipient_name')" />
+                        <flux:input wire:model="reshipRecipientPhone" :label="__('outbound.field_recipient_phone')" />
+                        <flux:input wire:model="reshipRecipientCountryCode" :label="__('outbound.field_country_code')" />
+                        <flux:input wire:model="reshipRecipientPostalCode" :label="__('outbound.field_postal_code')" />
+                        <flux:input wire:model="reshipRecipientState" :label="__('outbound.field_state')" />
+                        <flux:input wire:model="reshipRecipientCity" :label="__('outbound.field_city')" />
+                        <flux:input wire:model="reshipRecipientAddressLine1" :label="__('outbound.field_address_line1')" />
+                        <flux:input wire:model="reshipRecipientAddressLine2" :label="__('outbound.field_address_line2')" />
+                    </div>
+                </div>
+
                 <div class="form-panel-subsection">
-                    <strong>{{ __('outbound.section_recipient') }}</strong>
-                    <span>{{ __('outbound.reship_recipient_hint') }}</span>
+                    <strong>{{ __('sales_orders.section_lines') }}</strong>
                 </div>
-                <div class="form-grid two">
-                    <flux:input wire:model="reshipRecipientName" :label="__('outbound.field_recipient_name')" />
-                    <flux:input wire:model="reshipRecipientPhone" :label="__('outbound.field_recipient_phone')" />
-                    <flux:input wire:model="reshipRecipientCountryCode" :label="__('outbound.field_country_code')" />
-                    <flux:input wire:model="reshipRecipientPostalCode" :label="__('outbound.field_postal_code')" />
-                    <flux:input wire:model="reshipRecipientState" :label="__('outbound.field_state')" />
-                    <flux:input wire:model="reshipRecipientCity" :label="__('outbound.field_city')" />
-                    <flux:input wire:model="reshipRecipientAddressLine1" :label="__('outbound.field_address_line1')" />
-                    <flux:input wire:model="reshipRecipientAddressLine2" :label="__('outbound.field_address_line2')" />
+                <div class="reship-lines-grid">
+                    <div class="reship-lines-head">{{ __('sales_orders.col_sku') }}</div>
+                    <div class="reship-lines-head">{{ __('sales_orders.field_product_name') }}</div>
+                    <div class="reship-lines-head reship-lines-number">{{ __('sales_orders.col_qty') }}</div>
+                    <div class="reship-lines-head reship-lines-number">{{ __('outbound.reship_qty') }}</div>
+                    @foreach ($order->lines as $index => $line)
+                        <div class="reship-lines-cell">
+                            <strong>{{ $line->sku->sku }}</strong>
+                            <span class="subtle">{{ $line->sku->stockItem?->code ?? '-' }}</span>
+                        </div>
+                        <div class="reship-lines-cell reship-lines-name">{{ $line->sku->stockItem?->displayName() ?: ($line->sku->stockItem?->name ?? '-') }}</div>
+                        <div class="reship-lines-cell reship-lines-number">{{ number_format($line->quantity) }}</div>
+                        <div class="reship-lines-cell reship-lines-number">
+                            <input type="hidden" wire:model="reshipLines.{{ $index }}.sales_order_line_id">
+                            <input class="table-control reship-qty-input reship-copied-field" type="number" min="0" max="{{ $line->quantity }}" step="1" wire:model="reshipLines.{{ $index }}.qty">
+                            @error("reshipLines.{$index}.qty") <p class="form-error">{{ $message }}</p> @enderror
+                        </div>
+                    @endforeach
                 </div>
 
-                <flux:table class="data-table">
-                    <flux:table.columns>
-                        <flux:table.column>{{ __('sales_orders.col_sku') }}</flux:table.column>
-                        <flux:table.column align="end">{{ __('sales_orders.col_qty') }}</flux:table.column>
-                        <flux:table.column align="end">{{ __('outbound.reship_qty') }}</flux:table.column>
-                    </flux:table.columns>
-                    <flux:table.rows>
-                        @foreach ($order->lines as $index => $line)
-                            <flux:table.row :key="'reship-line-'.$line->id">
-                                <flux:table.cell>
-                                    <strong>{{ $line->sku->sku }}</strong>
-                                    <span class="subtle">{{ $line->sku->displayName() }}</span>
-                                </flux:table.cell>
-                                <flux:table.cell align="end">{{ number_format($line->quantity) }}</flux:table.cell>
-                                <flux:table.cell align="end">
-                                    <input type="hidden" wire:model="reshipLines.{{ $index }}.sales_order_line_id">
-                                    <input class="table-control" type="number" min="0" max="{{ $line->quantity }}" step="1" wire:model="reshipLines.{{ $index }}.qty">
-                                    @error("reshipLines.{$index}.qty") <p class="form-error">{{ $message }}</p> @enderror
-                                </flux:table.cell>
-                            </flux:table.row>
-                        @endforeach
-                    </flux:table.rows>
-                </flux:table>
+                @foreach ($reshipExtraLines as $index => $extra)
+                    @php
+                        $extraSkuOptions = collect($reshipSkuOptions[$index] ?? [])->map(function ($sku) {
+                            $name = $sku->stockItem?->displayName() ?: ($sku->stockItem?->name ?? '');
+                            $code = $sku->stockItem?->code ?? '';
 
-                <footer class="tracking-import-footer ready-combine-footer">
+                            return [
+                                'value' => $sku->id,
+                                'label' => $sku->sku,
+                                'meta' => trim($code.($name !== '' ? ' / '.$name : '')),
+                                'name' => $name,
+                            ];
+                        });
+                        $selectedExtraSku = $extraSkuOptions->firstWhere('value', (int) ($extra['sku_id'] ?? 0));
+                    @endphp
+                    <div class="line-row reship-extra-row">
+                        <x-searchable-select
+                            wire:key="reship-extra-sku-{{ $index }}"
+                            :label="__('sales_orders.field_sku')"
+                            model="reshipExtraLines.{{ $index }}.sku_id"
+                            search-model="reshipSkuSearches.{{ $index }}"
+                            :options="$extraSkuOptions"
+                            :selected-label="$selectedExtraSku['label'] ?? ($reshipSkuSearches[$index] ?? '')"
+                            :placeholder="__('inventory.search_placeholder')"
+                            empty-label="No results"
+                        />
+                        <div class="reship-extra-name-field">
+                            <span class="reship-extra-name-label">{{ __('sales_orders.field_product_name') }}</span>
+                            <span class="reship-extra-name-value">{{ $selectedExtraSku ? ($selectedExtraSku['name'] ?: '-') : '-' }}</span>
+                        </div>
+                        <flux:input wire:model="reshipExtraLines.{{ $index }}.qty" type="number" min="1" step="1" :label="__('outbound.reship_qty')" />
+                        <button type="button" class="remove-line-btn" wire:click="removeReshipSku({{ $index }})">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                        </button>
+                    </div>
+                    @error("reshipExtraLines.{$index}.sku_id") <p class="form-error">{{ $message }}</p> @enderror
+                    @error("reshipExtraLines.{$index}.qty") <p class="form-error">{{ $message }}</p> @enderror
+                @endforeach
+
+                <div class="form-actions form-actions-left reship-additional-actions">
+                    <flux:button type="button" variant="outline" wire:click="addReshipSku" icon="plus">
+                        {{ __('outbound.reship_add_sku') }}
+                    </flux:button>
+                </div>
+
+                <label class="reship-note-field">
+                    <span>{{ __('outbound.reship_note') }}</span>
+                    <textarea class="reship-copied-field" wire:model="reshipNote" rows="3"></textarea>
+                </label>
+
+                <footer class="tracking-import-footer ready-combine-footer" style="justify-content:flex-end;">
                     <flux:button type="button" variant="primary" class="ready-combine-action" wire:click="confirmReship">
                         {{ __('outbound.reship_confirm') }}
-                    </flux:button>
-                    <flux:button type="button" variant="outline" class="ready-combine-action" wire:click="closeReshipModal">
-                        {{ __('sales_orders.btn_cancel_edit') }}
                     </flux:button>
                 </footer>
             </section>

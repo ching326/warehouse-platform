@@ -20,6 +20,7 @@ class ReshipSalesOrderService
 
     /**
      * @param  array<int, array{sales_order_line_id: int, qty: int}>  $lines
+     * @param  array<int, array{sku_id: int, qty: int}>  $extraLines
      * @param  array<string, mixed>  $recipient
      */
     public function reship(
@@ -30,8 +31,9 @@ class ReshipSalesOrderService
         array $lines,
         ?string $note,
         array $recipient = [],
+        array $extraLines = [],
     ): OutboundOrder {
-        return DB::transaction(function () use ($salesOrder, $originalOutbound, $warehouseId, $issueType, $lines, $note, $recipient): OutboundOrder {
+        return DB::transaction(function () use ($salesOrder, $originalOutbound, $warehouseId, $issueType, $lines, $note, $recipient, $extraLines): OutboundOrder {
             $salesOrder = SalesOrder::query()
                 ->lockForUpdate()
                 ->findOrFail($salesOrder->id);
@@ -43,6 +45,12 @@ class ReshipSalesOrderService
             $this->validateIssueType($issueType);
             $warehouseId = $this->resolveWarehouseId($warehouseId, $originalOutbound);
             $selectedLines = $this->validatedLines($salesOrder, $lines);
+            $extraSkus = $this->validatedExtraLines($salesOrder, $extraLines);
+
+            if ($selectedLines === [] && $extraSkus === []) {
+                throw ValidationException::withMessages(['reshipLines' => __('outbound.reship_no_lines_selected')]);
+            }
+
             $recipient = $this->recipientFields($originalOutbound, $recipient);
 
             $issue = Issue::query()->create([
@@ -104,6 +112,19 @@ class ReshipSalesOrderService
                     note: null,
                     reserve: true,
                     errorKey: "reshipLines.{$index}",
+                );
+            }
+
+            foreach ($extraSkus as $index => $extra) {
+                $this->lineBuilder->addLine(
+                    order: $reship,
+                    tenantId: (int) $salesOrder->tenant_id,
+                    warehouseId: $warehouseId,
+                    sku: $extra['sku'],
+                    qty: $extra['qty'],
+                    note: $extra['note'],
+                    reserve: true,
+                    errorKey: "reshipExtraLines.{$index}",
                 );
             }
 
@@ -248,10 +269,6 @@ class ReshipSalesOrderService
             $selectedByLine[$lineId]['qty'] += $qty;
         }
 
-        if ($selectedByLine === []) {
-            throw ValidationException::withMessages(['reshipLines' => __('outbound.reship_no_lines_selected')]);
-        }
-
         foreach ($selectedByLine as $linePayload) {
             if ($linePayload['qty'] > (int) $linePayload['line']->quantity) {
                 throw ValidationException::withMessages(["reshipLines.{$linePayload['index']}.qty" => __('outbound.reship_qty_exceeds_line')]);
@@ -262,6 +279,40 @@ class ReshipSalesOrderService
             fn (array $linePayload): array => ['line' => $linePayload['line'], 'qty' => $linePayload['qty']],
             $selectedByLine,
         ));
+    }
+
+    /**
+     * Added SKUs that were not on the original order. Any active tenant SKU, no qty cap.
+     *
+     * @param  array<int, array{sku_id: int, qty: int, note?: string}>  $extraLines
+     * @return array<int, array{sku: Sku, qty: int, note: ?string}>
+     */
+    private function validatedExtraLines(SalesOrder $salesOrder, array $extraLines): array
+    {
+        $validated = [];
+
+        foreach ($extraLines as $index => $lineInput) {
+            $skuId = (int) $lineInput['sku_id'];
+            $qty = (int) $lineInput['qty'];
+
+            if ($skuId <= 0 || $qty <= 0) {
+                continue;
+            }
+
+            $sku = Sku::query()
+                ->where('tenant_id', $salesOrder->tenant_id)
+                ->where('status', 'active')
+                ->with('bundleComponents')
+                ->find($skuId);
+
+            if (! $sku instanceof Sku) {
+                throw ValidationException::withMessages(["reshipExtraLines.{$index}.sku_id" => __('validation.exists')]);
+            }
+
+            $validated[] = ['sku' => $sku, 'qty' => $qty, 'note' => $this->nullableString($lineInput['note'] ?? null)];
+        }
+
+        return $validated;
     }
 
     private function nullableString(?string $value): ?string

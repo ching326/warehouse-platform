@@ -37,6 +37,7 @@ return [
     'btn_go_to_outbound' => 'Go to outbound',
     'btn_back' => 'Back to fulfillment',
     'btn_edit' => 'Edit',
+    'btn_hide' => 'Hide',
     'btn_save' => 'Save',
     'btn_cancel' => 'Cancel',
     'empty_state' => 'No fulfillment groups found.',
