@@ -115,10 +115,9 @@ class SkuLabelPrintTest extends TestCase
                 SkuLabelPrint::SESSION_KEY => [
                     'layoutKey' => '40up_a4',
                     'entries' => [
-                        ['sku_id' => $sku->id, 'content' => 'sku', 'qty' => 10],
+                        ['sku_id' => $sku->id, 'content' => 'sku', 'value' => $sku->sku, 'name' => 'Custom label name', 'qty' => 10],
                     ],
                     'skipCells' => [0, 1, 2],
-                    'includeName' => false,
                 ],
             ])
             ->get(route('skus.label.download'))
@@ -127,18 +126,30 @@ class SkuLabelPrintTest extends TestCase
 
         $this->assertSame('40up_a4', $fake->layoutKey);
         $this->assertCount(10, $fake->labels);
-        $this->assertSame(['value' => $sku->sku, 'code_text' => $sku->sku, 'name' => null], $fake->labels[0]);
+        $this->assertSame(['value' => $sku->sku, 'code_text' => $sku->sku, 'name' => 'Custom label name'], $fake->labels[0]);
         $this->assertSame([0, 1, 2], $fake->skipCells);
     }
 
-    public function test_validation_fails_when_no_content_is_chosen(): void
+    public function test_validation_fails_when_label_code_is_blank(): void
     {
         [$sku] = $this->skuWithStockItem();
 
         Livewire::actingAs($this->internalUser())
             ->test(SkuLabelPrint::class, ['sku' => $sku])
+            ->set('entries.0.value', '')
             ->call('generate')
-            ->assertHasErrors(['entries.0.content']);
+            ->assertHasErrors(['entries.0.value']);
+    }
+
+    public function test_invalid_layout_key_returns_validation_error_instead_of_throwing(): void
+    {
+        [$sku] = $this->skuWithStockItem();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuLabelPrint::class, ['sku' => $sku])
+            ->set('layoutKey', 'bad-layout')
+            ->call('generate')
+            ->assertHasErrors(['layoutKey']);
     }
 
     public function test_tenant_user_cannot_open_or_download_labels(): void
@@ -155,9 +166,8 @@ class SkuLabelPrintTest extends TestCase
             ->withSession([
                 SkuLabelPrint::SESSION_KEY => [
                     'layoutKey' => '40up_a4',
-                    'entries' => [['sku_id' => $sku->id, 'content' => 'sku', 'qty' => 1]],
+                    'entries' => [['sku_id' => $sku->id, 'content' => 'sku', 'value' => $sku->sku, 'name' => $sku->displayName(), 'qty' => 1]],
                     'skipCells' => [],
-                    'includeName' => true,
                 ],
             ])
             ->get(route('skus.label.download'))
@@ -172,9 +182,8 @@ class SkuLabelPrintTest extends TestCase
             ->withSession([
                 SkuLabelPrint::SESSION_KEY => [
                     'layoutKey' => '40up_a4',
-                    'entries' => [['sku_id' => $sku->id, 'content' => 'fnsku', 'qty' => 1]],
+                    'entries' => [['sku_id' => $sku->id, 'content' => 'fnsku', 'value' => 'FNSKU-MISSING', 'name' => $sku->displayName(), 'qty' => 1]],
                     'skipCells' => [],
-                    'includeName' => true,
                 ],
             ])
             ->get(route('skus.label.download'))

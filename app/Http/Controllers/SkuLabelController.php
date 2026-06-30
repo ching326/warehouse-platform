@@ -27,7 +27,6 @@ class SkuLabelController extends Controller
 
         $labels = [];
         $entries = is_array($payload['entries'] ?? null) ? $payload['entries'] : [];
-        $includeName = (bool) ($payload['includeName'] ?? true);
         $skuCodes = [];
 
         foreach ($entries as $entry) {
@@ -42,9 +41,10 @@ class SkuLabelController extends Controller
 
             $content = (string) ($entry['content'] ?? '');
             $qty = (int) ($entry['qty'] ?? 0);
-            $value = $resolver->resolveValue($sku, $content);
+            $value = trim((string) ($entry['value'] ?? ''));
+            $availableValue = $resolver->resolveValue($sku, $content);
 
-            if ($qty < 1 || $value === null) {
+            if ($qty < 1 || $value === '' || $availableValue === null) {
                 abort(404);
             }
 
@@ -54,7 +54,7 @@ class SkuLabelController extends Controller
                 $labels[] = [
                     'value' => $value,
                     'code_text' => $value,
-                    'name' => $includeName ? $sku->displayName() : null,
+                    'name' => trim((string) ($entry['name'] ?? '')),
                 ];
             }
         }

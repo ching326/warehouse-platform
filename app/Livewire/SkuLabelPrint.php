@@ -21,9 +21,11 @@ class SkuLabelPrint extends Component
 
     public int $applyQty = 1;
 
-    public bool $includeName = true;
-
     public array $skipCells = [];
+
+    public bool $useSkipCells = false;
+
+    public bool $showSkipCellsModal = false;
 
     public function mount(?Sku $sku = null): void
     {
@@ -37,7 +39,7 @@ class SkuLabelPrint extends Component
 
         $this->seedSkuId = $skuIds[0];
         $this->entries = collect($skuIds)
-            ->map(fn (int $skuId): array => ['sku_id' => $skuId, 'content' => '', 'qty' => 1])
+            ->map(fn (int $skuId): array => $this->defaultEntry($skuId))
             ->all();
     }
 
@@ -57,7 +59,9 @@ class SkuLabelPrint extends Component
             return;
         }
 
-        $this->entries[] = ['sku_id' => $this->seedSkuId, 'content' => '', 'qty' => max(1, (int) $this->applyQty)];
+        $entry = $this->defaultEntry($this->seedSkuId);
+        $entry['qty'] = max(1, (int) $this->applyQty);
+        $this->entries[] = $entry;
     }
 
     public function removeEntry(int $index): void
@@ -72,7 +76,9 @@ class SkuLabelPrint extends Component
 
     public function toggleSkipCell(int $cell): void
     {
-        if (! $this->currentLayout()->supportsSkip() || $cell < 0 || $cell >= $this->currentLayout()->cellsPerPage()) {
+        $layout = $this->safeCurrentLayout();
+
+        if (! $layout->supportsSkip() || $cell < 0 || $cell >= $layout->cellsPerPage()) {
             return;
         }
 
@@ -84,6 +90,45 @@ class SkuLabelPrint extends Component
             : $cells->push($cell)->unique()->sort()->values()->all();
     }
 
+    public function toggleSkipCellsMode(): void
+    {
+        $this->useSkipCells = ! $this->useSkipCells;
+
+        if (! $this->useSkipCells) {
+            $this->skipCells = [];
+            $this->showSkipCellsModal = false;
+
+            return;
+        }
+
+        $this->showSkipCellsModal = true;
+    }
+
+    public function closeSkipCellsModal(): void
+    {
+        $this->showSkipCellsModal = false;
+    }
+
+    public function updated($property): void
+    {
+        if (! is_string($property) || ! preg_match('/^entries\.(\d+)\.content$/', $property, $matches)) {
+            return;
+        }
+
+        $index = (int) $matches[1];
+        $entry = $this->entries[$index] ?? null;
+
+        if (! is_array($entry)) {
+            return;
+        }
+
+        $sku = $this->skuQuery()->find((int) ($entry['sku_id'] ?? 0));
+        $content = (string) ($entry['content'] ?? '');
+        $value = $sku ? app(SkuLabelContentResolver::class)->resolveValue($sku, $content) : null;
+
+        $this->entries[$index]['value'] = $value ?? '';
+    }
+
     public function generate(SkuLabelContentResolver $resolver)
     {
         $this->validateChoices($resolver);
@@ -93,10 +138,11 @@ class SkuLabelPrint extends Component
             'entries' => collect($this->entries)->map(fn (array $entry): array => [
                 'sku_id' => (int) $entry['sku_id'],
                 'content' => (string) $entry['content'],
+                'value' => (string) ($entry['value'] ?? ''),
+                'name' => (string) ($entry['name'] ?? ''),
                 'qty' => (int) $entry['qty'],
             ])->all(),
-            'skipCells' => array_values(array_map('intval', $this->skipCells)),
-            'includeName' => $this->includeName,
+            'skipCells' => $this->useSkipCells ? array_values(array_map('intval', $this->skipCells)) : [],
         ]);
 
         return redirect()->route('skus.label.download');
@@ -127,6 +173,14 @@ class SkuLabelPrint extends Component
         return LabelLayout::fromConfig($this->layoutKey);
     }
 
+    public function safeCurrentLayout(): LabelLayout
+    {
+        $layoutKeys = array_keys($this->layouts());
+        $layoutKey = in_array($this->layoutKey, $layoutKeys, true) ? $this->layoutKey : '40up_a4';
+
+        return LabelLayout::fromConfig($layoutKey);
+    }
+
     public function render()
     {
         $skuIds = collect($this->entries)->pluck('sku_id')->map(fn ($id): int => (int) $id)->filter()->unique()->values()->all();
@@ -135,7 +189,7 @@ class SkuLabelPrint extends Component
             ->with('stockItem')
             ->get()
             ->keyBy('id');
-        $layout = $this->currentLayout();
+        $layout = $this->safeCurrentLayout();
 
         return view('livewire.sku-label-print', [
             'skus' => $skus,
@@ -158,9 +212,11 @@ class SkuLabelPrint extends Component
             'entries' => ['required', 'array', 'min:1'],
             'entries.*.sku_id' => ['required', 'integer'],
             'entries.*.content' => ['required', 'string'],
+            'entries.*.value' => ['required', 'string'],
+            'entries.*.name' => ['nullable', 'string', 'max:255'],
             'entries.*.qty' => ['required', 'integer', 'min:1', 'max:9999'],
             'skipCells' => ['array'],
-            'skipCells.*' => ['integer', 'min:0', 'max:'.($this->currentLayout()->cellsPerPage() - 1)],
+            'skipCells.*' => ['integer', 'min:0', 'max:'.($this->safeCurrentLayout()->cellsPerPage() - 1)],
         ])->after(function ($validator) use ($resolver): void {
             foreach ($this->entries as $index => $entry) {
                 $sku = $this->skuQuery()->find((int) ($entry['sku_id'] ?? 0));
@@ -210,6 +266,24 @@ class SkuLabelPrint extends Component
             ->filter(fn (int $id): bool => in_array($id, $allowedIds, true))
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array{sku_id: int, content: string, value: string, name: string, qty: int}
+     */
+    private function defaultEntry(int $skuId): array
+    {
+        $sku = $this->skuQuery()->find($skuId);
+        $content = $sku && filled($sku->platform_label_code) ? 'fnsku' : 'sku';
+        $value = $sku ? app(SkuLabelContentResolver::class)->resolveValue($sku, $content) : null;
+
+        return [
+            'sku_id' => $skuId,
+            'content' => $content,
+            'value' => $value ?? '',
+            'name' => $sku?->displayName() ?? '',
+            'qty' => 1,
+        ];
     }
 
     /**
