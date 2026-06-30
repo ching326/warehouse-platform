@@ -70,6 +70,23 @@ Note: `composer` is not on PATH in this environment.
 - Shared filter logic for sales orders lives in `App\Support\SalesOrderFilters` and is used
   by both the index and the export controller.
 
+## Language files and encoding
+
+- During feature/UI churn, add new translation keys to `lang/en` only. The app fallback
+  locale is English, so missing CJK keys display English instead of raw keys.
+- Defer `lang/ja`, `lang/zh_TW`, and `lang/zh_CN` updates to a batched translation pass
+  after the page or feature stabilizes.
+- Track which pages still need CJK translation in `docs/translation-backlog.md`: add a row
+  to its Pending table when you add en-only (or English-placeholder) keys, and move it to
+  Done after the CJK pass. That file is the single source of truth for outstanding
+  translations. Prefer en-only over writing English placeholders into the CJK files.
+- Prefer real translation keys over hardcoded English in Blade/components, so the later
+  translation pass only fills missing locale files.
+- Do not rewrite files with PowerShell `Set-Content`, `Out-File`, or shell redirects.
+  Windows shell rewrites can introduce UTF-16/BOM or corrupt multibyte text. Use surgical
+  edits (`apply_patch`/editor tools) and force UTF-8 no BOM if a script must write a file.
+- After any language-file edit, check the diff and confirm only the intended lines changed.
+
 ## How to report a finding
 
 For each issue:
