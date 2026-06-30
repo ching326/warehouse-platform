@@ -64,6 +64,8 @@ class SkusIndex extends Component
 
     public array $visibleSkuIds = [];
 
+    public array $visibleSkuStatuses = [];
+
     public array $catalogDrafts = [];
 
     public array $logisticsDrafts = [];
@@ -486,6 +488,36 @@ class SkusIndex extends Component
 
         $this->clearSelection();
         $this->flashStatus(__('skus.bulk_deactivated', ['count' => $updated]));
+    }
+
+    public function bulkToggleStatus(): void
+    {
+        $selectedIds = $this->normalizedSelectedIds();
+
+        if ($selectedIds === []) {
+            return;
+        }
+
+        $statuses = $this->scopedSkuQuery()
+            ->whereIn('id', $selectedIds)
+            ->pluck('status')
+            ->unique()
+            ->values()
+            ->all();
+
+        if (count($statuses) !== 1 || ! in_array($statuses[0], ['active', 'inactive'], true)) {
+            $this->flashError(__('skus.select_same_status_to_toggle'));
+
+            return;
+        }
+
+        if ($statuses[0] === 'inactive') {
+            $this->bulkReactivate();
+
+            return;
+        }
+
+        $this->bulkDeactivate();
     }
 
     public function bulkReactivate(): void
@@ -958,6 +990,9 @@ class SkusIndex extends Component
 
         $skus = $this->skus();
         $this->visibleSkuIds = $skus->getCollection()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $this->visibleSkuStatuses = $skus->getCollection()
+            ->mapWithKeys(fn (Sku $sku) => [(int) $sku->id => $sku->status])
+            ->all();
         $this->prepareCatalogDrafts($skus->getCollection());
         $this->prepareLogisticsDrafts($skus->getCollection());
         $availableInventoryByStockItem = $this->availableInventoryByStockItem($skus->getCollection());

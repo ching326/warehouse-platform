@@ -159,6 +159,7 @@ return [
     'deleted' => 'SKU deleted.',
     'bulk_deactivated' => ':count SKU(s) deactivated.',
     'bulk_reactivated' => ':count SKU(s) reactivated.',
+    'select_same_status_to_toggle' => 'Select only active SKUs or only inactive SKUs.',
     'bulk_deleted' => ':count SKU(s) deleted.',
     'bulk_deleted_with_deactivated' => ':deleted SKU(s) deleted. :deactivated SKU(s) are used by orders or history records and were deactivated instead.',
     'bulk_deactivated_instead' => ':count SKU(s) are used by orders or history records and were deactivated instead.',

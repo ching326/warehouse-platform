@@ -88,11 +88,60 @@
             x-data="{
                 selected: $wire.entangle('selectedIds'),
                 visible: $wire.entangle('visibleSkuIds'),
+                statuses: $wire.entangle('visibleSkuStatuses'),
                 selectedList() { return (this.selected || []).map(String); },
                 visibleList() { return (this.visible || []).map(String); },
                 has() { return this.selectedList().length > 0; },
                 single() { return this.selectedList().length === 1; },
                 isSelected(id) { return this.selectedList().includes(String(id)); },
+                selectedStatusList() {
+                    const statuses = this.statuses || {};
+
+                    return this.selectedList().map((id) => statuses[id]).filter(Boolean);
+                },
+                selectedStatusKind() {
+                    const selected = this.selectedList();
+                    const statuses = this.selectedStatusList();
+
+                    if (selected.length === 0 || statuses.length !== selected.length) {
+                        return 'none';
+                    }
+
+                    const unique = Array.from(new Set(statuses));
+
+                    if (unique.length !== 1 || ! ['active', 'inactive'].includes(unique[0])) {
+                        return 'mixed';
+                    }
+
+                    return unique[0];
+                },
+                canToggleStatus() {
+                    return ['active', 'inactive'].includes(this.selectedStatusKind());
+                },
+                statusToggleLabel() {
+                    const kind = this.selectedStatusKind();
+
+                    if (kind === 'inactive') {
+                        return @js(__('skus.action_reactivate'));
+                    }
+
+                    if (kind === 'mixed') {
+                        return @js(__('skus.action_deactivate')).concat(' / ', @js(__('skus.action_reactivate')));
+                    }
+
+                    return @js(__('skus.action_deactivate'));
+                },
+                toggleStatus() {
+                    if (! this.canToggleStatus()) {
+                        return;
+                    }
+
+                    if (this.selectedStatusKind() === 'active' && ! window.confirm(@js(__('skus.confirm_deactivate')))) {
+                        return;
+                    }
+
+                    $wire.bulkToggleStatus();
+                },
                 toggleRow(id) {
                     id = String(id);
                     const list = this.selectedList();
@@ -143,18 +192,11 @@
                     {{ __('skus.btn_edit') }}
                 </flux:button>
 
-                <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
-                    {{ __('skus.action_deactivate') }}
+                <flux:button type="button" size="sm" variant="outline" disabled x-show="! canToggleStatus()">
+                    <span x-text="statusToggleLabel()">{{ __('skus.action_deactivate') }}</span>
                 </flux:button>
-                <flux:button type="button" size="sm" variant="primary" wire:click="bulkDeactivate" wire:confirm="{{ __('skus.confirm_deactivate') }}" x-show="has()" x-cloak>
-                    {{ __('skus.action_deactivate') }}
-                </flux:button>
-
-                <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
-                    {{ __('skus.action_reactivate') }}
-                </flux:button>
-                <flux:button type="button" size="sm" variant="primary" wire:click="bulkReactivate" x-show="has()" x-cloak>
-                    {{ __('skus.action_reactivate') }}
+                <flux:button type="button" size="sm" variant="primary" @click="toggleStatus()" x-show="canToggleStatus()" x-cloak>
+                    <span x-text="statusToggleLabel()">{{ __('skus.action_deactivate') }}</span>
                 </flux:button>
 
                 <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
@@ -230,7 +272,7 @@
                                     <small>{{ $this->skuTypeLabel($sku->sku_type) }}</small>
                                 @endif
                                 @if ($sku->status === 'inactive')
-                                    <flux:badge color="zinc">{{ __('skus.status_inactive') }}</flux:badge>
+                                    <flux:badge color="red">{{ __('skus.status_inactive') }}</flux:badge>
                                 @endif
                             </flux:table.cell>
                             <flux:table.cell class="sku-stock-cell">
@@ -361,7 +403,7 @@
                             <flux:table.cell class="sku-primary-cell">
                                 <span>{{ $sku->sku }}</span>
                                 @if ($sku->status === 'inactive')
-                                    <flux:badge color="zinc">{{ __('skus.status_inactive') }}</flux:badge>
+                                    <flux:badge color="red">{{ __('skus.status_inactive') }}</flux:badge>
                                 @endif
                             </flux:table.cell>
                             <flux:table.cell class="sku-primary-cell">
@@ -502,7 +544,7 @@
                                         @endphp
                                         <span title="{{ $cellValue }}">{{ $cellValue }}</span>
                                         @if ($key === 'sku' && $sku->status === 'inactive')
-                                            <flux:badge color="zinc">{{ __('skus.status_inactive') }}</flux:badge>
+                                            <flux:badge color="red">{{ __('skus.status_inactive') }}</flux:badge>
                                         @endif
                                     @endif
                                 </flux:table.cell>

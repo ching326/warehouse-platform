@@ -1948,6 +1948,23 @@ class SkuManagementTest extends TestCase
         $this->assertSame('active', $second->refresh()->status);
     }
 
+    public function test_combined_status_button_rejects_mixed_active_and_inactive_skus(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $active = Sku::factory()->for($tenant)->create(['status' => 'active']);
+        $inactive = Sku::factory()->for($tenant)->create(['status' => 'inactive']);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkusIndex::class)
+            ->set('status', 'all')
+            ->set('selectedIds', [$active->id, $inactive->id])
+            ->call('bulkToggleStatus')
+            ->assertSee(__('skus.select_same_status_to_toggle'));
+
+        $this->assertSame('active', $active->refresh()->status);
+        $this->assertSame('inactive', $inactive->refresh()->status);
+    }
+
     public function test_selected_unused_sku_can_be_deleted(): void
     {
         $tenant = Tenant::factory()->create();
