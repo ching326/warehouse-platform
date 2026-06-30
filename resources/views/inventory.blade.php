@@ -1763,6 +1763,11 @@
                 justify-items: start;
             }
 
+            .sales-order-status-stack [data-flux-badge] {
+                font-size: 11px;
+                line-height: 1.15;
+            }
+
             .action-menu.small summary,
             .action-menu-disabled {
                 min-height: 32px;

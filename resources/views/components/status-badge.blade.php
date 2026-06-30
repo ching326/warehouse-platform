@@ -19,6 +19,7 @@
         'on_hold' => 'amber',
         'reship_in_progress' => 'amber',
         'announced',
+        'arranged',
         'draft',
         'inspected',
         'open',

@@ -70,9 +70,14 @@
                     </div>
 
                     <div class="sku-label-row-action">
-                        <flux:button type="button" size="sm" variant="outline" wire:click="removeEntry({{ $index }})">
-                            {{ __('skus.btn_remove') }}
-                        </flux:button>
+                        <button
+                            type="button"
+                            class="remove-line-btn"
+                            wire:click="removeEntry({{ $index }})"
+                            aria-label="{{ __('common.remove') }}"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                        </button>
                     </div>
                 </div>
             @endforeach
@@ -85,7 +90,7 @@
 
             <div class="sku-label-apply-qty">
                 <flux:input wire:model="applyQty" type="number" min="1" step="1" :label="__('skus.label_apply_qty')" />
-                <flux:button type="button" variant="outline" wire:click="applyQtyToAll">
+                <flux:button type="button" variant="primary" wire:click="applyQtyToAll">
                     {{ __('skus.label_apply_all') }}
                 </flux:button>
             </div>
@@ -99,7 +104,11 @@
             </flux:select>
         </div>
 
-        <div class="form-actions sku-label-generate-row">
+        <div class="sku-label-generate-row">
+            <flux:button type="button" variant="primary" wire:click="generate">
+                {{ __('skus.label_generate') }}
+            </flux:button>
+
             @if ($layout->supportsSkip())
                 <div class="sku-label-skip-control">
                     <label class="inline-check">
@@ -114,10 +123,6 @@
                     @endif
                 </div>
             @endif
-
-            <flux:button type="button" variant="primary" wire:click="generate">
-                {{ __('skus.label_generate') }}
-            </flux:button>
         </div>
     </section>
 
@@ -185,7 +190,6 @@
         .sku-label-row-action {
             display: flex;
             justify-content: flex-end;
-            padding-top: 1px;
         }
 
         .sku-label-row-tools {
@@ -210,8 +214,9 @@
         }
 
         .sku-label-generate-row {
-            align-items: center;
-            justify-content: space-between;
+            display: grid;
+            justify-items: end;
+            gap: 10px;
             border-top: 1px solid var(--line);
             padding-top: 16px;
         }
@@ -220,6 +225,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
+            justify-content: flex-end;
         }
 
         .sku-label-skip-edit {

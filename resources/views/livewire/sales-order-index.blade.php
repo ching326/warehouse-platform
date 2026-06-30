@@ -611,7 +611,7 @@
                                 </div>
                             </flux:table.cell>
                             <flux:table.cell>
-                                <div class="record-status-stack">
+                                <div class="record-status-stack sales-order-status-stack">
                                     <x-status-badge :status="$order->fulfillment_status" :label="$this->fulfillmentStatusLabel($order->fulfillment_status)" />
                                     @if ($order->reshipStatus())
                                         <x-status-badge :status="$order->reshipStatus()" :label="$order->reshipStatusLabel()" />

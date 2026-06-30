@@ -93,7 +93,7 @@ class SkuLabelPdfService
         $barcodeHeight = $layout->barcodeHeight();
 
         $pdf->write1DBarcode($label['value'], 'C128', $innerX, $innerY, $innerWidth, $barcodeHeight, 0.4, [
-            'position' => 'C',
+            'position' => '',
             'align' => 'C',
             'stretch' => false,
             'fitwidth' => true,
