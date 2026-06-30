@@ -192,6 +192,12 @@ class SalesOrder extends Model
             ->where('outbound_orders.status', '!=', OutboundOrder::STATUS_CANCELLED);
     }
 
+    public function customerOutboundOrders(): BelongsToMany
+    {
+        return $this->outboundOrders()
+            ->where('outbound_orders.reason', OutboundOrder::REASON_CUSTOMER_ORDER);
+    }
+
     public function activeOutboundOrder(): ?OutboundOrder
     {
         if ($this->relationLoaded('activeOutboundOrders')) {

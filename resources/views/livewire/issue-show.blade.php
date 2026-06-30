@@ -121,7 +121,7 @@
                 <flux:table.column>{{ __('issues.field_line_note') }}</flux:table.column>
             </flux:table.columns>
             <flux:table.rows>
-                @foreach ($case->lines as $line)
+                @forelse ($case->lines as $line)
                     <flux:table.row :key="$line->id">
                         <flux:table.cell>
                             <strong>{{ $line->sku?->sku ?? '-' }}</strong>
@@ -144,7 +144,9 @@
                         </flux:table.cell>
                         <flux:table.cell><input type="text" wire:model="lineDrafts.{{ $line->id }}.note" @disabled($case->isClosed())></flux:table.cell>
                     </flux:table.row>
-                @endforeach
+                @empty
+                    <flux:table.row><flux:table.cell colspan="5"><div class="empty-state">-</div></flux:table.cell></flux:table.row>
+                @endforelse
             </flux:table.rows>
         </flux:table>
 

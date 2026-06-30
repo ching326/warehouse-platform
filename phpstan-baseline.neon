@@ -253,30 +253,6 @@ parameters:
 			path: app/Livewire/OutboundOrderCreate.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$component_stock_item_id\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Livewire/OutboundOrderCreate.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Livewire/OutboundOrderCreate.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$quantity\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Livewire/OutboundOrderCreate.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tenant_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Livewire/OutboundOrderCreate.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
 			identifier: property.notFound
 			count: 1

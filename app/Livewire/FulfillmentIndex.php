@@ -318,7 +318,7 @@ class FulfillmentIndex extends Component
 
         $orders = $this->scopedOrderQuery()
             ->whereIn('id', $selectedIds)
-            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+            ->whereIn('reason', OutboundOrder::fulfillableReasons())
             ->with('lines:id,outbound_order_id,parent_line_id,sku_id')
             ->get();
 
@@ -421,7 +421,7 @@ class FulfillmentIndex extends Component
 
         $printedIds = $this->scopedOrderQuery()
             ->whereIn('id', $selectedIds)
-            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+            ->whereIn('reason', OutboundOrder::fulfillableReasons())
             ->where('status', OutboundOrder::STATUS_RESERVED)
             ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
             ->whereNotNull('courier_csv_exported_at')
@@ -464,7 +464,7 @@ class FulfillmentIndex extends Component
 
         $orders = $this->scopedOrderQuery()
             ->whereIn('id', $selectedIds)
-            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+            ->whereIn('reason', OutboundOrder::fulfillableReasons())
             ->where('hold_status', OutboundOrder::HOLD_STATUS_ON_HOLD)
             ->get();
 
@@ -563,7 +563,7 @@ class FulfillmentIndex extends Component
     public function render()
     {
         $orders = $this->scopedOrderQuery()
-            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+            ->whereIn('reason', OutboundOrder::fulfillableReasons())
             ->with([
                 'tenant:id,code,name',
                 'warehouse:id,code,name,timezone',
@@ -991,7 +991,7 @@ class FulfillmentIndex extends Component
     {
         return $this->scopedOrderQuery()
             ->whereIn('id', $outboundOrderIds)
-            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+            ->whereIn('reason', OutboundOrder::fulfillableReasons())
             ->where('status', OutboundOrder::STATUS_RESERVED)
             ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
             ->whereHas('packScans')
@@ -1007,7 +1007,7 @@ class FulfillmentIndex extends Component
         $ids = array_values(array_unique(array_filter(array_map('intval', $outboundOrderIds))));
         $orders = $this->scopedOrderQuery()
             ->whereIn('id', $ids)
-            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+            ->whereIn('reason', OutboundOrder::fulfillableReasons())
             ->where('status', OutboundOrder::STATUS_RESERVED)
             ->get();
         $updated = 0;
@@ -1082,7 +1082,7 @@ class FulfillmentIndex extends Component
     {
         return $this->scopedOrderQuery()
             ->whereIn('id', $this->normalizedSelectedIds())
-            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+            ->whereIn('reason', OutboundOrder::fulfillableReasons())
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->unique()

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -87,6 +88,11 @@ class Issue extends Model
     public function outboundOrder(): BelongsTo
     {
         return $this->belongsTo(OutboundOrder::class);
+    }
+
+    public function reshipOutbound(): HasOne
+    {
+        return $this->hasOne(OutboundOrder::class);
     }
 
     public function lines(): HasMany

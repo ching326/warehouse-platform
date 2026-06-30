@@ -45,7 +45,7 @@ class FulfillmentPack extends Component
         $this->authorizeInternalUser();
 
         $this->outboundOrderId = OutboundOrder::query()
-            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+            ->whereIn('reason', OutboundOrder::fulfillableReasons())
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->findOrFail($order->id)
             ->id;
@@ -294,7 +294,7 @@ class FulfillmentPack extends Component
         try {
             DB::transaction(function () use ($order, $packService, $shipService): void {
                 $lockedOrder = OutboundOrder::query()
-                    ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+                    ->whereIn('reason', OutboundOrder::fulfillableReasons())
                     ->whereIn('tenant_id', $this->allowedTenantIds())
                     ->whereKey($order->id)
                     ->with('shippingMethod:id,name')
@@ -423,7 +423,7 @@ class FulfillmentPack extends Component
     private function loadOrder(): OutboundOrder
     {
         return OutboundOrder::query()
-            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+            ->whereIn('reason', OutboundOrder::fulfillableReasons())
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->with([
                 'tenant:id,code,name',

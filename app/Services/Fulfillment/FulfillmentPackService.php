@@ -32,7 +32,7 @@ class FulfillmentPackService
         }
 
         $candidates = OutboundOrder::query()
-            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+            ->whereIn('reason', OutboundOrder::fulfillableReasons())
             ->whereIn('tenant_id', $allowedTenantIds)
             ->where('status', OutboundOrder::STATUS_RESERVED)
             ->where('warehouse_id', $warehouseId)

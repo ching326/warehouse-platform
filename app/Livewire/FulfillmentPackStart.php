@@ -181,7 +181,7 @@ class FulfillmentPackStart extends Component
     private function queueQuery(): Builder
     {
         return OutboundOrder::query()
-            ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
+            ->whereIn('reason', OutboundOrder::fulfillableReasons())
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->where('status', OutboundOrder::STATUS_RESERVED)
             ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)

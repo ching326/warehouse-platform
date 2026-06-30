@@ -61,6 +61,8 @@ class OutboundOrder extends Model
     protected $fillable = [
         'reason',
         'source_sales_order_id',
+        'reship_of_outbound_id',
+        'issue_id',
         'courier_csv_exported_at',
         'shipping_method_id',
         'tenant_id',
@@ -113,6 +115,14 @@ class OutboundOrder extends Model
         return $this->reason ? __('outbound.reason_'.$this->reason) : null;
     }
 
+    /**
+     * @return list<string>
+     */
+    public static function fulfillableReasons(): array
+    {
+        return [self::REASON_CUSTOMER_ORDER, self::REASON_RE_SHIP];
+    }
+
     public static function statusColorFor(string $status): string
     {
         return match ($status) {
@@ -140,6 +150,16 @@ class OutboundOrder extends Model
         return $this->belongsTo(SalesOrder::class, 'source_sales_order_id');
     }
 
+    public function reshipOfOutbound(): BelongsTo
+    {
+        return $this->belongsTo(OutboundOrder::class, 'reship_of_outbound_id');
+    }
+
+    public function issue(): BelongsTo
+    {
+        return $this->belongsTo(Issue::class);
+    }
+
     public function shippingMethod(): BelongsTo
     {
         return $this->belongsTo(ShippingMethod::class);
@@ -149,6 +169,11 @@ class OutboundOrder extends Model
     {
         return $this->belongsToMany(SalesOrder::class, 'outbound_order_sales_order')
             ->withPivot('arranged_at');
+    }
+
+    public function reships(): HasMany
+    {
+        return $this->hasMany(OutboundOrder::class, 'reship_of_outbound_id')->orderBy('id');
     }
 
     public function createdBy(): BelongsTo

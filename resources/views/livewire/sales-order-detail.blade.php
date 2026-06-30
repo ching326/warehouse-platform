@@ -36,6 +36,91 @@
             </section>
         </div>
     @endif
+    @if ($showReshipModal)
+        <div class="tracking-import-backdrop" wire:key="sales-order-detail-reship-modal">
+            <section class="tracking-import-modal flux-panel">
+                <header class="tracking-import-header">
+                    <div>
+                        <h2>{{ __('outbound.reship_modal_title') }}</h2>
+                        <p>{{ __('outbound.reship') }}</p>
+                    </div>
+                    <flux:button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        icon="x-mark"
+                        inset
+                        :aria-label="__('sales_orders.btn_cancel_edit')"
+                        wire:click="closeReshipModal"
+                    >
+                    </flux:button>
+                </header>
+
+                <div class="form-grid two">
+                    <flux:select wire:model="reshipSourceOutboundId" :label="__('outbound.reship_source_shipment')">
+                        <flux:select.option value="">{{ __('outbound.reship_source_shipment') }}</flux:select.option>
+                        @foreach ($shippedOutbounds as $outbound)
+                            <flux:select.option value="{{ $outbound->id }}">
+                                {{ $outbound->ref }} / {{ $outbound->warehouse?->code ?? '-' }}
+                            </flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    <flux:select wire:model="reshipWarehouseId" :label="__('outbound.reship_warehouse')">
+                        <flux:select.option value="">{{ __('outbound.reship_warehouse') }}</flux:select.option>
+                        @foreach ($reshipWarehouseOptions as $warehouse)
+                            <flux:select.option value="{{ $warehouse->id }}">
+                                {{ $warehouse->code }} / {{ $warehouse->name }}
+                            </flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    <flux:select wire:model="reshipReason" :label="__('outbound.reship_reason_label')">
+                        @foreach ($reshipReasonOptions as $value => $label)
+                            <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    <flux:input wire:model="reshipNote" :label="__('outbound.reship_note')" />
+                </div>
+
+                @error('reshipSourceOutboundId') <p class="form-error">{{ $message }}</p> @enderror
+                @error('reshipWarehouseId') <p class="form-error">{{ $message }}</p> @enderror
+                @error('reshipReason') <p class="form-error">{{ $message }}</p> @enderror
+                @error('reshipLines') <p class="form-error">{{ $message }}</p> @enderror
+
+                <flux:table class="data-table">
+                    <flux:table.columns>
+                        <flux:table.column>{{ __('sales_orders.col_sku') }}</flux:table.column>
+                        <flux:table.column align="end">{{ __('sales_orders.col_qty') }}</flux:table.column>
+                        <flux:table.column align="end">{{ __('outbound.reship_qty') }}</flux:table.column>
+                    </flux:table.columns>
+                    <flux:table.rows>
+                        @foreach ($order->lines as $index => $line)
+                            <flux:table.row :key="'reship-line-'.$line->id">
+                                <flux:table.cell>
+                                    <strong>{{ $line->sku->sku }}</strong>
+                                    <span class="subtle">{{ $line->sku->displayName() }}</span>
+                                </flux:table.cell>
+                                <flux:table.cell align="end">{{ number_format($line->quantity) }}</flux:table.cell>
+                                <flux:table.cell align="end">
+                                    <input type="hidden" wire:model="reshipLines.{{ $index }}.sales_order_line_id">
+                                    <input class="table-control" type="number" min="0" max="{{ $line->quantity }}" step="1" wire:model="reshipLines.{{ $index }}.qty">
+                                    @error("reshipLines.{$index}.qty") <p class="form-error">{{ $message }}</p> @enderror
+                                </flux:table.cell>
+                            </flux:table.row>
+                        @endforeach
+                    </flux:table.rows>
+                </flux:table>
+
+                <footer class="tracking-import-footer ready-combine-footer">
+                    <flux:button type="button" variant="primary" class="ready-combine-action" wire:click="confirmReship">
+                        {{ __('outbound.reship_confirm') }}
+                    </flux:button>
+                    <flux:button type="button" variant="outline" class="ready-combine-action" wire:click="closeReshipModal">
+                        {{ __('sales_orders.btn_cancel_edit') }}
+                    </flux:button>
+                </footer>
+            </section>
+        </div>
+    @endif
 <section class="table-shell flux-panel form-panel">
         <div class="form-panel-header">
             <div>
@@ -148,6 +233,12 @@
                 <flux:button class="action-button-md" href="{{ route('sales.orders.issues.create', $order) }}" size="sm" variant="primary" wire:navigate>
                     {{ __('issues.btn_create_from_order') }}
                 </flux:button>
+
+                @if ($canReship)
+                    <flux:button class="action-button-md" type="button" size="sm" variant="primary" wire:click="reship" data-action-variant="primary">
+                        {{ __('outbound.reship') }}
+                    </flux:button>
+                @endif
             </div>
 
             @if (
@@ -213,6 +304,51 @@
                                 <x-status-badge :status="$case->status" :label="$case->statusLabel()" />
                             </flux:table.cell>
                             <flux:table.cell>{{ $case->updated_at->format('Y-m-d H:i') }}</flux:table.cell>
+                        </flux:table.row>
+                    @endforeach
+                </flux:table.rows>
+            </flux:table>
+        </section>
+    @endif
+
+    @if ($order->outboundOrders->isNotEmpty())
+        <section class="table-shell flux-panel form-panel">
+            <div class="form-panel-header">
+                <div>
+                    <strong>{{ __('outbound.shipments_heading') }}</strong>
+                    <span>{{ $order->outboundOrders->count() }} shipments</span>
+                </div>
+            </div>
+            <flux:table class="data-table">
+                <flux:table.columns>
+                    <flux:table.column>{{ __('outbound.col_ref') }}</flux:table.column>
+                    <flux:table.column>{{ __('outbound.col_status') }}</flux:table.column>
+                    <flux:table.column>{{ __('outbound.field_reason') }}</flux:table.column>
+                    <flux:table.column>{{ __('issues.col_issue_no') }}</flux:table.column>
+                </flux:table.columns>
+                <flux:table.rows>
+                    @foreach ($order->outboundOrders as $outbound)
+                        <flux:table.row :key="'shipment-'.$outbound->id">
+                            <flux:table.cell>
+                                <x-record-ref-link
+                                    :href="route('outbound.show', $outbound)"
+                                    :value="$outbound->ref"
+                                />
+                            </flux:table.cell>
+                            <flux:table.cell><x-status-badge :status="$outbound->status" :label="__('outbound.status_'.$outbound->status)" /></flux:table.cell>
+                            <flux:table.cell>
+                                {{ $outbound->reason === \App\Models\OutboundOrder::REASON_RE_SHIP ? __('outbound.shipment_reship') : __('outbound.shipment_original') }}
+                            </flux:table.cell>
+                            <flux:table.cell>
+                                @if ($outbound->issue)
+                                    <x-record-ref-link
+                                        :href="route('issues.show', $outbound->issue)"
+                                        :value="$outbound->issue->issue_no"
+                                    />
+                                @else
+                                    -
+                                @endif
+                            </flux:table.cell>
                         </flux:table.row>
                     @endforeach
                 </flux:table.rows>

@@ -8,10 +8,9 @@ use App\Models\OutboundOrder;
 use App\Models\ShippingMethod;
 use App\Models\Shop;
 use App\Models\Sku;
-use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\Warehouse;
-use App\Services\InventoryService;
+use App\Services\Outbound\OutboundLineBuilder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +18,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use InvalidArgumentException;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
@@ -228,6 +226,8 @@ class OutboundOrderCreate extends Component
                 $order->update(['ref' => OutboundOrder::buildRef($order->id, $order->tenant->code)]);
             }
 
+            $lineBuilder = app(OutboundLineBuilder::class);
+
             foreach ($this->lines as $index => $lineInput) {
                 $sku = Sku::query()
                     ->where('tenant_id', $tenantId)
@@ -238,29 +238,16 @@ class OutboundOrderCreate extends Component
                 $userQty = (int) $lineInput['qty'];
                 $lineNote = $this->nullableString($lineInput['note'] ?? '');
 
-                if ($sku->sku_type === 'virtual_bundle') {
-                    $this->createVirtualBundleLines($order, $sku, $tenantId, $userQty, $lineNote, $index, $this->status === OutboundOrder::STATUS_RESERVED);
-
-                    continue;
-                }
-
-                if ($sku->stock_item_id === null) {
-                    throw ValidationException::withMessages([
-                        "lines.{$index}.sku_id" => __('outbound.sku_not_shippable'),
-                    ]);
-                }
-
-                if ($this->status === OutboundOrder::STATUS_RESERVED) {
-                    $this->reserveLine($tenantId, (int) $this->warehouseId, $sku->stock_item_id, $userQty, $order->id, $index);
-                }
-
-                $order->lines()->create([
-                    'tenant_id' => $tenantId,
-                    'sku_id' => $sku->id,
-                    'stock_item_id' => $sku->stock_item_id,
-                    'qty' => $userQty,
-                    'note' => $lineNote,
-                ]);
+                $lineBuilder->addLine(
+                    order: $order,
+                    tenantId: $tenantId,
+                    warehouseId: (int) $this->warehouseId,
+                    sku: $sku,
+                    qty: $userQty,
+                    note: $lineNote,
+                    reserve: $this->status === OutboundOrder::STATUS_RESERVED,
+                    errorKey: "lines.{$index}",
+                );
             }
         });
 
@@ -317,81 +304,6 @@ class OutboundOrderCreate extends Component
         $this->recipientState = $address['state'];
         $this->recipientCity = $address['city'];
         $this->recipientAddressLine1 = $address['address_line1'];
-    }
-
-    private function createVirtualBundleLines(OutboundOrder $order, Sku $sku, int $tenantId, int $userQty, ?string $lineNote, int $index, bool $reserveStock): void
-    {
-        $components = $sku->bundleComponents;
-
-        if ($components->isEmpty()) {
-            throw ValidationException::withMessages([
-                "lines.{$index}.sku_id" => __('outbound.bundle_no_components'),
-            ]);
-        }
-
-        foreach ($components as $component) {
-            if ($component->tenant_id !== $tenantId) {
-                throw ValidationException::withMessages([
-                    "lines.{$index}.sku_id" => __('outbound.bundle_invalid_tenant'),
-                ]);
-            }
-        }
-
-        $componentStockItemIds = $components->pluck('component_stock_item_id')->all();
-        $invalidCount = StockItem::query()
-            ->whereIn('id', $componentStockItemIds)
-            ->where('tenant_id', '!=', $tenantId)
-            ->count();
-
-        if ($invalidCount > 0) {
-            throw ValidationException::withMessages([
-                "lines.{$index}.sku_id" => __('outbound.bundle_invalid_tenant'),
-            ]);
-        }
-
-        $parentLine = $order->lines()->create([
-            'tenant_id' => $tenantId,
-            'sku_id' => $sku->id,
-            'stock_item_id' => null,
-            'qty' => $userQty,
-            'note' => $lineNote,
-        ]);
-
-        foreach ($components as $component) {
-            $componentQty = $userQty * $component->quantity;
-            if ($reserveStock) {
-                $this->reserveLine($tenantId, (int) $this->warehouseId, $component->component_stock_item_id, $componentQty, $order->id, $index);
-            }
-
-            $order->lines()->create([
-                'parent_line_id' => $parentLine->id,
-                'tenant_id' => $tenantId,
-                'sku_id' => $sku->id,
-                'stock_item_id' => $component->component_stock_item_id,
-                'qty' => $componentQty,
-            ]);
-        }
-    }
-
-    private function reserveLine(int $tenantId, int $warehouseId, int $stockItemId, int $quantity, int $orderId, int $index): void
-    {
-        try {
-            app(InventoryService::class)->reserveStock(
-                tenantId: $tenantId,
-                warehouseId: $warehouseId,
-                stockItemId: $stockItemId,
-                quantity: $quantity,
-                context: [
-                    'ref_type' => 'outbound_order',
-                    'ref_id' => (string) $orderId,
-                    'user_id' => Auth::id(),
-                ],
-            );
-        } catch (InvalidArgumentException $exception) {
-            throw ValidationException::withMessages([
-                "lines.{$index}.qty" => $exception->getMessage(),
-            ]);
-        }
     }
 
     private function validateInput(int $tenantId): void
