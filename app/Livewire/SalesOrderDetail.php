@@ -59,6 +59,22 @@ class SalesOrderDetail extends Component
 
     public string $reshipNote = '';
 
+    public string $reshipRecipientName = '';
+
+    public string $reshipRecipientPhone = '';
+
+    public string $reshipRecipientCountryCode = '';
+
+    public string $reshipRecipientPostalCode = '';
+
+    public string $reshipRecipientState = '';
+
+    public string $reshipRecipientCity = '';
+
+    public string $reshipRecipientAddressLine1 = '';
+
+    public string $reshipRecipientAddressLine2 = '';
+
     public array $reshipLines = [];
 
     private bool $allowedTenantIdsResolved = false;
@@ -72,6 +88,10 @@ class SalesOrderDetail extends Component
         }
 
         $this->orderId = $order->id;
+
+        if (request()->boolean('reship')) {
+            $this->reship();
+        }
     }
 
     public function editRecipient(): void
@@ -402,6 +422,7 @@ class SalesOrderDetail extends Component
         $selectedOutbound = $shippedOutbounds->count() === 1 ? $shippedOutbounds->first() : null;
         $this->reshipSourceOutboundId = $selectedOutbound ? (string) $selectedOutbound->id : '';
         $this->reshipWarehouseId = $selectedOutbound ? (string) $selectedOutbound->warehouse_id : '';
+        $this->fillReshipRecipientFromOutbound($selectedOutbound);
         $this->reshipReason = Issue::TYPE_MISSING;
         $this->reshipNote = '';
         $this->reshipLines = $order->lines
@@ -411,6 +432,31 @@ class SalesOrderDetail extends Component
             ])
             ->all();
         $this->showReshipModal = true;
+    }
+
+    public function updatedReshipSourceOutboundId(): void
+    {
+        if ($this->reshipSourceOutboundId === '') {
+            $this->reshipWarehouseId = '';
+            $this->fillReshipRecipientFromOutbound(null);
+
+            return;
+        }
+
+        $order = $this->reshipOrderQuery()->findOrFail($this->orderId);
+        $outbound = $order->outboundOrders
+            ->first(fn (OutboundOrder $outbound): bool => (int) $outbound->id === (int) $this->reshipSourceOutboundId
+                && $outbound->status === OutboundOrder::STATUS_SHIPPED);
+
+        if (! $outbound instanceof OutboundOrder) {
+            $this->reshipWarehouseId = '';
+            $this->fillReshipRecipientFromOutbound(null);
+
+            return;
+        }
+
+        $this->reshipWarehouseId = (string) $outbound->warehouse_id;
+        $this->fillReshipRecipientFromOutbound($outbound);
     }
 
     public function closeReshipModal(): void
@@ -432,12 +478,28 @@ class SalesOrderDetail extends Component
             'reshipWarehouseId' => $this->reshipWarehouseId,
             'reshipReason' => $this->reshipReason,
             'reshipNote' => $this->reshipNote,
+            'reshipRecipientName' => $this->reshipRecipientName,
+            'reshipRecipientPhone' => $this->reshipRecipientPhone,
+            'reshipRecipientCountryCode' => strtoupper(trim($this->reshipRecipientCountryCode)),
+            'reshipRecipientPostalCode' => $this->reshipRecipientPostalCode,
+            'reshipRecipientState' => $this->reshipRecipientState,
+            'reshipRecipientCity' => $this->reshipRecipientCity,
+            'reshipRecipientAddressLine1' => $this->reshipRecipientAddressLine1,
+            'reshipRecipientAddressLine2' => $this->reshipRecipientAddressLine2,
             'reshipLines' => $this->reshipLines,
         ], [
             'reshipSourceOutboundId' => ['required', 'integer'],
             'reshipWarehouseId' => ['nullable', 'integer', Rule::exists('warehouses', 'id')->where('status', 'active')],
             'reshipReason' => ['required', Rule::in(array_keys(ReshipSalesOrderService::reshipReasonOptions()))],
             'reshipNote' => ['nullable', 'string', 'max:2000'],
+            'reshipRecipientName' => ['nullable', 'string', 'max:255'],
+            'reshipRecipientPhone' => ['nullable', 'string', 'max:50'],
+            'reshipRecipientCountryCode' => ['nullable', 'string', 'regex:/^[A-Z]{2}$/'],
+            'reshipRecipientPostalCode' => ['nullable', 'string', 'max:20'],
+            'reshipRecipientState' => ['nullable', 'string', 'max:100'],
+            'reshipRecipientCity' => ['nullable', 'string', 'max:100'],
+            'reshipRecipientAddressLine1' => ['nullable', 'string', 'max:255'],
+            'reshipRecipientAddressLine2' => ['nullable', 'string', 'max:255'],
             'reshipLines' => ['required', 'array'],
             'reshipLines.*.sales_order_line_id' => ['required', 'integer'],
             'reshipLines.*.qty' => ['nullable', 'integer', 'min:0'],
@@ -499,6 +561,16 @@ class SalesOrderDetail extends Component
                 ])
                 ->all(),
             note: $this->reshipNote,
+            recipient: [
+                'recipient_name' => $this->reshipRecipientName,
+                'recipient_phone' => $this->reshipRecipientPhone,
+                'recipient_country_code' => strtoupper(trim($this->reshipRecipientCountryCode)),
+                'recipient_postal_code' => $this->reshipRecipientPostalCode,
+                'recipient_state' => $this->reshipRecipientState,
+                'recipient_city' => $this->reshipRecipientCity,
+                'recipient_address_line1' => $this->reshipRecipientAddressLine1,
+                'recipient_address_line2' => $this->reshipRecipientAddressLine2,
+            ],
         );
 
         $this->resetReshipModal();
@@ -966,7 +1038,20 @@ class SalesOrderDetail extends Component
         $this->reshipWarehouseId = '';
         $this->reshipReason = '';
         $this->reshipNote = '';
+        $this->fillReshipRecipientFromOutbound(null);
         $this->reshipLines = [];
+    }
+
+    private function fillReshipRecipientFromOutbound(?OutboundOrder $outbound): void
+    {
+        $this->reshipRecipientName = (string) ($outbound?->recipient_name ?? '');
+        $this->reshipRecipientPhone = (string) ($outbound?->recipient_phone ?? '');
+        $this->reshipRecipientCountryCode = (string) ($outbound?->recipient_country_code ?? '');
+        $this->reshipRecipientPostalCode = (string) ($outbound?->recipient_postal_code ?? '');
+        $this->reshipRecipientState = (string) ($outbound?->recipient_state ?? '');
+        $this->reshipRecipientCity = (string) ($outbound?->recipient_city ?? '');
+        $this->reshipRecipientAddressLine1 = (string) ($outbound?->recipient_address_line1 ?? '');
+        $this->reshipRecipientAddressLine2 = (string) ($outbound?->recipient_address_line2 ?? '');
     }
 
     private function isLineShippable(SalesOrderLine $line, int $tenantId): bool

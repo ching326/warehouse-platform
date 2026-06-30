@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Livewire\FulfillmentIndex;
 use App\Livewire\SalesOrderDetail;
+use App\Livewire\SalesOrderIndex;
 use App\Models\InventoryBalance;
 use App\Models\Issue;
 use App\Models\OutboundOrder;
@@ -49,6 +50,7 @@ class ReshipSalesOrderTest extends TestCase
         $this->assertSame($originalOutbound->id, $reship->reship_of_outbound_id);
         $this->assertSame($warehouse->id, $reship->warehouse_id);
         $this->assertSame($originalOutbound->shipping_method_id, $reship->shipping_method_id);
+        $this->assertNull($reship->ship_note);
         $this->assertStringStartsWith('OB-', (string) $reship->ref);
         $this->assertStringNotContainsString('PENDING', (string) $reship->ref);
 
@@ -87,6 +89,41 @@ class ReshipSalesOrderTest extends TestCase
         $this->assertNotSame($first->issue_id, $second->issue_id);
         $this->assertDatabaseHas('issues', ['id' => $first->issue_id, 'issue_type' => Issue::TYPE_MISSING]);
         $this->assertDatabaseHas('issues', ['id' => $second->issue_id, 'issue_type' => Issue::TYPE_DAMAGED]);
+    }
+
+    public function test_reship_can_override_recipient_details_for_wrong_address(): void
+    {
+        [$salesOrder, $originalOutbound, $line, $stockItem, $warehouse] = $this->shippedSalesOrderWithLine();
+        app(InventoryService::class)->adjustStock($salesOrder->tenant_id, $warehouse->id, $stockItem->id, 10);
+
+        $reship = app(ReshipSalesOrderService::class)->reship(
+            salesOrder: $salesOrder,
+            originalOutbound: $originalOutbound,
+            warehouseId: null,
+            issueType: Issue::TYPE_WRONG_ADDRESS,
+            lines: [['sales_order_line_id' => $line->id, 'qty' => 1]],
+            note: 'Customer gave the correct address after shipment.',
+            recipient: [
+                'recipient_name' => 'Correct Recipient',
+                'recipient_phone' => '09011112222',
+                'recipient_country_code' => 'jp',
+                'recipient_postal_code' => '150-0001',
+                'recipient_state' => 'Tokyo',
+                'recipient_city' => 'Shibuya',
+                'recipient_address_line1' => '2 Correct Street',
+                'recipient_address_line2' => 'Room 301',
+            ],
+        );
+
+        $this->assertSame(Issue::TYPE_WRONG_ADDRESS, $reship->issue->issue_type);
+        $this->assertSame('Correct Recipient', $reship->recipient_name);
+        $this->assertSame('09011112222', $reship->recipient_phone);
+        $this->assertSame('JP', $reship->recipient_country_code);
+        $this->assertSame('150-0001', $reship->recipient_postal_code);
+        $this->assertSame('Tokyo', $reship->recipient_state);
+        $this->assertSame('Shibuya', $reship->recipient_city);
+        $this->assertSame('2 Correct Street', $reship->recipient_address_line1);
+        $this->assertSame('Room 301', $reship->recipient_address_line2);
     }
 
     public function test_reship_uses_sales_order_line_id_and_rejects_too_much_quantity(): void
@@ -204,6 +241,32 @@ class ReshipSalesOrderTest extends TestCase
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentIndex::class)
             ->assertSee($reship->ref);
+    }
+
+    public function test_sales_order_index_reship_action_only_shows_with_shipped_filter(): void
+    {
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->assertDontSee(__('outbound.reship'))
+            ->set('fulfillmentStatusesFilter', [SalesOrder::FULFILLMENT_STATUS_SHIPPED])
+            ->assertSee(__('outbound.reship'));
+    }
+
+    public function test_sales_order_index_reship_action_opens_detail_reship_modal_for_one_shipped_order(): void
+    {
+        [$salesOrder] = $this->shippedSalesOrderWithLine();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->set('fulfillmentStatusesFilter', [SalesOrder::FULFILLMENT_STATUS_SHIPPED])
+            ->set('selectedIds', [$salesOrder->id])
+            ->call('reshipSelected')
+            ->assertRedirect(route('sales.orders.show', ['order' => $salesOrder, 'reship' => 1]));
+
+        Livewire::actingAs($this->internalUser())
+            ->withQueryParams(['reship' => '1'])
+            ->test(SalesOrderDetail::class, ['order' => $salesOrder])
+            ->assertSet('showReshipModal', true);
     }
 
     public function test_tenant_user_cannot_open_reship_modal(): void

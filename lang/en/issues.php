@@ -90,6 +90,7 @@ return [
         'damaged' => 'Damaged item',
         'returned' => 'Returned item',
         'wrong_item' => 'Wrong item',
+        'wrong_address' => 'Wrong address',
         'lost_in_transit' => 'Lost in transit',
         'customer_refused' => 'Customer refused',
         'other' => 'Other',

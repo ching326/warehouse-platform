@@ -487,6 +487,40 @@ class SalesOrderIndex extends Component
         session()->flash('status', BulkActionMessage::make('sales_orders.bulk_remap_shipping_result', $updated, $skipped));
     }
 
+    public function reshipSelected(): mixed
+    {
+        if (! $this->hasShippedStatusFilter()) {
+            session()->flash('error', __('sales_orders.reship_requires_shipped_filter'));
+
+            return null;
+        }
+
+        $selectedIds = $this->normalizedSelectedIds();
+
+        if (count($selectedIds) !== 1) {
+            session()->flash('error', __('sales_orders.reship_select_one'));
+
+            return null;
+        }
+
+        $order = SalesOrder::query()
+            ->whereIn('tenant_id', $this->allowedTenantIds())
+            ->whereKey($selectedIds[0])
+            ->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_SHIPPED)
+            ->whereHas('outboundOrders', fn ($query) => $query->where('outbound_orders.status', OutboundOrder::STATUS_SHIPPED))
+            ->first();
+
+        if (! $order) {
+            session()->flash('error', __('outbound.reship_not_shipped'));
+
+            return null;
+        }
+
+        $this->selectedIds = [];
+
+        return redirect()->route('sales.orders.show', ['order' => $order, 'reship' => 1]);
+    }
+
     public function bulkCancel(): void
     {
         if ($this->selectedIds === []) {
@@ -648,6 +682,15 @@ class SalesOrderIndex extends Component
         }
 
         $this->selectedIds = array_values(array_unique(array_merge($selectedIds, $visibleIds)));
+    }
+
+    public function hasShippedStatusFilter(): bool
+    {
+        return in_array(
+            SalesOrder::FULFILLMENT_STATUS_SHIPPED,
+            array_values(array_map('strval', (array) $this->fulfillmentStatusesFilter)),
+            true,
+        );
     }
 
     public function validateMarketplaceShippingNoticeExport(string $platform): mixed

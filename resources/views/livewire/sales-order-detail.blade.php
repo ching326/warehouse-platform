@@ -84,7 +84,23 @@
                 @error('reshipSourceOutboundId') <p class="form-error">{{ $message }}</p> @enderror
                 @error('reshipWarehouseId') <p class="form-error">{{ $message }}</p> @enderror
                 @error('reshipReason') <p class="form-error">{{ $message }}</p> @enderror
+                @error('reshipRecipientCountryCode') <p class="form-error">{{ $message }}</p> @enderror
                 @error('reshipLines') <p class="form-error">{{ $message }}</p> @enderror
+
+                <div class="form-panel-subsection">
+                    <strong>{{ __('outbound.section_recipient') }}</strong>
+                    <span>{{ __('outbound.reship_recipient_hint') }}</span>
+                </div>
+                <div class="form-grid two">
+                    <flux:input wire:model="reshipRecipientName" :label="__('outbound.field_recipient_name')" />
+                    <flux:input wire:model="reshipRecipientPhone" :label="__('outbound.field_recipient_phone')" />
+                    <flux:input wire:model="reshipRecipientCountryCode" :label="__('outbound.field_country_code')" />
+                    <flux:input wire:model="reshipRecipientPostalCode" :label="__('outbound.field_postal_code')" />
+                    <flux:input wire:model="reshipRecipientState" :label="__('outbound.field_state')" />
+                    <flux:input wire:model="reshipRecipientCity" :label="__('outbound.field_city')" />
+                    <flux:input wire:model="reshipRecipientAddressLine1" :label="__('outbound.field_address_line1')" />
+                    <flux:input wire:model="reshipRecipientAddressLine2" :label="__('outbound.field_address_line2')" />
+                </div>
 
                 <flux:table class="data-table">
                     <flux:table.columns>

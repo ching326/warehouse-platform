@@ -20,6 +20,7 @@ class ReshipSalesOrderService
 
     /**
      * @param  array<int, array{sales_order_line_id: int, qty: int}>  $lines
+     * @param  array<string, mixed>  $recipient
      */
     public function reship(
         SalesOrder $salesOrder,
@@ -28,8 +29,9 @@ class ReshipSalesOrderService
         string $issueType,
         array $lines,
         ?string $note,
+        array $recipient = [],
     ): OutboundOrder {
-        return DB::transaction(function () use ($salesOrder, $originalOutbound, $warehouseId, $issueType, $lines, $note): OutboundOrder {
+        return DB::transaction(function () use ($salesOrder, $originalOutbound, $warehouseId, $issueType, $lines, $note, $recipient): OutboundOrder {
             $salesOrder = SalesOrder::query()
                 ->lockForUpdate()
                 ->findOrFail($salesOrder->id);
@@ -41,6 +43,7 @@ class ReshipSalesOrderService
             $this->validateIssueType($issueType);
             $warehouseId = $this->resolveWarehouseId($warehouseId, $originalOutbound);
             $selectedLines = $this->validatedLines($salesOrder, $lines);
+            $recipient = $this->recipientFields($originalOutbound, $recipient);
 
             $issue = Issue::query()->create([
                 'tenant_id' => $salesOrder->tenant_id,
@@ -65,18 +68,18 @@ class ReshipSalesOrderService
                 'warehouse_id' => $warehouseId,
                 'shipping_method_id' => $originalOutbound->shipping_method_id,
                 'ref' => 'OB-PENDING-'.Str::uuid(),
-                'recipient_name' => $originalOutbound->recipient_name,
-                'recipient_phone' => $originalOutbound->recipient_phone,
-                'recipient_country_code' => $originalOutbound->recipient_country_code,
-                'recipient_postal_code' => $originalOutbound->recipient_postal_code,
-                'recipient_state' => $originalOutbound->recipient_state,
-                'recipient_city' => $originalOutbound->recipient_city,
-                'recipient_address_line1' => $originalOutbound->recipient_address_line1,
-                'recipient_address_line2' => $originalOutbound->recipient_address_line2,
+                'recipient_name' => $recipient['recipient_name'],
+                'recipient_phone' => $recipient['recipient_phone'],
+                'recipient_country_code' => $recipient['recipient_country_code'],
+                'recipient_postal_code' => $recipient['recipient_postal_code'],
+                'recipient_state' => $recipient['recipient_state'],
+                'recipient_city' => $recipient['recipient_city'],
+                'recipient_address_line1' => $recipient['recipient_address_line1'],
+                'recipient_address_line2' => $recipient['recipient_address_line2'],
                 'courier' => $originalOutbound->courier,
                 'package_count' => $originalOutbound->package_count,
                 'package_weight_g' => $originalOutbound->package_weight_g,
-                'ship_note' => $originalOutbound->ship_note,
+                'ship_note' => null,
                 'note' => $this->nullableString($note),
                 'created_by_user_id' => Auth::id(),
             ]);
@@ -119,8 +122,43 @@ class ReshipSalesOrderService
         return [
             Issue::TYPE_MISSING => __('outbound.reship_reason_missing'),
             Issue::TYPE_DAMAGED => __('outbound.reship_reason_defect'),
+            Issue::TYPE_WRONG_ADDRESS => __('outbound.reship_reason_wrong_address'),
             Issue::TYPE_OTHER => __('outbound.reship_reason_other'),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $recipient
+     * @return array<string, ?string>
+     */
+    private function recipientFields(OutboundOrder $originalOutbound, array $recipient): array
+    {
+        $fields = [
+            'recipient_name',
+            'recipient_phone',
+            'recipient_country_code',
+            'recipient_postal_code',
+            'recipient_state',
+            'recipient_city',
+            'recipient_address_line1',
+            'recipient_address_line2',
+        ];
+
+        $resolved = [];
+
+        foreach ($fields as $field) {
+            $value = array_key_exists($field, $recipient)
+                ? $recipient[$field]
+                : $originalOutbound->{$field};
+
+            $resolved[$field] = $this->nullableString(is_scalar($value) ? (string) $value : null);
+        }
+
+        if ($resolved['recipient_country_code'] !== null) {
+            $resolved['recipient_country_code'] = strtoupper($resolved['recipient_country_code']);
+        }
+
+        return $resolved;
     }
 
     private function validateSource(SalesOrder $salesOrder, OutboundOrder $originalOutbound): void

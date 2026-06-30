@@ -406,6 +406,15 @@
                     {{ __('sales_orders.btn_remap_shipping_method') }}
                 </flux:button>
 
+                @if ($this->hasShippedStatusFilter())
+                    <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
+                        {{ __('outbound.reship') }}
+                    </flux:button>
+                    <flux:button type="button" size="sm" variant="primary" wire:click="reshipSelected" x-show="has()" x-cloak>
+                        {{ __('outbound.reship') }}
+                    </flux:button>
+                @endif
+
                 <flux:button
                     type="button"
                     size="sm"

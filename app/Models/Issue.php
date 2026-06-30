@@ -25,6 +25,8 @@ class Issue extends Model
 
     public const TYPE_WRONG_ITEM = 'wrong_item';
 
+    public const TYPE_WRONG_ADDRESS = 'wrong_address';
+
     public const TYPE_LOST_IN_TRANSIT = 'lost_in_transit';
 
     public const TYPE_CUSTOMER_REFUSED = 'customer_refused';
@@ -161,6 +163,7 @@ class Issue extends Model
             self::TYPE_DAMAGED => __('issues.types.damaged'),
             self::TYPE_RETURNED => __('issues.types.returned'),
             self::TYPE_WRONG_ITEM => __('issues.types.wrong_item'),
+            self::TYPE_WRONG_ADDRESS => __('issues.types.wrong_address'),
             self::TYPE_LOST_IN_TRANSIT => __('issues.types.lost_in_transit'),
             self::TYPE_CUSTOMER_REFUSED => __('issues.types.customer_refused'),
             self::TYPE_OTHER => __('issues.types.other'),
