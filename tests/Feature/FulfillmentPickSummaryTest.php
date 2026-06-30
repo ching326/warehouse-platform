@@ -21,6 +21,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Models\WarehouseLocation;
+use App\Services\Barcode\BarcodeImageService;
 use App\Services\Fulfillment\OutboundConsolidationService;
 use App\Services\InventoryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -293,6 +294,125 @@ class FulfillmentPickSummaryTest extends TestCase
             ->set('warehouseId', (string) $warehouse->id)
             ->assertSee('4901234567890')
             ->assertDontSee('+1 aliases');
+    }
+
+    public function test_pick_summary_print_table_includes_svg_barcode_image_and_text(): void
+    {
+        [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-PRINT-BARCODE', 'SKU-PRINT-BARCODE');
+        BarcodeAlias::query()->create([
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
+            'model_id' => $sku->stock_item_id,
+            'barcode' => 'PRINT-STOCK-001',
+            'normalized_barcode' => 'PRINTSTOCK001',
+            'barcode_type' => 'internal_label',
+            'label' => 'Print stock barcode',
+            'is_primary' => true,
+            'is_active' => true,
+            'source' => BarcodeAlias::SOURCE_MANUAL,
+        ]);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-PICK-PRINT-BARCODE');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPickSummary::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->assertSee('<svg', false)
+            ->assertSee(app(BarcodeImageService::class)->code128Svg('PRINT-STOCK-001'), false)
+            ->assertSee('PRINT-STOCK-001');
+    }
+
+    public function test_pick_summary_print_barcode_prefers_stock_item_alias_before_sku_alias(): void
+    {
+        [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-STOCK-WINS', 'SKU-STOCK-WINS');
+        BarcodeAlias::query()->create([
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_SKU,
+            'model_id' => $sku->id,
+            'barcode' => 'SKU-ALIAS-LOSES',
+            'normalized_barcode' => 'SKUALIASLOSES',
+            'barcode_type' => 'platform_label',
+            'label' => 'SKU alias',
+            'is_primary' => true,
+            'is_active' => true,
+            'source' => BarcodeAlias::SOURCE_MANUAL,
+        ]);
+        BarcodeAlias::query()->create([
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
+            'model_id' => $sku->stock_item_id,
+            'barcode' => 'STOCK-ALIAS-WINS',
+            'normalized_barcode' => 'STOCKALIASWINS',
+            'barcode_type' => 'internal_label',
+            'label' => 'Stock alias',
+            'is_primary' => false,
+            'is_active' => true,
+            'source' => BarcodeAlias::SOURCE_MANUAL,
+        ]);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-PICK-STOCK-WINS');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPickSummary::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->assertSee(app(BarcodeImageService::class)->code128Svg('STOCK-ALIAS-WINS'), false)
+            ->assertDontSee(app(BarcodeImageService::class)->code128Svg('SKU-ALIAS-LOSES'), false)
+            ->assertSee('SKU-ALIAS-LOSES');
+    }
+
+    public function test_pick_summary_print_barcode_uses_primary_stock_item_alias_first(): void
+    {
+        [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-PRIMARY-WINS', 'SKU-PRIMARY-WINS');
+
+        foreach ([['NONPRIMARY-ALIAS', false], ['PRIMARY-ALIAS', true]] as [$barcode, $isPrimary]) {
+            BarcodeAlias::query()->create([
+                'tenant_id' => $tenant->id,
+                'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
+                'model_id' => $sku->stock_item_id,
+                'barcode' => $barcode,
+                'normalized_barcode' => BarcodeAlias::normalize($barcode),
+                'barcode_type' => 'internal_label',
+                'label' => $barcode,
+                'is_primary' => $isPrimary,
+                'is_active' => true,
+                'source' => BarcodeAlias::SOURCE_MANUAL,
+            ]);
+        }
+
+        $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-PICK-PRIMARY-WINS');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPickSummary::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->assertSee(app(BarcodeImageService::class)->code128Svg('PRIMARY-ALIAS'), false)
+            ->assertDontSee(app(BarcodeImageService::class)->code128Svg('NONPRIMARY-ALIAS'), false);
+    }
+
+    public function test_pick_summary_print_barcode_ignores_inactive_aliases_and_shows_dash_without_barcodes(): void
+    {
+        [$tenant, $warehouse, $shop, $sku, $method] = $this->stationSku('STK-INACTIVE-ALIAS', 'SKU-INACTIVE-ALIAS');
+        BarcodeAlias::query()->create([
+            'tenant_id' => $tenant->id,
+            'model_type' => BarcodeAlias::MODEL_TYPE_STOCK_ITEM,
+            'model_id' => $sku->stock_item_id,
+            'barcode' => 'SLEEPING-BARCODE',
+            'normalized_barcode' => 'SLEEPINGBARCODE',
+            'barcode_type' => 'internal_label',
+            'label' => 'Inactive alias',
+            'is_primary' => true,
+            'is_active' => false,
+            'source' => BarcodeAlias::SOURCE_MANUAL,
+        ]);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-PICK-INACTIVE-ALIAS');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentPickSummary::class)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->assertDontSee(app(BarcodeImageService::class)->code128Svg('SLEEPING-BARCODE'), false)
+            ->assertDontSee('SLEEPING-BARCODE')
+            ->assertSee('print-barcode-empty', false);
     }
 
     public function test_hold_stock_is_not_pickable(): void

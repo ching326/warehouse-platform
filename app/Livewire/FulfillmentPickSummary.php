@@ -10,6 +10,7 @@ use App\Models\ReturnOrderLine;
 use App\Models\ShippingMethod;
 use App\Models\Tenant;
 use App\Models\Warehouse;
+use App\Services\Barcode\BarcodeImageService;
 use App\Services\Fulfillment\FulfillmentPackService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -83,11 +84,11 @@ class FulfillmentPickSummary extends Component
         $this->dateTo = '';
     }
 
-    public function render(FulfillmentPackService $packService)
+    public function render(FulfillmentPackService $packService, BarcodeImageService $barcodeImageService)
     {
         $this->authorizeInternalUser();
 
-        $rows = $this->pickRows($packService);
+        $rows = $this->pickRows($packService, $barcodeImageService);
         $summary = $this->summary($rows);
 
         return view('livewire.fulfillment-pick-summary', [
@@ -109,7 +110,7 @@ class FulfillmentPickSummary extends Component
     /**
      * @return Collection<int, array<string, mixed>>
      */
-    private function pickRows(FulfillmentPackService $packService): Collection
+    private function pickRows(FulfillmentPackService $packService, BarcodeImageService $barcodeImageService): Collection
     {
         $outbounds = $this->outboundQuery()
             ->with([
@@ -129,6 +130,9 @@ class FulfillmentPickSummary extends Component
                 $sku = $line['sku'];
                 $key = 'sku:'.($line['sku_id'] ?? 'null').':stock:'.($line['stock_item_id'] ?? 'null');
 
+                $barcodes = $this->availableBarcodes($line);
+                $printBarcode = $this->printBarcode($barcodes);
+
                 $rows[$key] ??= [
                     'sku_id' => $line['sku_id'],
                     'stock_item_id' => $line['stock_item_id'],
@@ -138,7 +142,9 @@ class FulfillmentPickSummary extends Component
                     'required_qty' => 0,
                     'outbounds' => [],
                     'orders' => [],
-                    'barcodes' => $this->availableBarcodes($line),
+                    'barcodes' => $barcodes,
+                    'print_barcode' => $printBarcode,
+                    'print_barcode_svg' => $printBarcode ? $barcodeImageService->code128Svg($printBarcode) : '',
                     'is_strict' => $packService->lineIsStrictOnly($line),
                     'location_hint' => '-',
                     'pickable_qty' => 0,
@@ -339,6 +345,14 @@ class FulfillmentPickSummary extends Component
             ->unique()
             ->values()
             ->all();
+    }
+
+    /**
+     * @param  array<int, string>  $barcodes
+     */
+    private function printBarcode(array $barcodes): ?string
+    {
+        return $barcodes[0] ?? null;
     }
 
     private function activeAliasBarcodes(?Collection $aliases): Collection

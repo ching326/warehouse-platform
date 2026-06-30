@@ -182,7 +182,21 @@
                                     <td>{{ $stockItem?->code ?: '-' }}</td>
                                     <td>{{ implode(', ', $row['sku_codes']) ?: '-' }}</td>
                                     <td>{{ $stockItem?->displayName() ?: collect($row['sku_names'])->first() ?: '-' }}</td>
-                                    <td>{{ implode(', ', $row['barcodes']) ?: '-' }}</td>
+                                    <td>
+                                        @if ($row['print_barcode_svg'])
+                                            <div class="print-barcode-image">{!! $row['print_barcode_svg'] !!}</div>
+                                        @endif
+
+                                        @if (count($row['barcodes']) > 0)
+                                            <div class="print-barcode-text">
+                                                @foreach ($row['barcodes'] as $barcode)
+                                                    <div>{{ $barcode }}</div>
+                                                @endforeach
+                                            </div>
+                                        @else
+                                            <span class="print-barcode-empty">-</span>
+                                        @endif
+                                    </td>
                                     <td>{{ number_format($row['required_qty']) }}</td>
                                     <td></td>
                                 </tr>
@@ -363,6 +377,26 @@
             .print-pick-table .print-location-row td {
                 background: #e2e8f0;
                 font-weight: 900;
+            }
+
+            .print-barcode-image {
+                display: block;
+                width: auto;
+                max-width: 100%;
+                margin-bottom: 3px;
+            }
+
+            .print-barcode-image svg {
+                display: block;
+                width: auto;
+                max-width: 100%;
+                height: 36px;
+            }
+
+            .print-barcode-text {
+                font-size: 9px;
+                line-height: 1.2;
+                word-break: break-all;
             }
 
             .table-shell,
