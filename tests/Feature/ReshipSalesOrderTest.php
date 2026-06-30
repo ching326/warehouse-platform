@@ -136,6 +136,50 @@ class ReshipSalesOrderTest extends TestCase
         ]);
     }
 
+    public function test_sales_order_index_default_view_shows_shipped_order_with_reship_in_progress(): void
+    {
+        [$salesOrder, $originalOutbound, $line, $stockItem, $warehouse] = $this->shippedSalesOrderWithLine();
+        app(InventoryService::class)->adjustStock($salesOrder->tenant_id, $warehouse->id, $stockItem->id, 10);
+
+        app(ReshipSalesOrderService::class)->reship(
+            salesOrder: $salesOrder,
+            originalOutbound: $originalOutbound,
+            warehouseId: null,
+            issueType: Issue::TYPE_MISSING,
+            lines: [['sales_order_line_id' => $line->id, 'qty' => 1]],
+            note: null,
+        );
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->assertSee($salesOrder->platform_order_id)
+            ->assertSee(__('sales_orders.reship_in_progress'));
+    }
+
+    public function test_sales_order_index_default_view_hides_order_after_reship_is_shipped(): void
+    {
+        [$salesOrder, $originalOutbound, $line, $stockItem, $warehouse] = $this->shippedSalesOrderWithLine();
+        app(InventoryService::class)->adjustStock($salesOrder->tenant_id, $warehouse->id, $stockItem->id, 10);
+
+        $reship = app(ReshipSalesOrderService::class)->reship(
+            salesOrder: $salesOrder,
+            originalOutbound: $originalOutbound,
+            warehouseId: null,
+            issueType: Issue::TYPE_MISSING,
+            lines: [['sales_order_line_id' => $line->id, 'qty' => 1]],
+            note: null,
+        );
+        $reship->update(['status' => OutboundOrder::STATUS_SHIPPED, 'shipped_at' => now()]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderIndex::class)
+            ->assertDontSee($salesOrder->platform_order_id);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SalesOrderDetail::class, ['order' => $salesOrder])
+            ->assertSee(__('sales_orders.reshipped'));
+    }
+
     public function test_two_reships_create_distinct_issues(): void
     {
         [$salesOrder, $originalOutbound, $line, $stockItem, $warehouse] = $this->shippedSalesOrderWithLine();

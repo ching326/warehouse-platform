@@ -207,6 +207,46 @@ class SalesOrder extends Model
         return $this->activeOutboundOrders()->first();
     }
 
+    public function reshipStatus(): ?string
+    {
+        $outbounds = $this->relationLoaded('outboundOrders')
+            ? $this->outboundOrders
+            : ($this->relationLoaded('activeOutboundOrders') ? $this->activeOutboundOrders : $this->outboundOrders()->get());
+
+        $reships = $outbounds->where('reason', OutboundOrder::REASON_RE_SHIP);
+
+        if ($reships->contains(fn (OutboundOrder $outbound): bool => ! in_array($outbound->status, [
+            OutboundOrder::STATUS_SHIPPED,
+            OutboundOrder::STATUS_CANCELLED,
+        ], true))) {
+            return 'reship_in_progress';
+        }
+
+        if ($reships->contains(fn (OutboundOrder $outbound): bool => $outbound->status === OutboundOrder::STATUS_SHIPPED)) {
+            return 'reshipped';
+        }
+
+        return null;
+    }
+
+    public function reshipStatusLabel(): ?string
+    {
+        return match ($this->reshipStatus()) {
+            'reship_in_progress' => __('sales_orders.reship_in_progress'),
+            'reshipped' => __('sales_orders.reshipped'),
+            default => null,
+        };
+    }
+
+    public function reshipStatusColor(): string
+    {
+        return match ($this->reshipStatus()) {
+            'reship_in_progress' => 'amber',
+            'reshipped' => 'green',
+            default => 'zinc',
+        };
+    }
+
     public function isPacking(): bool
     {
         return $this->activeOutboundOrder()?->courier_csv_exported_at !== null;

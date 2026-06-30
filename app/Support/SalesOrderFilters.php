@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use Carbon\CarbonInterface;
@@ -261,15 +262,26 @@ class SalesOrderFilters
 
     private static function applyActiveOnly(Builder $query): void
     {
-        $query
-            ->whereNotIn('order_status', [
-                SalesOrder::ORDER_STATUS_COMPLETED,
-                SalesOrder::ORDER_STATUS_CANCELLED,
-            ])
-            ->whereNotIn('fulfillment_status', [
-                SalesOrder::FULFILLMENT_STATUS_SHIPPED,
-                SalesOrder::FULFILLMENT_STATUS_CANCELLED,
-            ]);
+        $query->where(function (Builder $query): void {
+            $query
+                ->where(function (Builder $query): void {
+                    $query
+                        ->whereNotIn('order_status', [
+                            SalesOrder::ORDER_STATUS_COMPLETED,
+                            SalesOrder::ORDER_STATUS_CANCELLED,
+                        ])
+                        ->whereNotIn('fulfillment_status', [
+                            SalesOrder::FULFILLMENT_STATUS_SHIPPED,
+                            SalesOrder::FULFILLMENT_STATUS_CANCELLED,
+                        ]);
+                })
+                ->orWhereHas('outboundOrders', fn (Builder $outbound): Builder => $outbound
+                    ->where('outbound_orders.reason', OutboundOrder::REASON_RE_SHIP)
+                    ->whereNotIn('outbound_orders.status', [
+                        OutboundOrder::STATUS_SHIPPED,
+                        OutboundOrder::STATUS_CANCELLED,
+                    ]));
+        });
     }
 
     private static function applyMultiItem(Builder $query): void

@@ -613,6 +613,9 @@
                             <flux:table.cell>
                                 <div class="record-status-stack">
                                     <x-status-badge :status="$order->fulfillment_status" :label="$this->fulfillmentStatusLabel($order->fulfillment_status)" />
+                                    @if ($order->reshipStatus())
+                                        <x-status-badge :status="$order->reshipStatus()" :label="$order->reshipStatusLabel()" />
+                                    @endif
                                     @if ($order->order_status !== \App\Models\SalesOrder::ORDER_STATUS_PENDING)
                                         <x-status-badge :status="$order->order_status" :label="$this->orderStatusLabel($order->order_status)" />
                                     @endif

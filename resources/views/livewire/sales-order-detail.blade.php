@@ -200,6 +200,9 @@
                         <flux:badge color="{{ $this->fulfillmentStatusColor($order->fulfillment_status) }}">
                             {{ $this->fulfillmentStatusLabel($order->fulfillment_status) }}
                         </flux:badge>
+                        @if ($order->reshipStatus())
+                            <x-status-badge :status="$order->reshipStatus()" :label="$order->reshipStatusLabel()" />
+                        @endif
                         @if ($order->isPacking())
                             <span class="so-packing-text">{{ __('sales_orders.label_packing') }}</span>
                         @endif

@@ -17,6 +17,7 @@
         'canceled',
         'failed' => 'red',
         'on_hold' => 'amber',
+        'reship_in_progress' => 'amber',
         'announced',
         'draft',
         'inspected',
@@ -26,6 +27,7 @@
         'reserved',
         'ship_ready',
         'unfulfilled' => 'blue',
+        'reshipped' => 'green',
         'inactive' => 'zinc',
         default => 'zinc',
     };

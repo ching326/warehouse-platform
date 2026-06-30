@@ -182,6 +182,8 @@ return [
     'bulk_remap_shipping_none' => 'No selected orders could be remapped from SKU default shipping methods.',
     'reship_requires_shipped_filter' => 'Apply the Shipped filter before creating a reship.',
     'reship_select_one' => 'Select one shipped order to reship.',
+    'reship_in_progress' => 'Reship in progress',
+    'reshipped' => 'Reshipped',
     'bulk_shipped_result' => ':updated order(s) marked shipped. :skipped skipped.',
     'bulk_shipped_result_no_skips' => ':updated order(s) marked shipped.',
     'ready_no_active_warehouse' => 'No active warehouse is available for fulfillment grouping.',
