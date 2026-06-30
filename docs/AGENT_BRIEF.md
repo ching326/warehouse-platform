@@ -87,6 +87,18 @@ Note: `composer` is not on PATH in this environment.
   edits (`apply_patch`/editor tools) and force UTF-8 no BOM if a script must write a file.
 - After any language-file edit, check the diff and confirm only the intended lines changed.
 
+## Validation error display
+
+- Flux fields already render their own validation errors under the field.
+- Do not add a manual `@error(...)` block for the same field when using:
+  - `<flux:input>`
+  - `<flux:select>`
+  - `<flux:textarea>`
+- Use manual `@error(...)` only for plain HTML fields, custom components, hidden fields,
+  array/grid row inputs, or group-level form errors.
+- Before committing form changes, inspect the Blade diff and confirm each field can only
+  show one validation error message.
+
 ## How to report a finding
 
 For each issue:
