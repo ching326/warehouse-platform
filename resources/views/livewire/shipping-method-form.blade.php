@@ -11,12 +11,10 @@
 
     <div>
         <flux:input wire:model="code" :label="__('shipping.field_code')" />
-        @error('code') <p class="form-error">{{ $message }}</p> @enderror
     </div>
 
     <div>
         <flux:input wire:model="name" :label="__('shipping.field_name')" />
-        @error('name') <p class="form-error">{{ $message }}</p> @enderror
     </div>
 
     <div>
@@ -41,7 +39,6 @@
                 <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
             @endforeach
         </flux:select>
-        @error('status') <p class="form-error">{{ $message }}</p> @enderror
     </div>
 </div>
 
@@ -66,7 +63,6 @@
         </div>
         <div>
             <flux:input wire:model="currency" maxlength="3" :label="__('shipping.field_currency')" />
-            @error('currency') <p class="form-error">{{ $message }}</p> @enderror
         </div>
     </div>
 </div>

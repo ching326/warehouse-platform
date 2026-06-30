@@ -36,7 +36,6 @@
                 </flux:select>
             </div>
 
-            @error('shopId') <p class="form-error">{{ $message }}</p> @enderror
             @error('platform_order_id') <p class="form-error">{{ $message }}</p> @enderror
             @error('shipping_method_id') <p class="form-error">{{ $message }}</p> @enderror
         </section>

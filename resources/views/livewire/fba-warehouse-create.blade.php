@@ -21,7 +21,6 @@
                 <div>
                     <flux:input wire:model="code" required :label="__('setup.fba_warehouse_code')" />
                     <span class="subtle">{{ __('setup.fba_warehouse_code_hint') }}</span>
-                    @error('code') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
                 <div>
                     <flux:select wire:model="status" :label="__('setup.field_status')">
@@ -29,13 +28,11 @@
                             <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
                         @endforeach
                     </flux:select>
-                    @error('status') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
             </div>
 
             <div>
                 <flux:input wire:model="name" required :label="__('setup.fba_warehouse_name')" />
-                @error('name') <p class="form-error">{{ $message }}</p> @enderror
             </div>
         </section>
 
@@ -54,11 +51,9 @@
                 </div>
                 <div>
                     <flux:input wire:model="state" :label="__('setup.fba_warehouse_state')" />
-                    @error('state') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
                 <div>
                     <flux:input wire:model="city" :label="__('setup.fba_warehouse_city')" />
-                    @error('city') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
             </div>
 
@@ -75,7 +70,6 @@
 
             <div>
                 <flux:input wire:model="phone" :label="__('setup.fba_warehouse_phone')" />
-                @error('phone') <p class="form-error">{{ $message }}</p> @enderror
             </div>
 
             <label>

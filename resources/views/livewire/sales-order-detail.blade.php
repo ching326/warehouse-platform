@@ -82,9 +82,6 @@
                 </div>
 
                 @error('reshipSourceOutboundId') <p class="form-error">{{ $message }}</p> @enderror
-                @error('reshipWarehouseId') <p class="form-error">{{ $message }}</p> @enderror
-                @error('reshipReason') <p class="form-error">{{ $message }}</p> @enderror
-                @error('reshipRecipientCountryCode') <p class="form-error">{{ $message }}</p> @enderror
                 @error('reshipLines') <p class="form-error">{{ $message }}</p> @enderror
 
                 <div class="form-panel-subsection">

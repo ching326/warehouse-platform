@@ -88,7 +88,7 @@
                 </label>
             </div>
 
-            @foreach (['tenantId', 'tenant_id', 'warehouse_id', 'shop_id', 'ref', 'reason', 'shipping_method_id', 'note'] as $field)
+            @foreach (['tenant_id', 'warehouse_id', 'shop_id', 'ref', 'shipping_method_id', 'note'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
         </section>

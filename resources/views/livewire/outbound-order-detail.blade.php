@@ -238,7 +238,7 @@
                     <textarea wire:model="note" rows="3"></textarea>
                 </label>
             </div>
-            @foreach (['shipping_method_id', 'courier', 'tracking_no', 'note'] as $field)
+            @foreach (['shipping_method_id', 'tracking_no', 'note'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
             <div class="form-actions">

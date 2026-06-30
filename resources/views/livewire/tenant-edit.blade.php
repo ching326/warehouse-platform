@@ -13,11 +13,9 @@
                 <div>
                     <flux:input wire:model="code" required :label="__('setup.field_code')" />
                     <span class="subtle">{{ __('setup.field_code_hint') }}</span>
-                    @error('code') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
                 <div>
                     <flux:input wire:model="name" required :label="__('setup.field_name')" />
-                    @error('name') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
                 <div>
                     <flux:select wire:model="status" :label="__('setup.field_status')">
@@ -25,7 +23,6 @@
                             <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
                         @endforeach
                     </flux:select>
-                    @error('status') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
             </div>
 

@@ -105,7 +105,7 @@
             <textarea wire:model="note" rows="3"></textarea>
         </label>
 
-        @foreach (['tenantId', 'salesOrderId', 'outboundOrderId', 'issue_type', 'status', 'lines', 'manualLines', 'unknownIssue'] as $field)
+        @foreach (['salesOrderId', 'outboundOrderId', 'issue_type', 'lines', 'manualLines', 'unknownIssue'] as $field)
             @error($field) <p class="form-error">{{ $message }}</p> @enderror
         @endforeach
     </section>

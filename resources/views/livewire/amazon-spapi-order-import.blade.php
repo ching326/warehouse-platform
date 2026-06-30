@@ -29,9 +29,6 @@
             <flux:input wire:model.live="windowTo" type="datetime-local" :label="__('amazon_spapi_import.to')" />
         </div>
 
-        @error('shopId') <p class="form-error">{{ $message }}</p> @enderror
-        @error('windowFrom') <p class="form-error">{{ $message }}</p> @enderror
-        @error('windowTo') <p class="form-error">{{ $message }}</p> @enderror
         @error('api') <p class="form-error">{{ $message }}</p> @enderror
 
         <div class="form-actions">

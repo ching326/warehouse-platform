@@ -44,7 +44,6 @@
                 </div>
             </div>
 
-            @error('tenantId') <p class="form-error">{{ $message }}</p> @enderror
             @error('tenant_id') <p class="form-error">{{ $message }}</p> @enderror
             @error('warehouse_id') <p class="form-error">{{ $message }}</p> @enderror
 
@@ -105,7 +104,6 @@
                         :label="__('stock_adjustments.field_quantity')"
                     />
                     <span class="subtle">{{ __('stock_adjustments.field_quantity_hint') }}</span>
-                    @error('quantity') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
 
                 <flux:select wire:model="reason" required :label="__('stock_adjustments.field_reason')" :disabled="$action === ''">
@@ -115,8 +113,6 @@
                     @endforeach
                 </flux:select>
             </div>
-            @error('action') <p class="form-error">{{ $message }}</p> @enderror
-            @error('reason') <p class="form-error">{{ $message }}</p> @enderror
 
             <div class="form-grid">
                 <div>

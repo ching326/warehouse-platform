@@ -32,7 +32,6 @@
                 </flux:select>
             </div>
 
-            @error('tenantId') <p class="form-error">{{ $message }}</p> @enderror
             @error('tenant_id') <p class="form-error">{{ $message }}</p> @enderror
             @error('shop_id') <p class="form-error">{{ $message }}</p> @enderror
         </section>
@@ -94,7 +93,7 @@
                 </label>
             </div>
 
-            @foreach (['sku', 'sku_type', 'default_packaging_material_id', 'default_shipping_method_id', 'status'] as $field)
+            @foreach (['sku_type', 'default_packaging_material_id', 'default_shipping_method_id'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
         </section>

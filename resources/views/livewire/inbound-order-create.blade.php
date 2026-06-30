@@ -50,7 +50,7 @@
                 <textarea wire:model="note" rows="3"></textarea>
             </label>
 
-            @foreach (['tenantId', 'tenant_id', 'warehouse_id', 'shop_id', 'expected_at', 'expected_carton_count', 'carton_mark', 'note'] as $field)
+            @foreach (['tenant_id', 'warehouse_id', 'shop_id', 'expected_at', 'expected_carton_count', 'carton_mark', 'note'] as $field)
                 @error($field) <p class="form-error">{{ $message }}</p> @enderror
             @endforeach
         </section>

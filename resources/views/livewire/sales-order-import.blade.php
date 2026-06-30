@@ -81,7 +81,6 @@
             </label>
         </div>
 
-        @error('shopId') <p class="form-error">{{ $message }}</p> @enderror
         @error('file') <p class="form-error">{{ $message }}</p> @enderror
 
         <div class="form-actions">

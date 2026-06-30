@@ -27,7 +27,6 @@
                             <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
                         @endforeach
                     </flux:select>
-                    @error('platform') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
 
                 <div>
@@ -36,7 +35,6 @@
                             <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
                         @endforeach
                     </flux:select>
-                    @error('status') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
             </div>
 
@@ -49,18 +47,15 @@
                         @endforeach
                     </flux:select>
                     <span class="subtle">{{ __('shop.field_marketplace_hint') }}</span>
-                    @error('marketplace') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
 
                 <div>
                     <flux:input wire:model="code" :label="__('shop.field_code')" />
                     <span class="subtle">{{ __('shop.field_code_hint') }}</span>
-                    @error('code') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
 
                 <div>
                     <flux:input wire:model="name" :label="__('shop.field_name')" />
-                    @error('name') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
             </div>
 

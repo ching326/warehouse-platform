@@ -34,7 +34,6 @@
                                 <flux:select.option value="{{ $tenant->id }}">{{ $tenant->code }} - {{ $tenant->name }}</flux:select.option>
                             @endforeach
                         </flux:select>
-                        @error('tenantId') <p class="form-error">{{ $message }}</p> @enderror
                     @endif
 
                     <flux:select wire:model.live="shopId" :label="__('skus.field_shop')" required>
@@ -44,7 +43,6 @@
                         @endforeach
                     </flux:select>
                 </div>
-                @error('shopId') <p class="form-error">{{ $message }}</p> @enderror
 
                 <label
                     class="tracking-import-dropzone"

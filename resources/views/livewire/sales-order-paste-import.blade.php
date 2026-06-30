@@ -39,7 +39,6 @@
             </flux:select>
         </div>
 
-        @error('shopId') <p class="form-error">{{ $message }}</p> @enderror
         @error('grid') <p class="form-error">{{ $message }}</p> @enderror
 
         <div class="paste-mapping-panel">
