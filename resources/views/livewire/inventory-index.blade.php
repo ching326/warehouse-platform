@@ -87,7 +87,9 @@
 
         <flux:table class="inventory-table">
             <flux:table.columns>
-                <flux:table.column>{{ __('inventory.col_stock_item_skus') }}</flux:table.column>
+                <flux:table.column>{{ __('skus.col_stock_item') }}</flux:table.column>
+                <flux:table.column>{{ __('skus.col_sku') }}</flux:table.column>
+                <flux:table.column>{{ __('skus.col_stock_item_name') }}</flux:table.column>
                 @if ($showTenantColumn)
                     <flux:table.column><span class="inventory-tenant-column-label">{{ __('common.tenant') }}</span></flux:table.column>
                 @endif
@@ -106,14 +108,14 @@
                             <div class="stock-item-summary">
                                 @include('livewire.partials.stock-item-thumbnail', ['stockItem' => $balance->stockItem])
                                 <div>
-                                    <strong>{{ $balance->stockItem->name }}</strong>
-                                    <span class="subtle">{{ $this->stockItemPrimaryCode($balance->stockItem) }}</span>
+                                    <strong>{{ $this->stockItemPrimaryCode($balance->stockItem) }}</strong>
                                     @if ($this->stockItemSecondaryCode($balance->stockItem))
                                         <span class="subtle">{{ $this->stockItemSecondaryCode($balance->stockItem) }}</span>
                                     @endif
                                 </div>
                             </div>
-
+                        </flux:table.cell>
+                        <flux:table.cell class="sku-cell">
                             <div class="sku-list">
                                 @php
                                     $allSkus = $balance->stockItem->skus;
@@ -151,6 +153,9 @@
                                 @endif
                             </div>
                         </flux:table.cell>
+                        <flux:table.cell class="stock-item-name-cell">
+                            <strong>{{ $balance->stockItem->name }}</strong>
+                        </flux:table.cell>
                         @if ($showTenantColumn)
                             <flux:table.cell>
                                 <strong>{{ $balance->tenant->code }}</strong>
@@ -167,10 +172,14 @@
                         <flux:table.cell align="end" class="inventory-number-cell">{{ number_format($balance->inbound_qty) }}</flux:table.cell>
                         <flux:table.cell class="exceptions-cell">
                             @if ($balance->hold_qty > 0)
-                                <flux:badge color="amber" class="exception-badge">{{ __('inventory.exception_hold', ['qty' => number_format($balance->hold_qty)]) }}</flux:badge>
+                                <div>
+                                    <flux:badge color="amber" class="exception-badge">{{ __('inventory.exception_hold', ['qty' => number_format($balance->hold_qty)]) }}</flux:badge>
+                                </div>
                             @endif
                             @if ($balance->damaged_qty > 0)
-                                <flux:badge color="red" class="exception-badge danger">{{ __('inventory.exception_damaged', ['qty' => number_format($balance->damaged_qty)]) }}</flux:badge>
+                                <div>
+                                    <flux:badge color="red" class="exception-badge danger">{{ __('inventory.exception_damaged', ['qty' => number_format($balance->damaged_qty)]) }}</flux:badge>
+                                </div>
                             @endif
                             @if ($balance->hold_qty === 0 && $balance->damaged_qty === 0)
                                 <span class="muted-dash">-</span>
@@ -203,7 +212,7 @@
                     </flux:table.row>
                 @empty
                     <flux:table.row>
-                        <flux:table.cell colspan="{{ $showTenantColumn ? 8 : 7 }}">
+                        <flux:table.cell colspan="{{ $showTenantColumn ? 10 : 9 }}">
                             <div class="empty-state">{{ __('inventory.empty_state') }}</div>
                         </flux:table.cell>
                     </flux:table.row>

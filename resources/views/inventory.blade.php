@@ -430,9 +430,25 @@
             }
 
             .stock-item-cell {
-                width: 30%;
-                min-width: 240px;
-                max-width: 340px;
+                width: 18%;
+                min-width: 190px;
+                max-width: 240px;
+            }
+
+            .sku-cell {
+                width: 20%;
+                min-width: 220px;
+                max-width: 280px;
+            }
+
+            .sku-cell .sku-list {
+                margin-top: 0;
+            }
+
+            .stock-item-name-cell {
+                width: 18%;
+                min-width: 180px;
+                max-width: 260px;
             }
 
             .stock-item-summary {
@@ -519,7 +535,7 @@
             }
 
             .inventory-table th:first-child {
-                min-width: 240px;
+                min-width: 190px;
             }
 
             .inventory-table .inventory-number-column,
@@ -551,6 +567,12 @@
                 display: inline-flex;
                 align-items: center;
                 gap: 8px;
+            }
+
+            .inventory-row-actions {
+                display: grid;
+                justify-items: start;
+                gap: 6px;
             }
 
             .action-button-md,
