@@ -222,22 +222,37 @@ $table->index(['source_type', 'source_id']);
 public function generate(Tenant $tenant, string $period): Invoice; // 'YYYY-MM'
 ```
 
-Behavior (single transaction, `lockForUpdate` the invoice row):
+Behavior (single transaction after the rate/currency preflight, `lockForUpdate` the
+invoice row):
 
-1. Load-or-create the invoice for (tenant, period). `lockForUpdate` only locks an
-   existing row, so **create-or-load must handle the `unique(tenant, period)` race**: on
-   a duplicate-key error, reload the row `lockForUpdate` and proceed (two concurrent
-   Generate clicks then serialize instead of both building lines). If FINALIZED -> abort.
-   If DRAFT -> delete its lines + line-sources and rebuild.
-2. Resolve the period window `[start, endExclusive]` in the warehouse/tenant timezone.
-3. **Currency guard:** the invoice currency = the single shared currency of the tenant's
-   applicable rate rows (abort if rates disagree, per Phase 2). Any source cost
-   (`courier_cost_currency`, `return_order_costs.currency`) that differs from it -> throw
-   a billing error naming the offending records. No conversion.
-4. Build lines per fee type (below), one line per **rate window** where a rate change
+1. Resolve the period window `[start, endExclusive]` in the **warehouse timezone**
+   (`warehouses.timezone`). Each billable event is bucketed into the period by **its own
+   warehouse's** month window, so events at warehouses in different timezones each land
+   in the correct month. Storage is already per `(warehouse, stock_item)`, so it uses
+   that warehouse's timezone; per-event fees use the event's warehouse
+   (`inbound_receipts.warehouse_id`, `outbound_orders.warehouse_id`); return costs use the
+   return's receiving warehouse. A tenant that spans multiple warehouses can therefore
+   have events grouped under more than one timezone boundary in the same run.
+2. Load the tenant's applicable rate rows for the period **before creating the invoice**.
+   If there are no applicable rate rows, abort with "no rates configured" and create no
+   invoice. If applicable rate rows use more than one currency, abort. The surviving
+   shared rate-card currency is the invoice currency.
+3. Load-or-create the invoice for (tenant, period), passing the resolved currency.
+   `lockForUpdate` only locks an existing row, so **create-or-load must handle the
+   `unique(tenant, period)` race**: on a duplicate-key error, reload the row
+   `lockForUpdate` and proceed (two concurrent Generate clicks then serialize instead
+   of both building lines). If FINALIZED -> abort. If DRAFT -> delete its lines +
+   line-sources and rebuild.
+4. **Source-cost currency guard:** only check source costs that are actually billed in
+   this run - outbound `courier_cost_currency` for shipped-in-window orders with a
+   non-null courier cost, and `return_order_costs.currency` for billable
+   `COST_FREIGHT_COLLECT` rows in the window. If any billed source cost differs from
+   the invoice currency, throw a billing error naming the offending records. No
+   conversion. Do not let unrelated/non-billed return cost rows abort the run.
+5. Build lines per fee type (below), one line per **rate window** where a rate change
    splits the period. Attach `invoice_line_sources` rows. Round each line half-up to the
    currency minor unit.
-5. `total` = sum of rounded line amounts. Save invoice (draft) + lines + sources.
+6. `total` = sum of rounded line amounts. Save invoice (draft) + lines + sources.
 
 **Per-fee computation:**
 
@@ -295,7 +310,8 @@ Behavior (single transaction, `lockForUpdate` the invoice row):
 
 Confirm exact operational timestamps during build (`outbound_orders.shipped_at`,
 `inbound_receipts.received_at`, return inspected timestamp) - always the operational
-date, never `created_at`, so the charge lands in the correct month.
+date, never `created_at`, and interpreted in the event's **warehouse timezone**, so the
+charge lands in the correct month.
 
 ### Livewire: billing screen
 
@@ -306,7 +322,8 @@ date, never `created_at`, so the charge lands in the correct month.
 ## 4. Currency, rounding, tenant scope
 
 - One tenant per run; every query filters `tenant_id`.
-- Invoice currency = rate-card currency; sources in another currency abort the run.
+- Invoice currency = rate-card currency; billed source costs in another currency abort
+  the run.
 - Round each line half-up to the currency minor unit; `total` = sum of rounded lines.
 
 ## 5. Tests
@@ -334,7 +351,9 @@ Feature (`tests/Feature/BillingRunTest.php`):
    snapshotted; `COST_RESEND_SHIPPING` is NOT billed as return_shipping; a `freight_collect`
    cost entered late bills in its `cost_incurred_at` month, not the entry month.
 5. Mid-month rate change emits one line per rate window with correct per-window amounts.
-6. Period boundary: last day in, first of next month out, by operational timestamp.
+6. Period boundary: last day in, first of next month out, by operational timestamp
+   interpreted in the event's **warehouse timezone** (an event near midnight in a
+   non-UTC warehouse lands in the month its warehouse-local date falls in).
 7. `invoice_line_sources`: per-event rows reference exact source ids and sum to line
    qty/cost_base; storage rows carry `warehouse_id` + `source_date` and reconcile to the
    m3-month invoice quantity.
