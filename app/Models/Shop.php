@@ -41,6 +41,9 @@ class Shop extends Model
         'consolidation_mode',
         'contact_name',
         'contact_email',
+        'ship_label_address',
+        'ship_label_phone',
+        'ship_label_postcode',
         'status',
         'note',
     ];

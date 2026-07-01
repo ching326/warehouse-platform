@@ -48,11 +48,11 @@ class SagawaCsvBuilder
             $row[6] = $address['address3'];
             $row[7] = $order->recipient_name;
             $row[9] = $this->compactOutboundReference((string) $order->platform_order_id);
-            $row[14] = config('courier.sender.phone');
-            $row[17] = config('courier.sender.phone');
-            $row[18] = config('courier.sender.postal_code');
-            $row[19] = config('courier.sender.address1');
-            $row[20] = config('courier.sender.address2');
+            $row[14] = $this->senderPhone($order);
+            $row[17] = $this->senderPhone($order);
+            $row[18] = $this->senderPostcode($order);
+            $row[19] = $this->senderAddress1($order);
+            $row[20] = $this->senderAddress2($order);
             $row[21] = $this->senderName($order->shop?->name ?? '');
             $row[23] = '箱';
             foreach ($items as $index => $item) {

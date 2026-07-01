@@ -83,6 +83,11 @@
                     @error('contact_email') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
             </div>
+            <div class="form-grid">
+                <flux:input wire:model="shipLabelPhone" :label="__('shop.field_ship_label_phone')" />
+                <flux:input wire:model="shipLabelPostcode" :label="__('shop.field_ship_label_postcode')" />
+            </div>
+            <flux:textarea wire:model="shipLabelAddress" rows="3" :label="__('shop.field_ship_label_address')" />
         </section>
 
         <section class="table-shell flux-panel form-panel">

@@ -91,9 +91,6 @@ class AddressLabelPdfService
         $innerWidth = max(1, $layout->cellWidth() - ($padding * 2));
         $lineHeight = 4.2;
 
-        $pdf->SetDrawColor(210, 210, 210);
-        $pdf->Rect($x, $y, $layout->cellWidth(), $layout->cellHeight());
-
         $this->text($pdf, $innerX, $innerY, $innerWidth, $lineHeight, (string) $label['postal_code'], 9, 'B');
         $this->text($pdf, $innerX, $innerY + 5, $innerWidth, $lineHeight, (string) $label['address_line1'], 8.5);
         $this->text($pdf, $innerX, $innerY + 10, $innerWidth, $lineHeight, (string) $label['address_line2'], 8.5);

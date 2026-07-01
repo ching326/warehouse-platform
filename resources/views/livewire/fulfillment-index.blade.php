@@ -2,7 +2,7 @@
     <x-flash-toast />
 
     @if ($pendingExportWarning)
-        <div class="app-toast app-toast-warning app-toast-confirm" role="alert">
+        <div class="app-toast app-toast-warning app-toast-confirm" role="alert" x-data="{ visible: true }" x-show="visible">
             <div class="app-toast-body">
                 <strong class="app-toast-title">{{ __('common.toast.warning') }}</strong>
                 <span class="app-toast-text">{{ $pendingExportWarning }}</span>
@@ -11,7 +11,7 @@
                     <flux:button type="button" size="sm" variant="outline" wire:click="cancelCourierExport">
                         {{ __('common.cancel') }}
                     </flux:button>
-                    <flux:button type="button" size="sm" variant="primary" wire:click="confirmCourierExport">
+                    <flux:button type="button" size="sm" variant="primary" x-on:click="visible = false" wire:click="confirmCourierExport">
                         {{ __('fulfillment.courier_export_confirm_btn') }}
                     </flux:button>
                 </div>
@@ -20,7 +20,7 @@
                     <flux:button type="button" size="sm" variant="outline" wire:click="cancelAddressLabelExport">
                         {{ __('common.cancel') }}
                     </flux:button>
-                    <flux:button type="button" size="sm" variant="primary" wire:click="confirmAddressLabelExport">
+                    <flux:button type="button" size="sm" variant="primary" x-on:click="visible = false" wire:click="confirmAddressLabelExport">
                         {{ __('fulfillment.address_label_confirm_btn') }}
                     </flux:button>
                 </div>

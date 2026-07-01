@@ -28,6 +28,9 @@ class ShopTest extends TestCase
             ->set('marketplace', 'JP')
             ->set('code', 'AMZJP')
             ->set('name', 'Amazon JP')
+            ->set('shipLabelAddress', '1-2-3 Shop Sender Building')
+            ->set('shipLabelPhone', '03-1111-2222')
+            ->set('shipLabelPostcode', '100-0001')
             ->call('save')
             ->assertRedirect(route('setup.shops.index'));
 
@@ -37,6 +40,9 @@ class ShopTest extends TestCase
             'marketplace' => 'JP',
             'code' => 'AMZJP',
             'name' => 'Amazon JP',
+            'ship_label_address' => '1-2-3 Shop Sender Building',
+            'ship_label_phone' => '03-1111-2222',
+            'ship_label_postcode' => '100-0001',
             'status' => 'active',
             'consolidation_mode' => Shop::CONSOLIDATION_SAME_SHOP,
         ]);
@@ -303,6 +309,9 @@ class ShopTest extends TestCase
             ->set('name', 'New Name')
             ->set('status', 'inactive')
             ->set('consolidationMode', Shop::CONSOLIDATION_NONE)
+            ->set('shipLabelAddress', '4-5-6 Updated Sender Address')
+            ->set('shipLabelPhone', '03-3333-4444')
+            ->set('shipLabelPostcode', '150-0001')
             ->call('save')
             ->assertRedirect(route('setup.shops.index'));
 
@@ -311,6 +320,9 @@ class ShopTest extends TestCase
             'name' => 'New Name',
             'status' => 'inactive',
             'consolidation_mode' => Shop::CONSOLIDATION_NONE,
+            'ship_label_address' => '4-5-6 Updated Sender Address',
+            'ship_label_phone' => '03-3333-4444',
+            'ship_label_postcode' => '150-0001',
         ]);
     }
 

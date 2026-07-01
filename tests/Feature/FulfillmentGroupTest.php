@@ -1091,6 +1091,11 @@ class FulfillmentGroupTest extends TestCase
     {
         Storage::fake('local');
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $shop->update([
+            'ship_label_phone' => '03-9999-1111',
+            'ship_label_postcode' => '160-0022',
+            'ship_label_address' => 'Tokyo Shinjuku Sender 1-2-3',
+        ]);
         $orderA = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-EXPORT-A');
         $orderB = $this->readySalesOrder($tenant, $shop, $sku, 2, 'SO-FG-EXPORT-B');
         $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
@@ -1112,6 +1117,9 @@ class FulfillmentGroupTest extends TestCase
 
         $this->assertSame(2, count($lines));
         $this->assertStringContainsString($outbound->ref, $csv);
+        $this->assertStringContainsString('03-9999-1111', $csv);
+        $this->assertStringContainsString('160-0022', $csv);
+        $this->assertStringContainsString('Tokyo Shinjuku Sender 1-2-3', $csv);
         $this->assertStringNotContainsString('SO-FG-EXPORT-A', $csv);
         $this->assertStringNotContainsString('SO-FG-EXPORT-B', $csv);
         $this->assertDatabaseHas('courier_export_batches', [
@@ -1166,6 +1174,7 @@ class FulfillmentGroupTest extends TestCase
     {
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
         $tenant->update(['fulfillment_item_code_source' => Tenant::FULFILLMENT_ITEM_CODE_SOURCE_TENANT_ITEM_CODE]);
+        $shop->update(['ship_label_address' => 'Shop sender address for labels']);
         $sku->stockItem->update([
             'tenant_item_code' => 'TENANT-LABEL-CODE',
             'short_name' => 'Short label product name',
@@ -1184,6 +1193,7 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame('Shared Recipient', $labels[0]['recipient_name']);
         $this->assertStringContainsString('2 x TENANT-LABEL-CODE', $labels[0]['items_line']);
         $this->assertSame('Short label product name', $labels[0]['description_line']);
+        $this->assertSame('Shop sender address for labels', $labels[0]['shipper_address']);
         $this->assertFalse($labels[0]['show_phone']);
         $this->assertSame(1234, $labels[0]['total_weight']);
     }
@@ -1217,6 +1227,7 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame(AddressLabelExportService::EXPORT_TYPE_LABEL10, $batch->carrier);
         $this->assertStringStartsWith('%PDF', $pdf);
         $this->assertStringContainsString('cid0jp', $pdf);
+        $this->assertStringNotContainsString(' re', $pdf);
         $this->assertNotNull($outbound->refresh()->courier_label_exported_at);
         $this->assertDatabaseHas('courier_export_batch_orders', [
             'courier_export_batch_id' => $batch->id,
@@ -1275,6 +1286,13 @@ class FulfillmentGroupTest extends TestCase
         $outbound->update(['shipping_method_id' => ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail()->id]);
         $wrongCarrier = $service->validateOrderExport([$outbound->id], [$tenant->id]);
         $this->assertSame([$outbound->id], $wrongCarrier->wrongCarrierOrderIds);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('selectedIds', [(string) $outbound->id])
+            ->call('openAddressLabelModal')
+            ->assertSet('showAddressLabelModal', false)
+            ->assertSee(__('fulfillment.courier_export_wrong_carrier_ids', ['ids' => (string) $outbound->id]));
     }
 
     public function test_fulfillment_label10_reexport_requires_confirmation_and_livewire_confirms(): void
@@ -1295,14 +1313,18 @@ class FulfillmentGroupTest extends TestCase
             ->test(FulfillmentIndex::class)
             ->set('selectedIds', [(string) $outbound->id])
             ->call('openAddressLabelModal')
-            ->assertSet('showAddressLabelModal', true)
-            ->call('toggleLabel10SkipCell', 1)
-            ->assertSet('label10SkipCells', [1])
-            ->call('exportLabel10')
             ->assertSet('showAddressLabelModal', false)
+            ->assertSet('pendingAddressLabelNeedsCellSelection', true)
             ->assertSet('pendingAddressLabelOrderIds', [$outbound->id])
             ->assertSee(__('fulfillment.courier_export_reexport_warning'))
             ->call('confirmAddressLabelExport')
+            ->assertSet('showAddressLabelModal', true)
+            ->assertSet('pendingExportWarning', null)
+            ->assertSet('pendingAddressLabelOrderIds', [])
+            ->assertSet('confirmedAddressLabelOrderIds', [$outbound->id])
+            ->call('toggleLabel10SkipCell', 1)
+            ->assertSet('label10SkipCells', [1])
+            ->call('exportLabel10')
             ->assertRedirect(route('courier-export-batches.download', CourierExportBatch::firstOrFail()));
 
         $this->assertNotSame('2026-06-18 10:00:00', $outbound->refresh()->courier_label_exported_at?->format('Y-m-d H:i:s'));

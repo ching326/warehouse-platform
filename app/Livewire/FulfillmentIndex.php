@@ -101,6 +101,10 @@ class FulfillmentIndex extends Component
 
     public array $pendingAddressLabelSkipCells = [];
 
+    public array $confirmedAddressLabelOrderIds = [];
+
+    public bool $pendingAddressLabelNeedsCellSelection = false;
+
     public array $pendingHoldOrderIds = [];
 
     public ?string $pendingHoldWarning = null;
@@ -530,7 +534,7 @@ class FulfillmentIndex extends Component
         );
 
         if ($result->hasHardBlock()) {
-            session()->flash('error', $this->addressLabelExportMessage($result->toArray()));
+            session()->flash('error', $this->courierExportMessage($result->toArray()));
 
             return null;
         }
@@ -572,6 +576,29 @@ class FulfillmentIndex extends Component
             return;
         }
 
+        $this->clearPendingExport();
+        $outboundOrderIds = $this->selectedOutboundOrderIds();
+        $result = app(AddressLabelExportService::class)->validateOrderExport(
+            outboundOrderIds: $outboundOrderIds,
+            allowedTenantIds: $this->allowedTenantIds(),
+        );
+
+        if ($result->hasHardBlock()) {
+            session()->flash('error', $this->addressLabelExportMessage($result->toArray()));
+
+            return;
+        }
+
+        if ($result->requiresConfirmation) {
+            $this->showAddressLabelModal = false;
+            $this->pendingAddressLabelOrderIds = $outboundOrderIds;
+            $this->pendingAddressLabelSkipCells = [];
+            $this->pendingAddressLabelNeedsCellSelection = true;
+            $this->pendingExportWarning = $this->reExportWarning($result->alreadyExportedOrderIds);
+
+            return;
+        }
+
         $this->label10SkipCells = [];
         $this->showAddressLabelModal = true;
     }
@@ -580,6 +607,7 @@ class FulfillmentIndex extends Component
     {
         $this->showAddressLabelModal = false;
         $this->label10SkipCells = [];
+        $this->confirmedAddressLabelOrderIds = [];
     }
 
     public function toggleLabel10SkipCell(int $cell): void
@@ -611,14 +639,16 @@ class FulfillmentIndex extends Component
         $this->pendingAddressLabelOrderIds = [];
         $this->pendingAddressLabelSkipCells = [];
         $this->pendingExportWarning = null;
+        $this->pendingAddressLabelNeedsCellSelection = false;
+        $confirmedOrderIds = $this->confirmedAddressLabelOrderIds;
 
-        if ($this->selectedIds === []) {
+        if ($this->selectedIds === [] && $confirmedOrderIds === []) {
             session()->flash('error', __('fulfillment.address_label_no_selection'));
 
             return null;
         }
 
-        $outboundOrderIds = $this->selectedOutboundOrderIds();
+        $outboundOrderIds = $confirmedOrderIds !== [] ? $confirmedOrderIds : $this->selectedOutboundOrderIds();
         $result = app(AddressLabelExportService::class)->validateOrderExport(
             outboundOrderIds: $outboundOrderIds,
             allowedTenantIds: $this->allowedTenantIds(),
@@ -630,7 +660,7 @@ class FulfillmentIndex extends Component
             return null;
         }
 
-        if ($result->requiresConfirmation) {
+        if ($result->requiresConfirmation && $confirmedOrderIds === []) {
             $this->showAddressLabelModal = false;
             $this->pendingAddressLabelOrderIds = $outboundOrderIds;
             $this->pendingAddressLabelSkipCells = $skipCells;
@@ -639,7 +669,7 @@ class FulfillmentIndex extends Component
             return null;
         }
 
-        return $this->performAddressLabelExport(confirmedReExport: false, outboundOrderIds: $outboundOrderIds, skipCells: $skipCells);
+        return $this->performAddressLabelExport(confirmedReExport: $confirmedOrderIds !== [], outboundOrderIds: $outboundOrderIds, skipCells: $skipCells);
     }
 
     public function confirmAddressLabelExport(): mixed
@@ -650,6 +680,20 @@ class FulfillmentIndex extends Component
 
         $outboundOrderIds = $this->pendingAddressLabelOrderIds;
         $skipCells = $this->pendingAddressLabelSkipCells;
+
+        if ($this->pendingAddressLabelNeedsCellSelection) {
+            $this->confirmedAddressLabelOrderIds = $outboundOrderIds;
+            $this->pendingAddressLabelOrderIds = [];
+            $this->pendingAddressLabelSkipCells = [];
+            $this->pendingAddressLabelNeedsCellSelection = false;
+            $this->pendingExportWarning = null;
+            $this->label10SkipCells = [];
+            $this->showAddressLabelModal = true;
+            session()->forget(['warning', 'error']);
+
+            return null;
+        }
+
         $this->clearPendingExport();
 
         return $this->performAddressLabelExport(confirmedReExport: true, outboundOrderIds: $outboundOrderIds, skipCells: $skipCells);
@@ -1066,6 +1110,8 @@ class FulfillmentIndex extends Component
         $this->label10SkipCells = [];
         $this->pendingAddressLabelOrderIds = [];
         $this->pendingAddressLabelSkipCells = [];
+        $this->confirmedAddressLabelOrderIds = [];
+        $this->pendingAddressLabelNeedsCellSelection = false;
 
         return redirect()->route('courier-export-batches.download', $batch);
     }
@@ -1099,7 +1145,7 @@ class FulfillmentIndex extends Component
         $parts = [];
 
         foreach ([
-            'wrong_carrier_order_ids' => 'address_label_japan_post_only_ids',
+            'wrong_carrier_order_ids' => 'courier_export_wrong_carrier_ids',
             'blocked_status_order_ids' => 'courier_export_blocked_status_ids',
             'held_order_ids' => 'courier_export_held_ids',
             'no_ready_lines_order_ids' => 'courier_export_no_ready_lines_ids',
@@ -1210,9 +1256,11 @@ class FulfillmentIndex extends Component
         $this->pendingCourierExportOrderIds = [];
         $this->pendingAddressLabelOrderIds = [];
         $this->pendingAddressLabelSkipCells = [];
+        $this->confirmedAddressLabelOrderIds = [];
+        $this->pendingAddressLabelNeedsCellSelection = false;
         $this->pendingExportWarning = null;
 
-        session()->forget('warning');
+        session()->forget(['warning', 'error']);
     }
 
     private function normalizeSkipCells(array $skipCells): array

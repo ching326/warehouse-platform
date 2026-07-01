@@ -31,6 +31,33 @@ trait BuildsCourierCsv
         return trim((string) config('courier.sender.name')) ?: $fallback;
     }
 
+    private function senderPhone($order): string
+    {
+        return $this->shopSenderValue($order, 'ship_label_phone') ?: trim((string) config('courier.sender.phone'));
+    }
+
+    private function senderPostcode($order): string
+    {
+        return $this->shopSenderValue($order, 'ship_label_postcode') ?: trim((string) config('courier.sender.postal_code'));
+    }
+
+    private function senderAddress1($order): string
+    {
+        return $this->shopSenderValue($order, 'ship_label_address') ?: trim((string) config('courier.sender.address1'));
+    }
+
+    private function senderAddress2($order): string
+    {
+        return $this->shopSenderValue($order, 'ship_label_address') !== ''
+            ? ''
+            : trim((string) config('courier.sender.address2'));
+    }
+
+    private function shopSenderValue($order, string $field): string
+    {
+        return trim((string) ($order->shop?->{$field} ?? ''));
+    }
+
     private function itemNames($order, int $limit, int $length): array
     {
         return $order->lines

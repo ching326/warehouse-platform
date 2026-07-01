@@ -26,6 +26,12 @@ class ShopCreate extends Component
 
     public string $contactEmail = '';
 
+    public string $shipLabelAddress = '';
+
+    public string $shipLabelPhone = '';
+
+    public string $shipLabelPostcode = '';
+
     public string $status = 'active';
 
     public string $note = '';
@@ -53,6 +59,9 @@ class ShopCreate extends Component
             'consolidation_mode' => $this->consolidationMode,
             'contact_name' => $this->nullableString($this->contactName),
             'contact_email' => $this->nullableString($this->contactEmail),
+            'ship_label_address' => $this->nullableString($this->shipLabelAddress),
+            'ship_label_phone' => $this->nullableString($this->shipLabelPhone),
+            'ship_label_postcode' => $this->nullableString($this->shipLabelPostcode),
             'status' => $this->status,
             'note' => $this->nullableString($this->note),
         ]);
@@ -92,6 +101,9 @@ class ShopCreate extends Component
             'consolidation_mode' => $this->consolidationMode,
             'contact_name' => $this->contactName,
             'contact_email' => $this->contactEmail,
+            'ship_label_address' => $this->shipLabelAddress,
+            'ship_label_phone' => $this->shipLabelPhone,
+            'ship_label_postcode' => $this->shipLabelPostcode,
             'status' => $this->status,
             'note' => $this->note,
         ], [
@@ -111,6 +123,9 @@ class ShopCreate extends Component
             'consolidation_mode' => ['required', 'string', Rule::in(Shop::consolidationModes())],
             'contact_name' => ['nullable', 'string', 'max:255'],
             'contact_email' => ['nullable', 'email', 'max:255'],
+            'ship_label_address' => ['nullable', 'string', 'max:2000'],
+            'ship_label_phone' => ['nullable', 'string', 'max:50'],
+            'ship_label_postcode' => ['nullable', 'string', 'max:20'],
             'status' => ['required', 'string', Rule::in(['active', 'inactive'])],
             'note' => ['nullable', 'string', 'max:2000'],
         ])->validate();

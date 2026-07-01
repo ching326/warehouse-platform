@@ -54,7 +54,7 @@ class AddressLabelDataBuilder
             'items_line' => $this->itemsLine($order, $lines),
             'description_line' => $this->descriptionLine($lines),
             'shipper_name' => $this->shipperName($shop, $tenant),
-            'shipper_address' => $this->shipperAddress(),
+            'shipper_address' => $this->shipperAddress($shop),
             'total_weight' => $this->totalWeight($order, $lines),
         ];
     }
@@ -138,8 +138,14 @@ class AddressLabelDataBuilder
         return trim((string) ($shop?->name ?: config('courier.sender.name') ?: $tenant?->name ?: $tenant?->code ?: ''));
     }
 
-    private function shipperAddress(): string
+    private function shipperAddress(?Shop $shop): string
     {
+        $shopAddress = trim((string) $shop?->ship_label_address);
+
+        if ($shopAddress !== '') {
+            return $shopAddress;
+        }
+
         return trim(implode(' ', array_filter([
             config('courier.sender.address1'),
             config('courier.sender.address2'),
