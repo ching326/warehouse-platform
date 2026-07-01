@@ -64,6 +64,7 @@ class ShipOutboundOrderService
                 ? $carrierCode
                 : $this->nullableString($input['courier'] ?? null);
             $trackingNo = TrackingNumber::normalize($this->nullableString($input['tracking_no'] ?? null));
+            $courierCostAttributes = $this->courierCostAttributes($lockedOrder, $input);
 
             $lockedOrder->update([
                 'status' => OutboundOrder::STATUS_SHIPPED,
@@ -75,7 +76,7 @@ class ShipOutboundOrderService
                 'package_count' => $this->nullableInt($input['package_count'] ?? null),
                 'package_weight_g' => $this->nullableInt($input['package_weight_g'] ?? null),
                 'ship_note' => $this->nullableString($input['ship_note'] ?? null),
-            ]);
+            ] + $courierCostAttributes);
 
             // Linked sales orders (if any) are back-written by OutboundOrderObserver
             // on the status change to shipped.
@@ -96,5 +97,54 @@ class ShipOutboundOrderService
         }
 
         return (int) $value;
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    private function courierCostAttributes(OutboundOrder $order, array $input): array
+    {
+        if (! array_key_exists('courier_cost', $input) && ! array_key_exists('courier_cost_currency', $input)) {
+            return [];
+        }
+
+        $cost = $this->nullableDecimal($input['courier_cost'] ?? null);
+        $currency = $this->nullableString($input['courier_cost_currency'] ?? null);
+        $currency = $currency !== null ? strtoupper($currency) : null;
+
+        if ($cost !== null && $currency === null) {
+            throw new InvalidArgumentException(__('outbound.courier_cost_currency_required'));
+        }
+
+        $attributes = [
+            'courier_cost' => $cost,
+            'courier_cost_currency' => $currency,
+        ];
+
+        if ($this->courierCostChanged($order, $cost, $currency)) {
+            $attributes['courier_cost_updated_by_user_id'] = Auth::id();
+            $attributes['courier_cost_updated_at'] = now();
+        }
+
+        return $attributes;
+    }
+
+    private function nullableDecimal(mixed $value): ?string
+    {
+        if ($value === null || trim((string) $value) === '') {
+            return null;
+        }
+
+        return number_format((float) $value, 2, '.', '');
+    }
+
+    private function courierCostChanged(OutboundOrder $order, ?string $cost, ?string $currency): bool
+    {
+        $currentCost = $order->courier_cost === null
+            ? null
+            : number_format((float) $order->courier_cost, 2, '.', '');
+
+        return $currentCost !== $cost || ($order->courier_cost_currency ?: null) !== $currency;
     }
 }

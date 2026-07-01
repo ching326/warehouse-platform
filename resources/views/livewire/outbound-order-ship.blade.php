@@ -129,6 +129,8 @@
                 <flux:input wire:model="trackingNo" :label="__('outbound.field_tracking_no')" />
                 <flux:input wire:model="packageCount" type="number" min="1" step="1" :label="__('outbound.field_package_count')" />
                 <flux:input wire:model="packageWeightKg" type="number" min="0" step="0.01" :label="__('outbound.field_package_weight_kg')" />
+                <flux:input wire:model="courierCost" type="number" min="0" step="0.01" :label="__('outbound.field_courier_cost')" />
+                <flux:input wire:model="courierCostCurrency" maxlength="3" :label="__('outbound.field_courier_cost_currency')" />
                 <label class="form-grid-wide">
                     <span>{{ __('outbound.field_ship_note') }}</span>
                     <textarea wire:model="shipNote" rows="3"></textarea>

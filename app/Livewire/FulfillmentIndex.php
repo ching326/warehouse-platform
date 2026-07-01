@@ -388,6 +388,8 @@ class FulfillmentIndex extends Component
                 app(ShipOutboundOrderService::class)->ship($order, [
                     'courier' => $order->shippingMethod?->carrier?->code ?? '',
                     'tracking_no' => (string) ($order->tracking_no ?? ''),
+                    'courier_cost' => $order->courier_cost,
+                    'courier_cost_currency' => $order->courier_cost_currency,
                 ]);
 
                 $updated++;

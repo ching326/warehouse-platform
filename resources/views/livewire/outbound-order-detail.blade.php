@@ -216,9 +216,14 @@
             <div>
                 <strong>{{ __('outbound.section_shipment') }}</strong>
             </div>
-            @if (! $editingShipping && $order->status === \App\Models\OutboundOrder::STATUS_RESERVED)
-                <flux:button type="button" variant="outline" wire:click="editShipping">{{ __('fulfillment.btn_edit') }}</flux:button>
-            @endif
+            <div class="active-filter-row">
+                @if (! $editingShipping && $order->status === \App\Models\OutboundOrder::STATUS_RESERVED)
+                    <flux:button type="button" variant="outline" wire:click="editShipping">{{ __('fulfillment.btn_edit') }}</flux:button>
+                @endif
+                @if ($isInternal && ! $editingCourierCost)
+                    <flux:button type="button" variant="outline" wire:click="editCourierCost">{{ __('outbound.btn_edit_courier_cost') }}</flux:button>
+                @endif
+            </div>
         </div>
 
         @if ($editingShipping)
@@ -268,6 +273,17 @@
                 <strong>{{ $order->package_weight_g !== null ? number_format($order->package_weight_g) : '-' }}</strong>
             </div>
             <div>
+                <span>{{ __('outbound.field_courier_cost') }}</span>
+                <strong>{{ $order->courier_cost !== null ? trim($order->courier_cost_currency.' '.number_format((float) $order->courier_cost, 2)) : '-' }}</strong>
+            </div>
+            <div>
+                <span>{{ __('outbound.field_courier_cost_updated') }}</span>
+                <strong>{{ $order->courier_cost_updated_at ? $order->courier_cost_updated_at->format('Y-m-d H:i') : '-' }}</strong>
+                @if ($order->courierCostUpdatedBy)
+                    <span class="subtle">{{ $order->courierCostUpdatedBy->name }}</span>
+                @endif
+            </div>
+            <div>
                 <span>{{ __('outbound.shipped_at') }}</span>
                 <strong>{{ $order->shipped_at ? $order->shipped_at->format('Y-m-d H:i') : '-' }}</strong>
             </div>
@@ -280,6 +296,17 @@
                 <strong>{{ $order->ship_note ?: '-' }}</strong>
             </div>
         </div>
+        @endif
+
+        @if ($editingCourierCost)
+            <div class="form-grid three">
+                <flux:input wire:model="courierCost" type="number" min="0" step="0.01" :label="__('outbound.field_courier_cost')" />
+                <flux:input wire:model="courierCostCurrency" maxlength="3" :label="__('outbound.field_courier_cost_currency')" />
+            </div>
+            <div class="form-actions">
+                <flux:button type="button" variant="outline" wire:click="cancelEditCourierCost">{{ __('fulfillment.btn_cancel') }}</flux:button>
+                <flux:button type="button" variant="primary" wire:click="saveCourierCost">{{ __('fulfillment.btn_save') }}</flux:button>
+            </div>
         @endif
     </section>
 

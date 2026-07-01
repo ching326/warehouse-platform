@@ -89,6 +89,10 @@ class OutboundOrder extends Model
         'tracking_no',
         'package_count',
         'package_weight_g',
+        'courier_cost',
+        'courier_cost_currency',
+        'courier_cost_updated_by_user_id',
+        'courier_cost_updated_at',
         'ship_note',
         'shipped_at',
         'shipped_by_user_id',
@@ -107,6 +111,8 @@ class OutboundOrder extends Model
             'released_at' => 'datetime',
             'package_count' => 'integer',
             'package_weight_g' => 'integer',
+            'courier_cost' => 'decimal:2',
+            'courier_cost_updated_at' => 'datetime',
         ];
     }
 
@@ -184,6 +190,11 @@ class OutboundOrder extends Model
     public function shippedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'shipped_by_user_id');
+    }
+
+    public function courierCostUpdatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'courier_cost_updated_by_user_id');
     }
 
     public function heldBy(): BelongsTo

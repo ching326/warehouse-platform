@@ -310,6 +310,8 @@ class FulfillmentPack extends Component
                 $shipService->ship($lockedOrder, [
                     'courier' => $lockedOrder->courier,
                     'tracking_no' => $lockedOrder->tracking_no,
+                    'courier_cost' => $lockedOrder->courier_cost,
+                    'courier_cost_currency' => $lockedOrder->courier_cost_currency,
                 ]);
             });
         } catch (InvalidArgumentException $exception) {

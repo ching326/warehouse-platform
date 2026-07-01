@@ -28,6 +28,8 @@ class OutboundOrderDetail extends Component
 
     public bool $editingShipping = false;
 
+    public bool $editingCourierCost = false;
+
     public string $recipientName = '';
 
     public string $recipientPhone = '';
@@ -49,6 +51,10 @@ class OutboundOrderDetail extends Component
     public string $courier = '';
 
     public string $trackingNo = '';
+
+    public string $courierCost = '';
+
+    public string $courierCostCurrency = '';
 
     public string $note = '';
 
@@ -145,6 +151,66 @@ class OutboundOrderDetail extends Component
     public function cancelEditShipping(): void
     {
         $this->editingShipping = false;
+    }
+
+    public function editCourierCost(): void
+    {
+        if (! $this->isInternalUser()) {
+            abort(403);
+        }
+
+        $order = $this->scopedOrderQuery()->findOrFail($this->orderId);
+
+        $this->courierCost = $order->courier_cost !== null ? (string) $order->courier_cost : '';
+        $this->courierCostCurrency = (string) ($order->courier_cost_currency ?? 'JPY');
+        $this->editingCourierCost = true;
+    }
+
+    public function cancelEditCourierCost(): void
+    {
+        $this->editingCourierCost = false;
+    }
+
+    public function saveCourierCost(): void
+    {
+        if (! $this->isInternalUser()) {
+            abort(403);
+        }
+
+        $order = $this->scopedOrderQuery()->findOrFail($this->orderId);
+        $this->courierCostCurrency = strtoupper(trim($this->courierCostCurrency));
+
+        validator([
+            'courier_cost' => $this->courierCost,
+            'courier_cost_currency' => $this->courierCostCurrency,
+        ], [
+            'courier_cost' => ['nullable', 'numeric', 'min:0'],
+            'courier_cost_currency' => ['required_with:courier_cost', 'nullable', 'string', 'size:3'],
+        ])->validate();
+
+        $cost = $this->courierCost !== ''
+            ? number_format((float) $this->courierCost, 2, '.', '')
+            : null;
+        $currency = $cost !== null ? $this->courierCostCurrency : null;
+
+        $currentCost = $order->courier_cost === null
+            ? null
+            : number_format((float) $order->courier_cost, 2, '.', '');
+
+        $attributes = [
+            'courier_cost' => $cost,
+            'courier_cost_currency' => $currency,
+        ];
+
+        if ($currentCost !== $cost || ($order->courier_cost_currency ?: null) !== $currency) {
+            $attributes['courier_cost_updated_by_user_id'] = Auth::id();
+            $attributes['courier_cost_updated_at'] = now();
+        }
+
+        $order->update($attributes);
+
+        $this->editingCourierCost = false;
+        session()->flash('status', __('outbound.courier_cost_updated'));
     }
 
     public function saveShipping(): void
@@ -362,6 +428,7 @@ class OutboundOrderDetail extends Component
                 'shippingMethod:id,name',
                 'createdBy:id,name',
                 'shippedBy:id,name',
+                'courierCostUpdatedBy:id,name',
                 'cancelledBy:id,name',
                 'parentLines.sku:id,sku,sku_type,name',
                 'parentLines.stockItem:id,code,name',
@@ -382,6 +449,7 @@ class OutboundOrderDetail extends Component
         return view('livewire.outbound-order-detail', [
             'order' => $order,
             'shippingMethods' => $this->shippingMethodOptions(),
+            'isInternal' => $this->isInternalUser(),
         ])->layout('inventory', [
             'title' => __('outbound.detail_page_title'),
             'subtitle' => __('outbound.detail_page_subtitle'),

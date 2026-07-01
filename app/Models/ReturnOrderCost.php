@@ -19,11 +19,25 @@ class ReturnOrderCost extends Model
 
     public const COST_OTHER = 'other';
 
-    protected $fillable = ['return_order_id', 'tenant_id', 'cost_type', 'amount', 'currency', 'note', 'created_by_user_id'];
+    protected $fillable = ['return_order_id', 'tenant_id', 'cost_type', 'amount', 'cost_incurred_at', 'currency', 'note', 'created_by_user_id'];
 
     protected function casts(): array
     {
-        return ['amount' => 'decimal:2'];
+        return [
+            'amount' => 'decimal:2',
+            'cost_incurred_at' => 'datetime',
+        ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (ReturnOrderCost $cost): void {
+            if ($cost->cost_incurred_at) {
+                return;
+            }
+
+            $cost->cost_incurred_at = $cost->returnOrder?->received_at ?? now();
+        });
     }
 
     public function returnOrder(): BelongsTo

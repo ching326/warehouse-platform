@@ -26,6 +26,10 @@ class OutboundOrderShip extends Component
 
     public string $packageWeightKg = '';
 
+    public string $courierCost = '';
+
+    public string $courierCostCurrency = 'JPY';
+
     public string $shipNote = '';
 
     public bool $pendingPrintedHoldConfirmation = false;
@@ -72,6 +76,7 @@ class OutboundOrderShip extends Component
         }
 
         $this->validateInput();
+        $this->courierCostCurrency = strtoupper(trim($this->courierCostCurrency));
 
         try {
             app(ShipOutboundOrderService::class)->ship($order, [
@@ -79,6 +84,8 @@ class OutboundOrderShip extends Component
                 'tracking_no' => $this->trackingNo,
                 'package_count' => $this->packageCount,
                 'package_weight_g' => $this->packageWeightKg === '' ? null : (int) round(((float) $this->packageWeightKg) * 1000),
+                'courier_cost' => $this->courierCost,
+                'courier_cost_currency' => $this->courierCost === '' ? null : $this->courierCostCurrency,
                 'ship_note' => $this->shipNote,
             ]);
         } catch (InvalidArgumentException $exception) {
@@ -192,6 +199,8 @@ class OutboundOrderShip extends Component
             'tracking_no' => $this->trackingNo,
             'package_count' => $this->packageCount,
             'package_weight_kg' => $this->packageWeightKg,
+            'courier_cost' => $this->courierCost,
+            'courier_cost_currency' => $this->courierCostCurrency,
             'ship_note' => $this->shipNote,
         ], [
             'shipping_method_id' => [
@@ -205,6 +214,8 @@ class OutboundOrderShip extends Component
             'tracking_no' => ['nullable', 'string', 'max:255'],
             'package_count' => ['nullable', 'integer', 'min:1'],
             'package_weight_kg' => ['nullable', 'numeric', 'min:0'],
+            'courier_cost' => ['nullable', 'numeric', 'min:0'],
+            'courier_cost_currency' => ['required_with:courier_cost', 'nullable', 'string', 'size:3'],
             'ship_note' => ['nullable', 'string', 'max:1000'],
         ])->validate();
     }
