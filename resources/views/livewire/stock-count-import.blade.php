@@ -161,20 +161,19 @@
         </section>
 
         <section class="table-shell flux-panel form-panel">
-            <div class="form-panel-header">
-                <strong>{{ __('stock_counts.option_save_template') }}</strong>
+            <div class="checkbox-stack">
+                <label><input type="checkbox" wire:model.live="doSaveTemplate"> {{ __('stock_counts.option_save_template') }}</label>
             </div>
-            <div class="form-grid">
-                <flux:input wire:model="templateName" :label="__('sku_import.option_template_name')" />
-                <label class="default-view-toggle">
-                    <input type="checkbox" wire:model.live="templateAsDefault">
-                    <span>{{ __('sku_import.option_save_template_as_default') }}</span>
-                </label>
-            </div>
-            <div class="form-actions">
-                <span></span>
-                <flux:button type="button" variant="primary" wire:click="saveTemplate">{{ __('sku_import.map_btn_save') }}</flux:button>
-            </div>
+            @if ($doSaveTemplate)
+                <flux:input wire:model="templateName" :label="__('sku_import.option_template_name')" :placeholder="__('sku_import.option_template_name')" />
+                <div class="checkbox-stack">
+                    <label><input type="checkbox" wire:model.live="templateAsDefault"> {{ __('sku_import.option_save_template_as_default') }}</label>
+                </div>
+                <div class="form-actions">
+                    <span></span>
+                    <flux:button type="button" variant="primary" wire:click="saveTemplate">{{ __('stock_counts.btn_save_template') }}</flux:button>
+                </div>
+            @endif
         </section>
 
         <div class="form-actions">

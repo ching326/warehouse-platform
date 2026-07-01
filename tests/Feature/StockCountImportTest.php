@@ -173,10 +173,15 @@ class StockCountImportTest extends TestCase
             ->test(StockCountImport::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id)
+            ->set('step', 'map')
+            ->set('doSaveTemplate', true)
             ->set('mapping', ['identifier' => 'Identifier', 'counted_qty' => 'Counted qty', 'line_note' => '', 'reference_no' => ''])
+            ->assertSee(__('stock_counts.btn_save_template'))
+            ->assertDontSee('sku_import.map_btn_save')
             ->set('templateName', 'Default count')
             ->set('templateAsDefault', true)
             ->call('saveTemplate')
+            ->assertSet('doSaveTemplate', false)
             ->assertHasNoErrors();
 
         $template = StockCountImportMapping::where('name', 'Default count')->firstOrFail();

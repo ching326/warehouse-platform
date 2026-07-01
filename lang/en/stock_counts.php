@@ -14,6 +14,7 @@ return [
     'btn_upload' => 'Upload file',
     'btn_preview' => 'Preview count',
     'btn_confirm' => 'Confirm import',
+    'btn_save_template' => 'Save template',
     'btn_back_to_index' => 'Back to Stock Count',
     'btn_view_run' => 'View stock count',
     'section_target' => 'Target',

@@ -55,6 +55,8 @@ class StockCountImport extends Component
 
     public string $selectedTemplateId = '';
 
+    public bool $doSaveTemplate = false;
+
     public string $templateName = '';
 
     public bool $templateAsDefault = false;
@@ -200,6 +202,7 @@ class StockCountImport extends Component
 
         $this->templateName = '';
         $this->templateAsDefault = false;
+        $this->doSaveTemplate = false;
         session()->flash('status', __('stock_counts.template_saved'));
     }
 
@@ -682,6 +685,7 @@ class StockCountImport extends Component
     private function resetTemplateState(): void
     {
         $this->selectedTemplateId = '';
+        $this->doSaveTemplate = false;
         $this->templateName = '';
         $this->templateAsDefault = false;
     }
