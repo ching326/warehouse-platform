@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'page_title' => '拣货汇总',
+    'page_title' => '拣货清单',
     'page_subtitle' => '已预留发货管理组的 SKU 级拣货需求。',
     'field_warehouse' => '仓库',
     'field_shipping_method' => '配送方式',
@@ -9,7 +9,7 @@ return [
     'field_date_from' => '开始日期',
     'field_date_to' => '结束日期',
     'select_warehouse' => '选择仓库',
-    'select_warehouse_first' => '请选择仓库以查看拣货摘要。',
+    'select_warehouse_first' => '请选择仓库以查看拣货清单。',
     'all_shipping_methods' => '全部配送方式',
     'search_placeholder' => '库存品项、SKU、组、订单...',
     'summary_pick_rows' => '拣货行数',

@@ -21,7 +21,7 @@ return [
     'nav_order_fulfillment' => '订单出货',
     'nav_sales_orders' => '订单管理',
     'nav_fulfillment' => '发货列表',
-    'nav_pick_summary' => '拣货汇总',
+    'nav_pick_summary' => '拣货清单',
     'nav_ship_to_fba' => 'Ship to FBA',
     'nav_scan_pack' => 'Scan Pack',
     'nav_issues' => '问题案件',

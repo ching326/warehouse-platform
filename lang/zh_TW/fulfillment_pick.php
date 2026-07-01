@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'page_title' => '揀貨摘要',
+    'page_title' => '揀貨清單',
     'page_subtitle' => '已預留發貨管理群組的 SKU 級揀貨需求。',
     'field_warehouse' => '倉庫',
     'field_shipping_method' => '配送方式',
@@ -9,7 +9,7 @@ return [
     'field_date_from' => '開始日期',
     'field_date_to' => '結束日期',
     'select_warehouse' => '選擇倉庫',
-    'select_warehouse_first' => '請選擇倉庫以檢視揀貨摘要。',
+    'select_warehouse_first' => '請選擇倉庫以檢視揀貨清單。',
     'all_shipping_methods' => '全部配送方式',
     'search_placeholder' => '庫存品項、SKU、群組、訂單...',
     'summary_pick_rows' => '揀貨行數',
