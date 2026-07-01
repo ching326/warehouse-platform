@@ -1440,7 +1440,7 @@ class SalesOrderTest extends TestCase
         $printedOutbound = OutboundOrder::factory()->for($tenant)->create([
             'reason' => OutboundOrder::REASON_CUSTOMER_ORDER,
             'status' => OutboundOrder::STATUS_RESERVED,
-            'courier_csv_exported_at' => now(),
+            'courier_label_exported_at' => now(),
         ]);
         $printedOutbound->salesOrders()->attach($printed->id);
 
@@ -1841,7 +1841,7 @@ class SalesOrderTest extends TestCase
         ]);
         $notGrouped = $this->createPersistedOrder($shop, $sku, ['platform_order_id' => 'NOT-PACKING-ORDER']);
         $outbound = app(OutboundConsolidationService::class)->createGroup($tenant->id, $warehouse->id, [$printed->id]);
-        $outbound->update(['courier_csv_exported_at' => '2026-06-18 10:00:00']);
+        $outbound->update(['courier_label_exported_at' => '2026-06-18 10:00:00']);
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)

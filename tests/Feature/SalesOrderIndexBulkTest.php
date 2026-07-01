@@ -208,7 +208,7 @@ class SalesOrderIndexBulkTest extends TestCase
         ]);
         $printedGroup = app(OutboundConsolidationService::class)->createGroup($tenant->id, $warehouse->id, [$printed->id]);
         $notPrintedGroup = app(OutboundConsolidationService::class)->createGroup($tenant->id, $warehouse->id, [$notPrinted->id]);
-        $printedGroup->update(['courier_csv_exported_at' => now()]);
+        $printedGroup->update(['courier_label_exported_at' => now()]);
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderIndex::class)
@@ -243,7 +243,7 @@ class SalesOrderIndexBulkTest extends TestCase
         ]);
         $allowedGroup = app(OutboundConsolidationService::class)->createGroup($tenant->id, $warehouse->id, [$allowed->id]);
         $printedGroup = app(OutboundConsolidationService::class)->createGroup($tenant->id, $warehouse->id, [$printed->id]);
-        $printedGroup->update(['courier_csv_exported_at' => now()]);
+        $printedGroup->update(['courier_label_exported_at' => now()]);
 
         Livewire::actingAs($this->internalUser())
             ->test(SalesOrderDetail::class, ['order' => $allowed])

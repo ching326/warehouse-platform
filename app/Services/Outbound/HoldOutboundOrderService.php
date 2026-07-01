@@ -43,11 +43,11 @@ class HoldOutboundOrderService
                 throw new InvalidArgumentException(__('outbound.cannot_hold_packing'));
             }
 
-            if ($locked->courier_csv_exported_at !== null && $source === 'sales_order') {
+            if ($locked->courier_label_exported_at !== null && $source === 'sales_order') {
                 throw new InvalidArgumentException(__('outbound.hold_printed_sales_blocked'));
             }
 
-            if ($locked->courier_csv_exported_at !== null && ! $confirmedPrinted) {
+            if ($locked->courier_label_exported_at !== null && ! $confirmedPrinted) {
                 return HoldOutboundResult::requiresConfirmation();
             }
 
@@ -124,7 +124,7 @@ class HoldOutboundOrderService
                 throw new InvalidArgumentException(__('outbound.cannot_hold_packing'));
             }
 
-            if ($outbound->courier_csv_exported_at !== null) {
+            if ($outbound->courier_label_exported_at !== null) {
                 throw new InvalidArgumentException(__('outbound.hold_printed_sales_blocked'));
             }
 

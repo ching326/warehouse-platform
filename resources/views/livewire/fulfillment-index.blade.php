@@ -15,6 +15,15 @@
                         {{ __('fulfillment.courier_export_confirm_btn') }}
                     </flux:button>
                 </div>
+            @elseif ($pendingAddressLabelOrderIds !== [])
+                <div class="app-toast-actions">
+                    <flux:button type="button" size="sm" variant="outline" wire:click="cancelAddressLabelExport">
+                        {{ __('common.cancel') }}
+                    </flux:button>
+                    <flux:button type="button" size="sm" variant="primary" wire:click="confirmAddressLabelExport">
+                        {{ __('fulfillment.address_label_confirm_btn') }}
+                    </flux:button>
+                </div>
             @endif
             </div>
         </div>
@@ -363,6 +372,9 @@
                             <button type="button" wire:click="exportSagawa" x-on:click="openActionMenu = null">
                                 {{ __('fulfillment.batch_export_sagawa') }}
                             </button>
+                            <button type="button" wire:click="openAddressLabelModal" x-on:click="openActionMenu = null">
+                                {{ __('fulfillment.batch_export_label10') }}
+                            </button>
                         </div>
                     </div>
                 </details>
@@ -410,7 +422,7 @@
                             ->values();
                         $itemQty = $salesOrders->sum(fn ($so) => (int) $so->lines->sum('quantity'));
                         $arranged = $order->created_at;
-                        $printed = $order->courier_csv_exported_at;
+                        $printed = $order->courier_label_exported_at;
                     @endphp
                     <flux:table.row :key="$order->id">
                         <flux:table.cell class="fg-col-select">
@@ -634,6 +646,48 @@
         </div>
     @endif
 
+    @if ($showAddressLabelModal)
+        <div class="modal-backdrop tracking-import-backdrop" wire:key="fulfillment-address-label-modal">
+            <section class="tracking-import-modal flux-panel address-label-modal">
+                <header class="tracking-import-header">
+                    <div>
+                        <h2>{{ __('fulfillment.address_label_skip_title') }}</h2>
+                        <p>{{ __('fulfillment.address_label_skip_hint') }}</p>
+                    </div>
+                    <button type="button" class="modal-icon-close" wire:click="closeAddressLabelModal" aria-label="{{ __('common.toast.close') }}">&times;</button>
+                </header>
+
+                <div class="address-label-page-grid">
+                    @for ($page = 1; $page <= 3; $page++)
+                        <section class="address-label-page">
+                            <strong>{{ __('fulfillment.address_label_page', ['page' => $page]) }}</strong>
+                            <div class="address-label-cell-grid">
+                                @for ($cell = (($page - 1) * 10) + 1; $cell <= $page * 10; $cell++)
+                                    <button
+                                        type="button"
+                                        @class(['address-label-cell', 'is-selected' => in_array($cell, $label10SkipCells, true)])
+                                        wire:click="toggleLabel10SkipCell({{ $cell }})"
+                                    >
+                                        {{ $cell }}
+                                    </button>
+                                @endfor
+                            </div>
+                        </section>
+                    @endfor
+                </div>
+
+                <footer class="tracking-import-footer">
+                    <flux:button type="button" variant="outline" wire:click="closeAddressLabelModal">
+                        {{ __('common.cancel') }}
+                    </flux:button>
+                    <flux:button type="button" variant="primary" wire:click="exportLabel10">
+                        {{ __('fulfillment.address_label_generate_pdf') }}
+                    </flux:button>
+                </footer>
+            </section>
+        </div>
+    @endif
+
     <style>
         .active-filter-row {
             display: flex;
@@ -792,6 +846,48 @@
             display: flex;
             justify-content: flex-end;
             gap: 10px;
+        }
+
+        .address-label-modal {
+            width: min(780px, calc(100vw - 48px));
+        }
+
+        .address-label-page-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+            margin: 16px 0;
+        }
+
+        .address-label-page {
+            display: grid;
+            gap: 10px;
+        }
+
+        .address-label-page strong {
+            font-size: 13px;
+        }
+
+        .address-label-cell-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .address-label-cell {
+            height: 34px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: #fff;
+            color: var(--ink);
+            font-size: 12px;
+        }
+
+        .address-label-cell.is-selected {
+            border-color: color-mix(in oklab, var(--accent), transparent 35%);
+            background: color-mix(in oklab, var(--accent), white 88%);
+            color: var(--accent-strong);
+            font-weight: 700;
         }
     </style>
 </div>

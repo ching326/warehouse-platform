@@ -19,6 +19,7 @@ row to Done.
 | SKU bulk status toggle | `skus.select_same_status_to_toggle` | ja, zh_TW, zh_CN | Added English only. Translate with the next SKU page pass. |
 | Stock adjustment import | `stock_adjustment_import.*` | ja, zh_TW, zh_CN | Added English only for the bulk stock adjustment import flow. |
 | Stock Count | `stock_counts.*`, `common.nav_stock_count` | ja, zh_TW, zh_CN | Added English only for Stock Count pages and import flow. |
+| Fulfillment Label10 address labels | `fulfillment.address_label_*`, `fulfillment.batch_export_label10` | ja, zh_TW, zh_CN | Added English only for Label10 address label export and skip-cell modal. |
 
 ## Done
 

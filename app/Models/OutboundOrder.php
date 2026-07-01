@@ -63,7 +63,7 @@ class OutboundOrder extends Model
         'source_sales_order_id',
         'reship_of_outbound_id',
         'issue_id',
-        'courier_csv_exported_at',
+        'courier_label_exported_at',
         'shipping_method_id',
         'tenant_id',
         'warehouse_id',
@@ -106,7 +106,7 @@ class OutboundOrder extends Model
         return [
             'shipped_at' => 'datetime',
             'cancelled_at' => 'datetime',
-            'courier_csv_exported_at' => 'datetime',
+            'courier_label_exported_at' => 'datetime',
             'held_at' => 'datetime',
             'released_at' => 'datetime',
             'package_count' => 'integer',

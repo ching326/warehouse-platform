@@ -249,7 +249,7 @@ class SalesOrder extends Model
 
     public function isPacking(): bool
     {
-        return $this->activeOutboundOrder()?->courier_csv_exported_at !== null;
+        return $this->activeOutboundOrder()?->courier_label_exported_at !== null;
     }
 
     public function recalculateShipTogetherKey(): void

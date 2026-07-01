@@ -116,11 +116,11 @@ class SalesOrderFilters
             }
 
             if (in_array(self::OTHER_PRINTED, $filters['others'], true)) {
-                $query->whereHas('activeOutboundOrders', fn ($outbound) => $outbound->whereNotNull('outbound_orders.courier_csv_exported_at'));
+                $query->whereHas('activeOutboundOrders', fn ($outbound) => $outbound->whereNotNull('outbound_orders.courier_label_exported_at'));
             }
 
             if (in_array(self::OTHER_NOT_PRINTED, $filters['others'], true)) {
-                $query->whereDoesntHave('activeOutboundOrders', fn ($outbound) => $outbound->whereNotNull('outbound_orders.courier_csv_exported_at'));
+                $query->whereDoesntHave('activeOutboundOrders', fn ($outbound) => $outbound->whereNotNull('outbound_orders.courier_label_exported_at'));
             }
         }
 

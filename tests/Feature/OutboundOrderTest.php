@@ -44,7 +44,7 @@ class OutboundOrderTest extends TestCase
         foreach ([
             'reason',
             'source_sales_order_id',
-            'courier_csv_exported_at',
+            'courier_label_exported_at',
             'shipping_method_id',
             'courier_cost',
             'courier_cost_currency',
@@ -67,7 +67,7 @@ class OutboundOrderTest extends TestCase
         $this->assertFalse(Schema::hasColumn('outbound_orders', 'fulfillment_group_id'));
         $this->assertFalse(Schema::hasColumn('fulfillment_pack_scans', 'fulfillment_group_id'));
         $this->assertFalse(Schema::hasColumn('fulfillment_pack_scans', 'fulfillment_group_order_id'));
-        $this->assertFalse(Schema::hasColumn('sales_orders', 'courier_csv_exported_at'));
+        $this->assertFalse(Schema::hasColumn('sales_orders', 'courier_label_exported_at'));
         $this->assertFalse(Schema::hasColumn('issues', 'fulfillment_group_id'));
         $this->assertFalse(Schema::hasColumn('return_orders', 'fulfillment_group_id'));
     }
@@ -100,13 +100,13 @@ class OutboundOrderTest extends TestCase
             ->create([
                 'source_sales_order_id' => $salesOrder->id,
                 'shipping_method_id' => $shippingMethod->id,
-                'courier_csv_exported_at' => $exportedAt,
+                'courier_label_exported_at' => $exportedAt,
             ]);
 
         $order->salesOrders()->attach($linkedSalesOrder->id, ['arranged_at' => $arrangedAt]);
 
         $order->refresh();
-        $this->assertInstanceOf(CarbonInterface::class, $order->courier_csv_exported_at);
+        $this->assertInstanceOf(CarbonInterface::class, $order->courier_label_exported_at);
         $this->assertTrue($order->sourceSalesOrder->is($salesOrder));
         $this->assertTrue($order->shippingMethod->is($shippingMethod));
         $this->assertTrue($order->salesOrders->first()->is($linkedSalesOrder));
@@ -1087,7 +1087,7 @@ class OutboundOrderTest extends TestCase
         );
 
         $this->assertNotNull($batch);
-        $this->assertNotNull($order->refresh()->courier_csv_exported_at);
+        $this->assertNotNull($order->refresh()->courier_label_exported_at);
 
         $batchOrder = $batch->batchOrders()->first();
         $this->assertNull($batchOrder->sales_order_id, 'manual outbound has no sales order');
@@ -1188,7 +1188,7 @@ class OutboundOrderTest extends TestCase
 
         $component->assertRedirect();
 
-        $this->assertNotNull($order->refresh()->courier_csv_exported_at);
+        $this->assertNotNull($order->refresh()->courier_label_exported_at);
 
         $batch = CourierExportBatch::latest('id')->first();
         $this->assertNotNull($batch);
@@ -1270,7 +1270,7 @@ class OutboundOrderTest extends TestCase
                 'reason' => OutboundOrder::REASON_REPLACEMENT,
                 'shipping_method_id' => $method->id,
                 'ref' => 'OB-REEXPORT-P13-001',
-                'courier_csv_exported_at' => now(),
+                'courier_label_exported_at' => now(),
                 'recipient_name' => 'Reexport Recipient',
                 'recipient_country_code' => 'JP',
                 'recipient_postal_code' => '100-0001',

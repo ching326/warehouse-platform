@@ -235,7 +235,7 @@ class FulfillmentPickSummaryTest extends TestCase
         $order = $this->readySalesOrder($tenant, $shop, $sku, $method, 1, 'SO-PICK-PRINTED');
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $group = OutboundOrder::firstOrFail();
-        $group->update(['courier_csv_exported_at' => now()]);
+        $group->update(['courier_label_exported_at' => now()]);
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentPickSummary::class)

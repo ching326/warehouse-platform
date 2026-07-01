@@ -10,6 +10,7 @@ use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\Warehouse;
 use App\Services\Courier\CourierExportService;
+use App\Services\Labels\AddressLabelExportService;
 use App\Services\Outbound\HoldOutboundOrderService;
 use App\Services\Outbound\ShipOutboundOrderService;
 use App\Services\SalesOrders\SkuDefaultShippingMethodResolver;
@@ -91,6 +92,14 @@ class FulfillmentIndex extends Component
     public ?string $pendingExportWarning = null;
 
     public bool $showTrackingImportModal = false;
+
+    public bool $showAddressLabelModal = false;
+
+    public array $label10SkipCells = [];
+
+    public array $pendingAddressLabelOrderIds = [];
+
+    public array $pendingAddressLabelSkipCells = [];
 
     public array $pendingHoldOrderIds = [];
 
@@ -345,7 +354,10 @@ class FulfillmentIndex extends Component
                 continue;
             }
 
-            $order->update(['shipping_method_id' => $resolved['shipping_method_id']]);
+            $order->update([
+                'shipping_method_id' => $resolved['shipping_method_id'],
+                'courier_label_exported_at' => null,
+            ]);
             $updated++;
         }
 
@@ -426,7 +438,7 @@ class FulfillmentIndex extends Component
             ->whereIn('reason', OutboundOrder::fulfillableReasons())
             ->where('status', OutboundOrder::STATUS_RESERVED)
             ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
-            ->whereNotNull('courier_csv_exported_at')
+            ->whereNotNull('courier_label_exported_at')
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->all();
@@ -552,6 +564,102 @@ class FulfillmentIndex extends Component
         $this->clearPendingExport();
     }
 
+    public function openAddressLabelModal(): void
+    {
+        if ($this->normalizedSelectedIds() === []) {
+            session()->flash('error', __('fulfillment.address_label_no_selection'));
+
+            return;
+        }
+
+        $this->label10SkipCells = [];
+        $this->showAddressLabelModal = true;
+    }
+
+    public function closeAddressLabelModal(): void
+    {
+        $this->showAddressLabelModal = false;
+        $this->label10SkipCells = [];
+    }
+
+    public function toggleLabel10SkipCell(int $cell): void
+    {
+        if ($cell < 1 || $cell > 30) {
+            return;
+        }
+
+        $cells = array_map('intval', $this->label10SkipCells);
+
+        if (in_array($cell, $cells, true)) {
+            $this->label10SkipCells = array_values(array_filter($cells, fn (int $value): bool => $value !== $cell));
+
+            return;
+        }
+
+        $cells[] = $cell;
+        sort($cells);
+        $this->label10SkipCells = array_values(array_unique($cells));
+    }
+
+    public function exportLabel10(): mixed
+    {
+        return $this->validateAddressLabelExport($this->normalizeSkipCells($this->label10SkipCells));
+    }
+
+    public function validateAddressLabelExport(array $skipCells): mixed
+    {
+        $this->pendingAddressLabelOrderIds = [];
+        $this->pendingAddressLabelSkipCells = [];
+        $this->pendingExportWarning = null;
+
+        if ($this->selectedIds === []) {
+            session()->flash('error', __('fulfillment.address_label_no_selection'));
+
+            return null;
+        }
+
+        $outboundOrderIds = $this->selectedOutboundOrderIds();
+        $result = app(AddressLabelExportService::class)->validateOrderExport(
+            outboundOrderIds: $outboundOrderIds,
+            allowedTenantIds: $this->allowedTenantIds(),
+        );
+
+        if ($result->hasHardBlock()) {
+            session()->flash('error', $this->courierExportMessage($result->toArray()));
+
+            return null;
+        }
+
+        if ($result->requiresConfirmation) {
+            $this->showAddressLabelModal = false;
+            $this->pendingAddressLabelOrderIds = $outboundOrderIds;
+            $this->pendingAddressLabelSkipCells = $skipCells;
+            $this->pendingExportWarning = $this->reExportWarning($result->alreadyExportedOrderIds);
+
+            return null;
+        }
+
+        return $this->performAddressLabelExport(confirmedReExport: false, outboundOrderIds: $outboundOrderIds, skipCells: $skipCells);
+    }
+
+    public function confirmAddressLabelExport(): mixed
+    {
+        if ($this->pendingAddressLabelOrderIds === []) {
+            return null;
+        }
+
+        $outboundOrderIds = $this->pendingAddressLabelOrderIds;
+        $skipCells = $this->pendingAddressLabelSkipCells;
+        $this->clearPendingExport();
+
+        return $this->performAddressLabelExport(confirmedReExport: true, outboundOrderIds: $outboundOrderIds, skipCells: $skipCells);
+    }
+
+    public function cancelAddressLabelExport(): void
+    {
+        $this->clearPendingExport();
+    }
+
     public function openTrackingImportModal(): void
     {
         $this->showTrackingImportModal = true;
@@ -585,7 +693,7 @@ class FulfillmentIndex extends Component
             ->when($this->statusesFilter === [], fn ($query) => $this->applyDefaultStatusFilter($query))
             ->when($this->statusesFilter !== [], fn ($query) => $this->applyStatusFilter($query))
             ->when($this->printWaiting, fn ($query) => $query
-                ->whereNull('courier_csv_exported_at')
+                ->whereNull('courier_label_exported_at')
                 ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
                 ->where('status', '!=', OutboundOrder::STATUS_CANCELLED))
             ->when($this->dateRange !== SalesOrderFilters::DATE_ALL || $this->dateFrom !== '' || $this->dateTo !== '', function ($query) {
@@ -600,9 +708,9 @@ class FulfillmentIndex extends Component
                 }
             })
             ->when(in_array(SalesOrderFilters::OTHER_PRINTED, $this->othersFilter, true), fn ($query) => $query
-                ->whereNotNull('courier_csv_exported_at'))
+                ->whereNotNull('courier_label_exported_at'))
             ->when(in_array(SalesOrderFilters::OTHER_NOT_PRINTED, $this->othersFilter, true), fn ($query) => $query
-                ->whereNull('courier_csv_exported_at'))
+                ->whereNull('courier_label_exported_at'))
             ->when($this->shippingMethodsFilter !== [], function ($query) {
                 $query->where(function ($inner) {
                     $methodIds = array_values(array_filter(
@@ -937,6 +1045,31 @@ class FulfillmentIndex extends Component
         return redirect()->route('courier-export-batches.download', $batch);
     }
 
+    private function performAddressLabelExport(bool $confirmedReExport, array $outboundOrderIds, array $skipCells): mixed
+    {
+        try {
+            $batch = app(AddressLabelExportService::class)->exportOrders(
+                outboundOrderIds: $outboundOrderIds,
+                allowedTenantIds: $this->allowedTenantIds(),
+                user: Auth::user(),
+                confirmedReExport: $confirmedReExport,
+                skipCells: $skipCells,
+            );
+        } catch (RuntimeException $exception) {
+            session()->flash('error', $exception->getMessage());
+
+            return null;
+        }
+
+        $this->selectedIds = [];
+        $this->showAddressLabelModal = false;
+        $this->label10SkipCells = [];
+        $this->pendingAddressLabelOrderIds = [];
+        $this->pendingAddressLabelSkipCells = [];
+
+        return redirect()->route('courier-export-batches.download', $batch);
+    }
+
     private function courierExportMessage(array $result): string
     {
         $parts = [];
@@ -1052,9 +1185,22 @@ class FulfillmentIndex extends Component
     {
         $this->pendingCourierExportCarrier = null;
         $this->pendingCourierExportOrderIds = [];
+        $this->pendingAddressLabelOrderIds = [];
+        $this->pendingAddressLabelSkipCells = [];
         $this->pendingExportWarning = null;
 
         session()->forget('warning');
+    }
+
+    private function normalizeSkipCells(array $skipCells): array
+    {
+        return collect($skipCells)
+            ->map(fn ($cell): int => (int) $cell)
+            ->filter(fn (int $cell): bool => $cell >= 1 && $cell <= 30)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
     }
 
     private function shippingRemapSkuList(array $skuIds): string

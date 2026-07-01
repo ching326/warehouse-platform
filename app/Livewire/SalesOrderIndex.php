@@ -1165,7 +1165,7 @@ class SalesOrderIndex extends Component
             return false;
         }
 
-        if ($outbound->courier_csv_exported_at !== null) {
+        if ($outbound->courier_label_exported_at !== null) {
             return false;
         }
 
@@ -1191,7 +1191,7 @@ class SalesOrderIndex extends Component
 
         return $outbound
             && $outbound->status === OutboundOrder::STATUS_RESERVED
-            && $outbound->courier_csv_exported_at === null
+            && $outbound->courier_label_exported_at === null
             && $outbound->salesOrders->count() > 1;
     }
 
@@ -1230,7 +1230,7 @@ class SalesOrderIndex extends Component
             ->whereHas('activeOutboundOrders', fn ($outbound) => $outbound
                 ->where('outbound_orders.reason', OutboundOrder::REASON_CUSTOMER_ORDER)
                 ->where('outbound_orders.status', OutboundOrder::STATUS_RESERVED)
-                ->whereNotNull('outbound_orders.courier_csv_exported_at'))
+                ->whereNotNull('outbound_orders.courier_label_exported_at'))
             ->orderBy('platform_order_id')
             ->pluck('platform_order_id')
             ->filter()

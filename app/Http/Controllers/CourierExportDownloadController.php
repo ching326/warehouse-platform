@@ -23,7 +23,9 @@ class CourierExportDownloadController extends Controller
         abort_unless(Storage::disk($batch->disk)->exists($batch->path), 404);
 
         return Storage::disk($batch->disk)->download($batch->path, $batch->file_name, [
-            'Content-Type' => 'text/csv; charset=Shift_JIS',
+            'Content-Type' => str_ends_with(strtolower($batch->file_name), '.pdf')
+                ? 'application/pdf'
+                : 'text/csv; charset=Shift_JIS',
         ]);
     }
 

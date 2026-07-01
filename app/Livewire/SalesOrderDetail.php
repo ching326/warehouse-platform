@@ -326,7 +326,7 @@ class SalesOrderDetail extends Component
                 return;
             }
 
-            if ($outbound->courier_csv_exported_at !== null) {
+            if ($outbound->courier_label_exported_at !== null) {
                 session()->flash('error', __('outbound.hold_printed_sales_blocked'));
 
                 return;

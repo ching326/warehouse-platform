@@ -1,31 +1,35 @@
 <?php
 
-namespace App\Services\Courier;
+namespace App\Services\Labels;
 
 use App\Models\CourierExportBatch;
 use App\Models\OutboundOrder;
 use App\Models\SalesOrder;
 use App\Models\User;
-use App\Support\CourierCarrier;
+use App\Services\Courier\CourierExportValidationResult;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use InvalidArgumentException;
 use RuntimeException;
 
-class CourierExportService
+class AddressLabelExportService
 {
+    public const EXPORT_TYPE_LABEL10 = 'label10_2x5';
+
     public function __construct(
-        private YamatoCsvBuilder $yamatoCsvBuilder,
-        private SagawaCsvBuilder $sagawaCsvBuilder,
+        private AddressLabelDataBuilder $dataBuilder,
+        private AddressLabelPdfService $pdfService,
     ) {}
 
-    public function validateOrderExport(array $outboundOrderIds, string $carrier, array $allowedTenantIds): CourierExportValidationResult
+    /**
+     * @param  array<int, int|string>  $outboundOrderIds
+     * @param  array<int, int>  $allowedTenantIds
+     */
+    public function validateOrderExport(array $outboundOrderIds, array $allowedTenantIds): CourierExportValidationResult
     {
         $ids = $this->normalizeIds($outboundOrderIds);
-        $carrier = $this->normalizeCarrier($carrier);
 
         if ($ids === []) {
             return new CourierExportValidationResult(
@@ -40,7 +44,7 @@ class CourierExportService
                 mixedTenantOrderIds: [],
                 alreadyExportedOrderIds: [],
                 noReadyLinesOrderIds: [],
-                message: __('sales_orders.courier_export_no_selection'),
+                message: __('fulfillment.address_label_no_selection'),
             );
         }
 
@@ -49,7 +53,6 @@ class CourierExportService
         $missingIds = array_values(array_diff($ids, $foundIds));
         $tenantIds = $orders->pluck('tenant_id')->unique()->values();
         $mixedTenantOrderIds = $tenantIds->count() > 1 ? $foundIds : [];
-
         $blockedStatuses = [
             SalesOrder::ORDER_STATUS_ON_HOLD,
             SalesOrder::ORDER_STATUS_CANCEL_REQUESTED,
@@ -58,22 +61,13 @@ class CourierExportService
 
         $blockedStatusOrderIds = $orders
             ->filter(fn (OutboundOrder $order): bool => $order->status !== OutboundOrder::STATUS_RESERVED
+                || ! in_array($order->reason, OutboundOrder::fulfillableReasons(), true)
                 || $order->salesOrders->contains(fn (SalesOrder $so): bool => in_array($so->order_status, $blockedStatuses, true)))
             ->pluck('id')
             ->values()
             ->all();
         $heldOrderIds = $orders
             ->filter(fn (OutboundOrder $order): bool => $order->hold_status === OutboundOrder::HOLD_STATUS_ON_HOLD)
-            ->pluck('id')
-            ->values()
-            ->all();
-        $wrongCarrierOrderIds = $orders
-            ->filter(fn (OutboundOrder $order): bool => ! $this->orderCarrierMatches($order, $carrier))
-            ->pluck('id')
-            ->values()
-            ->all();
-        $unsupportedCourierOrderIds = $orders
-            ->filter(fn (OutboundOrder $order): bool => $order->shippingMethod?->supports_courier_csv === false)
             ->pluck('id')
             ->values()
             ->all();
@@ -90,8 +84,6 @@ class CourierExportService
         $hardBlocks = $missingIds !== []
             || $blockedStatusOrderIds !== []
             || $heldOrderIds !== []
-            || $wrongCarrierOrderIds !== []
-            || $unsupportedCourierOrderIds !== []
             || $mixedTenantOrderIds !== []
             || $noReadyLinesOrderIds !== [];
         $requiresConfirmation = ! $hardBlocks && $alreadyExportedOrderIds !== [];
@@ -102,16 +94,14 @@ class CourierExportService
             validOrderIds: array_values(array_diff($foundIds, array_merge(
                 $blockedStatusOrderIds,
                 $heldOrderIds,
-                $wrongCarrierOrderIds,
-                $unsupportedCourierOrderIds,
                 $mixedTenantOrderIds,
                 $noReadyLinesOrderIds,
             ))),
             missingOrderIds: $missingIds,
             blockedStatusOrderIds: $blockedStatusOrderIds,
             heldOrderIds: $heldOrderIds,
-            wrongCarrierOrderIds: $wrongCarrierOrderIds,
-            unsupportedCourierOrderIds: $unsupportedCourierOrderIds,
+            wrongCarrierOrderIds: [],
+            unsupportedCourierOrderIds: [],
             mixedTenantOrderIds: $mixedTenantOrderIds,
             alreadyExportedOrderIds: $alreadyExportedOrderIds,
             noReadyLinesOrderIds: $noReadyLinesOrderIds,
@@ -119,15 +109,19 @@ class CourierExportService
         );
     }
 
+    /**
+     * @param  array<int, int|string>  $outboundOrderIds
+     * @param  array<int, int>  $allowedTenantIds
+     * @param  array<int, int>  $skipCells
+     */
     public function exportOrders(
         array $outboundOrderIds,
-        string $carrier,
         array $allowedTenantIds,
         ?User $user,
         bool $confirmedReExport = false,
+        array $skipCells = [],
     ): CourierExportBatch {
-        $carrier = $this->normalizeCarrier($carrier);
-        $validation = $this->validateOrderExport($outboundOrderIds, $carrier, $allowedTenantIds);
+        $validation = $this->validateOrderExport($outboundOrderIds, $allowedTenantIds);
 
         if ($validation->hasHardBlock()) {
             throw new RuntimeException($validation->message);
@@ -140,21 +134,21 @@ class CourierExportService
         $orders = $this->loadOrders($this->normalizeIds($outboundOrderIds), $allowedTenantIds);
         $tenantId = (int) $orders->pluck('tenant_id')->unique()->first();
         $japanNow = CarbonImmutable::now('Asia/Tokyo');
-        $fileName = $carrier.'_'.$japanNow->format('Ymd_Hi').'.csv';
-        $path = 'courier_exports/'.$carrier.'/'.$japanNow->format('Y/m').'/'.$fileName;
-        $temporaryPath = 'tmp/courier_exports/'.Str::uuid().'.csv';
-        $csv = $this->buildCsv($carrier, $orders->map(fn (OutboundOrder $order) => $this->orderShipmentRow($order)), $japanNow);
+        $fileName = 'label10_'.$japanNow->format('Ymd_Hi').'.pdf';
+        $path = 'address_labels/label10/'.$japanNow->format('Y/m').'/'.$fileName;
+        $temporaryPath = 'tmp/address_labels/'.Str::uuid().'.pdf';
+        $pdf = $this->pdfService->render($this->dataBuilder->build($orders), $skipCells);
 
-        Storage::disk('local')->put($temporaryPath, $csv);
+        Storage::disk('local')->put($temporaryPath, $pdf);
 
         try {
-            return DB::transaction(function () use ($orders, $tenantId, $carrier, $fileName, $path, $temporaryPath, $user, $confirmedReExport) {
+            return DB::transaction(function () use ($orders, $tenantId, $fileName, $path, $temporaryPath, $user, $confirmedReExport, $skipCells) {
                 Storage::disk('local')->move($temporaryPath, $path);
 
                 $exportedAt = now();
                 $batch = CourierExportBatch::create([
                     'tenant_id' => $tenantId,
-                    'carrier' => $carrier,
+                    'carrier' => self::EXPORT_TYPE_LABEL10,
                     'file_name' => $fileName,
                     'disk' => 'local',
                     'path' => $path,
@@ -165,44 +159,41 @@ class CourierExportService
 
                 foreach ($orders as $order) {
                     $order->update(['courier_label_exported_at' => $exportedAt]);
-                    $salesOrders = $order->salesOrders;
 
-                    if ($salesOrders->isEmpty()) {
+                    if ($order->salesOrders->isEmpty()) {
                         $batch->batchOrders()->create([
                             'sales_order_id' => null,
                             'outbound_order_id' => $order->id,
                             'platform_order_id' => $order->ref,
-                            'carrier' => $carrier,
+                            'carrier' => self::EXPORT_TYPE_LABEL10,
                             'exported_at' => $exportedAt,
                         ]);
 
                         continue;
                     }
 
-                    foreach ($salesOrders as $so) {
+                    foreach ($order->salesOrders as $salesOrder) {
                         $batch->batchOrders()->create([
-                            'sales_order_id' => $so->id,
+                            'sales_order_id' => $salesOrder->id,
                             'outbound_order_id' => $order->id,
-                            'platform_order_id' => $so->platform_order_id,
-                            'carrier' => $carrier,
+                            'platform_order_id' => $salesOrder->platform_order_id,
+                            'carrier' => self::EXPORT_TYPE_LABEL10,
                             'exported_at' => $exportedAt,
                         ]);
 
-                        $properties = [
-                            'carrier' => $carrier,
-                            'batch_id' => $batch->id,
-                            'file_name' => $fileName,
-                            'outbound_order_id' => $order->id,
-                            'outbound_order_ref' => $order->ref,
-                            're_export' => $confirmedReExport,
-                        ];
-
                         activity('sales_order')
-                            ->performedOn($so)
+                            ->performedOn($salesOrder)
                             ->causedBy($user)
-                            ->event('courier_exported')
-                            ->withProperties($properties)
-                            ->log('courier_exported');
+                            ->event('courier_label_exported')
+                            ->withProperties([
+                                'type' => self::EXPORT_TYPE_LABEL10,
+                                'file_name' => $fileName,
+                                'outbound_order_id' => $order->id,
+                                'outbound_order_ref' => $order->ref,
+                                're_export' => $confirmedReExport,
+                                'skip_cells' => $this->normalizeSkipCells($skipCells),
+                            ])
+                            ->log('courier_label_exported');
                     }
                 }
 
@@ -215,6 +206,23 @@ class CourierExportService
         }
     }
 
+    /**
+     * @param  array<int, int|string>  $ids
+     * @return array<int, int>
+     */
+    private function normalizeIds(array $ids): array
+    {
+        return array_values(array_unique(array_filter(
+            array_map('intval', $ids),
+            fn (int $id): bool => $id > 0,
+        )));
+    }
+
+    /**
+     * @param  array<int, int>  $ids
+     * @param  array<int, int>  $allowedTenantIds
+     * @return Collection<int, OutboundOrder>
+     */
     private function loadOrders(array $ids, array $allowedTenantIds): Collection
     {
         return OutboundOrder::query()
@@ -222,85 +230,45 @@ class CourierExportService
             ->whereIn('tenant_id', $allowedTenantIds)
             ->with([
                 'tenant',
-                'shippingMethod.carrier',
                 'leafLines.sku.stockItem',
-                'salesOrders.tenant',
-                'salesOrders.shop.tenant',
+                'leafLines.stockItem',
+                'salesOrders.shop',
                 'salesOrders.lines.sku.stockItem',
             ])
             ->get()
-            ->sortBy(fn (OutboundOrder $order) => array_search($order->id, $ids, true))
+            ->sortBy(function (OutboundOrder $order) use ($ids): int {
+                $position = array_search($order->id, $ids, true);
+
+                return $position === false ? PHP_INT_MAX : $position;
+            })
             ->values();
     }
 
-    private function normalizeIds(array $ids): array
+    /**
+     * @param  array<int, int>  $skipCells
+     * @return array<int, int>
+     */
+    private function normalizeSkipCells(array $skipCells): array
     {
-        return array_values(array_unique(array_filter(
-            array_map('intval', $ids),
-            fn (int $id) => $id > 0,
-        )));
-    }
-
-    private function orderCarrierMatches(OutboundOrder $order, string $carrier): bool
-    {
-        return CourierCarrier::normalize($order->shippingMethod?->carrier?->code) === $carrier;
-    }
-
-    private function normalizeCarrier(string $carrier): string
-    {
-        $carrier = CourierCarrier::normalize($carrier);
-
-        if (! in_array($carrier, CourierCarrier::values(), true)) {
-            throw new InvalidArgumentException('Unsupported courier carrier.');
-        }
-
-        return $carrier;
-    }
-
-    private function buildCsv(string $carrier, Collection $orders, CarbonImmutable $japanNow): string
-    {
-        return match ($carrier) {
-            CourierCarrier::YAMATO => $this->yamatoCsvBuilder->build($orders, $japanNow),
-            CourierCarrier::SAGAWA => $this->sagawaCsvBuilder->build($orders, $japanNow),
-        };
-    }
-
-    private function orderShipmentRow(OutboundOrder $order): object
-    {
-        $linkedOrders = $order->salesOrders;
-        $firstOrder = $linkedOrders->first();
-        $lines = $linkedOrders->isNotEmpty()
-            ? $linkedOrders->flatMap(fn (SalesOrder $so) => $so->lines)->values()
-            : $order->leafLines->values();
-
-        return (object) [
-            'platform_order_id' => $order->ref,
-            'recipient_phone' => $order->recipient_phone,
-            'recipient_postal_code' => $order->recipient_postal_code,
-            'recipient_state' => $order->recipient_state,
-            'recipient_city' => $order->recipient_city,
-            'recipient_address_line1' => $order->recipient_address_line1,
-            'recipient_address_line2' => $order->recipient_address_line2,
-            'recipient_name' => $order->recipient_name,
-            'package_count' => $order->package_count,
-            'package_weight_g' => $order->package_weight_g,
-            'tracking_no' => $order->tracking_no,
-            'tenant' => $order->tenant,
-            'shop' => $firstOrder?->shop,
-            'lines' => $lines,
-        ];
+        return collect($skipCells)
+            ->map(fn ($cell): int => (int) $cell)
+            ->filter(fn (int $cell): bool => $cell >= 1 && $cell <= 30)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
     }
 
     private function messageFor(bool $hardBlocks, bool $requiresConfirmation): string
     {
         if ($hardBlocks) {
-            return __('sales_orders.courier_export_blocked');
+            return __('fulfillment.address_label_blocked');
         }
 
         if ($requiresConfirmation) {
-            return __('sales_orders.courier_export_requires_confirmation');
+            return __('fulfillment.address_label_requires_confirmation');
         }
 
-        return __('sales_orders.courier_export_ready');
+        return __('fulfillment.address_label_ready');
     }
 }

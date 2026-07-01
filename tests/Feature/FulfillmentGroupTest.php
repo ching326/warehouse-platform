@@ -30,6 +30,8 @@ use App\Services\Courier\TrackingImport\TrackingImportService;
 use App\Services\Fulfillment\FulfillmentPackService;
 use App\Services\Fulfillment\OutboundConsolidationService;
 use App\Services\InventoryService;
+use App\Services\Labels\AddressLabelDataBuilder;
+use App\Services\Labels\AddressLabelExportService;
 use App\Services\Sku\PlatformLabelAliasSync;
 use App\Support\CourierCarrier;
 use App\Support\SalesOrderFilters;
@@ -275,7 +277,7 @@ class FulfillmentGroupTest extends TestCase
         $order->update(['shipping_method_id' => $otherMethod->id]);
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
-        $outbound->update(['shipping_method_id' => null]);
+        $outbound->update(['shipping_method_id' => null, 'courier_label_exported_at' => now()]);
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentIndex::class)
@@ -284,7 +286,9 @@ class FulfillmentGroupTest extends TestCase
             ->call('remapShipping')
             ->assertSee(__('fulfillment.remap_shipping_result_no_skips', ['updated' => 1]));
 
-        $this->assertSame($method->id, $outbound->refresh()->shipping_method_id);
+        $outbound->refresh();
+        $this->assertSame($method->id, $outbound->shipping_method_id);
+        $this->assertNull($outbound->courier_label_exported_at);
     }
 
     public function test_fulfillment_index_remap_shipping_lists_skus_without_default_method(): void
@@ -400,7 +404,7 @@ class FulfillmentGroupTest extends TestCase
         $orderA = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-JOIN-BLOCK-A');
         $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA]);
         $outbound = OutboundOrder::firstOrFail();
-        $outbound->update(['courier_csv_exported_at' => now()]);
+        $outbound->update(['courier_label_exported_at' => now()]);
         $orderB = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-JOIN-BLOCK-B');
 
         $this->expectException(\InvalidArgumentException::class);
@@ -543,7 +547,7 @@ class FulfillmentGroupTest extends TestCase
         $notPrintedOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-NOT-PRINTED', '2 Not Printed Street');
         $this->createGroup($tenant, $warehouse, $printedOrder->ship_together_key, [$printedOrder]);
         $printedGroup = OutboundOrder::query()->latest('id')->firstOrFail();
-        $printedGroup->update(['courier_csv_exported_at' => '2026-06-18 10:00:00']);
+        $printedGroup->update(['courier_label_exported_at' => '2026-06-18 10:00:00']);
         $this->createGroup($tenant, $warehouse, $notPrintedOrder->ship_together_key, [$notPrintedOrder]);
         $notPrintedGroup = OutboundOrder::query()->latest('id')->firstOrFail();
 
@@ -673,7 +677,7 @@ class FulfillmentGroupTest extends TestCase
         $group = OutboundOrder::firstOrFail();
         DB::table('outbound_orders')->where('id', $group->id)->update([
             'created_at' => Carbon::parse('2026-06-18 01:30:00', 'UTC')->format('Y-m-d H:i:s'),
-            'courier_csv_exported_at' => Carbon::parse('2026-06-18 02:15:00', 'UTC')->format('Y-m-d H:i:s'),
+            'courier_label_exported_at' => Carbon::parse('2026-06-18 02:15:00', 'UTC')->format('Y-m-d H:i:s'),
         ]);
 
         Livewire::actingAs($this->internalUser())
@@ -999,7 +1003,7 @@ class FulfillmentGroupTest extends TestCase
 
         $this->createGroup($tenant, $warehouse, $printedOrder->ship_together_key, [$printedOrder]);
         $printedGroup = OutboundOrder::query()->latest('id')->firstOrFail();
-        $printedGroup->update(['courier_csv_exported_at' => now()]);
+        $printedGroup->update(['courier_label_exported_at' => now()]);
 
         $this->createGroup($tenant, $warehouse, $notPrintedOrder->ship_together_key, [$notPrintedOrder]);
         $notPrintedGroup = OutboundOrder::query()->latest('id')->firstOrFail();
@@ -1115,7 +1119,7 @@ class FulfillmentGroupTest extends TestCase
             'carrier' => CourierCarrier::YAMATO,
             'order_count' => 1,
         ]);
-        $this->assertNotNull($outbound->refresh()->courier_csv_exported_at);
+        $this->assertNotNull($outbound->refresh()->courier_label_exported_at);
         $this->assertDatabaseHas('courier_export_batch_orders', [
             'courier_export_batch_id' => $batch->id,
             'sales_order_id' => $orderA->id,
@@ -1156,6 +1160,128 @@ class FulfillmentGroupTest extends TestCase
 
         $this->assertStringContainsString('3 x TENANT-EXPORT-CODE', $csv);
         $this->assertStringNotContainsString('3 x '.$sku->sku, $csv);
+    }
+
+    public function test_fulfillment_label10_data_builder_uses_outbound_address_item_code_short_name_and_weight(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $tenant->update(['fulfillment_item_code_source' => Tenant::FULFILLMENT_ITEM_CODE_SOURCE_TENANT_ITEM_CODE]);
+        $sku->stockItem->update([
+            'tenant_item_code' => 'TENANT-LABEL-CODE',
+            'short_name' => 'Short label product name',
+            'name' => 'Very long product name that should not be preferred',
+        ]);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 2, 'SO-FG-LABEL-DATA');
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $outbound = OutboundOrder::with(['tenant', 'leafLines.sku.stockItem', 'leafLines.stockItem', 'salesOrders.shop'])->firstOrFail();
+        $outbound->update(['package_weight_g' => 1234]);
+
+        $labels = app(AddressLabelDataBuilder::class)->build(collect([$outbound->refresh()->load(['tenant', 'leafLines.sku.stockItem', 'leafLines.stockItem', 'salesOrders.shop'])]));
+
+        $this->assertSame('100-0001', $labels[0]['postal_code']);
+        $this->assertSame('Shared Recipient', $labels[0]['recipient_name']);
+        $this->assertStringContainsString('2 x TENANT-LABEL-CODE', $labels[0]['items_line']);
+        $this->assertSame('Short label product name', $labels[0]['description_line']);
+        $this->assertSame(1234, $labels[0]['total_weight']);
+    }
+
+    public function test_fulfillment_label10_exports_pdf_marks_printed_and_updates_filters(): void
+    {
+        Storage::fake('local');
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-LABEL-EXPORT');
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $outbound = OutboundOrder::firstOrFail();
+
+        $batch = app(AddressLabelExportService::class)->exportOrders(
+            outboundOrderIds: [$outbound->id],
+            allowedTenantIds: [$tenant->id],
+            user: $this->internalUser(),
+            skipCells: [1, 3, 31],
+        );
+
+        $pdf = Storage::disk($batch->disk)->get($batch->path);
+
+        $this->assertSame(AddressLabelExportService::EXPORT_TYPE_LABEL10, $batch->carrier);
+        $this->assertStringStartsWith('%PDF', $pdf);
+        $this->assertStringContainsString('Shared Recipient', $pdf);
+        $this->assertNotNull($outbound->refresh()->courier_label_exported_at);
+        $this->assertDatabaseHas('courier_export_batch_orders', [
+            'courier_export_batch_id' => $batch->id,
+            'sales_order_id' => $order->id,
+            'outbound_order_id' => $outbound->id,
+            'carrier' => AddressLabelExportService::EXPORT_TYPE_LABEL10,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('printWaiting', true)
+            ->assertDontSee($outbound->ref)
+            ->set('printWaiting', false)
+            ->set('othersFilter', [SalesOrderFilters::OTHER_PRINTED])
+            ->assertSee($outbound->ref);
+    }
+
+    public function test_fulfillment_label10_validation_blocks_unsafe_selections(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $service = app(AddressLabelExportService::class);
+
+        $empty = $service->validateOrderExport([], [$tenant->id]);
+        $this->assertFalse($empty->ok);
+
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-LABEL-BLOCK');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $outbound = OutboundOrder::firstOrFail();
+
+        [$otherTenant, $otherWarehouse, $otherShop, $otherSku] = $this->skuWithStock(20);
+        $otherOrder = $this->readySalesOrder($otherTenant, $otherShop, $otherSku, 1, 'SO-FG-LABEL-MIXED');
+        $this->createGroup($otherTenant, $otherWarehouse, $otherOrder->ship_together_key, [$otherOrder]);
+        $otherOutbound = OutboundOrder::where('tenant_id', $otherTenant->id)->firstOrFail();
+        $mixed = $service->validateOrderExport([$outbound->id, $otherOutbound->id], [$tenant->id, $otherTenant->id]);
+        $this->assertEqualsCanonicalizing([$outbound->id, $otherOutbound->id], $mixed->mixedTenantOrderIds);
+
+        $outbound->update(['hold_status' => OutboundOrder::HOLD_STATUS_ON_HOLD]);
+        $held = $service->validateOrderExport([$outbound->id], [$tenant->id]);
+        $this->assertSame([$outbound->id], $held->heldOrderIds);
+
+        $outbound->update(['hold_status' => OutboundOrder::HOLD_STATUS_ACTIVE, 'status' => OutboundOrder::STATUS_SHIPPED]);
+        $shipped = $service->validateOrderExport([$outbound->id], [$tenant->id]);
+        $this->assertSame([$outbound->id], $shipped->blockedStatusOrderIds);
+
+        $outbound->update(['status' => OutboundOrder::STATUS_RESERVED]);
+        $outbound->lines()->delete();
+        $noLines = $service->validateOrderExport([$outbound->id], [$tenant->id]);
+        $this->assertSame([$outbound->id], $noLines->noReadyLinesOrderIds);
+    }
+
+    public function test_fulfillment_label10_reexport_requires_confirmation_and_livewire_confirms(): void
+    {
+        Storage::fake('local');
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-LABEL-REEXPORT');
+
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $outbound = OutboundOrder::firstOrFail();
+        $outbound->update(['courier_label_exported_at' => Carbon::parse('2026-06-18 10:00:00')]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('selectedIds', [(string) $outbound->id])
+            ->call('openAddressLabelModal')
+            ->assertSet('showAddressLabelModal', true)
+            ->call('toggleLabel10SkipCell', 1)
+            ->assertSet('label10SkipCells', [1])
+            ->call('exportLabel10')
+            ->assertSet('showAddressLabelModal', false)
+            ->assertSet('pendingAddressLabelOrderIds', [$outbound->id])
+            ->assertSee(__('fulfillment.courier_export_reexport_warning'))
+            ->call('confirmAddressLabelExport')
+            ->assertRedirect(route('courier-export-batches.download', CourierExportBatch::firstOrFail()));
+
+        $this->assertNotSame('2026-06-18 10:00:00', $outbound->refresh()->courier_label_exported_at?->format('Y-m-d H:i:s'));
     }
 
     public function test_fulfillment_sagawa_export_writes_short_group_reference_to_customer_management_number(): void
@@ -1218,7 +1344,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound->update(['shipping_method_id' => $method->id]);
         $outbound->update([
             'shipping_method_id' => $method->id,
-            'courier_csv_exported_at' => now(),
+            'courier_label_exported_at' => now(),
         ]);
 
         $result = app(CourierExportService::class)->validateOrderExport(
@@ -1230,7 +1356,7 @@ class FulfillmentGroupTest extends TestCase
         $this->assertTrue($result->requiresConfirmation);
         $this->assertSame([$outbound->id], $result->alreadyExportedOrderIds);
 
-        $outbound->update(['courier_csv_exported_at' => null]);
+        $outbound->update(['courier_label_exported_at' => null]);
         $method->update(['supports_courier_csv' => false]);
 
         $result = app(CourierExportService::class)->validateOrderExport(
@@ -1283,7 +1409,7 @@ class FulfillmentGroupTest extends TestCase
         $outbound = OutboundOrder::firstOrFail();
         $outbound->update([
             'shipping_method_id' => $method->id,
-            'courier_csv_exported_at' => now(),
+            'courier_label_exported_at' => now(),
         ]);
 
         Livewire::actingAs($this->internalUser())
@@ -1350,7 +1476,7 @@ class FulfillmentGroupTest extends TestCase
 
         $this->assertSame(2, count($lines));
         $this->assertStringContainsString('OB-MANUAL-EXPORT-001', $csv);
-        $this->assertNotNull($outbound->refresh()->courier_csv_exported_at);
+        $this->assertNotNull($outbound->refresh()->courier_label_exported_at);
         $this->assertDatabaseHas('courier_export_batches', [
             'id' => $batch->id,
             'carrier' => CourierCarrier::YAMATO,

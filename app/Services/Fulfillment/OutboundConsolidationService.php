@@ -86,7 +86,7 @@ class OutboundConsolidationService
             ->where('reason', OutboundOrder::REASON_CUSTOMER_ORDER)
             ->where('status', OutboundOrder::STATUS_RESERVED)
             ->where('hold_status', OutboundOrder::HOLD_STATUS_ACTIVE)
-            ->whereNull('courier_csv_exported_at')
+            ->whereNull('courier_label_exported_at')
             ->whereHas('salesOrders', fn ($query) => $query->where('ship_together_key', $order->ship_together_key))
             ->whereDoesntHave('salesOrders', fn ($query) => $query->where('fulfillment_status', SalesOrder::FULFILLMENT_STATUS_SHIPPED))
             ->with('salesOrders.shop')
@@ -241,7 +241,7 @@ class OutboundConsolidationService
             throw new InvalidArgumentException(__('fulfillment.group_not_joinable'));
         }
 
-        if ($outbound->courier_csv_exported_at !== null) {
+        if ($outbound->courier_label_exported_at !== null) {
             throw new InvalidArgumentException(__('fulfillment.group_not_joinable'));
         }
     }
