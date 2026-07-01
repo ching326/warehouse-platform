@@ -663,13 +663,15 @@
                             <strong>{{ __('fulfillment.address_label_page', ['page' => $page]) }}</strong>
                             <div class="address-label-cell-grid">
                                 @for ($cell = (($page - 1) * 10) + 1; $cell <= $page * 10; $cell++)
-                                    <button
-                                        type="button"
-                                        @class(['address-label-cell', 'is-selected' => in_array($cell, $label10SkipCells, true)])
-                                        wire:click="toggleLabel10SkipCell({{ $cell }})"
-                                    >
-                                        {{ $cell }}
-                                    </button>
+                                    @php($willPrint = ! in_array($cell, $label10SkipCells, true))
+                                    <label @class(['address-label-cell', 'is-skipped' => ! $willPrint])>
+                                        <input
+                                            type="checkbox"
+                                            @checked($willPrint)
+                                            wire:click="toggleLabel10SkipCell({{ $cell }})"
+                                        >
+                                        <span>{{ __('fulfillment.address_label_cell_print') }}</span>
+                                    </label>
                                 @endfor
                             </div>
                         </section>
@@ -854,7 +856,7 @@
 
         .address-label-page-grid {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: minmax(0, 1fr);
             gap: 14px;
             margin: 16px 0;
         }
@@ -875,19 +877,28 @@
         }
 
         .address-label-cell {
-            height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            height: 42px;
             border: 1px solid var(--line);
-            border-radius: 6px;
-            background: #fff;
-            color: var(--ink);
+            border-radius: 0;
+            background: #fafafa;
+            color: var(--muted);
             font-size: 12px;
+            cursor: pointer;
         }
 
-        .address-label-cell.is-selected {
-            border-color: color-mix(in oklab, var(--accent), transparent 35%);
-            background: color-mix(in oklab, var(--accent), white 88%);
-            color: var(--accent-strong);
-            font-weight: 700;
+        .address-label-cell input {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--accent);
+        }
+
+        .address-label-cell.is-skipped {
+            background: #fff;
+            color: color-mix(in oklab, var(--muted), white 20%);
         }
     </style>
 </div>
