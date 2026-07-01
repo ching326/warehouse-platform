@@ -1172,6 +1172,7 @@ class FulfillmentGroupTest extends TestCase
             'name' => 'Very long product name that should not be preferred',
         ]);
         $order = $this->readySalesOrder($tenant, $shop, $sku, 2, 'SO-FG-LABEL-DATA');
+        $order->update(['recipient_phone' => '00000000000']);
 
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::with(['tenant', 'leafLines.sku.stockItem', 'leafLines.stockItem', 'salesOrders.shop'])->firstOrFail();
@@ -1183,6 +1184,7 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame('Shared Recipient', $labels[0]['recipient_name']);
         $this->assertStringContainsString('2 x TENANT-LABEL-CODE', $labels[0]['items_line']);
         $this->assertSame('Short label product name', $labels[0]['description_line']);
+        $this->assertFalse($labels[0]['show_phone']);
         $this->assertSame(1234, $labels[0]['total_weight']);
     }
 
@@ -1191,6 +1193,12 @@ class FulfillmentGroupTest extends TestCase
         Storage::fake('local');
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
         $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-LABEL-EXPORT');
+        $order->update([
+            'recipient_name' => '山田 太郎',
+            'recipient_state' => '東京都',
+            'recipient_city' => '千代田区',
+            'recipient_address_line1' => '丸の内1-1-1',
+        ]);
         $method = ShippingMethod::where('code', 'japan_post_yupack')->firstOrFail();
 
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
@@ -1208,7 +1216,7 @@ class FulfillmentGroupTest extends TestCase
 
         $this->assertSame(AddressLabelExportService::EXPORT_TYPE_LABEL10, $batch->carrier);
         $this->assertStringStartsWith('%PDF', $pdf);
-        $this->assertStringContainsString('Shared Recipient', $pdf);
+        $this->assertStringContainsString('cid0jp', $pdf);
         $this->assertNotNull($outbound->refresh()->courier_label_exported_at);
         $this->assertDatabaseHas('courier_export_batch_orders', [
             'courier_export_batch_id' => $batch->id,

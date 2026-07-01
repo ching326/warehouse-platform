@@ -50,7 +50,7 @@ class AddressLabelDataBuilder
             'address_line2' => (string) ($order->recipient_address_line2 ?? ''),
             'recipient_name' => (string) ($order->recipient_name ?? ''),
             'recipient_phone' => (string) ($order->recipient_phone ?? ''),
-            'show_phone' => filled($order->recipient_phone),
+            'show_phone' => $this->shouldShowPhone((string) ($order->recipient_phone ?? '')),
             'items_line' => $this->itemsLine($order, $lines),
             'description_line' => $this->descriptionLine($lines),
             'shipper_name' => $this->shipperName($shop, $tenant),
@@ -144,6 +144,14 @@ class AddressLabelDataBuilder
             config('courier.sender.address1'),
             config('courier.sender.address2'),
         ], fn ($part): bool => trim((string) $part) !== '')));
+    }
+
+    private function shouldShowPhone(string $phone): bool
+    {
+        $phone = trim($phone);
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+
+        return $phone !== '' && $digits !== '00000000000';
     }
 
     /**

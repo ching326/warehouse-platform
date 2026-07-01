@@ -7,6 +7,8 @@ use TCPDF;
 
 class AddressLabelPdfService
 {
+    private const FONT_FAMILY = 'cid0jp';
+
     /**
      * @param  array<int, array<string, mixed>>  $labels
      * @param  array<int, int>  $skipCells
@@ -110,7 +112,7 @@ class AddressLabelPdfService
 
     private function text(TCPDF $pdf, float $x, float $y, float $width, float $height, string $text, float $fontSize, string $style = ''): void
     {
-        $pdf->SetFont('helvetica', $style, $fontSize);
+        $pdf->SetFont(self::FONT_FAMILY, $style, $fontSize);
         $pdf->SetXY($x, $y);
         $pdf->Cell($width, $height, $text, 0, 0, 'L', false, '', 1);
     }
