@@ -115,15 +115,11 @@
             </section>
         </div>
     @endif
-    <div class="page-panel-header">
-        <div>
-            <div class="page-title-row">
-                <strong>{{ __('sales_orders.index_page_title') }}</strong>
-            </div>
-        </div>
-    </div>
+    <x-page-panel-header
+        :title="__('sales_orders.index_page_title')"
+    />
 
-<section class="table-shell flux-panel">
+    <section class="table-shell flux-panel">
         @if ($filterWarning)
             <div class="active-filter-row">
                 <flux:badge color="red">{{ $filterWarning }}</flux:badge>

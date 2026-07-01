@@ -1,15 +1,11 @@
 <div class="fulfillment-pick-summary-page">
-    <section class="table-shell flux-panel form-panel pick-filter-panel no-print">
-        <div class="form-panel-header">
-            <div>
-                <strong>{{ __('fulfillment_pick.page_title') }}</strong>
-                <span>{{ __('fulfillment_pick.page_subtitle') }}</span>
-            </div>
-            <flux:button type="button" variant="primary" icon="printer" x-data @click="window.print()">
-                {{ __('fulfillment_pick.print_button') }}
-            </flux:button>
-        </div>
+    <x-page-panel-header
+        :title="__('fulfillment_pick.page_title')"
+        :subtitle="__('fulfillment_pick.page_subtitle')"
+        class="no-print"
+    />
 
+    <section class="table-shell flux-panel form-panel pick-filter-panel no-print">
         <div class="pick-filter-grid">
             <flux:select wire:model.live="warehouseId" :label="__('fulfillment_pick.field_warehouse')">
                 <flux:select.option value="">{{ __('common.all_warehouses') }}</flux:select.option>
@@ -65,6 +61,13 @@
     </section>
 
     <section class="table-shell flux-panel form-panel pick-table-panel screen-pick-table">
+        <div class="form-panel-header no-print">
+            <div></div>
+            <flux:button type="button" variant="primary" icon="printer" x-data @click="window.print()">
+                {{ __('fulfillment_pick.print_button') }}
+            </flux:button>
+        </div>
+
         <flux:table class="data-table pick-summary-table">
             <flux:table.columns>
                     <flux:table.column>{{ __('fulfillment_pick.col_stock_item') }}</flux:table.column>

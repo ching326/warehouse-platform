@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'page_title' => '拣货摘要',
+    'page_title' => '拣货汇总',
     'page_subtitle' => '已预留发货管理组的 SKU 级拣货需求。',
     'field_warehouse' => '仓库',
     'field_shipping_method' => '配送方式',

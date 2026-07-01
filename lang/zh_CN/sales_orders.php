@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'index_page_title' => '订单',
+    'index_page_title' => '订单导入',
     'index_page_subtitle' => '查看与管理平台订单。',
     'create_page_title' => '创建订单',
     'create_page_subtitle' => '手动创建订单。',

@@ -2,7 +2,7 @@
 
 return [
     'not_enough_available_stock' => 'Not enough available stock.',
-    'page_title' => '发货列表',
+    'page_title' => '订单出货',
     'page_subtitle' => '将准备就绪的订单分组,并为出库分配库存。',
     'detail_page_title' => '发货',
     'recipient_updated' => '已更新收件人。',

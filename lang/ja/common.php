@@ -21,7 +21,7 @@ return [
     'nav_order_fulfillment' => '注文出荷',
     'nav_sales_orders' => '注文管理',
     'nav_fulfillment' => '出荷一覧',
-    'nav_pick_summary' => 'ピッキングサマリー',
+    'nav_pick_summary' => 'ピッキング一覧',
     'nav_ship_to_fba' => 'Ship to FBA',
     'nav_scan_pack' => 'Scan Pack',
     'nav_issues' => '問題案件',
