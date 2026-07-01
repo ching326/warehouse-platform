@@ -429,7 +429,7 @@ class StockAdjustmentImport extends Component
         ])->layout('inventory', [
             'title' => __('stock_adjustment_import.page_title'),
             'subtitle' => __('stock_adjustment_import.page_subtitle'),
-            'pageWide' => true,
+            'pageWide' => $this->step === 'preview',
         ]);
     }
 
