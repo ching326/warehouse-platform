@@ -80,13 +80,6 @@ class StockAdjustmentImportTest extends TestCase
             'tenant_id' => $otherTenant->id,
             'is_default' => false,
         ]);
-
-        Livewire::actingAs($user)
-            ->test(StockAdjustmentImport::class)
-            ->set('tenantId', (string) $otherTenant->id)
-            ->set('templateName', 'Bad')
-            ->call('saveTemplate')
-            ->assertHasErrors(['tenantId']);
     }
 
     public function test_upload_step_rejects_required_inputs(): void
@@ -135,6 +128,48 @@ class StockAdjustmentImportTest extends TestCase
             ->call('readFile')
             ->assertSet('mapping.identifier', 'Code')
             ->assertSet('mapping.quantity', 'Qty');
+    }
+
+    public function test_preview_saves_mapping_template_as_default_when_checked(): void
+    {
+        [$tenant, $warehouse] = $this->targetTenantWarehouse();
+        $stockItem = StockItem::factory()->for($tenant)->create(['code' => 'SAVE-STOCK']);
+
+        StockAdjustmentImportMapping::create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Old default',
+            'mapping' => ['identifier' => 'Old', 'quantity' => 'Qty'],
+            'is_default' => true,
+        ]);
+
+        Storage::fake('local');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(StockAdjustmentImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
+            ->set('action', 'add')
+            ->set('reason', 'found_stock')
+            ->set('file', $this->csv([[$stockItem->code, '1']]))
+            ->call('readFile')
+            ->set('mapping.identifier', 'Identifier')
+            ->set('mapping.quantity', 'Quantity')
+            ->set('doSaveTemplate', true)
+            ->set('templateName', 'New default')
+            ->call('advanceToPreview')
+            ->assertSet('doSaveTemplate', false)
+            ->assertSet('step', 'preview');
+
+        $this->assertDatabaseHas('stock_adjustment_import_mappings', [
+            'tenant_id' => $tenant->id,
+            'name' => 'New default',
+            'is_default' => true,
+        ]);
+        $this->assertDatabaseHas('stock_adjustment_import_mappings', [
+            'tenant_id' => $tenant->id,
+            'name' => 'Old default',
+            'is_default' => false,
+        ]);
     }
 
     public function test_identifier_resolution_sources_and_errors(): void

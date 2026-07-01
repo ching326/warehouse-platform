@@ -59,8 +59,6 @@ class StockCountImport extends Component
 
     public string $templateName = '';
 
-    public bool $templateAsDefault = false;
-
     public int $validRowCount = 0;
 
     public int $errorRowCount = 0;
@@ -171,41 +169,6 @@ class StockCountImport extends Component
         $this->selectedTemplateId = (string) $template->id;
     }
 
-    public function saveTemplate(): void
-    {
-        $tenantId = $this->validatedTenantId();
-        $name = trim($this->templateName);
-
-        if ($name === '') {
-            throw ValidationException::withMessages(['templateName' => __('stock_counts.template_name_required')]);
-        }
-
-        if (StockCountImportMapping::query()->where('tenant_id', $tenantId)->where('name', $name)->exists()) {
-            throw ValidationException::withMessages(['templateName' => __('stock_counts.template_name_duplicate')]);
-        }
-
-        DB::transaction(function () use ($tenantId, $name): void {
-            if ($this->templateAsDefault) {
-                StockCountImportMapping::query()->where('tenant_id', $tenantId)->update(['is_default' => false]);
-            }
-
-            $template = StockCountImportMapping::create([
-                'tenant_id' => $tenantId,
-                'name' => $name,
-                'mapping' => $this->mapping,
-                'is_default' => $this->templateAsDefault,
-                'created_by_user_id' => Auth::id(),
-            ]);
-
-            $this->selectedTemplateId = (string) $template->id;
-        });
-
-        $this->templateName = '';
-        $this->templateAsDefault = false;
-        $this->doSaveTemplate = false;
-        session()->flash('status', __('stock_counts.template_saved'));
-    }
-
     public function setDefaultTemplate(int $id): void
     {
         $tenantId = $this->validatedTenantId();
@@ -239,6 +202,11 @@ class StockCountImport extends Component
 
         $tenantId = $this->validatedTenantId();
         $this->validateContext();
+
+        if (! $this->saveTemplateIfRequested($tenantId)) {
+            return;
+        }
+
         $evaluation = $this->evaluateStoredRows($tenantId, (int) $this->warehouseId);
         $this->applyEvaluation($evaluation);
         $this->step = 'preview';
@@ -513,6 +481,43 @@ class StockCountImport extends Component
         $this->previewRows = $evaluation['previewRows'];
     }
 
+    private function saveTemplateIfRequested(int $tenantId): bool
+    {
+        if (! $this->doSaveTemplate) {
+            return true;
+        }
+
+        $name = trim($this->templateName);
+
+        if ($name === '') {
+            throw ValidationException::withMessages(['templateName' => __('stock_counts.template_name_required')]);
+        }
+
+        if (StockCountImportMapping::query()->where('tenant_id', $tenantId)->where('name', $name)->exists()) {
+            throw ValidationException::withMessages(['templateName' => __('stock_counts.template_name_duplicate')]);
+        }
+
+        DB::transaction(function () use ($tenantId, $name): void {
+            StockCountImportMapping::query()->where('tenant_id', $tenantId)->update(['is_default' => false]);
+
+            $template = StockCountImportMapping::create([
+                'tenant_id' => $tenantId,
+                'name' => $name,
+                'mapping' => $this->mapping,
+                'is_default' => true,
+                'created_by_user_id' => Auth::id(),
+            ]);
+
+            $this->selectedTemplateId = (string) $template->id;
+        });
+
+        $this->templateName = '';
+        $this->doSaveTemplate = false;
+        session()->flash('status', __('stock_counts.template_saved'));
+
+        return true;
+    }
+
     private function buildColumnIndex(): array
     {
         $headerFlip = array_flip($this->fileHeaders);
@@ -687,7 +692,6 @@ class StockCountImport extends Component
         $this->selectedTemplateId = '';
         $this->doSaveTemplate = false;
         $this->templateName = '';
-        $this->templateAsDefault = false;
     }
 
     private function resetFileState(): void

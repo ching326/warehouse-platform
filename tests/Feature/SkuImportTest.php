@@ -721,21 +721,21 @@ class SkuImportTest extends TestCase
         [$tenant] = $this->tenantWithShop(['code' => 'TPL']);
         $csv = "sku,name,brand\nT001,Product,Acme\n";
 
-        // Step through upload and map, then confirm with template save
-        $component = Livewire::actingAs($this->internalUser())
+        Livewire::actingAs($this->internalUser())
             ->test(SkuImport::class)
             ->set('tenantId', (string) $tenant->id)
             ->set('file', File::createWithContent('import.csv', $csv))
             ->call('readFile')
-            ->call('advanceToPreview')
             ->set('doSaveTemplate', true)
             ->set('saveTemplateName', 'My Template')
+            ->call('advanceToPreview')
             ->call('confirmImport')
             ->assertSet('step', 'result');
 
         $this->assertDatabaseHas('sku_import_mappings', [
             'tenant_id' => $tenant->id,
             'name' => 'My Template',
+            'is_default' => true,
         ]);
     }
 
@@ -749,10 +749,9 @@ class SkuImportTest extends TestCase
             ->set('tenantId', (string) $tenant->id)
             ->set('file', File::createWithContent('import.csv', $csv))
             ->call('readFile')
-            ->call('advanceToPreview')
             ->set('doSaveTemplate', true)
             ->set('saveTemplateName', 'Default Template')
-            ->set('saveTemplateAsDefault', true)
+            ->call('advanceToPreview')
             ->call('confirmImport')
             ->assertSet('step', 'result');
 
@@ -847,11 +846,10 @@ class SkuImportTest extends TestCase
             ->set('tenantId', (string) $tenant->id)
             ->set('file', File::createWithContent('import.csv', $csv))
             ->call('readFile')
-            ->call('advanceToPreview')
             ->set('doSaveTemplate', true)
             ->set('saveTemplateName', 'Existing Template')
-            ->call('confirmImport')
-            ->assertSet('step', 'preview')
+            ->call('advanceToPreview')
+            ->assertSet('step', 'map')
             ->assertSee('already exists');
 
         // guard fired: no second template row created

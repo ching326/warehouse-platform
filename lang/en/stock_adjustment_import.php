@@ -3,7 +3,7 @@
 return [
     'page_title' => 'Import stock adjustments',
     'page_subtitle' => 'Bulk add or deduct stock through the inventory ledger.',
-    'btn_import' => 'Import adjustments',
+    'btn_import' => 'Bulk Import',
     'btn_back_to_adjustment' => 'Back to stock adjustment',
     'step_upload' => 'Upload adjustment file',
     'step_map' => 'Map columns',
@@ -16,7 +16,6 @@ return [
     'btn_preview' => 'Preview adjustments',
     'btn_confirm' => 'Confirm import',
     'btn_import_valid_rows' => 'Import valid rows',
-    'btn_save_template' => 'Save template',
     'btn_view_inventory' => 'View inventory',
     'btn_new_adjustment' => 'New adjustment',
     'btn_import_more' => 'Import more',

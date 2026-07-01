@@ -274,9 +274,6 @@
             </div>
             @if ($doSaveTemplate)
                 <flux:input wire:model="saveTemplateName" :label="__('sku_import.option_template_name')" :placeholder="__('sku_import.option_template_name')" />
-                <div class="checkbox-stack">
-                    <label><input type="checkbox" wire:model.live="saveTemplateAsDefault"> {{ __('sku_import.option_save_template_as_default') }}</label>
-                </div>
             @endif
         </section>
 

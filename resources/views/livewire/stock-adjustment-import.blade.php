@@ -230,13 +230,6 @@
             </div>
             @if ($doSaveTemplate)
                 <flux:input wire:model="templateName" :label="__('sku_import.option_template_name')" :placeholder="__('sku_import.option_template_name')" />
-                <div class="checkbox-stack">
-                    <label><input type="checkbox" wire:model.live="templateAsDefault"> {{ __('sku_import.option_save_template_as_default') }}</label>
-                </div>
-                <div class="form-actions">
-                    <span></span>
-                    <flux:button type="button" variant="primary" wire:click="saveTemplate">{{ __('stock_adjustment_import.btn_save_template') }}</flux:button>
-                </div>
             @endif
         </section>
 

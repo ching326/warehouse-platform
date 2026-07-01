@@ -5,6 +5,7 @@
         <section class="table-shell flux-panel form-panel form-panel-with-overflow">
             <div class="form-panel-header">
                 <strong>{{ __('stock_counts.section_target') }}</strong>
+                <flux:button href="{{ route('stock-counts.import') }}" variant="primary" wire:navigate>{{ __('stock_counts.btn_import') }}</flux:button>
             </div>
 
             <div class="form-grid">
@@ -94,7 +95,7 @@
         </section>
 
         <div class="form-actions">
-            <flux:button href="{{ route('stock-counts.index') }}" variant="outline" wire:navigate>{{ __('common.cancel') }}</flux:button>
+            <span></span>
             <flux:button type="submit" variant="primary">{{ __('stock_counts.btn_save') }}</flux:button>
         </div>
     </form>

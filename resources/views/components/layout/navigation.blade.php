@@ -76,7 +76,7 @@
                         {{ __('common.nav_stock_adjustment') }}
                     </a>
                     <a
-                        href="{{ route('stock-counts.index') }}"
+                        href="{{ route('stock-counts.create') }}"
                         class="{{ request()->routeIs('stock-counts.*') ? 'is-active' : '' }}"
                         wire:navigate
                         @click="open = false"

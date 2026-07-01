@@ -64,8 +64,6 @@ class SkuImport extends Component
 
     public string $saveTemplateName = '';
 
-    public bool $saveTemplateAsDefault = false;
-
     // Step 4 results
     public int $resultCreated = 0;
 
@@ -217,6 +215,10 @@ class SkuImport extends Component
         $tenantId = (int) $this->tenantId;
         $shopId = $this->shopId !== '' ? (int) $this->shopId : null;
 
+        if (! $this->saveTemplateIfRequested($tenantId)) {
+            return;
+        }
+
         $data = $this->readStoredImportFile();
         $rows = $data['rows'];
 
@@ -271,40 +273,8 @@ class SkuImport extends Component
             return;
         }
 
-        if ($this->doSaveTemplate && trim($this->saveTemplateName) === '') {
-            session()->flash('error', __('sku_import.template_name_required'));
-
-            return;
-        }
-
         $tenantId = (int) $this->tenantId;
         $shopId = $this->shopId !== '' ? (int) $this->shopId : null;
-
-        if ($this->doSaveTemplate && trim($this->saveTemplateName) !== '') {
-            $exists = SkuImportMapping::where('tenant_id', $tenantId)
-                ->where('name', trim($this->saveTemplateName))
-                ->exists();
-
-            if ($exists) {
-                session()->flash('error', __('sku_import.template_name_duplicate'));
-
-                return;
-            }
-
-            DB::transaction(function () use ($tenantId): void {
-                if ($this->saveTemplateAsDefault) {
-                    SkuImportMapping::where('tenant_id', $tenantId)->update(['is_default' => false]);
-                }
-
-                SkuImportMapping::create([
-                    'tenant_id' => $tenantId,
-                    'name' => trim($this->saveTemplateName),
-                    'mapping' => $this->mapping,
-                    'is_default' => $this->saveTemplateAsDefault,
-                    'created_by_user_id' => Auth::id(),
-                ]);
-            });
-        }
 
         $data = $this->readStoredImportFile();
         $rows = $data['rows'];
@@ -399,7 +369,7 @@ class SkuImport extends Component
         $this->reset([
             'file', 'fileHeaders', 'sampleRows', 'totalDataRows', 'filePath',
             'mapping', 'validRowCount', 'existsRowCount', 'errorRowCount', 'previewRows',
-            'defaultBarcodeType', 'allowUpsert', 'doSaveTemplate', 'saveTemplateName', 'saveTemplateAsDefault',
+            'defaultBarcodeType', 'allowUpsert', 'doSaveTemplate', 'saveTemplateName',
             'resultCreated', 'resultUpdated', 'resultSkipped', 'resultFailed', 'errorRows',
         ]);
         $this->step = 'upload';
@@ -830,6 +800,45 @@ class SkuImport extends Component
         }
 
         return $map;
+    }
+
+    private function saveTemplateIfRequested(int $tenantId): bool
+    {
+        if (! $this->doSaveTemplate) {
+            return true;
+        }
+
+        $name = trim($this->saveTemplateName);
+
+        if ($name === '') {
+            session()->flash('error', __('sku_import.template_name_required'));
+
+            return false;
+        }
+
+        if (SkuImportMapping::where('tenant_id', $tenantId)->where('name', $name)->exists()) {
+            session()->flash('error', __('sku_import.template_name_duplicate'));
+
+            return false;
+        }
+
+        DB::transaction(function () use ($tenantId, $name): void {
+            SkuImportMapping::where('tenant_id', $tenantId)->update(['is_default' => false]);
+
+            SkuImportMapping::create([
+                'tenant_id' => $tenantId,
+                'name' => $name,
+                'mapping' => $this->mapping,
+                'is_default' => true,
+                'created_by_user_id' => Auth::id(),
+            ]);
+        });
+
+        $this->doSaveTemplate = false;
+        $this->saveTemplateName = '';
+        session()->flash('status', __('sku_import.template_saved'));
+
+        return true;
     }
 
     private function resetFileState(): void

@@ -176,11 +176,12 @@ class StockCountImportTest extends TestCase
             ->set('step', 'map')
             ->set('doSaveTemplate', true)
             ->set('mapping', ['identifier' => 'Identifier', 'counted_qty' => 'Counted qty', 'line_note' => '', 'reference_no' => ''])
-            ->assertSee(__('stock_counts.btn_save_template'))
             ->assertDontSee('sku_import.map_btn_save')
             ->set('templateName', 'Default count')
-            ->set('templateAsDefault', true)
-            ->call('saveTemplate')
+            ->set('file', $this->csv([['STK-A', '1']]))
+            ->call('readFile')
+            ->set('mapping', ['identifier' => 'Identifier', 'counted_qty' => 'Counted qty', 'line_note' => '', 'reference_no' => ''])
+            ->call('advanceToPreview')
             ->assertSet('doSaveTemplate', false)
             ->assertHasNoErrors();
 

@@ -51,7 +51,7 @@ return [
     'preview_no_valid_rows' => 'No valid rows to import. Fix errors or check your mapping.',
     'option_insert_only' => 'Insert only -- skip rows whose SKU already exists',
     'option_upsert' => 'Upsert -- update existing SKUs',
-    'option_save_template' => 'Save current mapping as a named template',
+    'option_save_template' => 'Save mapping template',
     'option_template_name' => 'Template name',
     'option_save_template_as_default' => 'Use this as the default template for this tenant',
     'col_row' => 'Row',
