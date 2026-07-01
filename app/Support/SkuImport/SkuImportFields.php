@@ -20,11 +20,11 @@ class SkuImportFields
 
             new SkuImportField('platform_sku', 'sku_import.field_platform_sku', 'sku', false,
                 ['nullable', 'string', 'max:255'], 'string',
-                ['platform sku', 'asin', 'amazon sku', 'shopify sku', 'external sku']),
+                ['platform sku', 'amazon sku', 'shopify sku', 'external sku']),
 
             new SkuImportField('platform_product_id', 'sku_import.field_platform_product_id', 'sku', false,
                 ['nullable', 'string', 'max:255'], 'string',
-                ['platform product id', 'product id', 'parent asin']),
+                ['platform product id', 'product id', 'asin', 'asins', 'amazon asin', 'parent asin']),
 
             new SkuImportField('platform_variant_id', 'sku_import.field_platform_variant_id', 'sku', false,
                 ['nullable', 'string', 'max:255'], 'string',

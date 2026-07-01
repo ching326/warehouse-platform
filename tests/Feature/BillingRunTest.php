@@ -234,6 +234,26 @@ class BillingRunTest extends TestCase
         app(BillingRunService::class)->generate($tenant, '2026-02');
     }
 
+    public function test_foreign_currency_source_without_matching_rate_warns_instead_of_aborting(): void
+    {
+        [$tenant, $warehouse] = $this->tenantWarehouse();
+        // A billable JPY rate (so the run has rates + currency), but NO postage rate.
+        $this->rate($tenant, FeeRate::TYPE_HANDLING_OUTBOUND_ORDER, FeeRate::UNIT_PER_ORDER, 100);
+        // Shipped order carrying a USD courier cost that will not be billed (no postage rate).
+        $this->shippedOutbound($tenant, $warehouse, '2026-02-12 10:00:00', [
+            'courier_cost' => 5,
+            'courier_cost_currency' => 'USD',
+        ]);
+
+        $invoice = app(BillingRunService::class)->generate($tenant, '2026-02');
+
+        // Run did not abort: handling billed, postage not billed, recorded as a no_rate warning.
+        $this->assertSame(Invoice::STATUS_DRAFT, $invoice->status);
+        $this->assertTrue($invoice->lines->contains('fee_type', FeeRate::TYPE_HANDLING_OUTBOUND_ORDER));
+        $this->assertFalse($invoice->lines->contains('fee_type', FeeRate::TYPE_POSTAGE));
+        $this->assertTrue(collect($invoice->warnings)->contains(fn (array $w): bool => $w['code'] === 'no_rate'));
+    }
+
     public function test_warnings_idempotent_rerun_total_and_finalized_invoice_freeze(): void
     {
         [$tenant, $warehouse] = $this->tenantWarehouse();

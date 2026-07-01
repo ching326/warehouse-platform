@@ -138,6 +138,26 @@ B2B / transfers); Inbound = 入庫 / 進倉 / 入库. zh_TW uses 進倉 / 出倉
 JAN / EAN / UPC are kept as-is (international standards) in all locales. Only Unknown is translated:
 ja 不明 / zh_TW 未知 / zh_CN 未知.
 
+## Billing terms (billing.php) -- done
+
+| en | ja | zh_TW | zh_CN |
+|---|---|---|---|
+| Fee Rate | 料金レート | 費率 | 费率 |
+| Billing | 請求 | 計費 | 计费 |
+| Invoice | 請求書 | 發票 | 发票 |
+| Storage | 保管 | 倉儲 | 仓储 |
+| Inbound handling | 入庫作業 | 進倉作業 | 入库操作 |
+| Outbound handling | 出庫作業 | 出倉作業 | 出库操作 |
+| QC | 検品 | 檢驗 | 质检 |
+| Return shipping | 返品送料 | 退貨運費 | 退货运费 |
+| Postage (fee) | 送料 | 運費 | 运费 |
+| Courier cost (our cost) | 配送料 | 運費 | 运费 |
+| Markup | マークアップ | 加成 | 加价 |
+| Currency | 通貨 | 貨幣 | 货币 |
+| Effective window | 適用期間 | 生效期間 | 生效期间 |
+| Finalize / Finalized | 確定 / 確定済み | 確認 / 已確認 | 确认 / 已确认 |
+| Void | 無効 | 作廢 | 作废 |
+
 ## Module lang files -- status
 
 - Translated (ja, zh_TW, zh_CN): inbound.php, outbound.php, fulfillment.php (was fulfillment_groups.php),

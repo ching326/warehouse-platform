@@ -51,7 +51,7 @@ class BillingRunService
 
         $currency = (string) $currencies->first();
         $events = $this->collectBillableEvents($tenant, $period);
-        $this->guardSourceCurrencies($events, $currency);
+        $this->guardSourceCurrencies($tenant->id, $events, $currency);
 
         return DB::transaction(function () use ($tenant, $period, $currency, $events): Invoice {
             $invoice = $this->loadOrCreateInvoice($tenant, $period, $currency);
@@ -541,10 +541,14 @@ class BillingRunService
         return $events;
     }
 
-    private function guardSourceCurrencies(array $events, string $currency): void
+    private function guardSourceCurrencies(int $tenantId, array $events, string $currency): void
     {
+        // Only guard sources that are actually billed: a currency mismatch on an event
+        // with no matching rate must fall through to a no_rate warning, not abort the run.
         $offenders = collect($events)
-            ->filter(fn (array $event): bool => isset($event['currency']) && $event['currency'] !== $currency)
+            ->filter(fn (array $event): bool => isset($event['currency'])
+                && $event['currency'] !== $currency
+                && FeeRate::resolveForDate($tenantId, $event['fee_type'], $event['source_date']) instanceof FeeRate)
             ->map(fn (array $event): string => $event['source_type'].'#'.$event['source_id'])
             ->values();
 

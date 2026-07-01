@@ -36,6 +36,8 @@ class BillingRunIndex extends Component
 
     public function generate(BillingRunService $service): void
     {
+        $this->validate(['period' => ['required', 'date_format:Y-m']]);
+
         $tenant = $this->selectedTenant();
 
         try {

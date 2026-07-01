@@ -3,9 +3,8 @@
     $skusActive      = request()->routeIs('skus.*');
     $inboundActive   = request()->routeIs('inbound.*');
     $returnOrdersActive = request()->routeIs('return-orders.*');
-    $outboundActive  = request()->routeIs('outbound.*');
-    $salesActive     = request()->routeIs('sales.*');
-    $fulfillmentActive = request()->routeIs('fulfillment.*');
+    $outboundActive  = request()->routeIs('outbound.*', 'fulfillment.pack.*', 'fulfillment.pack-scans.*');
+    $orderActive     = request()->routeIs('sales.*', 'fulfillment.index', 'fulfillment.pick-summary');
     $issuesActive = request()->routeIs('issues.*');
     $setupActive     = request()->routeIs('setup.*');
     $shipToFbaQuery = [];
@@ -113,7 +112,7 @@
             >
                 <button
                     type="button"
-                    class="top-nav-btn {{ $outboundActive || $fulfillmentActive ? 'is-active' : '' }}"
+                    class="top-nav-btn {{ $outboundActive ? 'is-active' : '' }}"
                     @click="open = !open"
                     :aria-expanded="open"
                 >
@@ -140,22 +139,6 @@
                         {{ __('common.nav_outbound_orders') }}
                     </a>
                     <a
-                        href="{{ route('fulfillment.index') }}"
-                        class="{{ request()->routeIs('fulfillment.index', 'fulfillment.pack.start', 'fulfillment.pack-scans.index') ? 'is-active' : '' }}"
-                        wire:navigate
-                        @click="open = false"
-                    >
-                        {{ __('common.nav_fulfillment') }}
-                    </a>
-                    <a
-                        href="{{ route('fulfillment.pick-summary') }}"
-                        class="{{ request()->routeIs('fulfillment.pick-summary') ? 'is-active' : '' }}"
-                        wire:navigate
-                        @click="open = false"
-                    >
-                        {{ __('common.nav_pick_summary') }}
-                    </a>
-                    <a
                         href="{{ $shipToFbaHref }}"
                         class="{{ request()->routeIs('outbound.create') && request()->query('reason') === \App\Models\OutboundOrder::REASON_FBA ? 'is-active' : '' }}"
                         wire:navigate
@@ -166,14 +149,59 @@
                 </div>
             </div>
 
-            {{-- Sales Orders --}}
-            <a
-                href="{{ route('sales.orders.index') }}"
-                class="top-nav-btn {{ $salesActive ? 'is-active' : '' }}"
-                wire:navigate
+            {{-- Order --}}
+            <div
+                class="top-nav-item"
+                x-data="{ open: false }"
+                @click.outside="open = false"
+                @keydown.escape.window="open = false"
             >
-                {{ __('common.nav_sales_orders') }}
-            </a>
+                <button
+                    type="button"
+                    class="top-nav-btn {{ $orderActive ? 'is-active' : '' }}"
+                    @click="open = !open"
+                    :aria-expanded="open"
+                >
+                    {{ __('common.nav_order') }}
+                    <svg
+                        class="top-nav-chevron"
+                        :class="{ 'is-open': open }"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                    >
+                        <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+
+                <div class="top-nav-dropdown" x-show="open" x-cloak>
+                    <a
+                        href="{{ route('sales.orders.index') }}"
+                        class="{{ request()->routeIs('sales.*') ? 'is-active' : '' }}"
+                        wire:navigate
+                        @click="open = false"
+                    >
+                        {{ __('common.nav_order_import') }}
+                    </a>
+                    <a
+                        href="{{ route('fulfillment.index') }}"
+                        class="{{ request()->routeIs('fulfillment.index') ? 'is-active' : '' }}"
+                        wire:navigate
+                        @click="open = false"
+                    >
+                        {{ __('common.nav_order_fulfillment') }}
+                    </a>
+                    <a
+                        href="{{ route('fulfillment.pick-summary') }}"
+                        class="{{ request()->routeIs('fulfillment.pick-summary') ? 'is-active' : '' }}"
+                        wire:navigate
+                        @click="open = false"
+                    >
+                        {{ __('common.nav_pick_summary') }}
+                    </a>
+                </div>
+            </div>
 
             {{-- Returns --}}
             <a
