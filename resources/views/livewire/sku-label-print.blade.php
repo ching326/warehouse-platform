@@ -84,16 +84,21 @@
         </div>
 
         <div class="sku-label-row-tools">
-            <flux:button type="button" variant="primary" wire:click="addEntry">
-                {{ __('skus.label_add_row') }}
-            </flux:button>
-
-            <div class="sku-label-apply-qty">
-                <flux:input wire:model="applyQty" type="number" min="1" step="1" :label="__('skus.label_apply_qty')" />
-                <flux:button type="button" variant="primary" wire:click="applyQtyToAll">
-                    {{ __('skus.label_apply_all') }}
+            <div class="sku-label-add-row">
+                <flux:button type="button" variant="primary" wire:click="addEntry">
+                    {{ __('skus.label_add_row') }}
                 </flux:button>
             </div>
+
+            @if (count($entries) > 1)
+                <span class="sku-label-apply-label">{{ __('skus.label_apply_qty') }}</span>
+                <input class="table-control sku-label-apply-input" wire:model="applyQty" type="number" min="1" step="1" aria-label="{{ __('skus.label_apply_qty') }}">
+                <div class="sku-label-apply-action">
+                    <flux:button type="button" variant="primary" wire:click="applyQtyToAll">
+                        {{ __('skus.label_apply_all') }}
+                    </flux:button>
+                </div>
+            @endif
         </div>
 
         <div class="sku-label-layout-row">
@@ -193,19 +198,36 @@
         }
 
         .sku-label-row-tools {
-            display: flex;
-            align-items: end;
-            justify-content: space-between;
-            gap: 16px;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: minmax(150px, 1.1fr) minmax(260px, 2.2fr) minmax(180px, 1fr) 86px 92px;
+            gap: 12px;
+            align-items: center;
             padding-top: 2px;
         }
 
-        .sku-label-apply-qty {
-            display: grid;
-            grid-template-columns: 120px auto;
-            gap: 10px;
-            align-items: end;
+        .sku-label-add-row {
+            grid-column: 1 / 2;
+        }
+
+        .sku-label-apply-label {
+            color: var(--ink);
+            font-size: 13px;
+            font-weight: 700;
+            grid-column: 3 / 4;
+            justify-self: end;
+            white-space: nowrap;
+        }
+
+        .sku-label-apply-input {
+            grid-column: 4 / 5;
+            width: 86px;
+        }
+
+        .sku-label-apply-action {
+            display: flex;
+            grid-column: 5 / 6;
+            align-items: center;
+            justify-content: flex-end;
         }
 
         .sku-label-layout-row {

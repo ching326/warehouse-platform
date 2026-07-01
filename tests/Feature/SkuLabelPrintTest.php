@@ -48,6 +48,18 @@ class SkuLabelPrintTest extends TestCase
             ->assertSet('entries.1.qty', 7);
     }
 
+    public function test_apply_to_all_controls_only_show_for_multiple_rows(): void
+    {
+        [$sku] = $this->skuWithStockItem();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuLabelPrint::class, ['sku' => $sku])
+            ->assertDontSee(__('skus.label_apply_qty'))
+            ->call('addEntry')
+            ->assertSee(__('skus.label_apply_qty'))
+            ->assertSee(__('skus.label_apply_all'));
+    }
+
     public function test_selected_skus_open_label_print_page_together(): void
     {
         [$first] = $this->skuWithStockItem();
