@@ -40,6 +40,9 @@ class ReturnOrderCost extends Model
         });
     }
 
+    /**
+     * @return BelongsTo<ReturnOrder, $this>
+     */
     public function returnOrder(): BelongsTo
     {
         return $this->belongsTo(ReturnOrder::class);
