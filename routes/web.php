@@ -8,6 +8,7 @@ use App\Http\Controllers\MediaController;
 use App\Http\Controllers\SalesOrderExportController;
 use App\Http\Controllers\SkuLabelController;
 use App\Livewire\AmazonSpapiOrderImport;
+use App\Livewire\BillingRunIndex;
 use App\Livewire\FbaWarehouseCreate;
 use App\Livewire\FbaWarehouseEdit;
 use App\Livewire\FbaWarehouseIndex;
@@ -177,6 +178,7 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/setup/fee-rates', FeeRateIndex::class)->name('setup.fee-rates.index');
     Route::get('/setup/fee-rates/create', FeeRateCreate::class)->name('setup.fee-rates.create');
     Route::get('/setup/fee-rates/{feeRate}/edit', FeeRateEdit::class)->name('setup.fee-rates.edit');
+    Route::get('/setup/billing', BillingRunIndex::class)->name('setup.billing.index');
     Route::get('/setup/locations', WarehouseLocationIndex::class)->name('setup.locations.index');
     Route::get('/setup/locations/create', WarehouseLocationCreate::class)->name('setup.locations.create');
     Route::get('/setup/locations/{location}/edit', WarehouseLocationEdit::class)->name('setup.locations.edit');

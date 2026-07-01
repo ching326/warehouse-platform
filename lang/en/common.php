@@ -27,6 +27,7 @@ return [
     'nav_shops' => 'Shop',
     'nav_shipping_methods' => 'Shipping Method',
     'nav_fee_rates' => 'Fee Rates',
+    'nav_billing' => 'Billing',
     'nav_packagings' => 'Packaging',
     'nav_other_settings' => 'Other Setting',
     'all_tenants' => 'All tenants',

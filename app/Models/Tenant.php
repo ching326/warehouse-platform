@@ -103,4 +103,12 @@ class Tenant extends Model
     {
         return $this->hasMany(FeeRate::class);
     }
+
+    /**
+     * @return HasMany<Invoice, $this>
+     */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
 }

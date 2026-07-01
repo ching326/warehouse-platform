@@ -46,4 +46,16 @@
             </flux:button>
         </div>
     </section>
+
+    <section class="table-shell flux-panel form-panel">
+        <div class="form-panel-header">
+            <div>
+                <strong>{{ __('common.nav_billing') }}</strong>
+                <span>{{ __('billing.billing_page_subtitle') }}</span>
+            </div>
+            <flux:button href="{{ route('setup.billing.index') }}" variant="primary">
+                {{ __('common.view') }}
+            </flux:button>
+        </div>
+    </section>
 </div>

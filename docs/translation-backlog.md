@@ -21,6 +21,7 @@ row to Done.
 | Stock Count | `stock_counts.*`, `common.nav_stock_count` | ja, zh_TW, zh_CN | Added English only for Stock Count pages and import flow. |
 | Billing courier cost capture | `outbound.field_courier_cost*`, `outbound.btn_edit_courier_cost`, `outbound.courier_cost_*` | ja, zh_TW, zh_CN | Added English only for courier cost capture. |
 | Billing fee rates | `billing.*`, `common.nav_fee_rates` | ja, zh_TW, zh_CN | Added English only for warehouse billing rate card setup. |
+| Billing run | `billing.*`, `common.nav_billing` | ja, zh_TW, zh_CN | Added English only for warehouse billing invoice generation and review. |
 
 ## Done
 
