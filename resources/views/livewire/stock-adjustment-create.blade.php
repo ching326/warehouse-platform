@@ -49,6 +49,7 @@
 
             <div class="form-grid">
                 @php
+                    $stockItemDisabled = $tenantId === '' || $warehouseId === '';
                     $stockItemOptions = $stockItems->map(fn ($item) => [
                         'value' => $item->id,
                         'label' => $item->code.' - '.$item->displayName(),
@@ -61,21 +62,28 @@
                         : '';
                 @endphp
 
-                <x-searchable-select
-                    wire:key="stock-adjustment-stock-item-{{ $tenantId }}-{{ $warehouseId }}-{{ $stockItemId }}"
-                    :label="__('stock_adjustments.field_stock_item')"
-                    model="stockItemId"
-                    search-model="stockItemSearch"
-                    :options="$stockItemOptions"
-                    :selected-label="$selectedStockItemLabel"
-                    :placeholder="__('stock_adjustments.select_stock_item')"
-                    :empty-label="__('skus.no_stock_item')"
-                    :disabled="$tenantId === '' || $warehouseId === ''"
-                    required
-                />
+                @if ($stockItemDisabled)
+                    <flux:select required :label="__('stock_adjustments.field_stock_item')" disabled>
+                        <flux:select.option value="">{{ __('stock_adjustments.select_stock_item') }}</flux:select.option>
+                    </flux:select>
+                @else
+                    <x-searchable-select
+                        wire:key="stock-adjustment-stock-item-{{ $tenantId }}-{{ $warehouseId }}-{{ $stockItemId }}"
+                        :label="__('stock_adjustments.field_stock_item')"
+                        model="stockItemId"
+                        search-model="stockItemSearch"
+                        :options="$stockItemOptions"
+                        :selected-label="$selectedStockItemLabel"
+                        :placeholder="__('stock_adjustments.select_stock_item')"
+                        :empty-label="__('skus.no_stock_item')"
+                        required
+                    />
+                @endif
             </div>
 
-            @error('stock_item_id') <p class="form-error">{{ $message }}</p> @enderror
+            @unless ($stockItemDisabled)
+                @error('stock_item_id') <p class="form-error">{{ $message }}</p> @enderror
+            @endunless
         </section>
 
         <section class="table-shell flux-panel form-panel">

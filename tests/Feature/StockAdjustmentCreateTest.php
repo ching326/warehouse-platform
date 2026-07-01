@@ -89,8 +89,12 @@ class StockAdjustmentCreateTest extends TestCase
 
     public function test_stock_item_field_marks_required_in_searchable_select(): void
     {
+        [$tenant, $warehouse] = $this->targetModels();
+
         Livewire::actingAs($this->internalUser())
             ->test(StockAdjustmentCreate::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('warehouseId', (string) $warehouse->id)
             ->assertSee('Stock item')
             ->assertSee('required-indicator', false);
     }
@@ -234,27 +238,22 @@ class StockAdjustmentCreateTest extends TestCase
             ->assertHasErrors(['action' => 'required', 'reason' => 'required']);
     }
 
-    public function test_stock_item_dropdown_is_disabled_until_tenant_and_warehouse_are_selected(): void
+    public function test_stock_item_picker_uses_flux_disabled_style_until_tenant_and_warehouse_are_selected(): void
     {
         [$tenant, $warehouse] = $this->targetModels();
 
         $component = Livewire::actingAs($this->internalUser())
             ->test(StockAdjustmentCreate::class);
 
-        $this->assertMatchesRegularExpression(
-            '/<input[^>]*wire:model\.live\.debounce\.150ms="stockItemSearch"[^>]*\sdisabled(?:\s|>|=)/s',
-            $component->html(),
-        );
-        $component->assertSee('class="searchable-select"', false);
+        $component
+            ->assertSee('disabled', false)
+            ->assertDontSee('class="searchable-select"', false);
 
         $component
             ->set('tenantId', (string) $tenant->id)
             ->set('warehouseId', (string) $warehouse->id);
 
-        $this->assertDoesNotMatchRegularExpression(
-            '/<input[^>]*wire:model\.live\.debounce\.150ms="stockItemSearch"[^>]*\sdisabled(?:\s|>|=)/s',
-            $component->html(),
-        );
+        $component->assertSee('class="searchable-select"', false);
     }
 
     public function test_stock_item_picker_searches_stock_item_name_fields(): void
