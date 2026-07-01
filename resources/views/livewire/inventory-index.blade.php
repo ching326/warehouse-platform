@@ -89,7 +89,7 @@
             <flux:table.columns>
                 <flux:table.column>{{ __('skus.col_stock_item') }}</flux:table.column>
                 <flux:table.column>{{ __('skus.col_sku') }}</flux:table.column>
-                <flux:table.column>{{ __('skus.col_stock_item_name') }}</flux:table.column>
+                <flux:table.column>{{ __('skus.col_name') }}</flux:table.column>
                 @if ($showTenantColumn)
                     <flux:table.column><span class="inventory-tenant-column-label">{{ __('common.tenant') }}</span></flux:table.column>
                 @endif
@@ -125,15 +125,15 @@
                                 @endphp
 
                                 @forelse ($visibleSkus as $sku)
-                                    <flux:badge color="zinc" class="sku-chip">
-                                        {{ $sku->sku }}
+                                    <div class="sku-text-line" title="{{ $sku->sku }}">
+                                        <span>{{ $sku->sku }}</span>
                                         @if ($isExpanded && $sku->platform_sku)
                                             <small>{{ $sku->platform_sku }}</small>
                                         @endif
                                         @if ($isExpanded && $sku->platform_label_code)
                                             <small>{{ $sku->platform_label_code }}</small>
                                         @endif
-                                    </flux:badge>
+                                    </div>
                                 @empty
                                     <span class="subtle">{{ __('inventory.no_skus') }}</span>
                                 @endforelse
@@ -154,12 +154,11 @@
                             </div>
                         </flux:table.cell>
                         <flux:table.cell class="stock-item-name-cell">
-                            <strong>{{ $balance->stockItem->name }}</strong>
+                            <span class="stock-item-name-text" title="{{ $balance->stockItem->name }}">{{ $balance->stockItem->name }}</span>
                         </flux:table.cell>
                         @if ($showTenantColumn)
                             <flux:table.cell>
-                                <strong>{{ $balance->tenant->code }}</strong>
-                                <span class="subtle">{{ $balance->tenant->name }}</span>
+                                <span>{{ $balance->tenant->code }}</span>
                             </flux:table.cell>
                         @endif
                         <flux:table.cell align="end" class="inventory-number-cell">

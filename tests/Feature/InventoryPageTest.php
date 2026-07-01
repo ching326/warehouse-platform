@@ -36,7 +36,7 @@ class InventoryPageTest extends TestCase
             ->assertSee('Filtered Reserved')
             ->assertSee('Stock Item')
             ->assertSee('SKU')
-            ->assertSee('Stock item name')
+            ->assertSee('Name')
             ->assertSee($rows['alphaStock']->code)
             ->assertSee($rows['alphaSku']->sku)
             ->assertSee((string) $rows['alphaBalance']->available_qty)

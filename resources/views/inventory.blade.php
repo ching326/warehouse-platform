@@ -420,9 +420,7 @@
             }
 
             .sku-list {
-                display: flex;
-                flex-wrap: wrap;
-                align-items: center;
+                display: grid;
                 gap: 6px;
                 min-width: 0;
                 margin-top: 10px;
@@ -449,6 +447,15 @@
                 width: 18%;
                 min-width: 180px;
                 max-width: 260px;
+            }
+
+            .stock-item-name-text {
+                display: block;
+                min-width: 0;
+                max-width: 100%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
 
             .stock-item-summary {
@@ -504,19 +511,28 @@
                 resize: vertical;
             }
 
-            .sku-chip {
-                display: inline-flex;
-                flex-direction: column;
+            .sku-text-line {
+                display: grid;
                 gap: 2px;
-                max-width: 160px;
-                border: 1px solid var(--line);
-                border-radius: 6px;
-                background: #fbfcfe;
+                min-width: 0;
+                max-width: 100%;
                 color: var(--ink);
-                padding: 6px 8px;
                 font-size: 12px;
-                font-weight: 800;
-                vertical-align: top;
+                font-weight: 500;
+            }
+
+            .sku-text-line span,
+            .sku-text-line small {
+                display: block;
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .sku-text-line small {
+                color: var(--muted);
+                font-size: 11px;
             }
 
             .inventory-table {
