@@ -1066,6 +1066,111 @@
                 gap: 8px;
             }
 
+            .record-link {
+                color: var(--color-teal-700);
+                font-weight: 700;
+                text-decoration: none;
+            }
+
+            .record-link:hover,
+            .record-link:focus-visible {
+                color: var(--color-teal-800);
+                text-decoration: underline;
+            }
+
+            .stock-count-summary-panel {
+                display: grid;
+                gap: 12px;
+                padding: 16px;
+            }
+
+            .stock-count-section-actions {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+            }
+
+            .stock-count-summary-grid {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 1px;
+                overflow: hidden;
+                border-radius: 8px;
+                background: var(--line);
+            }
+
+            .stock-count-summary-grid > div {
+                display: grid;
+                gap: 4px;
+                min-width: 0;
+                background: #fff;
+                padding: 12px 14px;
+            }
+
+            .stock-count-summary-grid span {
+                color: var(--muted);
+                font-size: 11px;
+                font-weight: 800;
+                letter-spacing: 0.02em;
+                text-transform: uppercase;
+            }
+
+            .stock-count-summary-grid strong {
+                min-width: 0;
+                overflow: hidden;
+                color: var(--ink);
+                font-size: 14px;
+                font-weight: 800;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .stock-count-lines-panel table {
+                width: 100%;
+                table-layout: fixed;
+            }
+
+            .stock-count-lines-panel th,
+            .stock-count-lines-panel td {
+                white-space: nowrap;
+            }
+
+            .stock-count-lines-panel th:nth-child(1) {
+                width: 30%;
+            }
+
+            .stock-count-lines-panel th:nth-child(2),
+            .stock-count-lines-panel th:nth-child(3),
+            .stock-count-lines-panel th:nth-child(4) {
+                width: 9%;
+            }
+
+            .stock-count-lines-panel th:nth-child(5),
+            .stock-count-lines-panel th:nth-child(6) {
+                width: 9%;
+            }
+
+            .stock-count-lines-panel th:nth-child(7),
+            .stock-count-lines-panel th:nth-child(8) {
+                width: 12.5%;
+            }
+
+            .stock-count-lines-panel td {
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .stock-count-lines-panel td:first-child strong,
+            .stock-count-lines-panel td:first-child span {
+                display: block;
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
             .view-settings-trigger {
                 display: inline-flex;
                 align-items: center;

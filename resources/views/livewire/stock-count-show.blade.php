@@ -1,12 +1,13 @@
 <div class="stock-count-show-page">
-    <x-page-panel-header :title="__('stock_counts.show_title', ['id' => $run->id])" :subtitle="__('stock_counts.page_subtitle')">
-        <x-slot:actions>
-            <flux:button href="{{ route('stock-counts.index') }}" variant="outline" wire:navigate>{{ __('stock_counts.btn_back_to_index') }}</flux:button>
-        </x-slot:actions>
-    </x-page-panel-header>
+    <x-page-panel-header :title="__('stock_counts.show_title', ['id' => $run->id])" :subtitle="__('stock_counts.page_subtitle')" />
 
-    <section class="table-shell flux-panel form-panel">
-        <div class="balance-preview-grid">
+    <section class="table-shell flux-panel form-panel stock-count-summary-panel">
+        <div class="stock-count-section-actions">
+            <span></span>
+            <flux:button href="{{ route('stock-counts.index') }}" variant="outline" wire:navigate>{{ __('stock_counts.btn_back_to_index') }}</flux:button>
+        </div>
+
+        <div class="stock-count-summary-grid">
             <div><span>{{ __('common.tenant') }}</span><strong>{{ $run->tenant->code }}</strong></div>
             <div><span>{{ __('common.warehouse') }}</span><strong>{{ $run->warehouse->code }}</strong></div>
             <div><span>{{ __('stock_counts.col_source') }}</span><strong>{{ __('stock_counts.sources.'.$run->source) }}</strong></div>
@@ -19,11 +20,10 @@
         </div>
     </section>
 
-    <section class="table-shell flux-panel">
-        <flux:table>
+    <section class="table-shell flux-panel stock-count-lines-panel">
+        <flux:table class="stock-count-lines-table">
             <flux:table.columns>
                 <flux:table.column>{{ __('skus.col_stock_item') }}</flux:table.column>
-                <flux:table.column>{{ __('skus.field_tenant_item_code') }}</flux:table.column>
                 <flux:table.column align="end">{{ __('stock_counts.col_previous_on_hand') }}</flux:table.column>
                 <flux:table.column align="end">{{ __('stock_counts.field_counted_qty') }}</flux:table.column>
                 <flux:table.column align="end">{{ __('stock_counts.col_delta') }}</flux:table.column>
@@ -37,14 +37,24 @@
                     <flux:table.row :key="$line->id">
                         <flux:table.cell>
                             <strong>{{ $line->stockItem->code }}</strong>
+                            @if ($line->stockItem->tenant_item_code)
+                                <span class="subtle">{{ $line->stockItem->tenant_item_code }}</span>
+                            @endif
                             <span class="subtle">{{ $line->stockItem->displayName() }}</span>
                         </flux:table.cell>
-                        <flux:table.cell>{{ $line->stockItem->tenant_item_code ?: '-' }}</flux:table.cell>
                         <flux:table.cell align="end">{{ number_format($line->previous_on_hand_qty) }}</flux:table.cell>
                         <flux:table.cell align="end">{{ number_format($line->counted_qty) }}</flux:table.cell>
                         <flux:table.cell align="end">{{ number_format($line->delta_qty) }}</flux:table.cell>
-                        <flux:table.cell>{{ $line->movement_id ? '#'.$line->movement_id : '-' }}</flux:table.cell>
-                        <flux:table.cell>{{ __('stock_counts.statuses.'.$line->status) }}</flux:table.cell>
+                        <flux:table.cell>
+                            @if ($line->movement_id)
+                                <a href="{{ route('inventory.movements.index', ['stock_item_id' => $line->stock_item_id]) }}" class="record-link" wire:navigate>#{{ $line->movement_id }}</a>
+                            @else
+                                -
+                            @endif
+                        </flux:table.cell>
+                        <flux:table.cell>
+                            <x-status-badge :status="$line->status" :label="__('stock_counts.statuses.'.$line->status)" />
+                        </flux:table.cell>
                         <flux:table.cell>{{ $line->line_note ?: '-' }}</flux:table.cell>
                         <flux:table.cell>{{ $line->reference_no ?: '-' }}</flux:table.cell>
                     </flux:table.row>
