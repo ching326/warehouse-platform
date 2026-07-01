@@ -36,7 +36,7 @@ class ReturnOrderCost extends Model
                 return;
             }
 
-            $cost->cost_incurred_at = $cost->returnOrder?->received_at ?? now();
+            $cost->cost_incurred_at = $cost->returnOrder->received_at ?? now();
         });
     }
 
