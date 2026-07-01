@@ -46,6 +46,10 @@ class OutboundOrderTest extends TestCase
             'source_sales_order_id',
             'courier_csv_exported_at',
             'shipping_method_id',
+            'courier_cost',
+            'courier_cost_currency',
+            'courier_cost_updated_by_user_id',
+            'courier_cost_updated_at',
         ] as $column) {
             $this->assertTrue(Schema::hasColumn('outbound_orders', $column));
         }
@@ -540,6 +544,43 @@ class OutboundOrderTest extends TestCase
         $this->assertSame(InventoryMovement::TYPE_SHIP, $shipMovement->movement_type);
         $this->assertSame(-4, $shipMovement->on_hand_delta);
         $this->assertSame(-4, $shipMovement->reserved_delta);
+    }
+
+    public function test_ship_persists_courier_cost_with_audit_stamp(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
+        $this->createOrder($tenant, $warehouse, $sku, qty: 1, ref: 'OB-COST');
+        $order = OutboundOrder::where('ref', 'OB-COST')->firstOrFail();
+        $user = $this->internalUser();
+
+        Livewire::actingAs($user)
+            ->test(OutboundOrderShip::class, ['order' => $order])
+            ->set('courierCost', '1234.5')
+            ->set('courierCostCurrency', 'jpy')
+            ->call('save')
+            ->assertSee(__('outbound.order_shipped'));
+
+        $order->refresh();
+        $this->assertSame('1234.50', $order->courier_cost);
+        $this->assertSame('JPY', $order->courier_cost_currency);
+        $this->assertSame($user->id, $order->courier_cost_updated_by_user_id);
+        $this->assertNotNull($order->courier_cost_updated_at);
+    }
+
+    public function test_ship_requires_currency_when_courier_cost_is_present(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
+        $this->createOrder($tenant, $warehouse, $sku, qty: 1, ref: 'OB-COST-CURRENCY');
+        $order = OutboundOrder::where('ref', 'OB-COST-CURRENCY')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderShip::class, ['order' => $order])
+            ->set('courierCost', '500')
+            ->set('courierCostCurrency', '')
+            ->call('save')
+            ->assertHasErrors(['courier_cost_currency']);
+
+        $this->assertSame(OutboundOrder::STATUS_RESERVED, $order->refresh()->status);
     }
 
     public function test_ship_virtual_bundle_deducts_all_components(): void
@@ -1074,6 +1115,42 @@ class OutboundOrderTest extends TestCase
             ->call('saveShipping');
 
         $this->assertSame($method->id, $order->refresh()->shipping_method_id);
+    }
+
+    public function test_detail_can_edit_courier_cost_after_shipping(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(3);
+        $user = $this->internalUser();
+
+        $order = OutboundOrder::factory()
+            ->for($tenant)
+            ->for($warehouse)
+            ->create([
+                'status' => OutboundOrder::STATUS_SHIPPED,
+                'reason' => OutboundOrder::REASON_RE_SHIP,
+                'courier_cost' => null,
+                'courier_cost_currency' => null,
+            ]);
+
+        OutboundOrderLine::factory()
+            ->for($order, 'order')
+            ->for($sku)
+            ->for($sku->stockItem)
+            ->create(['qty' => 1]);
+
+        Livewire::actingAs($user)
+            ->test(OutboundOrderDetail::class, ['order' => $order])
+            ->call('editCourierCost')
+            ->set('courierCost', '880')
+            ->set('courierCostCurrency', 'jpy')
+            ->call('saveCourierCost')
+            ->assertHasNoErrors();
+
+        $order->refresh();
+        $this->assertSame('880.00', $order->courier_cost);
+        $this->assertSame('JPY', $order->courier_cost_currency);
+        $this->assertSame($user->id, $order->courier_cost_updated_by_user_id);
+        $this->assertNotNull($order->courier_cost_updated_at);
     }
 
     public function test_detail_export_yamato_for_manual_outbound(): void

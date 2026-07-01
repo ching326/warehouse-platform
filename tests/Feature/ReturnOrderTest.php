@@ -85,6 +85,22 @@ class ReturnOrderTest extends TestCase
             ->assertDontSee('JPY 123.45');
     }
 
+    public function test_return_order_cost_defaults_cost_incurred_at_to_received_at(): void
+    {
+        [$order] = $this->returnOrderWithLine();
+        $receivedAt = CarbonImmutable::create(2026, 6, 15, 9, 30, 0, 'UTC');
+        $order->update(['received_at' => $receivedAt]);
+
+        $cost = $order->costs()->create([
+            'tenant_id' => $order->tenant_id,
+            'cost_type' => ReturnOrderCost::COST_FREIGHT_COLLECT,
+            'amount' => '900',
+            'currency' => 'JPY',
+        ]);
+
+        $this->assertSame($receivedAt->toDateTimeString(), $cost->refresh()->cost_incurred_at->toDateTimeString());
+    }
+
     public function test_return_order_index_can_inline_save_status_and_note(): void
     {
         [$order] = $this->returnOrderWithLine();
