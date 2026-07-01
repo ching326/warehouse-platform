@@ -118,7 +118,9 @@ class StockCountCreate extends Component
         ])->validate();
 
         $balance = $this->currentBalance();
-        $minimum = (int) ($balance?->reserved_qty ?? 0) + (int) ($balance?->hold_qty ?? 0) + (int) ($balance?->damaged_qty ?? 0);
+        $minimum = $balance instanceof InventoryBalance
+            ? (int) $balance->reserved_qty + (int) $balance->hold_qty + (int) $balance->damaged_qty
+            : 0;
 
         if ((int) $this->countedQty < $minimum) {
             throw ValidationException::withMessages(['countedQty' => __('stock_counts.error_counted_below_committed')]);
@@ -144,7 +146,10 @@ class StockCountCreate extends Component
             return null;
         }
 
-        return (int) $this->countedQty - (int) ($this->currentBalance()?->on_hand_qty ?? 0);
+        $balance = $this->currentBalance();
+        $currentOnHand = $balance instanceof InventoryBalance ? (int) $balance->on_hand_qty : 0;
+
+        return (int) $this->countedQty - $currentOnHand;
     }
 
     private function stockItemOptions(): Collection

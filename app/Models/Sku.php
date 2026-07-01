@@ -61,7 +61,9 @@ class Sku extends Model
     /** Product label for SKU list views, sourced only from the linked stock item. */
     public function displayName(?string $locale = null): string
     {
-        return $this->stockItem?->displayName($locale) ?? '';
+        $stockItem = $this->stockItem;
+
+        return $stockItem instanceof StockItem ? $stockItem->displayName($locale) : '';
     }
 
     public function defaultPackagingMaterial(): BelongsTo

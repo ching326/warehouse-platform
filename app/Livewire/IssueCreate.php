@@ -252,17 +252,22 @@ class IssueCreate extends Component
         $this->tenantId = (string) $order->tenant_id;
 
         $this->salesOrderLines = $order->lines
-            ->map(fn (SalesOrderLine $line) => [
-                'selected' => false,
-                'sales_order_line_id' => $line->id,
-                'label' => $line->sku?->sku.' / '.$line->sku?->displayName(),
-                'stock_item' => $line->sku?->stockItem?->code,
-                'max_qty' => $line->quantity,
-                'qty' => 1,
-                'condition' => IssueLine::CONDITION_UNKNOWN,
-                'action' => IssueLine::ACTION_INVESTIGATE,
-                'note' => '',
-            ])
+            ->map(function (SalesOrderLine $line): array {
+                $sku = $line->sku;
+                $stockItem = $sku instanceof Sku ? $sku->stockItem : null;
+
+                return [
+                    'selected' => false,
+                    'sales_order_line_id' => $line->id,
+                    'label' => $sku instanceof Sku ? $sku->sku.' / '.$sku->displayName() : '',
+                    'stock_item' => $stockItem instanceof StockItem ? $stockItem->code : '',
+                    'max_qty' => $line->quantity,
+                    'qty' => 1,
+                    'condition' => IssueLine::CONDITION_UNKNOWN,
+                    'action' => IssueLine::ACTION_INVESTIGATE,
+                    'note' => '',
+                ];
+            })
             ->all();
     }
 

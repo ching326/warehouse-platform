@@ -11,6 +11,7 @@ use App\Models\Tenant;
 use App\Models\Warehouse;
 use App\Services\Outbound\HoldOutboundOrderService;
 use App\Services\Outbound\ReshipSalesOrderService;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -420,7 +421,7 @@ class SalesOrderDetail extends Component
         $order = $this->reshipOrderQuery()->findOrFail($this->orderId);
         $shippedOutbounds = $order->outboundOrders
             ->filter(fn (OutboundOrder $outbound): bool => $outbound->status === OutboundOrder::STATUS_SHIPPED)
-            ->sortByDesc(fn (OutboundOrder $outbound): string => ($outbound->shipped_at?->format('YmdHis') ?? '00000000000000').str_pad((string) $outbound->id, 12, '0', STR_PAD_LEFT))
+            ->sortByDesc(fn (OutboundOrder $outbound): string => $this->outboundShippedSortKey($outbound))
             ->values();
 
         if ($shippedOutbounds->isEmpty()) {
@@ -1129,14 +1130,27 @@ class SalesOrderDetail extends Component
 
     private function fillReshipRecipientFromOutbound(?OutboundOrder $outbound): void
     {
-        $this->reshipRecipientName = (string) ($outbound?->recipient_name ?? '');
-        $this->reshipRecipientPhone = (string) ($outbound?->recipient_phone ?? '');
-        $this->reshipRecipientCountryCode = (string) ($outbound?->recipient_country_code ?? '');
-        $this->reshipRecipientPostalCode = (string) ($outbound?->recipient_postal_code ?? '');
-        $this->reshipRecipientState = (string) ($outbound?->recipient_state ?? '');
-        $this->reshipRecipientCity = (string) ($outbound?->recipient_city ?? '');
-        $this->reshipRecipientAddressLine1 = (string) ($outbound?->recipient_address_line1 ?? '');
-        $this->reshipRecipientAddressLine2 = (string) ($outbound?->recipient_address_line2 ?? '');
+        if (! $outbound instanceof OutboundOrder) {
+            $this->reshipRecipientName = '';
+            $this->reshipRecipientPhone = '';
+            $this->reshipRecipientCountryCode = '';
+            $this->reshipRecipientPostalCode = '';
+            $this->reshipRecipientState = '';
+            $this->reshipRecipientCity = '';
+            $this->reshipRecipientAddressLine1 = '';
+            $this->reshipRecipientAddressLine2 = '';
+
+            return;
+        }
+
+        $this->reshipRecipientName = (string) ($outbound->recipient_name ?? '');
+        $this->reshipRecipientPhone = (string) ($outbound->recipient_phone ?? '');
+        $this->reshipRecipientCountryCode = (string) ($outbound->recipient_country_code ?? '');
+        $this->reshipRecipientPostalCode = (string) ($outbound->recipient_postal_code ?? '');
+        $this->reshipRecipientState = (string) ($outbound->recipient_state ?? '');
+        $this->reshipRecipientCity = (string) ($outbound->recipient_city ?? '');
+        $this->reshipRecipientAddressLine1 = (string) ($outbound->recipient_address_line1 ?? '');
+        $this->reshipRecipientAddressLine2 = (string) ($outbound->recipient_address_line2 ?? '');
     }
 
     private function reshipSourceOutboundLabel(?OutboundOrder $outbound): string
@@ -1145,7 +1159,20 @@ class SalesOrderDetail extends Component
             return '-';
         }
 
-        return trim((string) $outbound->ref).' / '.($outbound->warehouse?->code ?? '-');
+        $warehouseCode = Warehouse::query()
+            ->whereKey($outbound->warehouse_id)
+            ->value('code') ?? '-';
+
+        return trim((string) $outbound->ref).' / '.$warehouseCode;
+    }
+
+    private function outboundShippedSortKey(OutboundOrder $outbound): string
+    {
+        $shippedAt = $outbound->shipped_at === null
+            ? '00000000000000'
+            : CarbonImmutable::parse($outbound->shipped_at)->format('YmdHis');
+
+        return $shippedAt.str_pad((string) $outbound->id, 12, '0', STR_PAD_LEFT);
     }
 
     private function isLineShippable(SalesOrderLine $line, int $tenantId): bool

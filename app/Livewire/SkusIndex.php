@@ -1899,7 +1899,7 @@ class SkusIndex extends Component
         }
 
         $orderedIds = collect($this->imageAssetOrder)
-            ->filter(fn ($id): bool => is_numeric($id) && $assets->has((int) $id))
+            ->filter(fn ($id): bool => $assets->has((int) $id))
             ->map(fn ($id): int => (int) $id)
             ->unique()
             ->values();

@@ -98,4 +98,9 @@ class Tenant extends Model
     {
         return $this->hasMany(InventoryMovement::class);
     }
+
+    public function feeRates(): HasMany
+    {
+        return $this->hasMany(FeeRate::class);
+    }
 }

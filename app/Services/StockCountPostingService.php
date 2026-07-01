@@ -92,10 +92,15 @@ class StockCountPostingService
             ->lockForUpdate()
             ->first();
 
-        $previousOnHand = (int) ($balance?->on_hand_qty ?? 0);
-        $reservedHoldDamaged = (int) ($balance?->reserved_qty ?? 0)
-            + (int) ($balance?->hold_qty ?? 0)
-            + (int) ($balance?->damaged_qty ?? 0);
+        $previousOnHand = 0;
+        $reservedHoldDamaged = 0;
+
+        if ($balance instanceof InventoryBalance) {
+            $previousOnHand = (int) $balance->on_hand_qty;
+            $reservedHoldDamaged = (int) $balance->reserved_qty
+                + (int) $balance->hold_qty
+                + (int) $balance->damaged_qty;
+        }
 
         if ($row['counted_qty'] < $reservedHoldDamaged) {
             throw new InvalidArgumentException(__('stock_counts.error_counted_below_committed'));

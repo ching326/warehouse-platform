@@ -199,24 +199,6 @@ parameters:
 			path: app/Livewire/InboundOrderReceive.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Livewire/IssueCreate.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$sku\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Livewire/IssueCreate.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$stockItem\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Livewire/IssueCreate.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$stock_item_id\.$#'
 			identifier: property.notFound
 			count: 1
@@ -583,22 +565,10 @@ parameters:
 			path: app/Livewire/SkuEdit.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$sku_name_locale\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Livewire/SkuEdit.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$stock_item_name_locale\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Livewire/SkuEdit.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$barcode\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Livewire/SkusIndex.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$brand\.$#'
@@ -627,7 +597,7 @@ parameters:
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
 			identifier: property.notFound
-			count: 5
+			count: 4
 			path: app/Livewire/SkusIndex.php
 
 		-
@@ -791,24 +761,6 @@ parameters:
 			identifier: return.type
 			count: 1
 			path: app/Models/SalesOrder.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$short_name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/Sku.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:localizedName\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Models/Sku.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>short_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Models/Sku.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'

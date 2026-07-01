@@ -443,6 +443,7 @@ class StockAdjustmentImport extends Component
     {
         $data = $this->readStoredImportFile();
         $columnIndex = $this->buildColumnIndex();
+        /** @var array<int, bool> $seenStockItems */
         $seenStockItems = [];
         $validRows = [];
         $errorRows = [];
@@ -482,7 +483,7 @@ class StockAdjustmentImport extends Component
     }
 
     /**
-     * @param  array<string, bool>  $seenStockItems
+     * @param  array<int, bool>  $seenStockItems
      * @return array<string, mixed>
      */
     private function evaluateRow(array $rowData, int $tenantId, int $warehouseId, array &$seenStockItems): array
@@ -519,13 +520,17 @@ class StockAdjustmentImport extends Component
                 ->where('stock_item_id', $stockItem->id)
                 ->first();
 
-            $currentOnHand = (int) ($currentBalance?->on_hand_qty ?? 0);
-            $currentAvailable = (int) ($currentBalance?->available_qty ?? 0);
+            if ($currentBalance instanceof InventoryBalance) {
+                $currentOnHand = (int) $currentBalance->on_hand_qty;
+                $currentAvailable = (int) $currentBalance->available_qty;
+            }
 
-            if (isset($seenStockItems[(string) $stockItem->id])) {
+            $stockItemKey = (int) $stockItem->id;
+
+            if (isset($seenStockItems[$stockItemKey])) {
                 $errors[] = __('stock_adjustment_import.error_duplicate_stock_item');
             } else {
-                $seenStockItems[(string) $stockItem->id] = true;
+                $seenStockItems[$stockItemKey] = true;
             }
 
             if ($this->action === self::ACTION_DEDUCT && $currentOnHand - $quantity < 0) {
@@ -541,10 +546,10 @@ class StockAdjustmentImport extends Component
             'status' => $errors === [] ? 'valid' : 'error',
             'errors' => $errors,
             'identifier' => $identifier,
-            'stock_item_id' => $stockItem?->id,
-            'stock_item_code' => $stockItem?->code ?? '',
-            'tenant_item_code' => $stockItem?->tenant_item_code ?? '',
-            'stock_item_name' => $stockItem?->displayName() ?? '',
+            'stock_item_id' => $stockItem instanceof StockItem ? $stockItem->id : null,
+            'stock_item_code' => $stockItem instanceof StockItem ? $stockItem->code : '',
+            'tenant_item_code' => $stockItem instanceof StockItem ? ($stockItem->tenant_item_code ?? '') : '',
+            'stock_item_name' => $stockItem instanceof StockItem ? $stockItem->displayName() : '',
             'current_on_hand' => $currentOnHand,
             'current_available' => $currentAvailable,
             'quantity' => $quantity,

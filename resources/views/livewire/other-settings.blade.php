@@ -34,4 +34,16 @@
             </flux:button>
         </div>
     </section>
+
+    <section class="table-shell flux-panel form-panel">
+        <div class="form-panel-header">
+            <div>
+                <strong>{{ __('common.nav_fee_rates') }}</strong>
+                <span>{{ __('billing.fee_rates_page_subtitle') }}</span>
+            </div>
+            <flux:button href="{{ route('setup.fee-rates.index') }}" variant="primary">
+                {{ __('common.view') }}
+            </flux:button>
+        </div>
+    </section>
 </div>

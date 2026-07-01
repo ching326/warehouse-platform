@@ -371,10 +371,12 @@ class StockCountImport extends Component
                 ->where('stock_item_id', $stockItem->id)
                 ->first();
 
-            $currentOnHand = (int) ($balance?->on_hand_qty ?? 0);
-            $reserved = (int) ($balance?->reserved_qty ?? 0);
-            $hold = (int) ($balance?->hold_qty ?? 0);
-            $damaged = (int) ($balance?->damaged_qty ?? 0);
+            if ($balance instanceof InventoryBalance) {
+                $currentOnHand = (int) $balance->on_hand_qty;
+                $reserved = (int) $balance->reserved_qty;
+                $hold = (int) $balance->hold_qty;
+                $damaged = (int) $balance->damaged_qty;
+            }
 
             if (isset($seenStockItems[(string) $stockItem->id])) {
                 $errors[] = __('stock_counts.error_duplicate_stock_item');
@@ -391,10 +393,10 @@ class StockCountImport extends Component
             'status' => $errors === [] ? 'valid' : 'error',
             'errors' => $errors,
             'identifier' => $identifier,
-            'stock_item_id' => $stockItem?->id,
-            'stock_item_code' => $stockItem?->code ?? '',
-            'tenant_item_code' => $stockItem?->tenant_item_code ?? '',
-            'stock_item_name' => $stockItem?->displayName() ?? '',
+            'stock_item_id' => $stockItem instanceof StockItem ? $stockItem->id : null,
+            'stock_item_code' => $stockItem instanceof StockItem ? $stockItem->code : '',
+            'tenant_item_code' => $stockItem instanceof StockItem ? ($stockItem->tenant_item_code ?? '') : '',
+            'stock_item_name' => $stockItem instanceof StockItem ? $stockItem->displayName() : '',
             'current_on_hand' => $currentOnHand,
             'reserved_qty' => $reserved,
             'hold_qty' => $hold,

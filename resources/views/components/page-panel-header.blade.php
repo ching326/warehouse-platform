@@ -33,7 +33,7 @@
             ['label' => __('common.nav_shipping_methods'), 'href' => route('setup.shipping-methods.index'), 'active' => request()->routeIs('setup.shipping-methods.*')],
             ['label' => __('common.nav_locations'), 'href' => route('setup.locations.index'), 'active' => request()->routeIs('setup.locations.*')],
             ['label' => __('common.nav_packagings'), 'href' => route('setup.packagings.index'), 'active' => request()->routeIs('setup.packagings.*')],
-            ['label' => __('common.nav_other_settings'), 'href' => route('setup.other-settings'), 'active' => request()->routeIs('setup.other-settings', 'setup.warehouses.*', 'setup.product-types.*', 'setup.fba-warehouses.*')],
+            ['label' => __('common.nav_other_settings'), 'href' => route('setup.other-settings'), 'active' => request()->routeIs('setup.other-settings', 'setup.warehouses.*', 'setup.product-types.*', 'setup.fba-warehouses.*', 'setup.fee-rates.*')],
         ],
         default => [],
     };
