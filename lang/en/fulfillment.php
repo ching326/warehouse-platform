@@ -120,6 +120,7 @@ return [
     'address_label_blocked' => 'Address label export is blocked.',
     'address_label_ready' => 'Address label export is ready.',
     'address_label_requires_confirmation' => 'Some selected outbound orders were already printed.',
+    'address_label_japan_post_only_ids' => 'Address labels can only be exported for Japan Post outbound orders.',
     'address_label_confirm_btn' => 'Generate again',
     'address_label_skip_title' => 'Skip used cells',
     'address_label_skip_hint' => 'Select cells that are already used. Labels will start after the selected cells.',

@@ -530,7 +530,7 @@ class FulfillmentIndex extends Component
         );
 
         if ($result->hasHardBlock()) {
-            session()->flash('error', $this->courierExportMessage($result->toArray()));
+            session()->flash('error', $this->addressLabelExportMessage($result->toArray()));
 
             return null;
         }
@@ -1077,6 +1077,29 @@ class FulfillmentIndex extends Component
         foreach ([
             'wrong_carrier_order_ids' => 'courier_export_wrong_carrier_ids',
             'unsupported_courier_order_ids' => 'courier_export_unsupported_courier_ids',
+            'blocked_status_order_ids' => 'courier_export_blocked_status_ids',
+            'held_order_ids' => 'courier_export_held_ids',
+            'no_ready_lines_order_ids' => 'courier_export_no_ready_lines_ids',
+            'mixed_tenant_order_ids' => 'courier_export_mixed_tenant_ids',
+            'missing_order_ids' => 'courier_export_missing_ids',
+        ] as $key => $translationKey) {
+            if ($result[$key] !== []) {
+                $parts[] = __(
+                    'fulfillment.'.$translationKey,
+                    ['ids' => implode(', ', $result[$key])]
+                );
+            }
+        }
+
+        return implode("\n", $parts ?: [$result['message']]);
+    }
+
+    private function addressLabelExportMessage(array $result): string
+    {
+        $parts = [];
+
+        foreach ([
+            'wrong_carrier_order_ids' => 'address_label_japan_post_only_ids',
             'blocked_status_order_ids' => 'courier_export_blocked_status_ids',
             'held_order_ids' => 'courier_export_held_ids',
             'no_ready_lines_order_ids' => 'courier_export_no_ready_lines_ids',

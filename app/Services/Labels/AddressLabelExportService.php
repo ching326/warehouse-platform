@@ -71,6 +71,11 @@ class AddressLabelExportService
             ->pluck('id')
             ->values()
             ->all();
+        $wrongCarrierOrderIds = $orders
+            ->filter(fn (OutboundOrder $order): bool => $order->shippingMethod?->carrier?->code !== 'japan_post')
+            ->pluck('id')
+            ->values()
+            ->all();
         $noReadyLinesOrderIds = $orders
             ->filter(fn (OutboundOrder $order): bool => $order->leafLines->where('qty', '>', 0)->isEmpty())
             ->pluck('id')
@@ -84,6 +89,7 @@ class AddressLabelExportService
         $hardBlocks = $missingIds !== []
             || $blockedStatusOrderIds !== []
             || $heldOrderIds !== []
+            || $wrongCarrierOrderIds !== []
             || $mixedTenantOrderIds !== []
             || $noReadyLinesOrderIds !== [];
         $requiresConfirmation = ! $hardBlocks && $alreadyExportedOrderIds !== [];
@@ -100,7 +106,7 @@ class AddressLabelExportService
             missingOrderIds: $missingIds,
             blockedStatusOrderIds: $blockedStatusOrderIds,
             heldOrderIds: $heldOrderIds,
-            wrongCarrierOrderIds: [],
+            wrongCarrierOrderIds: $wrongCarrierOrderIds,
             unsupportedCourierOrderIds: [],
             mixedTenantOrderIds: $mixedTenantOrderIds,
             alreadyExportedOrderIds: $alreadyExportedOrderIds,
@@ -230,6 +236,7 @@ class AddressLabelExportService
             ->whereIn('tenant_id', $allowedTenantIds)
             ->with([
                 'tenant',
+                'shippingMethod.carrier',
                 'leafLines.sku.stockItem',
                 'leafLines.stockItem',
                 'salesOrders.shop',

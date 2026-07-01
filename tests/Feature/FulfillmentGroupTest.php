@@ -1191,9 +1191,11 @@ class FulfillmentGroupTest extends TestCase
         Storage::fake('local');
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
         $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-LABEL-EXPORT');
+        $method = ShippingMethod::where('code', 'japan_post_yupack')->firstOrFail();
 
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
+        $outbound->update(['shipping_method_id' => $method->id]);
 
         $batch = app(AddressLabelExportService::class)->exportOrders(
             outboundOrderIds: [$outbound->id],
@@ -1255,6 +1257,16 @@ class FulfillmentGroupTest extends TestCase
         $outbound->lines()->delete();
         $noLines = $service->validateOrderExport([$outbound->id], [$tenant->id]);
         $this->assertSame([$outbound->id], $noLines->noReadyLinesOrderIds);
+
+        $outbound->lines()->create([
+            'tenant_id' => $tenant->id,
+            'sku_id' => $sku->id,
+            'stock_item_id' => $sku->stock_item_id,
+            'qty' => 1,
+        ]);
+        $outbound->update(['shipping_method_id' => ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail()->id]);
+        $wrongCarrier = $service->validateOrderExport([$outbound->id], [$tenant->id]);
+        $this->assertSame([$outbound->id], $wrongCarrier->wrongCarrierOrderIds);
     }
 
     public function test_fulfillment_label10_reexport_requires_confirmation_and_livewire_confirms(): void
@@ -1262,10 +1274,14 @@ class FulfillmentGroupTest extends TestCase
         Storage::fake('local');
         [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
         $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-LABEL-REEXPORT');
+        $method = ShippingMethod::where('code', 'japan_post_yupack')->firstOrFail();
 
         $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
         $outbound = OutboundOrder::firstOrFail();
-        $outbound->update(['courier_label_exported_at' => Carbon::parse('2026-06-18 10:00:00')]);
+        $outbound->update([
+            'shipping_method_id' => $method->id,
+            'courier_label_exported_at' => Carbon::parse('2026-06-18 10:00:00'),
+        ]);
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentIndex::class)
