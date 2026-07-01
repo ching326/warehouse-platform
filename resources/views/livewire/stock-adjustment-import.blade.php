@@ -277,9 +277,8 @@
                             <th>{{ __('stock_adjustment_import.col_current_on_hand') }}</th>
                             <th>{{ __('stock_adjustment_import.field_quantity') }}</th>
                             <th>{{ __('stock_adjustment_import.col_resulting_on_hand') }}</th>
-                            <th>{{ __('stock_adjustments.field_reason') }}</th>
                             <th>{{ __('stock_adjustment_import.col_note_ref') }}</th>
-                            <th>{{ __('sku_import.col_status') }}</th>
+                            <th style="min-width: 104px;">{{ __('sku_import.col_status') }}</th>
                             <th>{{ __('sku_import.col_errors') }}</th>
                         </tr>
                     </thead>
@@ -300,9 +299,8 @@
                                 <td>{{ number_format($previewRow['current_on_hand']) }}</td>
                                 <td>{{ number_format($previewRow['quantity']) }}</td>
                                 <td>{{ number_format($previewRow['resulting_on_hand']) }}</td>
-                                <td>{{ $reason !== '' ? __('stock_adjustments.reasons.'.$reason) : '-' }}</td>
                                 <td>{{ collect([$previewRow['line_note'], $previewRow['reference_no']])->filter()->implode(' / ') }}</td>
-                                <td>
+                                <td style="min-width: 104px;">
                                     @if ($previewRow['status'] === 'valid')
                                         <span class="badge badge-success">{{ __('sku_import.status_valid') }}</span>
                                     @else
