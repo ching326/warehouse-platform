@@ -18,6 +18,7 @@ row to Done.
 | SKU label selected action | `skus.select_skus_to_print` | ja, zh_TW, zh_CN | Added English only for the selected-SKU print action. |
 | SKU bulk status toggle | `skus.select_same_status_to_toggle` | ja, zh_TW, zh_CN | Added English only. Translate with the next SKU page pass. |
 | Stock adjustment import | `stock_adjustment_import.*` | ja, zh_TW, zh_CN | Added English only for the bulk stock adjustment import flow. |
+| Stock Count | `stock_counts.*`, `common.nav_stock_count` | ja, zh_TW, zh_CN | Added English only for Stock Count pages and import flow. |
 
 ## Done
 

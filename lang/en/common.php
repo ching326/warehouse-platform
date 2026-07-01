@@ -7,6 +7,7 @@ return [
     'nav_inventory_overview' => 'Overview',
     'nav_movements' => 'Inventory Record',
     'nav_stock_adjustment' => 'Stock Adjustment',
+    'nav_stock_count' => 'Stock Count',
     'nav_skus' => 'SKU',
     'nav_inbound' => 'Inbound',
     'nav_return_orders' => 'Return',

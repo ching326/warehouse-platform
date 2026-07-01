@@ -14,10 +14,11 @@
     $shipToFbaHref = route('outbound.create', $shipToFbaQuery);
 
     $sectionNavLinks = match (true) {
-        request()->routeIs('inventory.*', 'stock-adjustments.*') => [
+        request()->routeIs('inventory.*', 'stock-adjustments.*', 'stock-counts.*') => [
             ['label' => __('common.nav_inventory_overview'), 'href' => route('inventory.index'), 'active' => request()->routeIs('inventory.index')],
             ['label' => __('common.nav_movements'), 'href' => route('inventory.movements.index'), 'active' => request()->routeIs('inventory.movements.index')],
             ['label' => __('common.nav_stock_adjustment'), 'href' => route('stock-adjustments.create'), 'active' => request()->routeIs('stock-adjustments.*')],
+            ['label' => __('common.nav_stock_count'), 'href' => route('stock-counts.index'), 'active' => request()->routeIs('stock-counts.*')],
         ],
         request()->routeIs('outbound.*', 'fulfillment.*') => [
             ['label' => __('common.nav_outbound_orders'), 'href' => route('outbound.index'), 'active' => request()->routeIs('outbound.index', 'outbound.create', 'outbound.show', 'outbound.ship') && request()->query('reason') !== \App\Models\OutboundOrder::REASON_FBA],

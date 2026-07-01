@@ -1,5 +1,5 @@
 @php
-    $inventoryActive = request()->routeIs('inventory.*', 'stock-adjustments.*');
+    $inventoryActive = request()->routeIs('inventory.*', 'stock-adjustments.*', 'stock-counts.*');
     $skusActive      = request()->routeIs('skus.*');
     $inboundActive   = request()->routeIs('inbound.*');
     $returnOrdersActive = request()->routeIs('return-orders.*');
@@ -74,6 +74,14 @@
                         @click="open = false"
                     >
                         {{ __('common.nav_stock_adjustment') }}
+                    </a>
+                    <a
+                        href="{{ route('stock-counts.index') }}"
+                        class="{{ request()->routeIs('stock-counts.*') ? 'is-active' : '' }}"
+                        wire:navigate
+                        @click="open = false"
+                    >
+                        {{ __('common.nav_stock_count') }}
                     </a>
                 </div>
             </div>
