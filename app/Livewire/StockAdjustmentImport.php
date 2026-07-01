@@ -103,6 +103,8 @@ class StockAdjustmentImport extends Component
 
     public int $resultFailed = 0;
 
+    public array $resultFailedRows = [];
+
     public ?int $resultRunId = null;
 
     public ?string $pendingErrorImportWarning = null;
@@ -393,6 +395,7 @@ class StockAdjustmentImport extends Component
         $this->resultTotal = $evaluation['total'];
         $this->resultAdjusted = count($evaluation['validRows']);
         $this->resultFailed = $evaluation['errorCount'];
+        $this->resultFailedRows = $evaluation['errorRows'];
         $this->resultRunId = $run->id;
         $this->deleteStoredImportFile();
         $this->step = 'result';
@@ -408,7 +411,7 @@ class StockAdjustmentImport extends Component
             'file', 'fileName', 'filePath', 'fileHeaders', 'sampleRows', 'totalDataRows',
             'mapping', 'selectedTemplateId', 'doSaveTemplate', 'templateName', 'templateAsDefault',
             'validRowCount', 'errorRowCount', 'previewRows',
-            'resultTotal', 'resultAdjusted', 'resultFailed', 'resultRunId', 'pendingErrorImportWarning',
+            'resultTotal', 'resultAdjusted', 'resultFailed', 'resultFailedRows', 'resultRunId', 'pendingErrorImportWarning',
         ]);
 
         $this->step = 'upload';
@@ -468,7 +471,7 @@ class StockAdjustmentImport extends Component
     }
 
     /**
-     * @return array{total: int, validRows: list<array<string, mixed>>, errorCount: int, previewRows: list<array<string, mixed>>}
+     * @return array{total: int, validRows: list<array<string, mixed>>, errorRows: list<array<string, mixed>>, errorCount: int, previewRows: list<array<string, mixed>>}
      */
     private function evaluateStoredRows(int $tenantId, int $warehouseId): array
     {
@@ -476,6 +479,7 @@ class StockAdjustmentImport extends Component
         $columnIndex = $this->buildColumnIndex();
         $seenStockItems = [];
         $validRows = [];
+        $errorRows = [];
         $previewRows = [];
         $errorCount = 0;
 
@@ -486,6 +490,10 @@ class StockAdjustmentImport extends Component
 
             if ($evaluation['status'] === 'error') {
                 $errorCount++;
+                $errorRows[] = [
+                    'row' => $rowNo,
+                    ...$evaluation,
+                ];
             } else {
                 $validRows[] = $evaluation;
             }
@@ -501,6 +509,7 @@ class StockAdjustmentImport extends Component
         return [
             'total' => $data['total'],
             'validRows' => $validRows,
+            'errorRows' => $errorRows,
             'errorCount' => $errorCount,
             'previewRows' => $previewRows,
         ];

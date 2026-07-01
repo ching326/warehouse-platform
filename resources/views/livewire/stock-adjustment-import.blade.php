@@ -274,9 +274,9 @@
                             <th>{{ __('sku_import.col_row') }}</th>
                             <th>{{ __('stock_adjustment_import.field_identifier') }}</th>
                             <th>{{ __('skus.col_stock_item') }}</th>
-                            <th>{{ __('stock_adjustment_import.col_current_on_hand') }}</th>
-                            <th>{{ __('stock_adjustment_import.field_quantity') }}</th>
-                            <th>{{ __('stock_adjustment_import.col_resulting_on_hand') }}</th>
+                            <th class="numeric">{{ __('stock_adjustment_import.col_current_on_hand') }}</th>
+                            <th class="numeric">{{ __('stock_adjustment_import.field_quantity') }}</th>
+                            <th class="numeric">{{ __('stock_adjustment_import.col_resulting_on_hand') }}</th>
                             <th>{{ __('stock_adjustment_import.col_note_ref') }}</th>
                             <th style="min-width: 104px;">{{ __('sku_import.col_status') }}</th>
                             <th>{{ __('sku_import.col_errors') }}</th>
@@ -296,9 +296,9 @@
                                         <span class="subtle">{{ $previewRow['stock_item_name'] }}</span>
                                     @endif
                                 </td>
-                                <td>{{ number_format($previewRow['current_on_hand']) }}</td>
-                                <td>{{ number_format($previewRow['quantity']) }}</td>
-                                <td>{{ number_format($previewRow['resulting_on_hand']) }}</td>
+                                <td class="numeric">{{ number_format($previewRow['current_on_hand']) }}</td>
+                                <td class="numeric">{{ number_format($previewRow['quantity']) }}</td>
+                                <td class="numeric">{{ number_format($previewRow['resulting_on_hand']) }}</td>
                                 <td>{{ collect([$previewRow['line_note'], $previewRow['reference_no']])->filter()->implode(' / ') }}</td>
                                 <td style="min-width: 104px;">
                                     @if ($previewRow['status'] === 'valid')
@@ -352,6 +352,41 @@
                     </div>
                 @endif
             </div>
+
+            @if ($resultFailed > 0)
+                <div class="table-wrap" style="margin-top: 16px;">
+                    <table class="data-table stock-adjustment-preview-table">
+                        <thead>
+                            <tr>
+                                <th>{{ __('sku_import.col_row') }}</th>
+                                <th>{{ __('stock_adjustment_import.field_identifier') }}</th>
+                                <th>{{ __('skus.col_stock_item') }}</th>
+                                <th class="numeric">{{ __('stock_adjustment_import.field_quantity') }}</th>
+                                <th>{{ __('sku_import.col_errors') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($resultFailedRows as $failedRow)
+                                <tr>
+                                    <td>{{ $failedRow['row'] }}</td>
+                                    <td>{{ $failedRow['identifier'] }}</td>
+                                    <td>
+                                        <strong>{{ $failedRow['stock_item_code'] ?: '-' }}</strong>
+                                        @if ($failedRow['tenant_item_code'] !== '')
+                                            <span class="subtle">{{ $failedRow['tenant_item_code'] }}</span>
+                                        @endif
+                                        @if ($failedRow['stock_item_name'] !== '')
+                                            <span class="subtle">{{ $failedRow['stock_item_name'] }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="numeric">{{ number_format($failedRow['quantity']) }}</td>
+                                    <td>{{ implode(' | ', $failedRow['errors']) }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
 
             <div class="form-actions">
                 <span></span>

@@ -330,7 +330,11 @@ class StockAdjustmentImportTest extends TestCase
             ->call('confirmImportWithErrors')
             ->assertSet('step', 'result')
             ->assertSet('resultAdjusted', 1)
-            ->assertSet('resultFailed', 1);
+            ->assertSet('resultFailed', 1)
+            ->assertSee('MISSING-STOCK')
+            ->assertSee(__('stock_adjustment_import.error_identifier_not_found'));
+
+        $this->assertSame('MISSING-STOCK', $component->get('resultFailedRows')[0]['identifier']);
 
         $this->assertDatabaseHas('inventory_balances', [
             'tenant_id' => $tenant->id,
