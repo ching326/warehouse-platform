@@ -119,7 +119,7 @@
                     <flux:select.option value="">{{ __('sales_orders.shipping_method_unset') }}</flux:select.option>
                     @foreach ($shippingMethods as $method)
                         <flux:select.option value="{{ $method->id }}">
-                            {{ $method->name }}
+                            {{ $method->displayName() }}
                             @if ($method->status !== 'active')
                                 ({{ __('shipping.status_inactive') }})
                             @endif

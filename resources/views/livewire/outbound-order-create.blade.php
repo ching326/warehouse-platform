@@ -75,7 +75,7 @@
                     <flux:select.option value="">{{ __('sales_orders.shipping_method_unset') }}</flux:select.option>
                     @foreach ($shippingMethods as $method)
                         <flux:select.option value="{{ $method->id }}">
-                            {{ $method->name }} / {{ $method->carrier->name }}
+                            {{ $method->displayName() }} / {{ $method->carrier->name }}
                         </flux:select.option>
                     @endforeach
                 </flux:select>

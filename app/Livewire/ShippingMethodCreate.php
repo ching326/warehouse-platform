@@ -17,6 +17,12 @@ class ShippingMethodCreate extends Component
 
     public string $name = '';
 
+    public string $nameJa = '';
+
+    public string $nameZhTw = '';
+
+    public string $nameZhCn = '';
+
     public string $serviceType = '';
 
     public string $sortOrder = '';
@@ -111,6 +117,9 @@ class ShippingMethodCreate extends Component
             'carrier_id' => ['required', 'integer', Rule::exists('carriers', 'id')->where('status', 'active')],
             'code' => ['required', 'string', 'max:100', Rule::unique('shipping_methods', 'code')->ignore($ignoreId)],
             'name' => ['required', 'string', 'max:255'],
+            'name_ja' => ['nullable', 'string', 'max:255'],
+            'name_zh_tw' => ['nullable', 'string', 'max:255'],
+            'name_zh_cn' => ['nullable', 'string', 'max:255'],
             'service_type' => ['nullable', 'string', 'max:100'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],
             'selection_priority' => ['nullable', 'integer', 'min:0', 'max:65535'],
@@ -141,6 +150,9 @@ class ShippingMethodCreate extends Component
             'carrier_id' => (int) $this->carrierId,
             'code' => $this->code,
             'name' => trim($this->name),
+            'name_ja' => $this->nullableString($this->nameJa),
+            'name_zh_tw' => $this->nullableString($this->nameZhTw),
+            'name_zh_cn' => $this->nullableString($this->nameZhCn),
             'service_type' => $this->nullableString($this->serviceType),
             'sort_order' => $this->sortOrder === ''
                 ? $this->nextSortOrder((int) $this->carrierId)
@@ -200,6 +212,9 @@ class ShippingMethodCreate extends Component
             'carrier_id' => $this->carrierId,
             'code' => $this->code,
             'name' => $this->name,
+            'name_ja' => $this->nameJa,
+            'name_zh_tw' => $this->nameZhTw,
+            'name_zh_cn' => $this->nameZhCn,
             'service_type' => $this->serviceType,
             'sort_order' => $this->sortOrder,
             'selection_priority' => $this->selectionPriority,

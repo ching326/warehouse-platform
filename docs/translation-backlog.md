@@ -21,6 +21,7 @@ row to Done.
 | Stock Count | `stock_counts.*`, `common.nav_stock_count` | ja, zh_TW, zh_CN | Added English only for Stock Count pages and import flow. |
 | Fulfillment Label10 address labels | `fulfillment.address_label_*`, `fulfillment.batch_export_label10` | ja, zh_TW, zh_CN | Added English only for Label10 address label export and skip-cell modal. |
 | Shop ship label sender fields | `shop.field_ship_label_address`, `shop.field_ship_label_phone`, `shop.field_ship_label_postcode` | ja, zh_TW, zh_CN | Added English only for shop-specific sender details on address labels and courier CSV. |
+| Shipping method translated names | `shipping.field_name_ja`, `shipping.field_name_zh_tw`, `shipping.field_name_zh_cn` | ja, zh_TW, zh_CN | Added English labels only for internal setup fields that store shipping method names per locale. |
 
 ## Done
 

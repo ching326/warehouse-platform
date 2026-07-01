@@ -18,6 +18,21 @@
     </div>
 
     <div>
+        <flux:input wire:model="nameJa" :label="__('shipping.field_name_ja')" />
+        @error('name_ja') <p class="form-error">{{ $message }}</p> @enderror
+    </div>
+
+    <div>
+        <flux:input wire:model="nameZhTw" :label="__('shipping.field_name_zh_tw')" />
+        @error('name_zh_tw') <p class="form-error">{{ $message }}</p> @enderror
+    </div>
+
+    <div>
+        <flux:input wire:model="nameZhCn" :label="__('shipping.field_name_zh_cn')" />
+        @error('name_zh_cn') <p class="form-error">{{ $message }}</p> @enderror
+    </div>
+
+    <div>
         <flux:input wire:model="serviceType" :label="__('shipping.field_service_type')" />
         @error('service_type') <p class="form-error">{{ $message }}</p> @enderror
     </div>

@@ -1089,7 +1089,7 @@ class SkusIndex extends Component
                 'stockItem.primaryImage:id,tenant_id,model_type,model_id,type,disk,path,file_name,is_primary,sort_order',
                 'bundleComponents' => fn ($query) => $query->with('componentStockItem:id,tenant_id,code,name')->orderBy('id'),
                 'defaultPackagingMaterial:id,code,name,type',
-                'defaultShippingMethod:id,carrier_id,code,name,status',
+                'defaultShippingMethod:id,carrier_id,code,name,name_ja,name_zh_tw,name_zh_cn,status',
                 'defaultShippingMethod.carrier:id,code,name',
             ])
             ->latest('id')
@@ -1338,7 +1338,7 @@ class SkusIndex extends Component
             })
             ->with('carrier:id,code,name')
             ->ordered()
-            ->get(['shipping_methods.id', 'shipping_methods.carrier_id', 'shipping_methods.code', 'shipping_methods.name', 'shipping_methods.status']);
+            ->get(['shipping_methods.id', 'shipping_methods.carrier_id', 'shipping_methods.code', 'shipping_methods.name', 'shipping_methods.name_ja', 'shipping_methods.name_zh_tw', 'shipping_methods.name_zh_cn', 'shipping_methods.status']);
     }
 
     private function prepareLogisticsDrafts(Collection $skus): void

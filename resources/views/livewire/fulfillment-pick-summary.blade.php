@@ -20,7 +20,7 @@
             <flux:select wire:model.live="shippingMethodId" :label="__('fulfillment_pick.field_shipping_method')">
                 <flux:select.option value="">{{ __('fulfillment_pick.all_shipping_methods') }}</flux:select.option>
                 @foreach ($shippingMethods as $method)
-                    <flux:select.option value="{{ $method->id }}">{{ $method->name }}</flux:select.option>
+                    <flux:select.option value="{{ $method->id }}">{{ $method->displayName() }}</flux:select.option>
                 @endforeach
             </flux:select>
             <flux:select wire:model.live="tenantId" :label="__('fulfillment_pick.field_tenant')">

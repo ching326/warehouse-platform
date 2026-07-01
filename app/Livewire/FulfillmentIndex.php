@@ -721,7 +721,7 @@ class FulfillmentIndex extends Component
             ->with([
                 'tenant:id,code,name',
                 'warehouse:id,code,name,timezone',
-                'shippingMethod:id,name',
+                'shippingMethod:id,name,name_ja,name_zh_tw,name_zh_cn',
                 'salesOrders:id,shop_id,platform_order_id',
                 'salesOrders.shop:id,name',
                 'salesOrders.lines:id,sales_order_id,sku_id,quantity',
@@ -811,7 +811,7 @@ class FulfillmentIndex extends Component
             ->where('shipping_methods.status', 'active')
             ->ordered()
             ->get()
-            ->mapWithKeys(fn (ShippingMethod $method) => [(string) $method->id => $method->name])
+            ->mapWithKeys(fn (ShippingMethod $method) => [(string) $method->id => $method->displayName()])
             ->all();
         $shippingMethodFilterOptions = $shippingMethods + [
             SalesOrderFilters::EMPTY_SHIPPING => __('fulfillment.shipping_method_unset'),

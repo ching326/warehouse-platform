@@ -240,7 +240,7 @@
                     <option value="">{{ __('sales_orders.shipping_method_unset') }}</option>
                     @foreach ($shippingMethods as $method)
                         <option value="{{ $method->id }}" @selected((string) ($order->shipping_method_id ?? '') === (string) $method->id)>
-                            {{ $method->name }}
+                            {{ $method->displayName() }}
                             @if ($method->status !== 'active')
                                 ({{ __('shipping.status_inactive') }})
                             @endif

@@ -385,7 +385,7 @@ class FulfillmentPickSummary extends Component
     {
         $parts = [];
         $parts[] = __('fulfillment_pick.print_warehouse', ['value' => $this->warehouseId ? (Warehouse::find($this->warehouseId)?->name ?? '-') : __('common.all_warehouses')]);
-        $parts[] = __('fulfillment_pick.print_shipping_method', ['value' => $this->shippingMethodId ? (ShippingMethod::find($this->shippingMethodId)?->name ?? '-') : __('common.all_types')]);
+        $parts[] = __('fulfillment_pick.print_shipping_method', ['value' => $this->shippingMethodId ? (ShippingMethod::find($this->shippingMethodId)?->displayName() ?? '-') : __('common.all_types')]);
         $parts[] = __('fulfillment_pick.print_tenant', ['value' => $this->tenantId ? (Tenant::find($this->tenantId)?->code ?? '-') : __('common.all_tenants')]);
         $parts[] = __('fulfillment_pick.print_date', ['from' => $this->dateFrom ?: '-', 'to' => $this->dateTo ?: '-']);
         $parts[] = __('fulfillment_pick.print_generated', ['value' => now($this->warehouseTimezone())->format('Y-m-d H:i')]);
@@ -456,7 +456,7 @@ class FulfillmentPickSummary extends Component
         if ($this->shippingMethodId !== '') {
             $method = ShippingMethod::find($this->shippingMethodId);
             $chips[] = [
-                'label' => __('fulfillment_pick.chip_shipping', ['value' => $method?->name ?? $this->shippingMethodId]),
+                'label' => __('fulfillment_pick.chip_shipping', ['value' => $method?->displayName() ?? $this->shippingMethodId]),
                 'action' => 'clearShippingMethodFilter',
             ];
         }
@@ -482,7 +482,7 @@ class FulfillmentPickSummary extends Component
         return ShippingMethod::query()
             ->where('shipping_methods.status', 'active')
             ->ordered()
-            ->get(['shipping_methods.id', 'shipping_methods.name']);
+            ->get(['shipping_methods.id', 'shipping_methods.name', 'shipping_methods.name_ja', 'shipping_methods.name_zh_tw', 'shipping_methods.name_zh_cn']);
     }
 
     private function tenantOptions()

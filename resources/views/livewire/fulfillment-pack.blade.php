@@ -34,7 +34,7 @@
             <div><span class="subtle">{{ __('fulfillment.col_status') }}</span><strong>{{ __('fulfillment.status_'.$statusKey) }}</strong></div>
             <div><span class="subtle">{{ __('fulfillment.field_recipient_name') }}</span><strong>{{ $order->recipient_name ?: '-' }}</strong></div>
             <div><span class="subtle">{{ __('fulfillment.field_tracking_no') }}</span><strong>{{ $order->tracking_no ?: '-' }}</strong></div>
-            <div><span class="subtle">{{ __('fulfillment.col_shipping') }}</span><strong>{{ $order->shippingMethod?->name ?: '-' }}</strong></div>
+            <div><span class="subtle">{{ __('fulfillment.col_shipping') }}</span><strong>{{ $order->shippingMethod?->displayName() ?: '-' }}</strong></div>
             <div><span class="subtle">{{ __('fulfillment.col_orders') }}</span><strong>{{ number_format($order->salesOrders->count()) }}</strong></div>
             <div><span class="subtle">{{ __('fulfillment_pack.overall_progress') }}</span><strong>{{ number_format($progress['qty_scanned']) }} / {{ number_format($progress['qty_required']) }} {{ __('fulfillment_pack.scanned_short') }}</strong></div>
         </div>

@@ -13,7 +13,7 @@
                     <flux:select.option value="">{{ __('fulfillment_pack.select_shipping_method') }}</flux:select.option>
                     @foreach ($shippingMethods as $method)
                         <flux:select.option value="{{ $method->id }}">
-                            {{ $method->name }}
+                            {{ $method->displayName() }}
                         </flux:select.option>
                     @endforeach
                 </flux:select>

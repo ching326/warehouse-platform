@@ -297,7 +297,7 @@ class FulfillmentPack extends Component
                     ->whereIn('reason', OutboundOrder::fulfillableReasons())
                     ->whereIn('tenant_id', $this->allowedTenantIds())
                     ->whereKey($order->id)
-                    ->with('shippingMethod:id,name')
+                    ->with('shippingMethod:id,name,name_ja,name_zh_tw,name_zh_cn')
                     ->lockForUpdate()
                     ->firstOrFail();
 
@@ -429,7 +429,7 @@ class FulfillmentPack extends Component
             ->whereIn('tenant_id', $this->allowedTenantIds())
             ->with([
                 'tenant:id,code,name',
-                'shippingMethod:id,name',
+                'shippingMethod:id,name,name_ja,name_zh_tw,name_zh_cn',
                 'leafLines.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
                 'leafLines.stockItem.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',
                 'leafLines.parentLine.sku.barcodeAliases:id,tenant_id,model_type,model_id,normalized_barcode,is_active',

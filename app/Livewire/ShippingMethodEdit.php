@@ -23,6 +23,9 @@ class ShippingMethodEdit extends ShippingMethodCreate
         $this->carrierId = (string) $method->carrier_id;
         $this->code = $method->code;
         $this->name = $method->name;
+        $this->nameJa = $method->name_ja ?? '';
+        $this->nameZhTw = $method->name_zh_tw ?? '';
+        $this->nameZhCn = $method->name_zh_cn ?? '';
         $this->serviceType = $method->service_type ?? '';
         $this->sortOrder = (string) $method->sort_order;
         $this->selectionPriority = (string) $method->selection_priority;

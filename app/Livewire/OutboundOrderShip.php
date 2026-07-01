@@ -172,7 +172,7 @@ class OutboundOrderShip extends Component
             ->with([
                 'tenant:id,code,name',
                 'warehouse:id,code,name',
-                'shippingMethod:id,name,status',
+                'shippingMethod:id,name,name_ja,name_zh_tw,name_zh_cn,status',
                 'parentLines.sku:id,sku,sku_type,name',
                 'parentLines.childLines.stockItem:id,code,name',
                 'parentLines.stockItem:id,code,name',
@@ -229,7 +229,7 @@ class OutboundOrderShip extends Component
                     ->when($order->shipping_method_id, fn ($query) => $query->orWhere('shipping_methods.id', $order->shipping_method_id));
             })
             ->ordered()
-            ->get(['shipping_methods.id', 'shipping_methods.carrier_id', 'shipping_methods.code', 'shipping_methods.name', 'shipping_methods.status']);
+            ->get(['shipping_methods.id', 'shipping_methods.carrier_id', 'shipping_methods.code', 'shipping_methods.name', 'shipping_methods.name_ja', 'shipping_methods.name_zh_tw', 'shipping_methods.name_zh_cn', 'shipping_methods.status']);
     }
 
     private function isInternalUser(): bool

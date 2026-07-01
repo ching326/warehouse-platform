@@ -320,7 +320,7 @@
                                         @continue($isInactiveShippingMethod && ! $isCurrentShippingMethod)
 
                                         <option value="{{ $method->id }}" @disabled($isInactiveShippingMethod && ! $isCurrentShippingMethod)>
-                                            {{ $method->name }}
+                                            {{ $method->displayName() }}
                                             @if ($method->status !== 'active')
                                                 ({{ __('skus.inactive_shipping_method') }})
                                             @endif
@@ -469,7 +469,7 @@
                                         @continue($isInactiveShippingMethod && ! $isCurrentShippingMethod)
 
                                         <option value="{{ $method->id }}" @disabled($isInactiveShippingMethod && ! $isCurrentShippingMethod)>
-                                            {{ $method->name }}
+                                            {{ $method->displayName() }}
                                             @if ($method->status !== 'active')
                                                 ({{ __('skus.inactive_shipping_method') }})
                                             @endif

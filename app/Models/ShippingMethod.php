@@ -14,6 +14,9 @@ class ShippingMethod extends Model
         'carrier_id',
         'code',
         'name',
+        'name_ja',
+        'name_zh_tw',
+        'name_zh_cn',
         'service_type',
         'sort_order',
         'selection_priority',
@@ -50,6 +53,19 @@ class ShippingMethod extends Model
     public function marketplaceMappings(): HasMany
     {
         return $this->hasMany(ShippingMethodMarketplaceMapping::class);
+    }
+
+    public function displayName(?string $locale = null): string
+    {
+        $locale ??= app()->getLocale();
+        $column = match (strtolower(str_replace('-', '_', $locale))) {
+            'ja', 'jp', 'ja_jp' => 'name_ja',
+            'zh_tw', 'zh_hk', 'zh_hant' => 'name_zh_tw',
+            'zh_cn', 'zh_sg', 'zh_hans' => 'name_zh_cn',
+            default => 'name',
+        };
+
+        return trim((string) ($this->{$column} ?: $this->name));
     }
 
     public function scopeOrdered(Builder $query): Builder

@@ -40,6 +40,9 @@ class ShippingMethodTest extends TestCase
             ->set('carrierId', (string) $carrier->id)
             ->set('code', 'Yamato Test Method')
             ->set('name', 'Yamato Test Method')
+            ->set('nameJa', 'ヤマトテスト便')
+            ->set('nameZhTw', '黑貓測試配送')
+            ->set('nameZhCn', '黑猫测试配送')
             ->set('serviceType', 'parcel')
             ->set('selectionPriority', '25')
             ->set('flatFee', '350')
@@ -50,6 +53,9 @@ class ShippingMethodTest extends TestCase
         $method = ShippingMethod::where('code', 'yamato_test_method')->firstOrFail();
 
         $this->assertSame($carrier->id, $method->carrier_id);
+        $this->assertSame('ヤマトテスト便', $method->name_ja);
+        $this->assertSame('黑貓測試配送', $method->name_zh_tw);
+        $this->assertSame('黑猫测试配送', $method->name_zh_cn);
         $this->assertSame(25, $method->selection_priority);
         $this->assertDatabaseHas('shipping_method_rates', [
             'shipping_method_id' => $method->id,
@@ -59,6 +65,30 @@ class ShippingMethodTest extends TestCase
             'price' => 350,
             'status' => 'active',
         ]);
+    }
+
+    public function test_shipping_method_display_name_uses_locale_name_with_fallback(): void
+    {
+        $method = ShippingMethod::where('code', 'yamato_nekopos')->firstOrFail();
+        $method->update([
+            'name' => 'Yamato Nekopos',
+            'name_ja' => 'ネコポス',
+            'name_zh_tw' => '黑貓投函',
+            'name_zh_cn' => null,
+        ]);
+
+        $this->assertSame('ネコポス', $method->displayName('ja'));
+        $this->assertSame('黑貓投函', $method->displayName('zh_TW'));
+        $this->assertSame('Yamato Nekopos', $method->displayName('zh_CN'));
+
+        app()->setLocale('ja');
+
+        Livewire::actingAs($this->internalUser())
+            ->test(ShippingMethodIndex::class)
+            ->assertSee('ネコポス')
+            ->assertSee('Yamato Nekopos');
+
+        app()->setLocale('en');
     }
 
     public function test_shipping_method_code_is_unique(): void

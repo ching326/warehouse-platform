@@ -411,7 +411,7 @@ class OutboundOrderDetail extends Component
             ->with([
                 'tenant:id,code,name',
                 'warehouse:id,code,name',
-                'shippingMethod:id,name',
+                'shippingMethod:id,name,name_ja,name_zh_tw,name_zh_cn',
                 'createdBy:id,name',
                 'shippedBy:id,name',
                 'courierCostUpdatedBy:id,name',
@@ -514,7 +514,7 @@ class OutboundOrderDetail extends Component
             ->where('shipping_methods.status', 'active')
             ->with('carrier:id,code,name')
             ->ordered()
-            ->get(['shipping_methods.id', 'shipping_methods.carrier_id', 'shipping_methods.code', 'shipping_methods.name']);
+            ->get(['shipping_methods.id', 'shipping_methods.carrier_id', 'shipping_methods.code', 'shipping_methods.name', 'shipping_methods.name_ja', 'shipping_methods.name_zh_tw', 'shipping_methods.name_zh_cn']);
     }
 
     private function loadPendingOrder(): OutboundOrder

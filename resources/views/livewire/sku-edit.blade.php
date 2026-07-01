@@ -38,7 +38,7 @@
                 <flux:select wire:model="defaultShippingMethodId" :label="__('skus.field_default_shipping_method')">
                     <flux:select.option value="">{{ __('skus.no_shipping_method') }}</flux:select.option>
                     @foreach ($shippingMethods as $method)
-                        <flux:select.option value="{{ $method->id }}">{{ $method->name }} / {{ $method->carrier?->name }}</flux:select.option>
+                        <flux:select.option value="{{ $method->id }}">{{ $method->displayName() }} / {{ $method->carrier?->name }}</flux:select.option>
                     @endforeach
                 </flux:select>
                 <flux:select wire:model="status" :label="__('skus.field_status')">

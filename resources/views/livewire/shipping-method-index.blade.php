@@ -160,7 +160,7 @@
                                 type="number"
                                 min="0"
                                 step="1"
-                                aria-label="{{ __('shipping.field_sort_order') }} {{ $method->name }}"
+                                aria-label="{{ __('shipping.field_sort_order') }} {{ $method->displayName() }}"
                             />
                         </flux:table.cell>
                         <flux:table.cell class="shipping-priority-cell">
@@ -169,7 +169,7 @@
                                 type="number"
                                 min="0"
                                 step="1"
-                                aria-label="{{ __('shipping.field_selection_priority') }} {{ $method->name }}"
+                                aria-label="{{ __('shipping.field_selection_priority') }} {{ $method->displayName() }}"
                             />
                         </flux:table.cell>
                         <flux:table.cell>
@@ -178,7 +178,10 @@
                         </flux:table.cell>
                         <flux:table.cell><strong>{{ $method->code }}</strong></flux:table.cell>
                         <flux:table.cell>
-                            <strong>{{ $method->name }}</strong>
+                            <strong>{{ $method->displayName() }}</strong>
+                            @if ($method->displayName() !== $method->name)
+                                <span class="subtle">{{ $method->name }}</span>
+                            @endif
                             <span class="subtle">
                                 {{ $method->supports_courier_csv ? __('shipping.supports_courier_csv_yes') : __('shipping.supports_courier_csv_no') }}
                             </span>

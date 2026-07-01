@@ -860,7 +860,7 @@ class SalesOrderIndex extends Component
             ->ordered()
             ->get()
             ->mapWithKeys(fn (ShippingMethod $method) => [
-                (string) $method->id => $method->name,
+                (string) $method->id => $method->displayName(),
             ])
             ->all();
     }

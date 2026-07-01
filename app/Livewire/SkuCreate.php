@@ -365,7 +365,7 @@ class SkuCreate extends Component
             ->where('shipping_methods.status', 'active')
             ->with('carrier:id,code,name')
             ->ordered()
-            ->get(['shipping_methods.id', 'shipping_methods.carrier_id', 'shipping_methods.code', 'shipping_methods.name']);
+            ->get(['shipping_methods.id', 'shipping_methods.carrier_id', 'shipping_methods.code', 'shipping_methods.name', 'shipping_methods.name_ja', 'shipping_methods.name_zh_tw', 'shipping_methods.name_zh_cn']);
     }
 
     private function stockItemOptions(): Collection

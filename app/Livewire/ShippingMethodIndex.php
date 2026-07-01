@@ -186,7 +186,10 @@ class ShippingMethodIndex extends Component
 
                 $query->where(fn ($query) => $query
                     ->where('shipping_methods.code', 'like', $like)
-                    ->orWhere('shipping_methods.name', 'like', $like));
+                    ->orWhere('shipping_methods.name', 'like', $like)
+                    ->orWhere('shipping_methods.name_ja', 'like', $like)
+                    ->orWhere('shipping_methods.name_zh_tw', 'like', $like)
+                    ->orWhere('shipping_methods.name_zh_cn', 'like', $like));
             })
             ->ordered()
             ->paginate(30);
