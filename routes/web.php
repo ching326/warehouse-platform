@@ -57,6 +57,7 @@ use App\Livewire\SkuImport;
 use App\Livewire\SkuLabelPrint;
 use App\Livewire\SkusIndex;
 use App\Livewire\StockAdjustmentCreate;
+use App\Livewire\StockAdjustmentImport;
 use App\Livewire\TenantCreate;
 use App\Livewire\TenantEdit;
 use App\Livewire\TenantIndex;
@@ -175,4 +176,5 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/setup/other-settings', OtherSettings::class)->name('setup.other-settings');
     Route::get('/setup/product-types', ProductTypeSettings::class)->name('setup.product-types.index');
     Route::get('/stock-adjustments/create', StockAdjustmentCreate::class)->name('stock-adjustments.create');
+    Route::get('/stock-adjustments/import', StockAdjustmentImport::class)->name('stock-adjustments.import');
 });

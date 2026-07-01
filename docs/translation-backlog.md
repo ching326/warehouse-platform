@@ -17,6 +17,7 @@ row to Done.
 | SKU label print | `skus.btn_print_label`, `skus.label_*` (print page, content, layout, skip cells, session) | ja, zh_TW, zh_CN | Label print feature still WIP. CJK currently English placeholders. Translate once the UI is final. |
 | SKU label selected action | `skus.select_skus_to_print` | ja, zh_TW, zh_CN | Added English only for the selected-SKU print action. |
 | SKU bulk status toggle | `skus.select_same_status_to_toggle` | ja, zh_TW, zh_CN | Added English only. Translate with the next SKU page pass. |
+| Stock adjustment import | `stock_adjustment_import.*` | ja, zh_TW, zh_CN | Added English only for the bulk stock adjustment import flow. |
 
 ## Done
 

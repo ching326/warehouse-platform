@@ -2,7 +2,13 @@
     <x-page-panel-header
         :title="__('stock_adjustments.page_title')"
         :subtitle="__('stock_adjustments.page_subtitle')"
-    />
+    >
+        <x-slot:actions>
+            <flux:button href="{{ route('stock-adjustments.import') }}" variant="primary" wire:navigate>
+                {{ __('stock_adjustment_import.btn_import') }}
+            </flux:button>
+        </x-slot:actions>
+    </x-page-panel-header>
 
     <form wire:submit="save" class="sku-form">
         <section class="table-shell flux-panel form-panel form-panel-with-overflow">
