@@ -179,15 +179,6 @@ class InventoryMovementsIndex extends Component
         return $this->enumLabel('movement_types', $type);
     }
 
-    public function movementColor(int $quantityDelta): string
-    {
-        return match (true) {
-            $quantityDelta > 0 => 'green',
-            $quantityDelta < 0 => 'red',
-            default => 'zinc',
-        };
-    }
-
     public function quantityDeltaClass(int $quantityDelta): string
     {
         return match (true) {

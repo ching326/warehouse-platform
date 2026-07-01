@@ -14,7 +14,7 @@ return [
     'btn_upload' => 'Upload file',
     'btn_preview' => 'Preview count',
     'btn_confirm' => 'Confirm import',
-    'btn_back_to_index' => 'Back to Stock Count',
+    'btn_back_to_index' => 'Record',
     'btn_view_run' => 'View stock count',
     'section_target' => 'Target',
     'section_balance_preview' => 'Current balance preview',

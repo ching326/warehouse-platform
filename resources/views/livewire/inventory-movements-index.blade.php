@@ -130,7 +130,7 @@
                             </small>
                         </flux:table.cell>
                         <flux:table.cell class="movement-change-cell">
-                            <flux:badge color="{{ $this->movementColor($movement->quantity_delta) }}">
+                            <flux:badge color="blue">
                                 {{ $this->movementTypeLabel($movement->movement_type) }}
                             </flux:badge>
                             <div class="bucket-list">
