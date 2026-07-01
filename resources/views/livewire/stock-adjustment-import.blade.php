@@ -1,6 +1,23 @@
 <div class="stock-adjustment-import-page">
     <x-flash-toast />
 
+    @if ($pendingErrorImportWarning)
+        <div class="app-toast app-toast-warning app-toast-confirm" role="alert">
+            <div class="app-toast-body">
+                <strong class="app-toast-title">{{ __('common.toast.warning') }}</strong>
+                <span class="app-toast-text">{{ $pendingErrorImportWarning }}</span>
+                <div class="app-toast-actions">
+                    <flux:button type="button" size="sm" variant="outline" wire:click="cancelImportWithErrors">
+                        {{ __('common.cancel') }}
+                    </flux:button>
+                    <flux:button type="button" size="sm" variant="primary" wire:click="confirmImportWithErrors">
+                        {{ __('stock_adjustment_import.btn_import_valid_rows') }}
+                    </flux:button>
+                </div>
+            </div>
+        </div>
+    @endif
+
     @php($stepKeys = ['upload', 'map', 'preview', 'result'])
     @php($currentIdx = array_search($step, $stepKeys, true))
     <div class="import-stepper">
@@ -208,20 +225,19 @@
         @endif
 
         <section class="table-shell flux-panel form-panel">
-            <div class="form-panel-header">
-                <strong>{{ __('stock_adjustment_import.option_save_template') }}</strong>
+            <div class="checkbox-stack">
+                <label><input type="checkbox" wire:model.live="doSaveTemplate"> {{ __('sku_import.option_save_template') }}</label>
             </div>
-            <div class="form-grid">
-                <flux:input wire:model="templateName" :label="__('sku_import.option_template_name')" />
-                <label class="default-view-toggle">
-                    <input type="checkbox" wire:model.live="templateAsDefault">
-                    <span>{{ __('sku_import.option_save_template_as_default') }}</span>
-                </label>
-            </div>
-            <div class="form-actions">
-                <span></span>
-                <flux:button type="button" variant="primary" wire:click="saveTemplate">{{ __('sku_import.map_btn_save') }}</flux:button>
-            </div>
+            @if ($doSaveTemplate)
+                <flux:input wire:model="templateName" :label="__('sku_import.option_template_name')" :placeholder="__('sku_import.option_template_name')" />
+                <div class="checkbox-stack">
+                    <label><input type="checkbox" wire:model.live="templateAsDefault"> {{ __('sku_import.option_save_template_as_default') }}</label>
+                </div>
+                <div class="form-actions">
+                    <span></span>
+                    <flux:button type="button" variant="primary" wire:click="saveTemplate">{{ __('stock_adjustment_import.btn_save_template') }}</flux:button>
+                </div>
+            @endif
         </section>
 
         <div class="form-actions">
@@ -252,16 +268,13 @@
                 </div>
             </div>
             <div class="table-wrap">
-                <table class="data-table">
+                <table class="data-table stock-adjustment-preview-table">
                     <thead>
                         <tr>
                             <th>{{ __('sku_import.col_row') }}</th>
                             <th>{{ __('stock_adjustment_import.field_identifier') }}</th>
                             <th>{{ __('skus.col_stock_item') }}</th>
-                            <th>{{ __('skus.field_tenant_item_code') }}</th>
-                            <th>{{ __('skus.col_name') }}</th>
                             <th>{{ __('stock_adjustment_import.col_current_on_hand') }}</th>
-                            <th>{{ __('stock_adjustment_import.col_current_available') }}</th>
                             <th>{{ __('stock_adjustment_import.field_quantity') }}</th>
                             <th>{{ __('stock_adjustment_import.col_resulting_on_hand') }}</th>
                             <th>{{ __('stock_adjustments.field_reason') }}</th>
@@ -275,11 +288,16 @@
                             <tr>
                                 <td>{{ $previewRow['row'] }}</td>
                                 <td>{{ $previewRow['identifier'] }}</td>
-                                <td>{{ $previewRow['stock_item_code'] }}</td>
-                                <td>{{ $previewRow['tenant_item_code'] }}</td>
-                                <td>{{ $previewRow['stock_item_name'] }}</td>
+                                <td>
+                                    <strong>{{ $previewRow['stock_item_code'] ?: '-' }}</strong>
+                                    @if ($previewRow['tenant_item_code'] !== '')
+                                        <span class="subtle">{{ $previewRow['tenant_item_code'] }}</span>
+                                    @endif
+                                    @if ($previewRow['stock_item_name'] !== '')
+                                        <span class="subtle">{{ $previewRow['stock_item_name'] }}</span>
+                                    @endif
+                                </td>
                                 <td>{{ number_format($previewRow['current_on_hand']) }}</td>
-                                <td>{{ number_format($previewRow['current_available']) }}</td>
                                 <td>{{ number_format($previewRow['quantity']) }}</td>
                                 <td>{{ number_format($previewRow['resulting_on_hand']) }}</td>
                                 <td>{{ $reason !== '' ? __('stock_adjustments.reasons.'.$reason) : '-' }}</td>
@@ -306,7 +324,7 @@
                 wire:click="confirmImport"
                 wire:loading.attr="disabled"
                 wire:target="confirmImport"
-                :disabled="$validRowCount === 0 || $errorRowCount > 0"
+                :disabled="$validRowCount === 0"
             >
                 <span wire:loading.remove wire:target="confirmImport">{{ __('stock_adjustment_import.btn_confirm') }}</span>
                 <span wire:loading wire:target="confirmImport">...</span>

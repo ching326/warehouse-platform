@@ -85,6 +85,8 @@ class StockAdjustmentImport extends Component
 
     public string $selectedTemplateId = '';
 
+    public bool $doSaveTemplate = false;
+
     public string $templateName = '';
 
     public bool $templateAsDefault = false;
@@ -102,6 +104,8 @@ class StockAdjustmentImport extends Component
     public int $resultFailed = 0;
 
     public ?int $resultRunId = null;
+
+    public ?string $pendingErrorImportWarning = null;
 
     public function mount(): void
     {
@@ -239,6 +243,7 @@ class StockAdjustmentImport extends Component
 
         $this->templateName = '';
         $this->templateAsDefault = false;
+        $this->doSaveTemplate = false;
         session()->flash('status', __('stock_adjustment_import.template_saved'));
     }
 
@@ -298,10 +303,26 @@ class StockAdjustmentImport extends Component
 
     public function backToMap(): void
     {
+        $this->pendingErrorImportWarning = null;
         $this->step = 'map';
     }
 
     public function confirmImport(): void
+    {
+        $this->applyImport(allowErrors: false);
+    }
+
+    public function confirmImportWithErrors(): void
+    {
+        $this->applyImport(allowErrors: true);
+    }
+
+    public function cancelImportWithErrors(): void
+    {
+        $this->pendingErrorImportWarning = null;
+    }
+
+    private function applyImport(bool $allowErrors): void
     {
         $tenantId = $this->validatedTenantId();
         $this->validateContext($tenantId);
@@ -309,9 +330,21 @@ class StockAdjustmentImport extends Component
         $evaluation = $this->evaluateStoredRows($tenantId, (int) $this->warehouseId);
         $this->applyEvaluation($evaluation);
 
-        if ($evaluation['errorCount'] > 0) {
+        if ($evaluation['errorCount'] > 0 && ! $allowErrors) {
             $this->step = 'preview';
-            session()->flash('error', __('stock_adjustment_import.confirm_blocked'));
+            $this->pendingErrorImportWarning = __('stock_adjustment_import.confirm_with_errors_warning', [
+                'valid' => count($evaluation['validRows']),
+                'errors' => $evaluation['errorCount'],
+            ]);
+
+            return;
+        }
+
+        $this->pendingErrorImportWarning = null;
+
+        if (count($evaluation['validRows']) === 0) {
+            $this->step = 'preview';
+            session()->flash('error', __('stock_adjustment_import.confirm_no_valid_rows'));
 
             return;
         }
@@ -327,7 +360,7 @@ class StockAdjustmentImport extends Component
                     'file_name' => $this->fileName,
                     'total_rows' => $evaluation['total'],
                     'adjusted_rows' => 0,
-                    'failed_rows' => 0,
+                    'failed_rows' => $evaluation['errorCount'],
                     'created_by_user_id' => Auth::id(),
                     'confirmed_at' => now(),
                 ]);
@@ -359,7 +392,7 @@ class StockAdjustmentImport extends Component
 
         $this->resultTotal = $evaluation['total'];
         $this->resultAdjusted = count($evaluation['validRows']);
-        $this->resultFailed = 0;
+        $this->resultFailed = $evaluation['errorCount'];
         $this->resultRunId = $run->id;
         $this->deleteStoredImportFile();
         $this->step = 'result';
@@ -373,9 +406,9 @@ class StockAdjustmentImport extends Component
 
         $this->reset([
             'file', 'fileName', 'filePath', 'fileHeaders', 'sampleRows', 'totalDataRows',
-            'mapping', 'selectedTemplateId', 'templateName', 'templateAsDefault',
+            'mapping', 'selectedTemplateId', 'doSaveTemplate', 'templateName', 'templateAsDefault',
             'validRowCount', 'errorRowCount', 'previewRows',
-            'resultTotal', 'resultAdjusted', 'resultFailed', 'resultRunId',
+            'resultTotal', 'resultAdjusted', 'resultFailed', 'resultRunId', 'pendingErrorImportWarning',
         ]);
 
         $this->step = 'upload';
@@ -396,6 +429,7 @@ class StockAdjustmentImport extends Component
         ])->layout('inventory', [
             'title' => __('stock_adjustment_import.page_title'),
             'subtitle' => __('stock_adjustment_import.page_subtitle'),
+            'pageWide' => true,
         ]);
     }
 
@@ -521,6 +555,10 @@ class StockAdjustmentImport extends Component
 
             if ($this->action === self::ACTION_DEDUCT && $currentOnHand - $quantity < 0) {
                 $errors[] = __('stock_adjustment_import.error_negative_on_hand');
+            }
+
+            if ($this->action === self::ACTION_DEDUCT && $currentAvailable - $quantity < 0) {
+                $errors[] = __('stock_adjustment_import.error_negative_available');
             }
         }
 
@@ -868,6 +906,7 @@ class StockAdjustmentImport extends Component
     private function resetTemplateState(): void
     {
         $this->selectedTemplateId = '';
+        $this->doSaveTemplate = false;
         $this->templateName = '';
         $this->templateAsDefault = false;
     }

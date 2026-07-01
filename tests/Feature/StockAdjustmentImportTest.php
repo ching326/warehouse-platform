@@ -270,6 +270,83 @@ class StockAdjustmentImportTest extends TestCase
         $this->assertContains(__('stock_adjustment_import.error_negative_on_hand'), $blocked->get('previewRows')[0]['errors']);
     }
 
+    public function test_deduct_import_blocks_negative_available_stock_in_preview(): void
+    {
+        [$tenant, $warehouse] = $this->targetTenantWarehouse();
+        $stockItem = StockItem::factory()->for($tenant)->create(['code' => 'RESERVED-STOCK']);
+        InventoryBalance::factory()->create([
+            'tenant_id' => $tenant->id,
+            'warehouse_id' => $warehouse->id,
+            'stock_item_id' => $stockItem->id,
+            'on_hand_qty' => 10,
+            'reserved_qty' => 8,
+            'available_qty' => 2,
+            'inbound_qty' => 0,
+            'hold_qty' => 0,
+            'damaged_qty' => 0,
+        ]);
+
+        $component = $this->preview($tenant, $warehouse, [[$stockItem->code, '5']], action: 'deduct', reason: 'lost_missing');
+
+        $component->assertSet('errorRowCount', 1);
+        $this->assertContains(__('stock_adjustment_import.error_negative_available'), $component->get('previewRows')[0]['errors']);
+        $this->assertSame(0, InventoryMovement::count());
+    }
+
+    public function test_import_with_error_rows_requires_warning_confirmation_and_imports_valid_rows_only(): void
+    {
+        [$tenant, $warehouse] = $this->targetTenantWarehouse();
+        $stockItem = StockItem::factory()->for($tenant)->create(['code' => 'VALID-STOCK']);
+        InventoryBalance::factory()->create([
+            'tenant_id' => $tenant->id,
+            'warehouse_id' => $warehouse->id,
+            'stock_item_id' => $stockItem->id,
+            'on_hand_qty' => 3,
+            'reserved_qty' => 0,
+            'available_qty' => 3,
+            'inbound_qty' => 0,
+            'hold_qty' => 0,
+            'damaged_qty' => 0,
+        ]);
+
+        $component = $this->preview($tenant, $warehouse, [
+            [$stockItem->code, '4'],
+            ['MISSING-STOCK', '2'],
+        ], action: 'add', reason: 'found_stock');
+
+        $component
+            ->assertSet('validRowCount', 1)
+            ->assertSet('errorRowCount', 1)
+            ->call('confirmImport')
+            ->assertSet('step', 'preview')
+            ->assertSet('pendingErrorImportWarning', __('stock_adjustment_import.confirm_with_errors_warning', [
+                'valid' => 1,
+                'errors' => 1,
+            ]));
+
+        $this->assertSame(0, InventoryMovement::count());
+
+        $component
+            ->call('confirmImportWithErrors')
+            ->assertSet('step', 'result')
+            ->assertSet('resultAdjusted', 1)
+            ->assertSet('resultFailed', 1);
+
+        $this->assertDatabaseHas('inventory_balances', [
+            'tenant_id' => $tenant->id,
+            'warehouse_id' => $warehouse->id,
+            'stock_item_id' => $stockItem->id,
+            'on_hand_qty' => 7,
+            'available_qty' => 7,
+        ]);
+
+        $this->assertDatabaseHas('stock_adjustment_import_runs', [
+            'total_rows' => 2,
+            'adjusted_rows' => 1,
+            'failed_rows' => 1,
+        ]);
+    }
+
     public function test_confirm_revalidates_if_stock_changed_after_preview(): void
     {
         [$tenant, $warehouse] = $this->targetTenantWarehouse();
