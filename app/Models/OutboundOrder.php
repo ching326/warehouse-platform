@@ -197,6 +197,32 @@ class OutboundOrder extends Model
         return $this->belongsTo(User::class, 'courier_cost_updated_by_user_id');
     }
 
+    /**
+     * Courier-cost attributes for an update, stamping the audit fields only when the
+     * cost or currency actually changes. Pass an already-normalized 2-decimal cost
+     * string (or null) and an uppercase currency code (or null).
+     *
+     * @return array<string, mixed>
+     */
+    public function courierCostAttributes(?string $cost, ?string $currency, ?int $userId): array
+    {
+        $attributes = [
+            'courier_cost' => $cost,
+            'courier_cost_currency' => $currency,
+        ];
+
+        $currentCost = $this->courier_cost === null
+            ? null
+            : number_format((float) $this->courier_cost, 2, '.', '');
+
+        if ($currentCost !== $cost || ($this->courier_cost_currency ?: null) !== $currency) {
+            $attributes['courier_cost_updated_by_user_id'] = $userId;
+            $attributes['courier_cost_updated_at'] = now();
+        }
+
+        return $attributes;
+    }
+
     public function heldBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'held_by_user_id');

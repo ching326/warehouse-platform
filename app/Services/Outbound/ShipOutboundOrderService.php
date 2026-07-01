@@ -117,17 +117,7 @@ class ShipOutboundOrderService
             throw new InvalidArgumentException(__('outbound.courier_cost_currency_required'));
         }
 
-        $attributes = [
-            'courier_cost' => $cost,
-            'courier_cost_currency' => $currency,
-        ];
-
-        if ($this->courierCostChanged($order, $cost, $currency)) {
-            $attributes['courier_cost_updated_by_user_id'] = Auth::id();
-            $attributes['courier_cost_updated_at'] = now();
-        }
-
-        return $attributes;
+        return $order->courierCostAttributes($cost, $currency, Auth::id());
     }
 
     private function nullableDecimal(mixed $value): ?string
@@ -137,14 +127,5 @@ class ShipOutboundOrderService
         }
 
         return number_format((float) $value, 2, '.', '');
-    }
-
-    private function courierCostChanged(OutboundOrder $order, ?string $cost, ?string $currency): bool
-    {
-        $currentCost = $order->courier_cost === null
-            ? null
-            : number_format((float) $order->courier_cost, 2, '.', '');
-
-        return $currentCost !== $cost || ($order->courier_cost_currency ?: null) !== $currency;
     }
 }

@@ -193,21 +193,7 @@ class OutboundOrderDetail extends Component
             : null;
         $currency = $cost !== null ? $this->courierCostCurrency : null;
 
-        $currentCost = $order->courier_cost === null
-            ? null
-            : number_format((float) $order->courier_cost, 2, '.', '');
-
-        $attributes = [
-            'courier_cost' => $cost,
-            'courier_cost_currency' => $currency,
-        ];
-
-        if ($currentCost !== $cost || ($order->courier_cost_currency ?: null) !== $currency) {
-            $attributes['courier_cost_updated_by_user_id'] = Auth::id();
-            $attributes['courier_cost_updated_at'] = now();
-        }
-
-        $order->update($attributes);
+        $order->update($order->courierCostAttributes($cost, $currency, Auth::id()));
 
         $this->editingCourierCost = false;
         session()->flash('status', __('outbound.courier_cost_updated'));
