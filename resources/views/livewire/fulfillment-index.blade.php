@@ -328,6 +328,20 @@
                 <flux:button type="button" size="sm" variant="primary" wire:click="remapShipping" x-show="has()" x-cloak>
                     {{ __('fulfillment.btn_remap_shipping') }}
                 </flux:button>
+                <flux:button type="button" size="sm" variant="outline" disabled x-show="! has()">
+                    {{ __('fulfillment.requeue_print') }}
+                </flux:button>
+                <flux:button
+                    type="button"
+                    size="sm"
+                    variant="primary"
+                    wire:click="requeueSelectedPrint"
+                    wire:confirm="{{ __('fulfillment.requeue_print_confirm') }}"
+                    x-show="has()"
+                    x-cloak
+                >
+                    {{ __('fulfillment.requeue_print') }}
+                </flux:button>
             </div>
 
             <div class="sales-order-page-actions inline-page-actions" data-testid="fulfillment-group-page-actions">
@@ -375,6 +389,9 @@
                             <button type="button" wire:click="openAddressLabelModal" x-on:click="openActionMenu = null">
                                 {{ __('fulfillment.batch_export_label10') }}
                             </button>
+                            <a href="{{ route('fulfillment.print-history') }}" wire:navigate>
+                                {{ __('fulfillment.print_history_link') }}
+                            </a>
                         </div>
                     </div>
                 </details>
@@ -571,13 +588,25 @@
                         </flux:table.cell>
 
                         <flux:table.cell>
-                            @if ($order->status === \App\Models\OutboundOrder::STATUS_RESERVED && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE)
-                                <div class="fg-row-action">
+                            <div class="fg-row-action">
+                                @if ($order->status === \App\Models\OutboundOrder::STATUS_RESERVED && $order->hold_status === \App\Models\OutboundOrder::HOLD_STATUS_ACTIVE)
                                     <flux:button href="{{ route('outbound.pack', $order) }}" size="sm" variant="primary" class="fg-scan-pack-button" wire:navigate>
                                         {{ __('fulfillment_pack.page_title') }}
                                     </flux:button>
-                                </div>
-                            @endif
+                                @endif
+                                @if ($this->canRequeuePrint($order))
+                                    <flux:button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        class="fg-scan-pack-button"
+                                        wire:click="requeuePrint({{ $order->id }})"
+                                        wire:confirm="{{ __('fulfillment.requeue_print_confirm') }}"
+                                    >
+                                        {{ __('fulfillment.requeue_print') }}
+                                    </flux:button>
+                                @endif
+                            </div>
                         </flux:table.cell>
                     </flux:table.row>
                 @empty

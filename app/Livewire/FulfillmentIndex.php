@@ -10,6 +10,7 @@ use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Models\Warehouse;
 use App\Services\Courier\CourierExportService;
+use App\Services\Fulfillment\RequeuePrintService;
 use App\Services\Labels\AddressLabelExportService;
 use App\Services\Outbound\HoldOutboundOrderService;
 use App\Services\Outbound\ShipOutboundOrderService;
@@ -501,6 +502,46 @@ class FulfillmentIndex extends Component
         $this->selectedIds = [];
 
         session()->flash('status', BulkActionMessage::make('fulfillment.batch_release_hold_result', $updated, count($selectedIds) - $updated));
+    }
+
+    public function requeuePrint(int $orderId, RequeuePrintService $service): void
+    {
+        $order = $this->scopedOrderQuery()
+            ->whereKey($orderId)
+            ->first();
+
+        if (! $order || ! $service->requeue($order, $this->allowedTenantIds())) {
+            session()->flash('error', __('fulfillment.requeue_print_blocked'));
+
+            return;
+        }
+
+        session()->flash('status', __('fulfillment.requeue_print_success'));
+    }
+
+    public function requeueSelectedPrint(RequeuePrintService $service): void
+    {
+        $selectedIds = $this->normalizedSelectedIds();
+
+        if ($selectedIds === []) {
+            return;
+        }
+
+        $orders = $this->scopedOrderQuery()
+            ->whereIn('id', $selectedIds)
+            ->get(['id', 'tenant_id']);
+
+        $updated = 0;
+
+        foreach ($orders as $order) {
+            if ($service->requeue($order, $this->allowedTenantIds())) {
+                $updated++;
+            }
+        }
+
+        $this->selectedIds = [];
+
+        session()->flash('status', BulkActionMessage::make('fulfillment.batch_requeue_print_result', $updated, count($selectedIds) - $updated));
     }
 
     public function exportYamato(): mixed
@@ -1307,6 +1348,12 @@ class FulfillmentIndex extends Component
             ->unique()
             ->values()
             ->all();
+    }
+
+    public function canRequeuePrint(OutboundOrder $order): bool
+    {
+        return $order->courier_label_exported_at !== null
+            && ! in_array($order->status, [OutboundOrder::STATUS_SHIPPED, OutboundOrder::STATUS_CANCELLED], true);
     }
 
     private function scopedOrderQuery()

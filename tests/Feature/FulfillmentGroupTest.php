@@ -6,6 +6,7 @@ use App\Actions\BackfillNormalizedTrackingNumbers;
 use App\Livewire\FulfillmentIndex;
 use App\Livewire\FulfillmentPack;
 use App\Livewire\FulfillmentPackStart;
+use App\Livewire\FulfillmentPrintHistory;
 use App\Livewire\OutboundOrderDetail;
 use App\Livewire\OutboundOrderShip;
 use App\Models\BarcodeAlias;
@@ -597,6 +598,168 @@ class FulfillmentGroupTest extends TestCase
             ->assertSee($waitingGroup->ref)
             ->assertDontSee($cancelledGroup->ref)
             ->assertDontSee($heldGroup->ref);
+    }
+
+    public function test_requeue_print_clears_exported_at_for_reserved_order_and_keeps_history(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-REQUEUE');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $outbound = OutboundOrder::firstOrFail();
+        $outbound->update(['courier_label_exported_at' => now()]);
+        $batch = $this->printHistoryBatch($tenant, $outbound, CourierCarrier::YAMATO, 'yamato_requeue.csv', $this->internalUser(), $order);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->call('requeuePrint', $outbound->id)
+            ->assertSee(__('fulfillment.requeue_print_success'));
+
+        $this->assertNull($outbound->refresh()->courier_label_exported_at);
+        $this->assertDatabaseHas('courier_export_batches', ['id' => $batch->id]);
+        $this->assertDatabaseHas('courier_export_batch_orders', [
+            'courier_export_batch_id' => $batch->id,
+            'outbound_order_id' => $outbound->id,
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->set('printWaiting', true)
+            ->assertSee($outbound->ref);
+    }
+
+    public function test_requeue_print_blocks_shipped_and_cancelled_orders(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $shippedOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-REQUEUE-SHIPPED');
+        $cancelledOrder = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-REQUEUE-CANCELLED', '2 Requeue Street');
+
+        $this->createGroup($tenant, $warehouse, $shippedOrder->ship_together_key, [$shippedOrder]);
+        $shipped = OutboundOrder::query()->latest('id')->firstOrFail();
+        $shipped->update([
+            'status' => OutboundOrder::STATUS_SHIPPED,
+            'courier_label_exported_at' => now(),
+        ]);
+
+        $this->createGroup($tenant, $warehouse, $cancelledOrder->ship_together_key, [$cancelledOrder]);
+        $cancelled = OutboundOrder::query()->latest('id')->firstOrFail();
+        $cancelled->update([
+            'status' => OutboundOrder::STATUS_CANCELLED,
+            'courier_label_exported_at' => now(),
+        ]);
+
+        Livewire::actingAs($this->internalUser())
+            ->test(FulfillmentIndex::class)
+            ->call('requeuePrint', $shipped->id)
+            ->assertSee(__('fulfillment.requeue_print_blocked'))
+            ->call('requeuePrint', $cancelled->id)
+            ->assertSee(__('fulfillment.requeue_print_blocked'));
+
+        $this->assertNotNull($shipped->refresh()->courier_label_exported_at);
+        $this->assertNotNull($cancelled->refresh()->courier_label_exported_at);
+    }
+
+    public function test_requeue_print_tenant_scope_blocks_other_tenant(): void
+    {
+        [$ownTenant, $tenantUser] = $this->tenantUser();
+        [$otherTenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $order = $this->readySalesOrder($otherTenant, $shop, $sku, 1, 'SO-FG-REQUEUE-SCOPE');
+        $this->createGroup($otherTenant, $warehouse, $order->ship_together_key, [$order]);
+        $outbound = OutboundOrder::firstOrFail();
+        $outbound->update(['courier_label_exported_at' => now()]);
+
+        $this->assertNotSame($ownTenant->id, $otherTenant->id);
+
+        Livewire::actingAs($tenantUser)
+            ->test(FulfillmentIndex::class)
+            ->call('requeuePrint', $outbound->id)
+            ->assertSee(__('fulfillment.requeue_print_blocked'));
+
+        $this->assertNotNull($outbound->refresh()->courier_label_exported_at);
+    }
+
+    public function test_print_history_lists_courier_and_label10_batches(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $user = $this->internalUser();
+        $orderA = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-HISTORY-A');
+        $orderB = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-HISTORY-B', '2 History Street');
+        $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA]);
+        $yamato = OutboundOrder::query()->latest('id')->firstOrFail();
+        $this->createGroup($tenant, $warehouse, $orderB->ship_together_key, [$orderB]);
+        $label10 = OutboundOrder::query()->latest('id')->firstOrFail();
+
+        $this->printHistoryBatch($tenant, $yamato, CourierCarrier::YAMATO, 'yamato_history.csv', $user, $orderA);
+        $this->printHistoryBatch($tenant, $label10, AddressLabelExportService::EXPORT_TYPE_LABEL10, 'label10_history.pdf', $user, $orderB);
+
+        Livewire::actingAs($user)
+            ->test(FulfillmentPrintHistory::class)
+            ->assertSee(__('outbound.courier_label_export_type_yamato'))
+            ->assertSee(__('outbound.courier_label_export_type_label10'))
+            ->assertSee('yamato_history.csv')
+            ->assertSee('label10_history.pdf')
+            ->assertSee($user->name)
+            ->assertSee(__('fulfillment.print_history_download'));
+    }
+
+    public function test_print_history_filters_by_type(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $user = $this->internalUser();
+        $orderA = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-HISTORY-FILTER-A');
+        $orderB = $this->readySalesOrder($tenant, $shop, $sku, 1, 'SO-FG-HISTORY-FILTER-B', '2 Filter Street');
+        $this->createGroup($tenant, $warehouse, $orderA->ship_together_key, [$orderA]);
+        $yamato = OutboundOrder::query()->latest('id')->firstOrFail();
+        $this->createGroup($tenant, $warehouse, $orderB->ship_together_key, [$orderB]);
+        $label10 = OutboundOrder::query()->latest('id')->firstOrFail();
+
+        $this->printHistoryBatch($tenant, $yamato, CourierCarrier::YAMATO, 'yamato_filter.csv', $user, $orderA);
+        $this->printHistoryBatch($tenant, $label10, AddressLabelExportService::EXPORT_TYPE_LABEL10, 'label10_filter.pdf', $user, $orderB);
+
+        Livewire::actingAs($user)
+            ->test(FulfillmentPrintHistory::class)
+            ->set('type', CourierCarrier::YAMATO)
+            ->assertSee('yamato_filter.csv')
+            ->assertDontSee('label10_filter.pdf')
+            ->set('type', AddressLabelExportService::EXPORT_TYPE_LABEL10)
+            ->assertSee('label10_filter.pdf')
+            ->assertDontSee('yamato_filter.csv');
+    }
+
+    public function test_print_history_tenant_scope(): void
+    {
+        [$ownTenant, $tenantUser] = $this->tenantUser();
+        $ownWarehouse = Warehouse::factory()->create();
+        $ownOutbound = OutboundOrder::factory()->for($ownTenant)->for($ownWarehouse)->create(['ref' => 'OB-HISTORY-OWN']);
+        $otherTenant = Tenant::factory()->create();
+        $otherWarehouse = Warehouse::factory()->create();
+        $otherOutbound = OutboundOrder::factory()->for($otherTenant)->for($otherWarehouse)->create(['ref' => 'OB-HISTORY-HIDDEN']);
+        $user = $this->internalUser();
+
+        $this->printHistoryBatch($ownTenant, $ownOutbound, CourierCarrier::YAMATO, 'own_history.csv', $user);
+        $this->printHistoryBatch($otherTenant, $otherOutbound, CourierCarrier::YAMATO, 'hidden_history.csv', $user);
+
+        Livewire::actingAs($tenantUser)
+            ->test(FulfillmentPrintHistory::class)
+            ->assertSee('own_history.csv')
+            ->assertDontSee('hidden_history.csv');
+    }
+
+    public function test_print_history_search_matches_outbound_ref_or_file_name(): void
+    {
+        [$tenant, $warehouse, $shop, $sku] = $this->skuWithStock(20);
+        $user = $this->internalUser();
+        $order = $this->readySalesOrder($tenant, $shop, $sku, 1, '503-2780983-9214241');
+        $this->createGroup($tenant, $warehouse, $order->ship_together_key, [$order]);
+        $outbound = OutboundOrder::firstOrFail();
+        $outbound->update(['ref' => 'OB-HISTORY-REF-SEARCH']);
+        $this->printHistoryBatch($tenant, $outbound, CourierCarrier::YAMATO, 'history_search_file.csv', $user, $order);
+
+        Livewire::actingAs($user)
+            ->test(FulfillmentPrintHistory::class)
+            ->set('search', 'OB-HISTORY-REF-SEARCH')
+            ->assertSee('history_search_file.csv')
+            ->set('search', 'history_search_file')
+            ->assertSee('history_search_file.csv');
     }
 
     public function test_fulfillment_index_filters_by_on_hold_status(): void
@@ -2864,6 +3027,36 @@ class FulfillmentGroupTest extends TestCase
             'barcode_type' => 'other',
             'is_active' => $isActive,
         ]);
+    }
+
+    private function printHistoryBatch(
+        Tenant $tenant,
+        OutboundOrder $outbound,
+        string $type,
+        string $fileName,
+        User $user,
+        ?SalesOrder $salesOrder = null,
+    ): CourierExportBatch {
+        $batch = CourierExportBatch::create([
+            'tenant_id' => $tenant->id,
+            'carrier' => $type,
+            'file_name' => $fileName,
+            'disk' => 'local',
+            'path' => 'courier_exports/test/'.$fileName,
+            'order_count' => 1,
+            'exported_by_user_id' => $user->id,
+            'exported_at' => now(),
+        ]);
+
+        $batch->batchOrders()->create([
+            'sales_order_id' => $salesOrder?->id,
+            'outbound_order_id' => $outbound->id,
+            'platform_order_id' => $salesOrder?->platform_order_id ?? $outbound->ref,
+            'carrier' => $type,
+            'exported_at' => now(),
+        ]);
+
+        return $batch;
     }
 
     private function readySalesOrder(

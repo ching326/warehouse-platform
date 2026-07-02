@@ -10,7 +10,11 @@ row to Done.
 
 ## Pending
 
-None currently. `return_orders.php` is the one known module file with no CJK translation yet
+| Area / Page | Added date | Notes |
+| --- | --- | --- |
+| Fulfillment print history and requeue print | 2026-07-02 | Added English-only `fulfillment.print_history_*` and `fulfillment.requeue_print*` keys. |
+
+`return_orders.php` is the one known module file with no CJK translation yet
 (not urgent -- add a row here when that module stabilizes).
 
 ## Done

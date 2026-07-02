@@ -7,11 +7,12 @@ use App\Models\ShippingMethod;
 use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Services\Courier\CourierExportService;
+use App\Services\Fulfillment\RequeuePrintService;
 use App\Services\InventoryService;
-use App\Services\Labels\AddressLabelExportService;
 use App\Services\Outbound\HoldOutboundOrderService;
 use App\Support\BulkActionMessage;
 use App\Support\CourierCarrier;
+use App\Support\CourierExportTypeLabels;
 use App\Support\TrackingNumber;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -355,6 +356,19 @@ class OutboundOrderDetail extends Component
         session()->flash('status', BulkActionMessage::make('fulfillment.batch_release_hold_result', 1, 0));
     }
 
+    public function requeuePrint(RequeuePrintService $service): void
+    {
+        $order = $this->scopedOrderQuery()->findOrFail($this->orderId);
+
+        if (! $service->requeue($order, $this->visibleTenantIds())) {
+            session()->flash('error', __('fulfillment.requeue_print_blocked'));
+
+            return;
+        }
+
+        session()->flash('status', __('fulfillment.requeue_print_success'));
+    }
+
     public function cancel(): void
     {
         $order = $this->scopedOrderQuery()
@@ -543,7 +557,7 @@ class OutboundOrderDetail extends Component
                 return [
                     'id' => $row->id,
                     'batch_id' => $batch->id,
-                    'type' => $this->courierLabelExportTypeLabel((string) $batch->carrier),
+                    'type' => CourierExportTypeLabels::label((string) $batch->carrier),
                     'carrier' => $batch->carrier,
                     'file_name' => $batch->file_name,
                     'exported_at' => $exportedAt?->copy()->timezone($timezone)->format('Y-m-d H:i') ?? '-',
@@ -554,16 +568,6 @@ class OutboundOrderDetail extends Component
             })
             ->reverse()
             ->values();
-    }
-
-    private function courierLabelExportTypeLabel(string $carrier): string
-    {
-        return match ($carrier) {
-            CourierCarrier::YAMATO => __('outbound.courier_label_export_type_yamato'),
-            CourierCarrier::SAGAWA => __('outbound.courier_label_export_type_sagawa'),
-            AddressLabelExportService::EXPORT_TYPE_LABEL10 => __('outbound.courier_label_export_type_label10'),
-            default => strtoupper($carrier),
-        };
     }
 
     private function loadPendingOrder(): OutboundOrder

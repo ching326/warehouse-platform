@@ -86,6 +86,11 @@
         </div>
     </section>
 
+    @php
+        $canRequeuePrint = $order->courier_label_exported_at !== null
+            && ! in_array($order->status, [\App\Models\OutboundOrder::STATUS_SHIPPED, \App\Models\OutboundOrder::STATUS_CANCELLED], true);
+    @endphp
+
     <section class="table-shell flux-panel form-panel">
         <div class="form-panel-header">
             <div>
@@ -110,6 +115,18 @@
                 <flux:button class="action-button-md" type="button" size="sm" variant="primary" wire:click="exportSagawa">
                     {{ __('fulfillment.batch_export_sagawa') }}
                 </flux:button>
+                @if ($canRequeuePrint)
+                    <flux:button
+                        class="action-button-md"
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        wire:click="requeuePrint"
+                        wire:confirm="{{ __('fulfillment.requeue_print_confirm') }}"
+                    >
+                        {{ __('fulfillment.requeue_print') }}
+                    </flux:button>
+                @endif
                 <flux:button class="action-button-md outbound-hold-action" type="button" size="sm" variant="primary" wire:click="holdOutbound">
                     {{ __('outbound.hold') }}
                 </flux:button>
@@ -129,6 +146,18 @@
                 <flux:button class="action-button-md outbound-hold-action" type="button" size="sm" variant="primary" wire:click="releaseHold">
                     {{ __('outbound.release_hold') }}
                 </flux:button>
+                @if ($canRequeuePrint)
+                    <flux:button
+                        class="action-button-md"
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        wire:click="requeuePrint"
+                        wire:confirm="{{ __('fulfillment.requeue_print_confirm') }}"
+                    >
+                        {{ __('fulfillment.requeue_print') }}
+                    </flux:button>
+                @endif
                 <flux:button
                     class="action-button-md outbound-cancel-action"
                     type="button"
@@ -309,13 +338,19 @@
             </div>
         @endif
     </section>
-
     <section class="table-shell flux-panel form-panel">
         <div class="form-panel-header">
             <div>
                 <strong>{{ __('outbound.section_courier_label_exports') }}</strong>
                 <span>{{ __('outbound.section_courier_label_exports_hint') }}</span>
             </div>
+            <flux:button
+                href="{{ route('fulfillment.print-history', ['search' => $order->ref]) }}"
+                variant="outline"
+                wire:navigate
+            >
+                {{ __('fulfillment.print_history_link') }}
+            </flux:button>
         </div>
 
         <flux:table class="data-table">
@@ -356,7 +391,6 @@
             </flux:table.rows>
         </flux:table>
     </section>
-
     <section class="table-shell flux-panel form-panel">
         <div class="form-panel-header">
             <div>

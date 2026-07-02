@@ -20,6 +20,7 @@ use App\Livewire\FulfillmentPack;
 use App\Livewire\FulfillmentPackScanIndex;
 use App\Livewire\FulfillmentPackStart;
 use App\Livewire\FulfillmentPickSummary;
+use App\Livewire\FulfillmentPrintHistory;
 use App\Livewire\InboundOrderCreate;
 use App\Livewire\InboundOrderDetail;
 use App\Livewire\InboundOrderIndex;
@@ -146,6 +147,7 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/marketplace-shipping-notice-batches/{batch}/download', MarketplaceShippingNoticeDownloadController::class)
         ->name('marketplace-shipping-notice-batches.download');
     Route::get('/fulfillment', FulfillmentIndex::class)->name('fulfillment.index');
+    Route::get('/fulfillment/print-history', FulfillmentPrintHistory::class)->name('fulfillment.print-history');
     Route::get('/fulfillment/pick-summary', FulfillmentPickSummary::class)->name('fulfillment.pick-summary');
     Route::get('/fulfillment/scan-pack', FulfillmentPackStart::class)->name('fulfillment.pack.start');
     Route::get('/fulfillment/pack-scans', FulfillmentPackScanIndex::class)->name('fulfillment.pack-scans.index');
