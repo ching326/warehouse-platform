@@ -248,6 +248,11 @@ class OutboundOrder extends Model
         return $this->hasMany(FulfillmentPackScan::class);
     }
 
+    public function courierExportBatchOrders(): HasMany
+    {
+        return $this->hasMany(CourierExportBatchOrder::class);
+    }
+
     public function parentLines(): HasMany
     {
         return $this->hasMany(OutboundOrderLine::class)

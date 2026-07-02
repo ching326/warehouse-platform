@@ -1197,6 +1197,59 @@ class OutboundOrderTest extends TestCase
         $this->assertSame('OB-MANUAL-P13-001', $batchOrder->platform_order_id);
     }
 
+    public function test_detail_shows_courier_label_export_history(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(2);
+        $method = ShippingMethod::query()->where('code', 'yamato_nekopos')->firstOrFail();
+        $user = $this->internalUser();
+
+        $order = OutboundOrder::factory()
+            ->for($tenant)
+            ->for($warehouse)
+            ->create([
+                'status' => OutboundOrder::STATUS_RESERVED,
+                'reason' => OutboundOrder::REASON_REPLACEMENT,
+                'shipping_method_id' => $method->id,
+                'ref' => 'OB-HISTORY-001',
+                'recipient_name' => 'History Recipient',
+                'recipient_country_code' => 'JP',
+                'recipient_postal_code' => '100-0001',
+                'recipient_state' => 'Tokyo',
+                'recipient_city' => 'Chiyoda-ku',
+                'recipient_address_line1' => 'Chiyoda',
+            ]);
+
+        OutboundOrderLine::factory()
+            ->for($order, 'order')
+            ->for($sku)
+            ->for($sku->stockItem)
+            ->for($tenant)
+            ->create(['qty' => 1]);
+
+        app(CourierExportService::class)->exportOrders(
+            outboundOrderIds: [$order->id],
+            carrier: CourierCarrier::YAMATO,
+            allowedTenantIds: [$tenant->id],
+            user: $user,
+        );
+
+        app(CourierExportService::class)->exportOrders(
+            outboundOrderIds: [$order->id],
+            carrier: CourierCarrier::YAMATO,
+            allowedTenantIds: [$tenant->id],
+            user: $user,
+            confirmedReExport: true,
+        );
+
+        Livewire::actingAs($user)
+            ->test(OutboundOrderDetail::class, ['order' => $order])
+            ->assertSee(__('outbound.section_courier_label_exports'))
+            ->assertSee(__('outbound.courier_label_export_type_yamato'))
+            ->assertSee(__('outbound.courier_label_first_export'))
+            ->assertSee(__('outbound.courier_label_reexport'))
+            ->assertSee($user->name);
+    }
+
     public function test_detail_export_blocked_without_shipping_method_id(): void
     {
         [$tenant, $warehouse, $sku] = $this->skuWithStock(2);

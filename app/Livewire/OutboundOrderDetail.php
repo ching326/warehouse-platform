@@ -8,6 +8,7 @@ use App\Models\StockItem;
 use App\Models\Tenant;
 use App\Services\Courier\CourierExportService;
 use App\Services\InventoryService;
+use App\Services\Labels\AddressLabelExportService;
 use App\Services\Outbound\HoldOutboundOrderService;
 use App\Support\BulkActionMessage;
 use App\Support\CourierCarrier;
@@ -421,6 +422,10 @@ class OutboundOrderDetail extends Component
                 'parentLines.childLines.stockItem:id,code,name',
                 'salesOrders:id,platform_order_id,recipient_name,recipient_city,fulfillment_status',
                 'salesOrders.lines:id,sales_order_id',
+                'courierExportBatchOrders' => fn ($query) => $query
+                    ->with('batch.exportedBy:id,name')
+                    ->latest('exported_at')
+                    ->latest('id'),
                 'packScans' => fn ($query) => $query
                     ->with([
                         'sku:id,sku,name',
@@ -435,6 +440,7 @@ class OutboundOrderDetail extends Component
         return view('livewire.outbound-order-detail', [
             'order' => $order,
             'shippingMethods' => $this->shippingMethodOptions(),
+            'courierLabelExports' => $this->courierLabelExports($order),
             'isInternal' => $this->isInternalUser(),
         ])->layout('inventory', [
             'title' => __('outbound.detail_page_title'),
@@ -515,6 +521,49 @@ class OutboundOrderDetail extends Component
             ->with('carrier:id,code,name')
             ->ordered()
             ->get(['shipping_methods.id', 'shipping_methods.carrier_id', 'shipping_methods.code', 'shipping_methods.name', 'shipping_methods.name_ja', 'shipping_methods.name_zh_tw', 'shipping_methods.name_zh_cn']);
+    }
+
+    private function courierLabelExports(OutboundOrder $order): Collection
+    {
+        $timezone = $order->warehouse?->timezone ?: config('app.timezone');
+        $exports = $order->courierExportBatchOrders
+            ->filter(fn ($row): bool => $row->batch !== null)
+            ->sortBy([
+                ['exported_at', 'asc'],
+                ['id', 'asc'],
+            ])
+            ->unique('courier_export_batch_id')
+            ->values();
+
+        return $exports
+            ->map(function ($row, int $index) use ($timezone): array {
+                $batch = $row->batch;
+                $exportedAt = $row->exported_at ?: $batch->exported_at;
+
+                return [
+                    'id' => $row->id,
+                    'batch_id' => $batch->id,
+                    'type' => $this->courierLabelExportTypeLabel((string) $batch->carrier),
+                    'carrier' => $batch->carrier,
+                    'file_name' => $batch->file_name,
+                    'exported_at' => $exportedAt?->copy()->timezone($timezone)->format('Y-m-d H:i') ?? '-',
+                    'exported_by' => $batch->exportedBy?->name ?: '-',
+                    'is_reexport' => $index > 0,
+                    'download_url' => route('courier-export-batches.download', $batch),
+                ];
+            })
+            ->reverse()
+            ->values();
+    }
+
+    private function courierLabelExportTypeLabel(string $carrier): string
+    {
+        return match ($carrier) {
+            CourierCarrier::YAMATO => __('outbound.courier_label_export_type_yamato'),
+            CourierCarrier::SAGAWA => __('outbound.courier_label_export_type_sagawa'),
+            AddressLabelExportService::EXPORT_TYPE_LABEL10 => __('outbound.courier_label_export_type_label10'),
+            default => strtoupper($carrier),
+        };
     }
 
     private function loadPendingOrder(): OutboundOrder

@@ -313,6 +313,53 @@
     <section class="table-shell flux-panel form-panel">
         <div class="form-panel-header">
             <div>
+                <strong>{{ __('outbound.section_courier_label_exports') }}</strong>
+                <span>{{ __('outbound.section_courier_label_exports_hint') }}</span>
+            </div>
+        </div>
+
+        <flux:table class="data-table">
+            <flux:table.columns>
+                <flux:table.column>{{ __('outbound.col_exported_at') }}</flux:table.column>
+                <flux:table.column>{{ __('outbound.col_export_type') }}</flux:table.column>
+                <flux:table.column>{{ __('outbound.col_export_file') }}</flux:table.column>
+                <flux:table.column>{{ __('outbound.col_exported_by') }}</flux:table.column>
+                <flux:table.column>{{ __('outbound.col_export_status') }}</flux:table.column>
+            </flux:table.columns>
+
+            <flux:table.rows>
+                @forelse ($courierLabelExports as $export)
+                    <flux:table.row :key="'courier-export-'.$export['id']">
+                        <flux:table.cell>{{ $export['exported_at'] }}</flux:table.cell>
+                        <flux:table.cell>
+                            <strong>{{ $export['type'] }}</strong>
+                        </flux:table.cell>
+                        <flux:table.cell>
+                            <a href="{{ $export['download_url'] }}">{{ $export['file_name'] }}</a>
+                        </flux:table.cell>
+                        <flux:table.cell>{{ $export['exported_by'] }}</flux:table.cell>
+                        <flux:table.cell>
+                            @if ($export['is_reexport'])
+                                <flux:badge color="amber">{{ __('outbound.courier_label_reexport') }}</flux:badge>
+                            @else
+                                <flux:badge color="blue">{{ __('outbound.courier_label_first_export') }}</flux:badge>
+                            @endif
+                        </flux:table.cell>
+                    </flux:table.row>
+                @empty
+                    <flux:table.row>
+                        <flux:table.cell colspan="5">
+                            <div class="empty-state">{{ __('outbound.courier_label_export_empty') }}</div>
+                        </flux:table.cell>
+                    </flux:table.row>
+                @endforelse
+            </flux:table.rows>
+        </flux:table>
+    </section>
+
+    <section class="table-shell flux-panel form-panel">
+        <div class="form-panel-header">
+            <div>
                 <strong>{{ __('outbound.section_lines') }}</strong>
             </div>
         </div>
