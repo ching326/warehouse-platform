@@ -48,6 +48,23 @@ class AmazonSpapiOrderImportTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_warehouse_staff_gets_403(): void
+    {
+        $user = User::factory()->create([
+            'user_type' => User::TYPE_INTERNAL,
+            'role' => User::ROLE_WAREHOUSE_STAFF,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('sales.orders.import.amazon-api'))
+            ->assertForbidden();
+
+        Livewire::actingAs($user)
+            ->test(AmazonSpapiOrderImport::class)
+            ->assertForbidden();
+    }
+
     public function test_non_amazon_shop_cannot_be_used(): void
     {
         $shop = Shop::factory()->create(['platform' => 'shopify']);

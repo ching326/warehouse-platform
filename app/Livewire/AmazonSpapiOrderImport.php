@@ -38,7 +38,7 @@ class AmazonSpapiOrderImport extends Component
 
     public function mount(): void
     {
-        if (! $this->isInternalUser()) {
+        if (! Auth::user()?->canManageApiCredentials()) {
             abort(403);
         }
 

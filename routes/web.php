@@ -96,6 +96,7 @@ if (app()->environment('local')) {
                 'email' => 'admin@warehouse.test',
                 'password' => 'password',
                 'user_type' => 'internal',
+                'role' => User::ROLE_INTERNAL_ADMIN,
                 'is_active' => true,
             ]);
         }
@@ -139,7 +140,7 @@ Route::middleware('authenticated')->group(function (): void {
     Route::get('/sales-orders/create', SalesOrderCreate::class)->name('sales.orders.create');
     Route::get('/sales-orders/import', SalesOrderImport::class)->name('sales.orders.import');
     Route::get('/sales-orders/import/paste', SalesOrderPasteImport::class)->name('sales.orders.import.paste');
-    Route::get('/sales-orders/import/amazon-api', AmazonSpapiOrderImport::class)->name('sales.orders.import.amazon-api');
+    Route::get('/sales-orders/import/amazon-api', AmazonSpapiOrderImport::class)->middleware('capability:manage_api_credentials')->name('sales.orders.import.amazon-api');
     Route::get('/sales-orders/export', SalesOrderExportController::class)->name('sales.orders.export');
     Route::get('/sales-orders/{order}/issues/create', IssueCreate::class)->name('sales.orders.issues.create');
     Route::get('/sales-orders/{order}', SalesOrderDetail::class)->name('sales.orders.show');
