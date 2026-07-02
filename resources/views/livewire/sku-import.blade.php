@@ -216,6 +216,16 @@
             </section>
         @endif
 
+        {{-- Save template --}}
+        <section class="table-shell flux-panel form-panel">
+            <div class="checkbox-stack">
+                <label><input type="checkbox" wire:model.live="doSaveTemplate"> {{ __('sku_import.option_save_template') }}</label>
+            </div>
+            @if ($doSaveTemplate)
+                <flux:input wire:model="saveTemplateName" :label="__('sku_import.option_template_name')" :placeholder="__('sku_import.option_template_name')" />
+            @endif
+        </section>
+
         <div class="form-actions">
             <flux:button wire:click="backToUpload">{{ __('sku_import.btn_back_to_upload') }}</flux:button>
             <flux:button variant="primary" wire:click="advanceToPreview" wire:loading.attr="disabled" wire:target="advanceToPreview">
@@ -266,16 +276,6 @@
                 </div>
             </section>
         @endif
-
-        {{-- Save template --}}
-        <section class="table-shell flux-panel form-panel">
-            <div class="checkbox-stack">
-                <label><input type="checkbox" wire:model.live="doSaveTemplate"> {{ __('sku_import.option_save_template') }}</label>
-            </div>
-            @if ($doSaveTemplate)
-                <flux:input wire:model="saveTemplateName" :label="__('sku_import.option_template_name')" :placeholder="__('sku_import.option_template_name')" />
-            @endif
-        </section>
 
         {{-- Row preview --}}
         <section class="table-shell flux-panel form-panel">

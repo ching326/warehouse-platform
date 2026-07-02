@@ -34,6 +34,7 @@ return [
     'template_default_badge' => 'Default',
     'template_default_saved' => 'Default SKU import template saved.',
     'template_default_loaded' => 'Default SKU import template loaded.',
+    'template_saved' => 'SKU import template saved.',
     'map_sample_heading' => 'Sample preview (first 5 rows)',
     'default_barcode_type' => 'Barcode type for imported barcodes',
     'default_barcode_type_placeholder' => 'Choose barcode type',
