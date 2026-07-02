@@ -71,6 +71,10 @@ class StockAdjustmentCreate extends Component
 
     public function mount(): void
     {
+        if (! Auth::user()?->canMutateInventory()) {
+            abort(403);
+        }
+
         if (! $this->isInternalUser() && $this->tenantId === '') {
             $this->tenantId = (string) ($this->activeTenantIds()[0] ?? '');
         }

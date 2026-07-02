@@ -59,7 +59,7 @@ class ShopEdit extends Component
 
     public function mount(Shop $shop): void
     {
-        if (! $this->isInternalUser()) {
+        if (! Auth::user()?->canManageSetup()) {
             abort(403);
         }
 
@@ -148,6 +148,10 @@ class ShopEdit extends Component
 
     public function saveAmazonSettings(): void
     {
+        if (! Auth::user()?->canManageApiCredentials()) {
+            abort(403);
+        }
+
         if ($this->shop->platform !== 'amazon') {
             throw ValidationException::withMessages([
                 'amazon_spapi' => __('amazon_spapi.amazon_shop_only'),
@@ -219,6 +223,10 @@ class ShopEdit extends Component
 
     public function testAmazonConnection(): void
     {
+        if (! Auth::user()?->canManageApiCredentials()) {
+            abort(403);
+        }
+
         $connection = $this->shop->amazonSpapiConnection()->first();
 
         if (! $connection) {
@@ -262,6 +270,10 @@ class ShopEdit extends Component
 
     public function toggleAmazonSync(): void
     {
+        if (! Auth::user()?->canManageApiCredentials()) {
+            abort(403);
+        }
+
         $connection = $this->shop->amazonSpapiConnection()->first();
 
         if (! $connection) {
@@ -302,13 +314,6 @@ class ShopEdit extends Component
             'title' => __('shop.shop_edit_page_title'),
             'subtitle' => $this->shop->code.' - '.$this->shop->name,
         ]);
-    }
-
-    private function isInternalUser(): bool
-    {
-        $user = Auth::user();
-
-        return $user?->user_type === 'internal';
     }
 
     private function nullableString(?string $value): ?string

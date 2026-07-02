@@ -28,7 +28,7 @@ class RequireAuthenticatedUser
         }
         // END TEMPORARY
 
-        if (! Auth::check()) {
+        if (! Auth::check() || ! Auth::user()?->is_active) {
             abort(403);
         }
 

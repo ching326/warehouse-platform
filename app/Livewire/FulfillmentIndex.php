@@ -1402,7 +1402,7 @@ class FulfillmentIndex extends Component
 
     private function authorizeTenantAccess(): void
     {
-        if (! $this->isInternalUser() && $this->allowedTenantIds() === []) {
+        if (! Auth::user()?->canOperateWarehouse()) {
             abort(403);
         }
     }

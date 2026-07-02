@@ -147,10 +147,10 @@ class StockCountImportTest extends TestCase
         $this->assertSame((string) $run->id, $movement->ref_id);
     }
 
-    public function test_import_mapping_template_is_tenant_scoped(): void
+    public function test_tenant_user_cannot_open_stock_count_import_mapping_templates(): void
     {
         [$tenant, $warehouse] = $this->targetTenantWarehouse();
-        [$ownTenant, $user] = $this->tenantUser();
+        [, $user] = $this->tenantUser();
         $otherTemplate = StockCountImportMapping::create([
             'tenant_id' => $tenant->id,
             'name' => 'Other',
@@ -159,13 +159,7 @@ class StockCountImportTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(StockCountImport::class)
-            ->assertSet('tenantId', (string) $ownTenant->id)
-            ->set('fileHeaders', ['Identifier', 'Counted qty'])
-            ->set('mapping', ['identifier' => '', 'counted_qty' => '', 'line_note' => '', 'reference_no' => ''])
-            ->call('loadTemplate', $otherTemplate->id)
-            ->assertSet('mapping.identifier', '')
-            ->call('setDefaultTemplate', $otherTemplate->id)
-            ->call('deleteTemplate', $otherTemplate->id);
+            ->assertForbidden();
 
         $this->assertDatabaseHas('stock_count_import_mappings', ['id' => $otherTemplate->id]);
 

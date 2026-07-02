@@ -47,20 +47,12 @@ class StockCountTest extends TestCase
             ->assertSee('#'.$run->id);
     }
 
-    public function test_tenant_user_can_only_see_own_tenant_stock_counts(): void
+    public function test_tenant_user_cannot_open_stock_count_pages(): void
     {
         [$tenant, $user] = $this->tenantUser();
-        $tenant->update(['code' => 'OWNCOUNT']);
-        $otherTenant = Tenant::factory()->create(['code' => 'OTHERCOUNT', 'status' => 'active']);
         $warehouse = Warehouse::factory()->create(['status' => 'active']);
-        $ownRun = StockCountRun::create([
+        $run = StockCountRun::create([
             'tenant_id' => $tenant->id,
-            'warehouse_id' => $warehouse->id,
-            'source' => StockCountRun::SOURCE_MANUAL,
-            'posted_at' => now(),
-        ]);
-        $otherRun = StockCountRun::create([
-            'tenant_id' => $otherTenant->id,
             'warehouse_id' => $warehouse->id,
             'source' => StockCountRun::SOURCE_MANUAL,
             'posted_at' => now(),
@@ -68,14 +60,11 @@ class StockCountTest extends TestCase
 
         $this->actingAs($user)
             ->get(route('stock-counts.index'))
-            ->assertOk()
-            ->assertSee('#'.$ownRun->id)
-            ->assertSee('OWNCOUNT')
-            ->assertDontSee('OTHERCOUNT');
+            ->assertForbidden();
 
         $this->actingAs($user)
-            ->get(route('stock-counts.show', $otherRun))
-            ->assertNotFound();
+            ->get(route('stock-counts.show', $run))
+            ->assertForbidden();
     }
 
     public function test_manual_stock_count_above_current_creates_positive_adjustment(): void

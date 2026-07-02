@@ -13,9 +13,13 @@ class FulfillmentTrackingImportController extends Controller
 {
     public function __invoke(Request $request, TrackingImportService $service): RedirectResponse
     {
+        if (! Auth::user()?->canExportCourierLabels()) {
+            abort(403);
+        }
+
         $allowedTenantIds = $this->allowedTenantIds();
 
-        if (! $this->isInternalUser() && $allowedTenantIds === []) {
+        if ($allowedTenantIds === []) {
             abort(403);
         }
 

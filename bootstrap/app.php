@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\RequireAuthenticatedUser;
+use App\Http\Middleware\RequireCapability;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -20,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'authenticated' => RequireAuthenticatedUser::class,
+            'capability' => RequireCapability::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

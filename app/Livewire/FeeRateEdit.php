@@ -166,7 +166,7 @@ class FeeRateEdit extends Component
 
     private function authorizeInternalUser(): void
     {
-        if (Auth::user()?->user_type !== 'internal') {
+        if (! Auth::user()?->canManageBilling()) {
             abort(403);
         }
     }

@@ -33,30 +33,20 @@ class StockAdjustmentImportTest extends TestCase
             ->assertSee(__('stock_adjustment_import.page_title'));
     }
 
-    public function test_tenant_user_can_only_import_for_own_tenant(): void
+    public function test_tenant_user_cannot_open_stock_adjustment_import(): void
     {
-        [$tenant, $user] = $this->tenantUser();
-        $otherTenant = Tenant::factory()->create();
-        $warehouse = Warehouse::factory()->create(['status' => 'active']);
-        StockItem::factory()->for($otherTenant)->create(['code' => 'OTHER-STOCK']);
+        [, $user] = $this->tenantUser();
 
         Livewire::actingAs($user)
             ->test(StockAdjustmentImport::class)
-            ->assertSet('tenantId', (string) $tenant->id)
-            ->set('tenantId', (string) $otherTenant->id)
-            ->set('warehouseId', (string) $warehouse->id)
-            ->set('action', 'add')
-            ->set('reason', 'found_stock')
-            ->set('file', $this->csv([['OTHER-STOCK', '1']]))
-            ->call('readFile')
-            ->assertHasErrors(['tenantId']);
+            ->assertForbidden();
 
         $this->assertSame(0, InventoryMovement::count());
     }
 
-    public function test_tenant_user_cannot_manage_another_tenants_mapping_template(): void
+    public function test_tenant_user_cannot_open_stock_adjustment_mapping_templates(): void
     {
-        [$tenant, $user] = $this->tenantUser();
+        [, $user] = $this->tenantUser();
         $otherTenant = Tenant::factory()->create();
         $template = StockAdjustmentImportMapping::create([
             'tenant_id' => $otherTenant->id,
@@ -67,13 +57,7 @@ class StockAdjustmentImportTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(StockAdjustmentImport::class)
-            ->assertSet('tenantId', (string) $tenant->id)
-            ->set('fileHeaders', ['Identifier', 'Quantity'])
-            ->set('mapping', ['identifier' => '', 'quantity' => '', 'line_note' => '', 'reference_no' => ''])
-            ->call('loadTemplate', $template->id)
-            ->assertSet('mapping.identifier', '')
-            ->call('setDefaultTemplate', $template->id)
-            ->call('deleteTemplate', $template->id);
+            ->assertForbidden();
 
         $this->assertDatabaseHas('stock_adjustment_import_mappings', [
             'id' => $template->id,

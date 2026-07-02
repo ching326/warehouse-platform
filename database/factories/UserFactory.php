@@ -17,6 +17,15 @@ class UserFactory extends Factory
      */
     protected static ?string $password;
 
+    public function configure(): static
+    {
+        return $this->afterMaking(function (User $user): void {
+            if ($user->user_type === User::TYPE_INTERNAL && ! $user->role) {
+                $user->role = User::ROLE_INTERNAL_ADMIN;
+            }
+        });
+    }
+
     /**
      * Define the model's default state.
      *

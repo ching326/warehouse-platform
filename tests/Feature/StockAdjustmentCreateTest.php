@@ -202,24 +202,13 @@ class StockAdjustmentCreateTest extends TestCase
         $this->assertSame(0, InventoryMovement::count());
     }
 
-    public function test_tenant_user_is_prefilled_and_cannot_adjust_other_tenant_stock(): void
+    public function test_tenant_user_cannot_create_stock_adjustments(): void
     {
-        [$ownTenant, $user] = $this->tenantUser();
-        $otherTenant = Tenant::factory()->create();
-        $warehouse = Warehouse::factory()->create();
-        $otherStockItem = StockItem::factory()->for($otherTenant)->create();
+        [, $user] = $this->tenantUser();
 
         Livewire::actingAs($user)
             ->test(StockAdjustmentCreate::class)
-            ->assertSet('tenantId', (string) $ownTenant->id)
-            ->set('tenantId', (string) $otherTenant->id)
-            ->set('warehouseId', (string) $warehouse->id)
-            ->set('stockItemId', (string) $otherStockItem->id)
-            ->set('action', 'add')
-            ->set('quantity', '1')
-            ->set('reason', 'found_stock')
-            ->call('save')
-            ->assertHasErrors(['tenantId']);
+            ->assertForbidden();
 
         $this->assertSame(0, InventoryMovement::count());
     }

@@ -494,7 +494,7 @@ class FulfillmentGroupTest extends TestCase
         $this->assertSame(SalesOrder::FULFILLMENT_STATUS_ARRANGED, $order->refresh()->fulfillment_status);
     }
 
-    public function test_tenant_user_index_only_sees_own_fulfillment_groups(): void
+    public function test_tenant_user_cannot_open_fulfillment_index(): void
     {
         [$ownTenant, $user] = $this->tenantUser();
         $ownWarehouse = Warehouse::factory()->create();
@@ -515,8 +515,7 @@ class FulfillmentGroupTest extends TestCase
 
         Livewire::actingAs($user)
             ->test(FulfillmentIndex::class)
-            ->assertSee('OB-OWN')
-            ->assertDontSee('OB-HIDDEN');
+            ->assertForbidden();
     }
 
     public function test_fulfillment_index_searches_platform_order_id_and_lists_all_order_ids(): void
@@ -677,8 +676,7 @@ class FulfillmentGroupTest extends TestCase
 
         Livewire::actingAs($tenantUser)
             ->test(FulfillmentIndex::class)
-            ->call('requeuePrint', $outbound->id)
-            ->assertSee(__('fulfillment.requeue_print_blocked'));
+            ->assertForbidden();
 
         $this->assertNotNull($outbound->refresh()->courier_label_exported_at);
     }
@@ -731,7 +729,7 @@ class FulfillmentGroupTest extends TestCase
             ->assertDontSee('yamato_filter.csv');
     }
 
-    public function test_print_history_tenant_scope(): void
+    public function test_tenant_user_cannot_open_print_history(): void
     {
         [$ownTenant, $tenantUser] = $this->tenantUser();
         $ownWarehouse = Warehouse::factory()->create();
@@ -746,8 +744,7 @@ class FulfillmentGroupTest extends TestCase
 
         Livewire::actingAs($tenantUser)
             ->test(FulfillmentPrintHistory::class)
-            ->assertSee('own_history.csv')
-            ->assertDontSee('hidden_history.csv');
+            ->assertForbidden();
     }
 
     public function test_print_history_search_matches_outbound_ref_or_file_name(): void

@@ -36,7 +36,7 @@ class FulfillmentPrintHistory extends Component
 
     public function mount(): void
     {
-        if (! $this->isInternalUser() && $this->allowedTenantIds() === []) {
+        if (! Auth::user()?->canOperateWarehouse()) {
             abort(403);
         }
     }

@@ -12,12 +12,24 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'user_type', 'is_active', 'preferences'])]
+#[Fillable(['name', 'email', 'password', 'user_type', 'role', 'is_active', 'preferences'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    public const TYPE_INTERNAL = 'internal';
+
+    public const TYPE_TENANT = 'tenant';
+
+    public const ROLE_INTERNAL_ADMIN = 'internal_admin';
+
+    public const ROLE_WAREHOUSE_STAFF = 'warehouse_staff';
+
+    public const TENANT_ROLE_ADMIN = 'admin';
+
+    public const TENANT_ROLE_STAFF = 'staff';
 
     /**
      * Get the attributes that should be cast.
@@ -44,11 +56,97 @@ class User extends Authenticatable
      */
     public function activeTenantIds(): array
     {
+        if (! $this->is_active) {
+            return [];
+        }
+
         return $this->tenantUsers()
             ->where('status', 'active')
             ->whereHas('tenant', fn ($query) => $query->where('status', 'active'))
             ->pluck('tenant_id')
             ->all();
+    }
+
+    public function isInternalAdmin(): bool
+    {
+        return $this->is_active
+            && $this->user_type === self::TYPE_INTERNAL
+            && $this->role === self::ROLE_INTERNAL_ADMIN;
+    }
+
+    public function isWarehouseStaff(): bool
+    {
+        return $this->is_active
+            && $this->user_type === self::TYPE_INTERNAL
+            && $this->role === self::ROLE_WAREHOUSE_STAFF;
+    }
+
+    public function canManageSetup(): bool
+    {
+        return $this->isInternalAdmin();
+    }
+
+    public function canManageUsers(): bool
+    {
+        return $this->isInternalAdmin();
+    }
+
+    public function canManageBilling(): bool
+    {
+        return $this->isInternalAdmin();
+    }
+
+    public function canManageApiCredentials(): bool
+    {
+        return $this->isInternalAdmin();
+    }
+
+    public function canOperateWarehouse(): bool
+    {
+        return $this->isInternalAdmin() || $this->isWarehouseStaff();
+    }
+
+    public function canExportCourierLabels(): bool
+    {
+        return $this->canOperateWarehouse();
+    }
+
+    public function canMutateInventory(): bool
+    {
+        return $this->canOperateWarehouse();
+    }
+
+    public function isTenantAdminFor(int $tenantId): bool
+    {
+        return $this->hasActiveTenantRole($tenantId, [self::TENANT_ROLE_ADMIN]);
+    }
+
+    public function isTenantStaffFor(int $tenantId): bool
+    {
+        return $this->hasActiveTenantRole($tenantId, [self::TENANT_ROLE_STAFF]);
+    }
+
+    public function canImportTenantOrders(int $tenantId): bool
+    {
+        return $this->isInternalAdmin()
+            || $this->hasActiveTenantRole($tenantId, [self::TENANT_ROLE_ADMIN, self::TENANT_ROLE_STAFF]);
+    }
+
+    /**
+     * @param  array<int, string>  $roles
+     */
+    private function hasActiveTenantRole(int $tenantId, array $roles): bool
+    {
+        if (! $this->is_active || $this->user_type !== self::TYPE_TENANT) {
+            return false;
+        }
+
+        return $this->tenantUsers()
+            ->where('tenant_id', $tenantId)
+            ->where('status', 'active')
+            ->whereIn('role', $roles)
+            ->whereHas('tenant', fn ($query) => $query->where('status', 'active'))
+            ->exists();
     }
 
     public function inventoryMovements(): HasMany

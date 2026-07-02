@@ -77,6 +77,10 @@ class StockCountImport extends Component
 
     public function mount(): void
     {
+        if (! Auth::user()?->canMutateInventory()) {
+            abort(403);
+        }
+
         if (! $this->isInternalUser()) {
             $ids = $this->activeTenantIds();
 
