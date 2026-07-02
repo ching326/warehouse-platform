@@ -13,6 +13,7 @@ row to Done.
 | Area / Page | Added date | Notes |
 | --- | --- | --- |
 | User and team management | 2026-07-02 | Added English-only `users.php` and `common.nav_users` / `common.nav_team`. |
+| SKU import template save message | 2026-07-02 | Added English-only `sku_import.template_saved`. |
 | Fulfillment print history and requeue print | 2026-07-02 | Added English-only `fulfillment.print_history_*` and `fulfillment.requeue_print*` keys. |
 
 `return_orders.php` is the one known module file with no CJK translation yet
