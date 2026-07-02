@@ -27,6 +27,7 @@ Rules:
 | Overview | 概要 | 總覽 | 总览 | done |
 | Inventory Record (Movements) | 在庫履歴 | 庫存記錄 | 库存记录 | done |
 | Stock Adjustment | 在庫調整 | 庫存調整 | 库存调整 | done |
+| Stock Count | 棚卸 | 盤點 | 盘点 | done |
 | SKU | SKU | SKU | SKU | done |
 | Inbound | 入庫 | 進倉 | 入库 | done |
 | Return | 返品 | 退貨 | 退货 | done |
@@ -138,6 +139,29 @@ B2B / transfers); Inbound = 入庫 / 進倉 / 入库. zh_TW uses 進倉 / 出倉
 JAN / EAN / UPC are kept as-is (international standards) in all locales. Only Unknown is translated:
 ja 不明 / zh_TW 未知 / zh_CN 未知.
 
+## Reship terms (outbound.php, sales_orders.php) -- done
+
+Corrected 2026-07-02 per user review: zh uses 重發/重发 (not 補寄/补寄) as the base term.
+Verb/noun phrases built on it (create reship, reship warehouse/reason/qty/note, etc.) all
+carry 重發/重发. "Original shipment" is 首次發貨/首次发货 (zh) / 初回出荷 (ja) -- i.e. "first
+shipment", not "the original one". zh_TW keeps 建立 as the create-verb, zh_CN keeps 创建,
+matching the rest of the codebase's existing convention.
+
+| en | ja | zh_TW | zh_CN |
+|---|---|---|---|
+| Reship | 再出荷 | 重發 | 重发 |
+| Create reship | 再出荷を作成 | 訂單重發 | 订单重发 |
+| Original (first) shipment | 初回出荷 | 首次發貨 | 首次发货 |
+| Add SKU (reship) | SKUを追加 | 追加SKU | 追加SKU |
+| Additional items | 追加商品 | 追加商品 | 追加商品 |
+| Reship reason: Missing | 紛失 | 遺失 | 遗失 |
+| Reship reason: Defect | 不良品 | 瑕疵品 | 瑕疵品 |
+| Reship reason: Wrong address | 住所間違い | 地址錯誤 | 地址错误 |
+| Reship requested (badge) | 再出荷手配中 | 重發安排中 | 重发安排中 |
+| Reshipped (badge) | 再出荷済み | 已重發 | 已重发 |
+| Outbound Orders (list/index page, and export history list) | 出庫一覧 | 出貨清單 | 出库清单 |
+| Outbound Order (single order, create/detail pages) | 出庫指示 | 出庫單 | 出库单 |
+
 ## Billing terms (billing.php) -- done
 
 | en | ja | zh_TW | zh_CN |
@@ -160,12 +184,17 @@ ja 不明 / zh_TW 未知 / zh_CN 未知.
 
 ## Module lang files -- status
 
-- Translated (ja, zh_TW, zh_CN): inbound.php, outbound.php, fulfillment.php (was fulfillment_groups.php),
-  setup.php, issues.php, shop.php, locations.php, sales_orders.php, skus.php, fulfillment_pack.php,
-  shipping.php, amazon_spapi.php, amazon_spapi_import.php, fulfillment_pick.php, media.php,
-  movements.php, stock_adjustments.php, inventory.php (zh_TW/zh_CN; ja was already done).
+- Translated (ja, zh_TW, zh_CN): inbound.php, outbound.php, fulfillment.php (was
+  fulfillment_groups.php), setup.php, issues.php, shop.php, locations.php, sales_orders.php,
+  skus.php, fulfillment_pack.php, shipping.php, amazon_spapi.php, amazon_spapi_import.php,
+  fulfillment_pick.php, media.php, movements.php, stock_adjustments.php, inventory.php,
+  billing.php, stock_adjustment_import.php, stock_counts.php.
 - Not yet translated (still hold English values or no per-locale file yet):
   return_orders.php. Translate when that module is done, applying this glossary for shared terms
   (Reserve = 引当 / 分配, Ship = 出荷 / 出貨, etc.).
-- As of 2026-06-26: all locales are at full key parity with lang/en. No missing files, no TODO
-  placeholder files, no straggler keys.
+- outbound.php: was incorrectly marked "done" earlier, found to be ~80% untranslated on audit
+  (2026-07-02), then given a full translation pass the same day (all locales, including the FBA
+  warehouse fields). Now genuinely done, ja/zh_TW/zh_CN, full key parity with lang/en.
+- As of 2026-07-02: translation-backlog.md's Pending table is empty. Everything tracked there
+  (outbound.php full pass, outbound FBA fields, sales_orders paste-import block, fulfillment misc)
+  has been translated. return_orders.php remains the one known not-yet-translated module file.

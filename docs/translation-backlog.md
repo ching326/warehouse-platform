@@ -10,22 +10,24 @@ row to Done.
 
 ## Pending
 
-| Area / Page | English keys added | Missing locales | Notes |
-| --- | --- | --- | --- |
-| Reship sales order | `outbound.reship_*` (button, modal, reasons, qty, note, validation), `sales_orders.reship_*`, `shipment_original`, `shipment_reship`, `shipments_heading` | ja, zh_TW, zh_CN | CJK files currently hold English placeholders. Review wording after the reship UI settles. |
-| Reship status badges | `sales_orders.reship_in_progress`, `sales_orders.reshipped` | ja, zh_TW, zh_CN | Added English only for Sales Order index/detail derived reship badges. |
-| SKU label print | `skus.btn_print_label`, `skus.label_*` (print page, content, layout, skip cells, session) | ja, zh_TW, zh_CN | Label print feature still WIP. CJK currently English placeholders. Translate once the UI is final. |
-| SKU label selected action | `skus.select_skus_to_print` | ja, zh_TW, zh_CN | Added English only for the selected-SKU print action. |
-| SKU bulk status toggle | `skus.select_same_status_to_toggle` | ja, zh_TW, zh_CN | Added English only. Translate with the next SKU page pass. |
-| Stock adjustment import | `stock_adjustment_import.*` | ja, zh_TW, zh_CN | Added English only for the bulk stock adjustment import flow. |
-| Stock Count | `stock_counts.*`, `common.nav_stock_count` | ja, zh_TW, zh_CN | Added English only for Stock Count pages and import flow. |
-| Fulfillment Label10 address labels | `fulfillment.address_label_*`, `fulfillment.batch_export_label10` | ja, zh_TW, zh_CN | Added English only for Label10 address label export and skip-cell modal. |
-| Shop ship label sender fields | `shop.field_ship_label_address`, `shop.field_ship_label_phone`, `shop.field_ship_label_postcode` | ja, zh_TW, zh_CN | Added English only for shop-specific sender details on address labels and courier CSV. |
-| Shipping method translated names | `shipping.field_name_ja`, `shipping.field_name_zh_tw`, `shipping.field_name_zh_cn` | ja, zh_TW, zh_CN | Added English labels only for internal setup fields that store shipping method names per locale. |
-| Outbound courier label export history | `outbound.section_courier_label_exports*`, `outbound.col_export_*`, `outbound.courier_label_*` | ja, zh_TW, zh_CN | Added English only for the outbound detail export history section. |
+None currently. `return_orders.php` is the one known module file with no CJK translation yet
+(not urgent -- add a row here when that module stabilizes).
 
 ## Done
 
 | Area / Page | Completed date | Notes |
 | --- | --- | --- |
 | Billing (courier cost, fee rates, run) | 2026-07-02 | `billing.php` created for ja/zh_TW/zh_CN; `outbound.courier_cost_*`/`field_courier_cost*`/`btn_edit_courier_cost` and `common.nav_fee_rates`/`nav_billing` translated. Terms recorded in the glossary. |
+| Stock adjustment import | 2026-07-02 | `stock_adjustment_import.php` created for ja/zh_TW/zh_CN (bulk stock adjustment import flow). |
+| Stock Count | 2026-07-02 | `stock_counts.php` created for ja/zh_TW/zh_CN; `common.nav_stock_count` translated. Term "Stock Count" = 棚卸 (ja) / 盤點 (zh_TW) / 盘点 (zh_CN), recorded in the glossary. |
+| SKU misc gaps (available column, stock item name/sku columns, weight short column, platform ID hints, image validation errors) | 2026-07-02 | Filled straggler `skus.php` keys that were added without a backlog row. |
+| Reship sales order | 2026-07-02 | Translated `outbound.reship_*`, `shipment_original`, `shipment_reship`, `shipments_heading`, `reason_re_ship`, and `sales_orders.reship_requires_shipped_filter`/`reship_select_one` for ja/zh_TW/zh_CN. Term "Reship" = 再出荷 (ja) / 重發 (zh_TW) / 重发 (zh_CN); corrected 2026-07-02 from an earlier 補寄/补寄 draft per user review. Recorded in the glossary. |
+| Reship status badges | 2026-07-02 | Translated `sales_orders.reship_in_progress`/`reshipped` for ja/zh_TW/zh_CN. |
+| SKU label print (+ selected action, bulk status toggle) | 2026-07-02 | Rewrote the `skus.php` label-print block for ja/zh_TW/zh_CN -- the key set had drifted from `en` (old `label_content`/`label_include_name`/`label_skip_cells` etc. replaced by `label_type`/`label_skip_used_cells`/`label_skip_modal_*` etc.). Also translated `select_skus_to_print` and `select_same_status_to_toggle`. |
+| Fulfillment Label10 address labels | 2026-07-02 | Translated `fulfillment.batch_export_label10` and the `address_label_*` block for ja/zh_TW/zh_CN. |
+| Shop ship label sender fields | 2026-07-02 | Translated `shop.field_ship_label_address`/`_phone`/`_postcode` for ja/zh_TW/zh_CN. |
+| Shipping method translated names | 2026-07-02 | Translated `shipping.field_name_ja`/`_zh_tw`/`_zh_cn` for ja/zh_TW/zh_CN. |
+| Outbound courier label export history | 2026-07-02 | Translated `outbound.section_courier_label_exports*`, `outbound.col_export_*`, `outbound.courier_label_*` for ja/zh_TW/zh_CN. |
+| Outbound Orders (full page) | 2026-07-02 | Translated the remaining ~110 keys of `outbound.php` for ja/zh_TW/zh_CN (page/section/field labels, statuses, hold/cancel flows, etc.). "Outbound Orders" (list) = 出庫一覧/出貨清單/出库清单; "Outbound Order" (single) = 出庫オーダー/出庫訂單/出库订单. Also filled the FBA warehouse fields (`field_fba_warehouse`, `select_fba_warehouse`, `fba_warehouse_hint`, `field_status`), which were structurally missing in all three locales. |
+| Sales Order paste-import | 2026-07-02 | Translated `sales_orders.paste_import_*`, `import_paste_grid`, `field_line_note`, `field_product_name` for ja/zh_TW/zh_CN. "WeChat Docs" rendered as 騰訊文件/腾讯文档 (Tencent Docs). |
+| Fulfillment misc | 2026-07-02 | Translated `fulfillment.btn_hide`/`filter_order_date` for ja/zh_TW/zh_CN. |

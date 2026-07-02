@@ -115,7 +115,10 @@
                                 </flux:select.option>
                             @endforeach
                         </flux:select>
-                        <span class="subtle form-grid-wide">{{ __('outbound.fba_warehouse_hint') }}</span>
+                        <div class="form-grid-wide">
+                            <span class="subtle" style="white-space: pre-line;">{{ __('outbound.fba_warehouse_hint') }}</span>
+                            <span class="subtle danger-text" style="white-space: pre-line;">{{ __('outbound.fba_warehouse_hint_warning') }}</span>
+                        </div>
                     </div>
                 @endif
 
