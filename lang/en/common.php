@@ -23,6 +23,8 @@ return [
     'nav_scan_pack' => 'Scan Pack',
     'nav_issues' => 'Issue',
     'nav_setup' => 'Setup',
+    'nav_users' => 'Users',
+    'nav_team' => 'Team',
     'nav_locations' => 'Location',
     'nav_tenants' => 'Tenant',
     'nav_warehouses' => 'Warehouse',

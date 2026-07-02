@@ -61,10 +61,32 @@ class User extends Authenticatable
         }
 
         return $this->tenantUsers()
-            ->where('status', 'active')
+            ->where('status', TenantUser::STATUS_ACTIVE)
             ->whereHas('tenant', fn ($query) => $query->where('status', 'active'))
             ->pluck('tenant_id')
             ->all();
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function adminTenantIds(): array
+    {
+        if (! $this->is_active || $this->user_type !== self::TYPE_TENANT) {
+            return [];
+        }
+
+        return $this->tenantUsers()
+            ->where('status', TenantUser::STATUS_ACTIVE)
+            ->where('role', TenantUser::ROLE_ADMIN)
+            ->whereHas('tenant', fn ($query) => $query->where('status', 'active'))
+            ->pluck('tenant_id')
+            ->all();
+    }
+
+    public function administersAnyTenant(): bool
+    {
+        return $this->adminTenantIds() !== [];
     }
 
     public function isInternalAdmin(): bool
@@ -89,6 +111,11 @@ class User extends Authenticatable
     public function canManageUsers(): bool
     {
         return $this->isInternalAdmin();
+    }
+
+    public function canManageTenantUsers(int $tenantId): bool
+    {
+        return $this->isInternalAdmin() || $this->isTenantAdminFor($tenantId);
     }
 
     public function canManageBilling(): bool
@@ -143,7 +170,7 @@ class User extends Authenticatable
 
         return $this->tenantUsers()
             ->where('tenant_id', $tenantId)
-            ->where('status', 'active')
+            ->where('status', TenantUser::STATUS_ACTIVE)
             ->whereIn('role', $roles)
             ->whereHas('tenant', fn ($query) => $query->where('status', 'active'))
             ->exists();

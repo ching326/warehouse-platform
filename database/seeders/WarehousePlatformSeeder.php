@@ -139,6 +139,7 @@ class WarehousePlatformSeeder extends Seeder
             'name' => 'Warehouse Admin',
             'password' => 'password',
             'user_type' => 'internal',
+            'role' => User::ROLE_INTERNAL_ADMIN,
             'is_active' => true,
         ]);
 
@@ -146,6 +147,7 @@ class WarehousePlatformSeeder extends Seeder
             'name' => 'Operations Lead',
             'password' => 'password',
             'user_type' => 'internal',
+            'role' => User::ROLE_WAREHOUSE_STAFF,
             'is_active' => true,
         ]);
 
@@ -155,6 +157,7 @@ class WarehousePlatformSeeder extends Seeder
                 'name' => $tenant->contact_name,
                 'password' => 'password',
                 'user_type' => 'tenant',
+                'role' => null,
                 'is_active' => true,
             ]);
         }
@@ -168,7 +171,7 @@ class WarehousePlatformSeeder extends Seeder
             if (isset($users[$tenant->id])) {
                 TenantUser::updateOrCreate(
                     ['tenant_id' => $tenant->id, 'user_id' => $users[$tenant->id]->id],
-                    ['role' => 'owner', 'status' => 'active', 'joined_at' => now()->subDays(30)],
+                    ['role' => TenantUser::ROLE_ADMIN, 'status' => TenantUser::STATUS_ACTIVE, 'joined_at' => now()->subDays(30)],
                 );
             }
         }

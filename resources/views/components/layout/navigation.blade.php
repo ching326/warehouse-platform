@@ -7,6 +7,8 @@
     $orderActive     = request()->routeIs('sales.*', 'fulfillment.index', 'fulfillment.pick-summary');
     $issuesActive = request()->routeIs('issues.*');
     $setupActive     = request()->routeIs('setup.*');
+    $teamActive = request()->routeIs('team.*');
+    $currentUser = \Illuminate\Support\Facades\Auth::user();
     $shipToFbaQuery = [];
     $currentWarehouseId = request()->query('warehouse_id');
     if (is_scalar($currentWarehouseId) && trim((string) $currentWarehouseId) !== '') {
@@ -221,6 +223,16 @@
                 {{ __('common.nav_issues') }}
             </a>
 
+            @if ($currentUser?->administersAnyTenant())
+                <a
+                    href="{{ route('team.index') }}"
+                    class="top-nav-btn {{ $teamActive ? 'is-active' : '' }}"
+                    wire:navigate
+                >
+                    {{ __('common.nav_team') }}
+                </a>
+            @endif
+
             {{-- Setup --}}
             <div
                 class="top-nav-item"
@@ -248,6 +260,16 @@
                 </button>
 
                 <div class="top-nav-dropdown" x-show="open" x-cloak>
+                    @if ($currentUser?->canManageUsers())
+                        <a
+                            href="{{ route('setup.users.index') }}"
+                            class="{{ request()->routeIs('setup.users.*') ? 'is-active' : '' }}"
+                            wire:navigate
+                            @click="open = false"
+                        >
+                            {{ __('common.nav_users') }}
+                        </a>
+                    @endif
                     <a
                         href="{{ route('setup.tenants.index') }}"
                         class="{{ request()->routeIs('setup.tenants.*') ? 'is-active' : '' }}"

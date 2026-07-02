@@ -12,6 +12,19 @@ class TenantUser extends Model
     /** @use HasFactory<TenantUserFactory> */
     use HasFactory;
 
+    public const ROLE_ADMIN = 'admin';
+
+    public const ROLE_STAFF = 'staff';
+
+    public const ROLES = [
+        self::ROLE_ADMIN,
+        self::ROLE_STAFF,
+    ];
+
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_INACTIVE = 'inactive';
+
     protected $fillable = [
         'tenant_id',
         'user_id',

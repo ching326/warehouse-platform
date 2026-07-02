@@ -30,8 +30,10 @@ class RequireCapability
 
         return match ($capability) {
             'manage_setup' => $user->canManageSetup(),
+            'manage_users' => $user->canManageUsers(),
             'manage_billing' => $user->canManageBilling(),
             'manage_api_credentials' => $user->canManageApiCredentials(),
+            'manage_tenant_members' => $user->administersAnyTenant(),
             'operate_warehouse' => $user->canOperateWarehouse(),
             'export_courier_labels' => $user->canExportCourierLabels(),
             'mutate_inventory' => $user->canMutateInventory(),
