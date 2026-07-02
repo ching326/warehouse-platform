@@ -452,7 +452,18 @@ class SkuImport extends Component
             $data[$fieldKey] = trim((string) ($row[$colIdx] ?? ''));
         }
 
+        if (array_key_exists('barcode', $data)) {
+            $data['barcode'] = $this->normalizeImportedBarcode($data['barcode']);
+        }
+
         return $data;
+    }
+
+    private function normalizeImportedBarcode(string $barcode): string
+    {
+        $barcode = trim($barcode);
+
+        return $barcode === '0' ? '' : $barcode;
     }
 
     private function applyDefaultBarcodeType(array $rowData): array

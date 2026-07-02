@@ -222,10 +222,12 @@ class SkuWriter
 
     private function syncBarcodeAliases(Sku $sku, ?StockItem $stockItem, array $skuData, array $stockItemData): void
     {
-        if ($stockItem !== null && trim((string) ($stockItemData['barcode'] ?? '')) !== '') {
+        $barcode = $this->normalizeImportedBarcode($stockItemData['barcode'] ?? '');
+
+        if ($stockItem !== null && $barcode !== '') {
             $this->barcodeAliases->setPrimaryProductBarcode(
                 $stockItem,
-                $stockItemData['barcode'] ?? '',
+                $barcode,
                 ($stockItemData['barcode_type'] ?? '') ?: 'other',
                 BarcodeAlias::SOURCE_IMPORT,
             );
@@ -243,6 +245,13 @@ class SkuWriter
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    private function normalizeImportedBarcode(?string $barcode): string
+    {
+        $barcode = trim((string) $barcode);
+
+        return $barcode === '0' ? '' : $barcode;
     }
 
     private function nullableDecimal(string $value): ?string

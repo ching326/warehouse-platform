@@ -598,6 +598,30 @@ class SkuImportTest extends TestCase
         ]);
     }
 
+    public function test_import_treats_zero_barcode_as_blank(): void
+    {
+        [$tenant] = $this->tenantWithShop(['code' => 'ZBC']);
+        $csv = "sku,name,barcode,barcode_type\nZBC-001,Zero Barcode A,0,jan\nZBC-002,Zero Barcode B,0,jan\n";
+
+        Livewire::actingAs($this->internalUser())
+            ->test(SkuImport::class)
+            ->set('tenantId', (string) $tenant->id)
+            ->set('file', File::createWithContent('import.csv', $csv))
+            ->call('readFile')
+            ->call('advanceToPreview')
+            ->call('confirmImport')
+            ->assertSet('step', 'result')
+            ->assertSet('resultCreated', 2)
+            ->assertSet('resultFailed', 0);
+
+        $this->assertDatabaseHas('skus', ['sku' => 'ZBC-001']);
+        $this->assertDatabaseHas('skus', ['sku' => 'ZBC-002']);
+        $this->assertDatabaseMissing('barcode_aliases', [
+            'tenant_id' => $tenant->id,
+            'normalized_barcode' => '0',
+        ]);
+    }
+
     public function test_import_applies_selected_default_barcode_type_when_file_has_no_type_column(): void
     {
         [$tenant] = $this->tenantWithShop(['code' => 'DBT']);
