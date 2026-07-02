@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('sales_order_paste_import_mappings', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('tenant_id')->constrained()->cascadeOnDelete()->index();
+            $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
             $table->string('name');
             $table->json('mapping');
             $table->unsignedSmallInteger('data_start_row')->default(0);

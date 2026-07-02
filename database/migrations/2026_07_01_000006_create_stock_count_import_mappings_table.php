@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('stock_count_import_mappings', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('tenant_id')->constrained()->cascadeOnDelete()->index();
+            $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
             $table->string('name');
             $table->json('mapping');
             $table->boolean('is_default')->default(false)->index();

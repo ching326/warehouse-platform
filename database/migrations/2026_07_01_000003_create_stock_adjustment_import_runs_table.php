@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::create('stock_adjustment_import_runs', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('tenant_id')->constrained()->cascadeOnDelete()->index();
-            $table->foreignId('warehouse_id')->constrained()->restrictOnDelete()->index();
+            $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('warehouse_id')->constrained()->restrictOnDelete();
             $table->string('action');
             $table->string('reason');
             $table->text('note')->nullable();

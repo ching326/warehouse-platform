@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('stock_count_lines', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('stock_count_run_id')->constrained('stock_count_runs')->cascadeOnDelete();
-            $table->foreignId('tenant_id')->constrained()->cascadeOnDelete()->index();
+            $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
             $table->foreignId('warehouse_id')->constrained()->restrictOnDelete();
             $table->foreignId('stock_item_id')->constrained()->restrictOnDelete();
             $table->string('identifier_raw')->nullable();
