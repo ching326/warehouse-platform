@@ -107,7 +107,7 @@ return [
     'field_platform_label_code' => 'Platform label code',
     'field_sku_status' => 'SKU status',
     'field_sku_note' => 'SKU note',
-    'field_stock_item_code' => 'Stock item code (link)',
+    'field_stock_item_code' => 'Stock item code',
     'field_si_name_ja' => 'Stock item name (Japanese)',
     'field_si_name_zh_tw' => 'Stock item name (Traditional Chinese)',
     'field_si_name_zh_cn' => 'Stock item name (Simplified Chinese)',
