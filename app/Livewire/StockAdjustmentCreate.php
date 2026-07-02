@@ -75,10 +75,6 @@ class StockAdjustmentCreate extends Component
             abort(403);
         }
 
-        if (! $this->isInternalUser() && $this->tenantId === '') {
-            $this->tenantId = (string) ($this->activeTenantIds()[0] ?? '');
-        }
-
         $this->selectPreferredWarehouse();
         $this->syncCurrentWarehouseIsDefault();
     }
