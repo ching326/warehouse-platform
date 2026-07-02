@@ -103,7 +103,7 @@ class FulfillmentPrintHistory extends Component
                             ->orWhereHas('outboundOrder', fn ($outbound) => $outbound->where('ref', 'like', $like)));
 
                     if (ctype_digit($search)) {
-                        $inner->orWhereKey((int) $search);
+                        $inner->orWhere('id', (int) $search);
                     }
                 });
             })

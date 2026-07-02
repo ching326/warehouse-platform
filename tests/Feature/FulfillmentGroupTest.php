@@ -620,6 +620,12 @@ class FulfillmentGroupTest extends TestCase
             'courier_export_batch_id' => $batch->id,
             'outbound_order_id' => $outbound->id,
         ]);
+        $this->assertDatabaseHas('activity_log', [
+            'log_name' => 'outbound_order',
+            'event' => 'courier_label_requeued',
+            'subject_type' => OutboundOrder::class,
+            'subject_id' => $outbound->id,
+        ]);
 
         Livewire::actingAs($this->internalUser())
             ->test(FulfillmentIndex::class)
@@ -759,6 +765,8 @@ class FulfillmentGroupTest extends TestCase
             ->set('search', 'OB-HISTORY-REF-SEARCH')
             ->assertSee('history_search_file.csv')
             ->set('search', 'history_search_file')
+            ->assertSee('history_search_file.csv')
+            ->set('search', (string) CourierExportBatch::firstOrFail()->id)
             ->assertSee('history_search_file.csv');
     }
 
