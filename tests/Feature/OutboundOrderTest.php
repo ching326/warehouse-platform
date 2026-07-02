@@ -11,6 +11,7 @@ use App\Models\CourierExportBatch;
 use App\Models\FbaWarehouse;
 use App\Models\InventoryBalance;
 use App\Models\InventoryMovement;
+use App\Models\LegacyStockDeduction;
 use App\Models\OutboundOrder;
 use App\Models\OutboundOrderLine;
 use App\Models\SalesOrder;
@@ -544,6 +545,60 @@ class OutboundOrderTest extends TestCase
         $this->assertSame(InventoryMovement::TYPE_SHIP, $shipMovement->movement_type);
         $this->assertSame(-4, $shipMovement->on_hand_delta);
         $this->assertSame(-4, $shipMovement->reserved_delta);
+    }
+
+    public function test_ship_queues_legacy_stock_deduction_using_tenant_item_code(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
+        $tenant->update(['fulfillment_item_code_source' => Tenant::FULFILLMENT_ITEM_CODE_SOURCE_TENANT_ITEM_CODE]);
+        $sku->stockItem->update(['tenant_item_code' => 'OLD-ITEM-001']);
+        $this->createOrder($tenant, $warehouse, $sku, qty: 4, ref: 'OB-LEGACY');
+        $order = OutboundOrder::where('ref', 'OB-LEGACY')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderShip::class, ['order' => $order])
+            ->call('save')
+            ->assertSee(__('outbound.order_shipped'));
+
+        $line = $order->refresh()->leafLines()->firstOrFail();
+        $movement = InventoryMovement::findOrFail($line->inventory_movement_id);
+
+        $this->assertDatabaseHas('legacy_stock_deductions', [
+            'tenant_id' => $tenant->id,
+            'warehouse_id' => $warehouse->id,
+            'stock_item_id' => $sku->stock_item_id,
+            'sku_id' => $sku->id,
+            'outbound_order_id' => $order->id,
+            'outbound_order_line_id' => $line->id,
+            'inventory_movement_id' => $movement->id,
+            'legacy_item_code' => 'OLD-ITEM-001',
+            'item_code_source' => Tenant::FULFILLMENT_ITEM_CODE_SOURCE_TENANT_ITEM_CODE,
+            'quantity' => 4,
+            'source_ref' => 'OB-LEGACY',
+            'idempotency_key' => 'outbound_order_line:'.$line->id,
+            'status' => LegacyStockDeduction::STATUS_PENDING,
+        ]);
+    }
+
+    public function test_ship_marks_legacy_deduction_failed_when_configured_item_code_is_missing(): void
+    {
+        [$tenant, $warehouse, $sku] = $this->skuWithStock(10);
+        $tenant->update(['fulfillment_item_code_source' => Tenant::FULFILLMENT_ITEM_CODE_SOURCE_TENANT_ITEM_CODE]);
+        $sku->stockItem->update(['tenant_item_code' => null]);
+        $this->createOrder($tenant, $warehouse, $sku, qty: 2, ref: 'OB-LEGACY-MISSING');
+        $order = OutboundOrder::where('ref', 'OB-LEGACY-MISSING')->firstOrFail();
+
+        Livewire::actingAs($this->internalUser())
+            ->test(OutboundOrderShip::class, ['order' => $order])
+            ->call('save')
+            ->assertSee(__('outbound.order_shipped'));
+
+        $deduction = LegacyStockDeduction::query()->firstOrFail();
+
+        $this->assertSame(LegacyStockDeduction::STATUS_FAILED, $deduction->status);
+        $this->assertNull($deduction->legacy_item_code);
+        $this->assertNotNull($deduction->failed_at);
+        $this->assertSame('Missing legacy item code for configured source.', $deduction->error_message);
     }
 
     public function test_ship_persists_courier_cost_with_audit_stamp(): void

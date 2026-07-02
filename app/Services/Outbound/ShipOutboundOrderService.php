@@ -5,6 +5,7 @@ namespace App\Services\Outbound;
 use App\Models\OutboundOrder;
 use App\Models\ShippingMethod;
 use App\Services\InventoryService;
+use App\Services\Legacy\LegacyStockDeductionQueueService;
 use App\Support\TrackingNumber;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -12,7 +13,10 @@ use InvalidArgumentException;
 
 class ShipOutboundOrderService
 {
-    public function __construct(private readonly InventoryService $inventoryService) {}
+    public function __construct(
+        private readonly InventoryService $inventoryService,
+        private readonly LegacyStockDeductionQueueService $legacyStockDeductions,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $input
@@ -48,6 +52,8 @@ class ShipOutboundOrderService
 
                 $line->inventory_movement_id = $movement->id;
                 $line->save();
+
+                $this->legacyStockDeductions->queueForShippedLine($lockedOrder, $line, $movement);
             }
 
             $shippedAt = now();
