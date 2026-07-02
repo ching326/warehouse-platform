@@ -51,9 +51,15 @@ class TenantTeam extends Component
 
         $data = $this->validate([
             'newName' => ['required', 'string', 'max:255'],
-            'newEmail' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'newEmail' => ['required', 'email', 'max:255'],
             'newRole' => ['required', Rule::in(TenantUser::ROLES)],
         ]);
+
+        if (User::query()->where('email', mb_strtolower(trim($data['newEmail'])))->exists()) {
+            throw ValidationException::withMessages([
+                'newEmail' => __('users.no_eligible_user'),
+            ]);
+        }
 
         $password = Str::random(16);
         $actor = Auth::user();

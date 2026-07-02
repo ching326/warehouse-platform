@@ -269,6 +269,27 @@ class UserRoleManagementTest extends TestCase
             ->assertHasErrors(['existingEmail']);
     }
 
+    public function test_tenant_admin_create_member_duplicate_email_is_rejected_generically(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $admin = $this->tenantUser($tenant, TenantUser::ROLE_ADMIN);
+        $existing = User::factory()->create([
+            'email' => 'existing-duplicate@example.test',
+            'user_type' => User::TYPE_TENANT,
+            'role' => null,
+            'is_active' => true,
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(TenantTeam::class)
+            ->set('newName', 'Duplicate User')
+            ->set('newEmail', $existing->email)
+            ->call('createMember')
+            ->assertHasErrors(['newEmail']);
+
+        $this->assertSame(1, User::where('email', $existing->email)->count());
+    }
+
     public function test_cannot_remove_last_admin_of_tenant(): void
     {
         $tenant = Tenant::factory()->create();
