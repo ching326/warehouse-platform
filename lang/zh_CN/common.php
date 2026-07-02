@@ -11,6 +11,7 @@ return [
     'nav_inventory_overview' => '总览',
     'nav_movements' => '库存记录',
     'nav_stock_adjustment' => '库存调整',
+    'nav_stock_count' => '盘点',
     'nav_skus' => 'SKU',
     'nav_inbound' => '入库',
     'nav_return_orders' => '退货',

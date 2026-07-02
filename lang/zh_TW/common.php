@@ -11,6 +11,7 @@ return [
     'nav_inventory_overview' => '總覽',
     'nav_movements' => '庫存記錄',
     'nav_stock_adjustment' => '庫存調整',
+    'nav_stock_count' => '盤點',
     'nav_skus' => 'SKU',
     'nav_inbound' => '進倉',
     'nav_return_orders' => '退貨',

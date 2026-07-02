@@ -11,6 +11,7 @@ return [
     'nav_inventory_overview' => '概要',
     'nav_movements' => '在庫履歴',
     'nav_stock_adjustment' => '在庫調整',
+    'nav_stock_count' => '棚卸',
     'nav_skus' => 'SKU',
     'nav_inbound' => '入庫',
     'nav_return_orders' => '返品',
